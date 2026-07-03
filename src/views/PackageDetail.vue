@@ -23,6 +23,7 @@ import { ref, onMounted } from "vue";                    // Vue 核心 API
 import { useRoute } from "vue-router";                   // 路由 API：获取路由参数
 import { invoke } from "@tauri-apps/api/core";            // Tauri IPC 调用
 import type { SoftwareInfo, License, Language } from "../types";  // 类型定义
+import PageToolbar from "../components/PageToolbar.vue";
 
 const route = useRoute();
 
@@ -119,6 +120,12 @@ async function setLanguage(languageId: number | null) {
 
 <template>
   <div>
+    <PageToolbar>
+      <button class="btn btn-primary" @click="checkUpdate" :disabled="checking" v-if="pkg">
+        {{ checking ? "检查中..." : "检查上游版本" }}
+      </button>
+    </PageToolbar>
+
     <!-- 错误提示区域 - 显示操作错误信息 -->
     <div v-if="error" class="card" style="border-color: var(--error); margin-bottom: 1rem">
       {{ error }}
@@ -155,7 +162,6 @@ async function setLanguage(languageId: number | null) {
           <tr>
             <td class="label">License</td>
             <td>
-              <!-- License 下拉选择 - 选择后自动保存 -->
               <select
                 :value="pkg.license_id ?? ''"
                 @change="setLicense(($event.target as HTMLSelectElement).value ? Number(($event.target as HTMLSelectElement).value) : null)"
@@ -171,7 +177,6 @@ async function setLanguage(languageId: number | null) {
           <tr>
             <td class="label">编程语言</td>
             <td>
-              <!-- 编程语言下拉选择 - 选择后自动保存 -->
               <select
                 :value="pkg.language_id ?? ''"
                 @change="setLanguage(($event.target as HTMLSelectElement).value ? Number(($event.target as HTMLSelectElement).value) : null)"
@@ -186,17 +191,9 @@ async function setLanguage(languageId: number | null) {
           </tr>
         </tbody>
       </table>
-
-      <!-- 操作按钮区域 -->
-      <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem">
-        <!-- 检查上游版本按钮 - 加载中时禁用 -->
-        <button class="btn btn-primary" @click="checkUpdate" :disabled="checking">
-          {{ checking ? "检查中..." : "检查上游版本" }}
-        </button>
-      </div>
     </div>
 
-    <!-- 加载中占位 - 当有错误时不显示 -->
+    <!-- 加载中占位 -->
     <div v-else-if="!error" class="card">
       加载中...
     </div>

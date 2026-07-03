@@ -22,6 +22,7 @@ import {
   Globe,              // 代理图标
   PanelLeftClose,     // 收起图标
   PanelLeftOpen,      // 展开图标
+  Database,           // 缓存图标
 } from "@lucide/vue";                                                // Lucide 图标库
 import { useTabStore } from "../stores/tabs";                        // 标签页状态 Store
 
@@ -39,6 +40,7 @@ const iconMap: Record<string, any> = {
   LayoutDashboard,
   Package,
   HardDrive,
+  Database,
   Globe,
 };
 
@@ -47,6 +49,7 @@ const navItems = [
   { path: "/", label: "仪表盘", icon: "LayoutDashboard" },
   { path: "/packages", label: "软件管理", icon: "Package" },
   { path: "/backup", label: "备份管理", icon: "HardDrive" },
+  { path: "/cache", label: "缓存管理", icon: "Database" },
   { path: "/proxy", label: "代理管理", icon: "Globe" },
 ];
 

@@ -18,7 +18,6 @@ import { useRoute } from "vue-router";                                    // 路
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";  // Tauri Webview 窗口 API：获取当前窗口信息
 import Sidebar from "./components/Sidebar.vue";                           // 侧边栏导航组件
 import TabBar from "./components/TabBar.vue";                             // 标签栏组件（类 VS Code 风格）
-import PageToolbar from "./components/PageToolbar.vue";                   // 页面工具栏组件（标题 + 操作按钮）
 import { useTabStore } from "./stores/tabs";                              // 标签页状态管理 Store
 
 const route = useRoute();           // 当前路由对象
@@ -40,41 +39,27 @@ onMounted(async () => {
   isPopupWindow.value = win.label === "settings" || win.label === "enums" || win.label === "logs";
 });
 
-/** 路由路径到页面标题的映射 - 将路由路径转换为中文显示名称 */
-const pageTitle: Record<string, string> = {
-  "/": "仪表盘",
-  "/packages": "软件管理",
-  "/backup": "备份管理",
-  "/proxy": "代理管理",
-};
-
-/** 路由路径到页面图标的映射 - 将路由路径映射到对应的 Lucide 图标名称 */
-const pageIcons: Record<string, string> = {
-  "/": "LayoutDashboard",
-  "/packages": "Package",
-  "/backup": "HardDrive",
-  "/proxy": "Globe",
-};
-
 /**
  * 监听路由变化，自动打开对应标签页
- * 当用户导航到新页面时，在标签栏中自动打开或切换到对应标签
- * - 软件包详情页（/packages/:pkgname）：使用包名作为标签
- * - 其他页面：使用页面标题作为标签
  */
 watch(
   () => route.path,
   (path) => {
+    const routeLabels: Record<string, string> = {
+      "/": "仪表盘",
+      "/packages": "软件管理",
+      "/backup": "备份管理",
+      "/cache": "缓存管理",
+      "/proxy": "代理管理",
+    };
     if (path.startsWith("/packages/")) {
-      // 软件包详情页，提取包名作为标签
       const pkgName = path.split("/packages/")[1];
       tabStore.openTab({ path, label: pkgName || "软件详情", icon: "Package" });
-    } else if (pageTitle[path]) {
-      // 已知页面路径，使用预设的标题和图标
-      tabStore.openTab({ path, label: pageTitle[path], icon: pageIcons[path] || "Package" });
+    } else if (routeLabels[path]) {
+      tabStore.openTab({ path, label: routeLabels[path], icon: "Package" });
     }
   },
-  { immediate: true }   // 首次加载时立即执行
+  { immediate: true }
 );
 </script>
 
@@ -92,8 +77,6 @@ watch(
       <div class="main-area">
         <!-- 顶部标签栏 - 显示已打开的页面标签 -->
         <TabBar />
-        <!-- 页面工具栏 - 显示页面标题和操作按钮 -->
-        <PageToolbar :title="pageTitle[route.path] || '页面'" />
         <!-- 主内容区 - 渲染当前路由对应的组件 -->
         <main class="main-content">
           <RouterView />

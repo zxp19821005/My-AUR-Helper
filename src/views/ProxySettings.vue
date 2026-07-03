@@ -15,6 +15,7 @@
 import { ref, onMounted } from "vue";                // Vue 核心 API
 import { invoke } from "@tauri-apps/api/core";        // Tauri IPC 调用
 import type { ProxyInfo } from "../types";            // 代理类型定义
+import PageToolbar from "../components/PageToolbar.vue";
 
 /** 代理列表 - 存储所有配置的代理源 */
 const proxies = ref<ProxyInfo[]>([]);
@@ -72,13 +73,11 @@ async function toggleProxy(proxy: ProxyInfo) {
 
 <template>
   <div>
-    <!-- 操作按钮区域 -->
-    <div style="margin-bottom: 1rem">
-      <!-- 从 Greasyfork 获取代理源按钮 -->
+    <PageToolbar>
       <button class="btn btn-primary" @click="fetchSources" :disabled="fetching">
         {{ fetching ? "获取中..." : "从 Greasyfork 获取代理源" }}
       </button>
-    </div>
+    </PageToolbar>
 
     <!-- 无数据提示 - 代理列表为空时显示 -->
     <div v-if="proxies.length === 0" class="card">

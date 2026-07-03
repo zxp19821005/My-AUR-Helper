@@ -13,6 +13,7 @@
 import { ref, onMounted } from "vue";                    // Vue 核心 API
 import { invoke } from "@tauri-apps/api/core";            // Tauri IPC 调用
 import type { BackupResult, Setting } from "../types";   // 类型定义
+import PageToolbar from "../components/PageToolbar.vue";
 
 /** 备份结果 */
 const result = ref<BackupResult | null>(null);
@@ -47,11 +48,11 @@ async function runBackup() {
 
 <template>
   <div>
-    <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem">
+    <PageToolbar>
       <button class="btn btn-primary" @click="runBackup" :disabled="loading">
         {{ loading ? "运行中..." : "执行备份" }}
       </button>
-    </div>
+    </PageToolbar>
 
     <div class="card" style="margin-bottom: 1rem">
       <p style="color: var(--text-secondary); font-size: 0.875rem">

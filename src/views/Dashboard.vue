@@ -16,6 +16,7 @@ import { useRouter } from "vue-router";                      // 路由 API：用
 import { usePackageStore } from "../stores/packages";         // 软件包状态 Store
 import { invoke } from "@tauri-apps/api/core";                // Tauri IPC 调用
 import type { ProxyInfo } from "../types";                   // 类型定义
+import PageToolbar from "../components/PageToolbar.vue";
 
 const router = useRouter();         // 路由实例，用于快速操作按钮导航
 const pkgStore = usePackageStore(); // 软件包 Store 实例
@@ -42,6 +43,8 @@ const stats = {
 
 <template>
   <div>
+    <PageToolbar />
+
     <div class="dashboard-grid">
       <div class="card stat-card" @click="router.push('/packages')">
         <div class="stat-number">{{ stats.total() }}</div>
@@ -66,6 +69,7 @@ const stats = {
       <div style="display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap">
         <button class="btn btn-primary" @click="router.push('/packages')">软件管理</button>
         <button class="btn btn-outline" @click="router.push('/backup')">备份管理</button>
+        <button class="btn btn-outline" @click="router.push('/cache')">缓存管理</button>
         <button class="btn btn-outline" @click="router.push('/proxy')">代理管理</button>
       </div>
     </div>

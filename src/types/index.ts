@@ -181,3 +181,14 @@ export interface BackupResult {
   /** 错误信息列表 - 备份过程中遇到的错误 */
   errors: string[];
 }
+
+/** 缓存包文件信息 */
+export interface CachePackage {
+  filename: string;
+  name: string;
+  epoch: string | null;
+  version: string;
+  pkgrel: string;
+  arch: string;
+  size: number;
+}

@@ -16,6 +16,7 @@ import { computed, onMounted } from "vue";                   // Vue 核心 API
 import { useRouter } from "vue-router";                      // 路由 API：用于跳转到详情页
 import { invoke } from "@tauri-apps/api/core";                // Tauri IPC 调用
 import { usePackageStore } from "../stores/packages";         // 软件包状态 Store
+import PageToolbar from "../components/PageToolbar.vue";
 
 const router = useRouter();        // 路由实例
 const pkgStore = usePackageStore(); // 软件包 Store 实例
@@ -60,13 +61,11 @@ const summary = computed(() => {
 
 <template>
   <div>
-    <!-- 操作按钮区域 -->
-    <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem">
-      <!-- 检查全部更新按钮 - 加载中时禁用并显示状态文字 -->
+    <PageToolbar>
       <button class="btn btn-primary" @click="checkAll" :disabled="pkgStore.loading">
         {{ pkgStore.loading ? "检查中..." : "检查全部更新" }}
       </button>
-    </div>
+    </PageToolbar>
 
     <!-- 统计摘要行 - 显示总计、已最新、需更新的数量 -->
     <div style="display: flex; gap: 1rem; margin-bottom: 1rem; font-size: 0.875rem; color: var(--text-secondary)">
