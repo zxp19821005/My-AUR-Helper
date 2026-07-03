@@ -51,9 +51,9 @@ Tauri 桌面应用，用于管理 AUR 软件包更新、本地备份和代理。
 - [x] 提取 PackageList.vue 操作逻辑到 composable
   - packageActions.ts (189行)
   - PackageList.vue 从 568行 减至 290行
-- [ ] 拆分超限 Vue 文件
-  - [ ] SoftwareFormModal.vue (353行) — 提取表单逻辑到 composable
-  - [ ] PackageDetail.vue (320行) — 提取表单逻辑到 composable
+- [x] 拆分超限 Vue 文件
+  - [x] SoftwareFormModal.vue (353→179行) — 提取表单逻辑到 useSoftwareForm.ts (218行)
+  - [x] PackageDetail.vue (320→237行) — 复用 useSoftwareForm.ts composable
 - [ ] 重构数据库 schema
   - [x] 更新 DATABASE.md 设计文档
   - [ ] 重写 models/mod.rs

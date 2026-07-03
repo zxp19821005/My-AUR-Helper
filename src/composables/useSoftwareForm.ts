@@ -3,7 +3,7 @@
  *
  * 提供软件包添加/编辑表单的状态管理和操作
  */
-import { ref, computed, watch } from "vue";
+import { ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { SoftwareInfo, License, Language } from "../types";
 

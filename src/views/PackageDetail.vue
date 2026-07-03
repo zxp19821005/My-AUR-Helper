@@ -1,12 +1,6 @@
 <!--
   PackageDetail.vue - 软件包详情/编辑页面
 
-  功能：
-  - 显示并编辑软件包详细信息
-  - 支持检查上游版本
-  - 支持设置 License 和编程语言
-  - 支持保存所有可编辑字段
-
   路由参数：
   - pkgname: 软件包名称（从 URL 路径获取）
 -->
@@ -14,76 +8,42 @@
 import { ref, onMounted, inject, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { invoke } from "@tauri-apps/api/core";
-import type { SoftwareInfo, License, Language } from "../types";
+import type { SoftwareInfo } from "../types";
 import { FOOTER_KEY } from "../composables/footer";
+import { useSoftwareForm, pkgTypes, checkerTypes } from "../composables/useSoftwareForm";
 import PageToolbar from "../components/PageToolbar.vue";
 
 const route = useRoute();
 const router = useRouter();
 const footer = inject(FOOTER_KEY)!;
 
+const {
+  saving, error, form, licenses, languages,
+  isDirty, save, resetForm, loadEnums,
+} = useSoftwareForm();
+
 const pkg = ref<SoftwareInfo | null>(null);
 const checking = ref(false);
-const saving = ref(false);
-const error = ref("");
 const successMsg = ref("");
-const licenses = ref<License[]>([]);
-const languages = ref<Language[]>([]);
 
-// 编辑表单字段（从原始数据初始化）
-const form = ref({
-  upstream_url: "",
-  package_type_id: 1,
-  checker_type_id: 7,
-  is_outdated: false,
-  check_test_versions: false,
-  check_binary_files: false,
-  auto_check_enabled: true,
-  license_id: null as number | null,
-  language_id: null as number | null,
-});
+const dirty = computed(() => isDirty(pkg.value));
 
-const isDirty = computed(() => {
-  if (!pkg.value) return false;
-  return (
-    form.value.upstream_url !== (pkg.value.upstream_url ?? "") ||
-    form.value.package_type_id !== pkg.value.package_type_id ||
-    form.value.checker_type_id !== pkg.value.checker_type_id ||
-    form.value.is_outdated !== pkg.value.is_outdated ||
-    form.value.check_test_versions !== pkg.value.check_test_versions ||
-    form.value.check_binary_files !== pkg.value.check_binary_files ||
-    form.value.auto_check_enabled !== pkg.value.auto_check_enabled ||
-    form.value.license_id !== pkg.value.license_id ||
-    form.value.language_id !== pkg.value.language_id
-  );
-});
-
-function syncFormFromPkg() {
-  if (!pkg.value) return;
-  form.value = {
-    upstream_url: pkg.value.upstream_url ?? "",
-    package_type_id: pkg.value.package_type_id,
-    checker_type_id: pkg.value.checker_type_id,
-    is_outdated: pkg.value.is_outdated,
-    check_test_versions: pkg.value.check_test_versions,
-    check_binary_files: pkg.value.check_binary_files,
-    auto_check_enabled: pkg.value.auto_check_enabled,
-    license_id: pkg.value.license_id,
-    language_id: pkg.value.language_id,
-  };
+function syncFooter() {
+  if (pkg.value) {
+    footer.infoText = `${pkg.value.pkgname}  |  ${pkg.value.is_outdated ? "需更新" : "已最新"}`;
+  }
 }
 
 onMounted(async () => {
   const pkgname = route.params.pkgname as string;
-  try {
-    pkg.value = await invoke<SoftwareInfo | null>("get_software", { pkgname });
-    licenses.value = await invoke<License[]>("get_licenses");
-    languages.value = await invoke<Language[]>("get_languages");
-    syncFormFromPkg();
-    if (pkg.value) {
-      footer.infoText = `${pkg.value.pkgname}  |  ${pkg.value.is_outdated ? "需更新" : "已最新"}`;
-    }
-  } catch {
+  error.value = "";
+  loadEnums();
+  const data = await invoke<SoftwareInfo | null>("get_software", { pkgname });
+  if (data) {
+    pkg.value = data;
+    resetForm("edit");
+    syncFooter();
+  } else {
     error.value = "加载软件包信息失败";
   }
 });
@@ -97,8 +57,8 @@ async function checkUpdate() {
     const updated = await invoke<SoftwareInfo | null>("get_software", { pkgname: pkg.value.pkgname });
     if (updated) {
       pkg.value = updated;
-      syncFormFromPkg();
-      footer.infoText = `${pkg.value.pkgname}  |  ${pkg.value.is_outdated ? "需更新" : "已最新"}`;
+      resetForm("edit");
+      syncFooter();
     }
   } catch (e) {
     error.value = String(e);
@@ -107,63 +67,24 @@ async function checkUpdate() {
   }
 }
 
-async function save() {
-  if (!pkg.value || !pkg.value.software_id) return;
-  saving.value = true;
-  error.value = "";
-  successMsg.value = "";
-  try {
-    await invoke("update_software", {
-      softwareId: pkg.value.software_id,
-      pkgname: pkg.value.pkgname,
-      upstreamUrl: form.value.upstream_url || null,
-      packageType: form.value.package_type_id,
-      checkerType: form.value.checker_type_id,
-      isOutdated: form.value.is_outdated,
-      checkTestVersions: form.value.check_test_versions,
-      checkBinaryFiles: form.value.check_binary_files,
-      autoCheckEnabled: form.value.auto_check_enabled,
-      licenseId: form.value.license_id,
-      languageId: form.value.language_id,
-    });
-    // 刷新数据
-    const updated = await invoke<SoftwareInfo | null>("get_software", { pkgname: pkg.value.pkgname });
+async function handleSave() {
+  const ok = await save("edit");
+  if (ok) {
+    const updated = await invoke<SoftwareInfo | null>("get_software", { pkgname: pkg.value!.pkgname });
     if (updated) {
       pkg.value = updated;
-      syncFormFromPkg();
-      footer.infoText = `${pkg.value.pkgname}  |  ${pkg.value.is_outdated ? "需更新" : "已最新"}`;
+      resetForm("edit");
+      syncFooter();
     }
     successMsg.value = "保存成功";
     setTimeout(() => { successMsg.value = ""; }, 2000);
-  } catch (e) {
-    error.value = String(e);
-  } finally {
-    saving.value = false;
   }
 }
 
-function reset() {
-  syncFormFromPkg();
-  error.value = "";
+function handleReset() {
+  resetForm("edit");
   successMsg.value = "";
 }
-
-const pkgTypes = [
-  { id: 1, label: "编译安装" },
-  { id: 2, label: "二进制包" },
-  { id: 3, label: "Git 仓库" },
-  { id: 4, label: "AppImage" },
-];
-
-const checkerTypes = [
-  { id: 1, label: "GitHub Release" },
-  { id: 2, label: "GitHub Tag" },
-  { id: 3, label: "Gitee" },
-  { id: 4, label: "GitLab" },
-  { id: 5, label: "重定向" },
-  { id: 6, label: "HTTP 页面解析" },
-  { id: 7, label: "手动" },
-];
 </script>
 
 <template>
@@ -176,10 +97,10 @@ const checkerTypes = [
       <button class="btn btn-primary" @click="checkUpdate" :disabled="checking || saving">
         {{ checking ? "检查中..." : "检查上游版本" }}
       </button>
-      <button class="btn btn-primary" @click="save" :disabled="saving || !isDirty">
+      <button class="btn btn-primary" @click="handleSave" :disabled="saving || !dirty">
         {{ saving ? "保存中..." : "保存" }}
       </button>
-      <button class="btn btn-outline" @click="reset" :disabled="saving || !isDirty">
+      <button class="btn btn-outline" @click="handleReset" :disabled="saving || !dirty">
         还原
       </button>
     </PageToolbar>
@@ -203,11 +124,7 @@ const checkerTypes = [
           <tr>
             <td class="label">上游地址</td>
             <td>
-              <input
-                v-model="form.upstream_url"
-                class="form-input"
-                placeholder="https://..."
-              />
+              <input v-model="form.upstream_url" class="form-input" placeholder="https://..." />
             </td>
           </tr>
           <tr>
