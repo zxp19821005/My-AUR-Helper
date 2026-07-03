@@ -30,6 +30,20 @@
 - 新增表直接追加，不要修改已有表结构避免破坏已有数据
 - 如需修改已有表，使用 `ALTER TABLE` 语句
 
+## 数据库表结构（关键表）
+### aur_info（AUR 包详情）
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| software_id | INTEGER PK FK | 关联 software_info.software_id |
+| pkgdesc | TEXT | 软件包描述 |
+| aur_version | TEXT | AUR 中的版本号 |
+| license_id | INTEGER FK | 关联 enum_licenses.id |
+| last_updated | INTEGER | AUR 最后更新时间 (Unix 时间戳) |
+| depends | TEXT | 运行依赖 (JSON 数组) |
+| makedepends | TEXT | 编译依赖 (JSON 数组) |
+| optdepends | TEXT | 可选依赖 (JSON 数组) |
+| out_of_date | INTEGER | AUR 标记是否过期 |
+
 ## 安全检查
 - 不要在前端暴露数据库路径或配置密码
 - AUR SSH 密钥使用系统 SSH agent，不硬编码在代码中
