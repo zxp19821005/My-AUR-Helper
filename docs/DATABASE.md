@@ -133,18 +133,11 @@ AUR 软件包详细信息，通过 AUR RPC 接口获取。
 | pkgdesc | TEXT | 软件包描述 |
 | aur_version | TEXT | AUR 中的版本号 |
 | license_id | INTEGER FK | 关联 enum_licenses.id |
-| last_updated | TEXT | AUR 最后更新时间 |
+| last_updated | INTEGER | AUR 最后更新时间 (Unix 时间戳) |
 | depends | TEXT | 运行依赖 (JSON 数组) |
 | makedepends | TEXT | 编译依赖 (JSON 数组) |
 | optdepends | TEXT | 可选依赖 (JSON 数组) |
-| provides | TEXT | 提供的功能 (JSON 数组) |
-| conflicts | TEXT | 冲突的包 (JSON 数组) |
-| replaces | TEXT | 替换的包 (JSON 数组) |
-| votes | INTEGER | AUR 投票数 |
-| popularity | REAL | AUR 热度 |
 | out_of_date | INTEGER | AUR 标记是否过期 |
-| submitted_by | TEXT | 提交者 |
-| maintainers | TEXT | 维护者列表 (JSON 数组) |
 
 <!-- upstream_info：上游版本追踪信息 -->
 ### upstream_info
