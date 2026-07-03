@@ -190,6 +190,33 @@ impl Database {
             ",
         )?;
         self.seed_defaults()?; // 插入默认数据
+        self.migrate_aur_info()?; // 迁移 aur_info 表结构
+        Ok(())
+    }
+
+    /// 迁移 aur_info 表（删除无用列，转换 last_updated 类型）
+    fn migrate_aur_info(&self) -> Result<()> {
+        // 获取当前表的所有列名
+        let mut stmt = self.conn.prepare("PRAGMA table_info(aur_info)")?;
+        let columns: Vec<String> = stmt.query_map([], |row| row.get(1))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        // 要删除的旧列名
+        let old_cols = ["provides", "conflicts", "replaces", "votes", "popularity", "submitted_by", "maintainers"];
+        for col in &old_cols {
+            if columns.contains(&col.to_string()) {
+                self.conn.execute_batch(&format!("ALTER TABLE aur_info DROP COLUMN {col};"))?;
+            }
+        }
+
+        // 转换 last_updated 从 TEXT 为 INTEGER (Unix 时间戳)
+        if columns.contains(&"last_updated".to_string()) {
+            self.conn.execute_batch(
+                "UPDATE aur_info SET last_updated = CAST(strftime('%s', last_updated) AS INTEGER)
+                 WHERE typeof(last_updated) = 'text' AND last_updated IS NOT NULL;"
+            )?;
+        }
         Ok(())
     }
 
