@@ -17,14 +17,7 @@ pub struct AurPackageData {
     pub depends: Option<Vec<String>>,             // 运行时依赖
     pub makedepends: Option<Vec<String>>,         // 构建依赖
     pub optdepends: Option<Vec<String>>,          // 可选依赖
-    pub provides: Option<Vec<String>>,            // 提供的虚拟包
-    pub conflicts: Option<Vec<String>>,           // 冲突的包
-    pub replaces: Option<Vec<String>>,            // 替换的包
-    pub votes: Option<i64>,                       // 投票数
-    pub popularity: Option<f64>,                  // 人气值
     pub out_of_date: Option<bool>,                // 是否标记为过期
-    pub submitted_by: Option<String>,             // 提交者用户名
-    pub maintainers: Option<Vec<String>>,         // 维护者列表
 }
 
 /// 通过维护者名获取 AUR 包列表
@@ -62,19 +55,8 @@ pub async fn fetch_packages_by_maintainer(client: &Client, username: &str) -> Re
                     .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()),
                 optdepends: item["OptDepends"].as_array()
                     .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()),
-                provides: item["Provides"].as_array()
-                    .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()),
-                conflicts: item["Conflicts"].as_array()
-                    .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()),
-                replaces: item["Replaces"].as_array()
-                    .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()),
-                votes: item["NumVotes"].as_i64(),
-                popularity: item["Popularity"].as_f64(),
                 // OutOfDate 为非 0 表示已过期
                 out_of_date: item["OutOfDate"].as_i64().map(|v| v != 0),
-                submitted_by: item["SubmittedBy"].as_str().map(|s| s.to_string()),
-                maintainers: item["Maintainers"].as_array()
-                    .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()),
             });
         }
     }

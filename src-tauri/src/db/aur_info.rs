@@ -9,21 +9,17 @@ impl Database {
     /// @param info - AUR 包信息（按 software_id 去重）
     pub fn upsert_aur_info(&self, info: &AurInfo) -> Result<()> {
         self.conn.execute(
-            "INSERT INTO aur_info (software_id, pkgdesc, aur_version, license_id, last_updated, depends, makedepends, optdepends, provides, conflicts, replaces, votes, popularity, out_of_date, submitted_by, maintainers)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)
+            "INSERT INTO aur_info (software_id, pkgdesc, aur_version, license_id, last_updated, depends, makedepends, optdepends, out_of_date)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
              ON CONFLICT(software_id) DO UPDATE SET
                 pkgdesc=excluded.pkgdesc, aur_version=excluded.aur_version, license_id=excluded.license_id,
                 last_updated=excluded.last_updated, depends=excluded.depends, makedepends=excluded.makedepends,
-                optdepends=excluded.optdepends, provides=excluded.provides, conflicts=excluded.conflicts,
-                replaces=excluded.replaces, votes=excluded.votes, popularity=excluded.popularity,
-                out_of_date=excluded.out_of_date, submitted_by=excluded.submitted_by, maintainers=excluded.maintainers",
-            // 参数列表：16 个字段
+                optdepends=excluded.optdepends, out_of_date=excluded.out_of_date",
+            // 参数列表：9 个字段
             rusqlite::params![
                 info.software_id, info.pkgdesc, info.aur_version, info.license_id,
                 info.last_updated, info.depends, info.makedepends, info.optdepends,
-                info.provides, info.conflicts, info.replaces, info.votes, info.popularity,
                 info.out_of_date.map(|b| b as i32), // bool 转 i32
-                info.submitted_by, info.maintainers
             ],
         )?;
         Ok(())
@@ -34,7 +30,7 @@ impl Database {
     /// @returns 可选的 AUR 包信息
     pub fn get_aur_info(&self, software_id: i64) -> Result<Option<AurInfo>> {
         let mut stmt = self.conn.prepare(
-            "SELECT software_id, pkgdesc, aur_version, license_id, last_updated, depends, makedepends, optdepends, provides, conflicts, replaces, votes, popularity, out_of_date, submitted_by, maintainers FROM aur_info WHERE software_id=?1"
+            "SELECT software_id, pkgdesc, aur_version, license_id, last_updated, depends, makedepends, optdepends, out_of_date FROM aur_info WHERE software_id=?1"
         )?;
         let mut rows = stmt.query_map(rusqlite::params![software_id], |row| {
             Ok(AurInfo {
@@ -46,14 +42,7 @@ impl Database {
                 depends: row.get(5)?,
                 makedepends: row.get(6)?,
                 optdepends: row.get(7)?,
-                provides: row.get(8)?,
-                conflicts: row.get(9)?,
-                replaces: row.get(10)?,
-                votes: row.get(11)?,
-                popularity: row.get(12)?,
-                out_of_date: row.get::<_, Option<i32>>(13)?.map(|v| v != 0), // i32 转 bool
-                submitted_by: row.get(14)?,
-                maintainers: row.get(15)?,
+                out_of_date: row.get::<_, Option<i32>>(8)?.map(|v| v != 0), // i32 转 bool
             })
         })?;
         Ok(rows.next().transpose()?)

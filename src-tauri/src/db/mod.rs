@@ -68,18 +68,11 @@ impl Database {
                 pkgdesc         TEXT,                  -- 包描述
                 aur_version     TEXT,                  -- AUR 中的版本号
                 license_id      INTEGER,               -- License ID
-                last_updated    TEXT,                  -- 最后更新时间
+                last_updated    INTEGER,               -- 最后更新时间（Unix 时间戳）
                 depends         TEXT,                  -- 依赖（JSON 数组字符串）
                 makedepends     TEXT,                  -- 构建依赖
                 optdepends      TEXT,                  -- 可选依赖
-                provides        TEXT,                  -- 提供的虚拟包
-                conflicts       TEXT,                  -- 冲突包
-                replaces        TEXT,                  -- 替换包
-                votes           INTEGER,               -- 投票数
-                popularity      REAL,                  -- 人气值
                 out_of_date     INTEGER,               -- 是否过期
-                submitted_by    TEXT,                  -- 提交者
-                maintainers     TEXT,                  -- 维护者（JSON 数组字符串）
                 FOREIGN KEY (software_id) REFERENCES software_info(software_id) ON DELETE CASCADE,
                 FOREIGN KEY (license_id) REFERENCES enum_licenses(id)
             );
