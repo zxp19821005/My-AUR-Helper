@@ -6,6 +6,7 @@
 import { ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { SoftwareInfo, License, Language } from "../types";
+import { pkgTypeOptions, checkerTypeOptions } from "../utils/enums";
 
 export interface SoftwareForm {
   pkgname: string;
@@ -33,22 +34,8 @@ const defaultForm: SoftwareForm = {
   language_id: null,
 };
 
-export const pkgTypes = [
-  { id: 1, label: "编译安装" },
-  { id: 2, label: "二进制包" },
-  { id: 3, label: "Git 仓库" },
-  { id: 4, label: "AppImage" },
-];
-
-export const checkerTypes = [
-  { id: 1, label: "GitHub Release" },
-  { id: 2, label: "GitHub Tag" },
-  { id: 3, label: "Gitee" },
-  { id: 4, label: "GitLab" },
-  { id: 5, label: "重定向" },
-  { id: 6, label: "HTTP 页面解析" },
-  { id: 7, label: "手动" },
-];
+export const pkgTypes = pkgTypeOptions;
+export const checkerTypes = checkerTypeOptions;
 
 export function useSoftwareForm() {
   const saving = ref(false);

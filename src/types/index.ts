@@ -205,3 +205,14 @@ export interface SoftwareListEntry {
   upstream_version: string | null;
   upstream_last_checked: string | null;
 }
+
+/** Footer 状态接口 - 管理底部工具栏状态 */
+export interface FooterState {
+  infoText: string;
+  showPagination: boolean;
+  totalRecords: number;
+  currentPage: number;
+  pageSize: number;
+  onPageChange: ((page: number) => void) | null;
+  progress: { current: number; total: number; message?: string } | null;
+}

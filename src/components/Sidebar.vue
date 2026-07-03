@@ -14,35 +14,16 @@
   - toggle: 点击切换按钮时触发
 -->
 <script setup lang="ts">
-import { useRouter } from "vue-router";                             // 路由 API：用于导航
-import {
-  LayoutDashboard,   // 仪表盘图标
-  Package,            // 软件包图标
-  HardDrive,          // 备份图标
-  Globe,              // 代理图标
-  PanelLeftClose,     // 收起图标
-  PanelLeftOpen,      // 展开图标
-  Database,           // 缓存图标
-} from "@lucide/vue";                                                // Lucide 图标库
-import { useTabStore } from "../stores/tabs";                        // 标签页状态 Store
+import { useRouter } from "vue-router";
+import { PanelLeftClose, PanelLeftOpen } from "@lucide/vue";
+import { useTabStore } from "../stores/tabs";
+import { iconMap } from "../utils/icons";
 
-/** 侧边栏收起状态 - 父组件通过 Props 传入 */
 defineProps<{ collapsed: boolean }>();
-
-/** 切换侧边栏展开/收起 - 向父组件发送事件 */
 const emit = defineEmits<{ toggle: [] }>();
 
-const router = useRouter();       // 路由实例
-const tabStore = useTabStore();   // 标签页 Store
-
-/** 图标名称到 Lucide 组件的映射 - 用于动态渲染导航图标 */
-const iconMap: Record<string, any> = {
-  LayoutDashboard,
-  Package,
-  HardDrive,
-  Database,
-  Globe,
-};
+const router = useRouter();
+const tabStore = useTabStore();
 
 /** 导航菜单项配置 - 定义侧边栏中各导航项的路径、标签和图标 */
 const navItems = [

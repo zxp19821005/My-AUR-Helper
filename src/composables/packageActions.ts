@@ -6,16 +6,7 @@
 import { ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-
-export interface FooterState {
-  progress: { current: number; total: number; message?: string } | null;
-  infoText?: string;
-  showPagination?: boolean;
-  totalRecords?: number;
-  currentPage?: number;
-  pageSize?: number;
-  onPageChange?: ((page: number) => void) | null;
-}
+import type { FooterState } from "../types";
 
 export function usePackageActions(
   fetchView: () => Promise<void>,

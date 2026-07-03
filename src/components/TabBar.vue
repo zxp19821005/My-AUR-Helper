@@ -12,24 +12,13 @@
   - vue-router: 页面导航
 -->
 <script setup lang="ts">
-import { useRouter } from "vue-router";                            // 路由 API：页面导航
-import { X, LayoutDashboard, Package, HardDrive, Globe, Settings, FileText, Code, ScrollText } from "@lucide/vue";  // Lucide 图标库
-import { useTabStore } from "../stores/tabs";                      // 标签页状态 Store
+import { useRouter } from "vue-router";
+import { X } from "@lucide/vue";
+import { useTabStore } from "../stores/tabs";
+import { iconMap } from "../utils/icons";
 
-const router = useRouter();        // 路由实例
-const tabStore = useTabStore();    // 标签页 Store
-
-/** 图标名称到 Lucide 组件的映射 - 用于动态渲染每个标签页的图标 */
-const iconMap: Record<string, any> = {
-  LayoutDashboard,
-  Package,
-  HardDrive,
-  Globe,
-  Settings,
-  FileText,
-  Code,
-  ScrollText,
-};
+const router = useRouter();
+const tabStore = useTabStore();
 
 /**
  * 切换到指定标签页
