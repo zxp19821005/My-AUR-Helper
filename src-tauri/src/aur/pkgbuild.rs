@@ -93,18 +93,17 @@ fn parse_pkgbuild(content: &str, path: &Path) -> Result<(SoftwareInfo, Option<St
 
     // 构建 SoftwareInfo 结构体
     let sw = SoftwareInfo {
-        software_id: None,                       // 新记录，尚无 ID
+        software_id: None,
         pkgname: pkgname_final,
-        upstream_url: upstream_url.clone().or(url), // 优先使用上游 URL，否则用主页 URL
-        package_type: PackageType::Compiled,     // AUR 包默认为编译类型
-        checker_type,
-        is_outdated: false,                      // 初始设为未过期
+        upstream_url: upstream_url.clone().or(url),
+        package_type_id: PackageType::Compiled,
+        checker_type_id: checker_type,
+        is_outdated: false,
         check_test_versions: false,
         check_binary_files: false,
-        auto_check_enabled: true,                // 默认启用自动检查
+        auto_check_enabled: true,
         license_id: None,
         language_id: None,
-        created_at: chrono::Utc::now().timestamp(), // 当前时间戳
     };
 
     Ok((sw, upstream_url))

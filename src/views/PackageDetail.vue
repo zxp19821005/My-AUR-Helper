@@ -134,7 +134,7 @@ async function setLanguage(languageId: number | null) {
           </tr>
           <tr>
             <td class="label">类型</td>
-            <td>{{ pkg.package_type }}</td>
+            <td>{{ pkg.package_type_id }}</td>
           </tr>
           <tr>
             <td class="label">上游地址</td>
@@ -142,7 +142,7 @@ async function setLanguage(languageId: number | null) {
           </tr>
           <tr>
             <td class="label">检查器类型</td>
-            <td>{{ pkg.checker_type }}</td>
+            <td>{{ pkg.checker_type_id }}</td>
           </tr>
           <tr>
             <td class="label">状态</td>
@@ -183,10 +183,6 @@ async function setLanguage(languageId: number | null) {
                 </option>
               </select>
             </td>
-          </tr>
-          <tr>
-            <td class="label">创建时间</td>
-            <td>{{ pkg.created_at ? new Date(pkg.created_at).toLocaleString() : "-" }}</td>
           </tr>
         </tbody>
       </table>

@@ -36,30 +36,17 @@ export type ProxyType = "download" | "clone" | "raw" | "ssh";
  * 存储软件包的基本信息和配置，对应后端 SoftwareInfo 结构体
  */
 export interface SoftwareInfo {
-  /** 软件包 ID - 数据库主键，新建时为 null */
   software_id: number | null;
-  /** 软件包名称 - AUR 中的包名 */
   pkgname: string;
-  /** 上游项目地址 - 源码仓库或项目主页 URL */
   upstream_url: string | null;
-  /** 软件包类型 - 参见 PackageType 枚举 */
-  package_type: PackageType;
-  /** 检查器类型 - 参见 CheckerType 枚举 */
-  checker_type: CheckerType;
-  /** 是否有更新 - true 表示上游有更新可用 */
+  package_type_id: PackageType;
+  checker_type_id: CheckerType;
   is_outdated: boolean;
-  /** 是否检查测试版本 - 是否将预览版/测试版纳入版本检查 */
   check_test_versions: boolean;
-  /** 是否检查二进制文件 - 是否检查二进制包更新 */
   check_binary_files: boolean;
-  /** 是否启用自动检查 - 是否定期自动检查上游版本 */
   auto_check_enabled: boolean;
-  /** License ID - 关联的许可证 ID */
   license_id: number | null;
-  /** 编程语言 ID - 关联的编程语言 ID */
   language_id: number | null;
-  /** 创建时间 - Unix 时间戳（毫秒） */
-  created_at: number;
 }
 
 /**

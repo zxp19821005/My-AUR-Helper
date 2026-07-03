@@ -30,4 +30,23 @@ impl Database {
         }
         Ok(())
     }
+
+    /// 迁移 software_info 表（重命名列，删除 created_at）
+    pub fn migrate_software_info(&self) -> Result<()> {
+        let mut stmt = self.conn.prepare("PRAGMA table_info(software_info)")?;
+        let columns: Vec<String> = stmt.query_map([], |row| row.get(1))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        if columns.contains(&"package_type".to_string()) && !columns.contains(&"package_type_id".to_string()) {
+            self.conn.execute_batch("ALTER TABLE software_info RENAME COLUMN package_type TO package_type_id;")?;
+        }
+        if columns.contains(&"checker_type".to_string()) && !columns.contains(&"checker_type_id".to_string()) {
+            self.conn.execute_batch("ALTER TABLE software_info RENAME COLUMN checker_type TO checker_type_id;")?;
+        }
+        if columns.contains(&"created_at".to_string()) {
+            self.conn.execute_batch("ALTER TABLE software_info DROP COLUMN created_at;")?;
+        }
+        Ok(())
+    }
 }

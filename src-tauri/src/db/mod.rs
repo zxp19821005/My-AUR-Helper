@@ -54,6 +54,7 @@ impl Database {
     pub fn initialize(&self) -> Result<()> {
         self.create_tables()?;
         self.migrate_aur_info()?;
+        self.migrate_software_info()?;
         self.seed_defaults()?;
         Ok(())
     }

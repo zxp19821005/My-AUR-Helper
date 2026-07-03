@@ -17,15 +17,14 @@ impl Database {
                 software_id         INTEGER PRIMARY KEY AUTOINCREMENT,
                 pkgname             TEXT NOT NULL UNIQUE,
                 upstream_url        TEXT,
-                package_type        INTEGER NOT NULL DEFAULT 1,
-                checker_type        INTEGER NOT NULL DEFAULT 7,
+                package_type_id     INTEGER NOT NULL DEFAULT 1,
+                checker_type_id     INTEGER NOT NULL DEFAULT 7,
                 is_outdated         INTEGER NOT NULL DEFAULT 0,
                 check_test_versions INTEGER NOT NULL DEFAULT 0,
                 check_binary_files  INTEGER NOT NULL DEFAULT 0,
                 auto_check_enabled  INTEGER NOT NULL DEFAULT 1,
                 license_id          INTEGER,
                 language_id         INTEGER,
-                created_at          INTEGER NOT NULL DEFAULT (unixepoch()),
                 FOREIGN KEY (license_id) REFERENCES enum_licenses(id),
                 FOREIGN KEY (language_id) REFERENCES enum_programming_languages(id)
             );

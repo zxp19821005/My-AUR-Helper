@@ -76,15 +76,14 @@ pub async fn add_software(
         software_id: None,
         pkgname: pkgname.clone(),
         upstream_url,
-        package_type: PackageType::from_id(package_type),
-        checker_type: CheckerType::from_id(checker_type),
+        package_type_id: PackageType::from_id(package_type),
+        checker_type_id: CheckerType::from_id(checker_type),
         is_outdated: false,
         check_test_versions,
         check_binary_files,
         auto_check_enabled,
         license_id,
         language_id,
-        created_at: chrono::Utc::now().timestamp(),
     };
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let id = db.insert_software(&sw).map_err(|e| e.to_string())?;
@@ -154,7 +153,7 @@ pub async fn check_upstream_version(
             .ok_or_else(|| "Package not found".to_string())?
     };
     // 获取对应的版本检查器
-    let checker = checkers::get_checker(&sw.checker_type);
+    let checker = checkers::get_checker(&sw.checker_type_id);
     let upstream_url = sw.upstream_url.as_deref().unwrap_or("");
     debug!("Using checker: {} for {}", checker.name(), pkgname);
     // 执行版本检查
@@ -209,7 +208,7 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> Result<Vec<(Strin
     let mut results = Vec::new();
     // 逐个检查每个包的上游版本
     for sw in &packages {
-        let checker = checkers::get_checker(&sw.checker_type);
+        let checker = checkers::get_checker(&sw.checker_type_id);
         let upstream_url = sw.upstream_url.as_deref().unwrap_or("");
         match checker.check(&client, upstream_url, &sw.pkgname).await {
             Ok(Some(version)) => {

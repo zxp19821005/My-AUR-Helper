@@ -91,8 +91,8 @@ const summary = computed(() => {
           <!-- 每行对应一个软件包，点击整行跳转到详情页 -->
           <tr v-for="pkg in pkgStore.packages" :key="pkg.pkgname" @click="router.push(`/packages/${pkg.pkgname}`)">
             <td><strong>{{ pkg.pkgname }}</strong></td>
-            <td>{{ pkg.package_type }}</td>
-            <td>{{ checkerText[pkg.checker_type] || pkg.checker_type }}</td>
+            <td>{{ pkg.package_type_id }}</td>
+            <td>{{ checkerText[pkg.checker_type_id] || pkg.checker_type_id }}</td>
             <td>
               <!-- 状态徽章 - 根据是否过期显示不同颜色 -->
               <span class="status-badge" :class="pkg.is_outdated ? 'status-update_available' : 'status-up_to_date'">
