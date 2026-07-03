@@ -13,7 +13,10 @@
 import { ref, onMounted } from "vue";                    // Vue 核心 API
 import { invoke } from "@tauri-apps/api/core";            // Tauri IPC 调用
 import type { BackupResult, Setting } from "../types";   // 类型定义
+import { useToolbarStore } from "../stores/toolbar";
 import PageToolbar from "../components/PageToolbar.vue";
+
+const toolbar = useToolbarStore();
 
 /** 备份结果 */
 const result = ref<BackupResult | null>(null);
@@ -30,18 +33,25 @@ onMounted(async () => {
     const setting = await invoke<Setting | null>("get_setting", { key: "backup_dir" });
     if (setting) backupDir.value = setting.value;
   } catch { /* 忽略获取设置错误 */ }
+  toolbar.setInfo(`备份目录: ${backupDir.value}`);
 });
 
 /** 执行备份 */
 async function runBackup() {
   loading.value = true;
+  toolbar.setProgress(0, 1);
   result.value = null;
   try {
     result.value = await invoke<BackupResult>("run_backup", { backupPath: backupDir.value });
+    if (result.value) {
+      toolbar.setProgress(result.value.copied + result.value.removed, result.value.copied + result.value.removed);
+      setTimeout(() => toolbar.clearProgress(), 2000);
+    }
   } catch (e) {
     result.value = { copied: 0, removed: 0, errors: [String(e)] };
   } finally {
     loading.value = false;
+    toolbar.clearProgress();
   }
 }
 </script>

@@ -12,15 +12,18 @@
   - set_proxy_active: 设置代理启用状态
 -->
 <script setup lang="ts">
-import { ref, onMounted } from "vue";                // Vue 核心 API
-import { invoke } from "@tauri-apps/api/core";        // Tauri IPC 调用
-import type { ProxyInfo } from "../types";            // 代理类型定义
+import { ref, onMounted } from "vue";
+import { invoke } from "@tauri-apps/api/core";
+import type { ProxyInfo } from "../types";
+import { useToolbarStore } from "../stores/toolbar";
 import PageToolbar from "../components/PageToolbar.vue";
 
-/** 代理列表 - 存储所有配置的代理源 */
+const toolbar = useToolbarStore();
+
+/** 代理列表 */
 const proxies = ref<ProxyInfo[]>([]);
 
-/** 获取中状态 - 标识是否正在从 Greasyfork 获取代理源 */
+/** 获取中状态 */
 const fetching = ref(false);
 
 /** 组件挂载时获取代理列表 */
@@ -28,10 +31,11 @@ onMounted(async () => {
   await loadProxies();
 });
 
-/** 加载代理列表 - 调用后端获取所有代理源 */
+/** 加载代理列表 */
 async function loadProxies() {
   try {
     proxies.value = await invoke<ProxyInfo[]>("get_proxies");
+    toolbar.setInfo(`代理源: ${proxies.value.length} 个`);
   } catch { /* 忽略加载错误 */ }
 }
 

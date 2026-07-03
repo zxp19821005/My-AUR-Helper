@@ -12,21 +12,25 @@
   - check_all_upstream: 检查所有上游版本
 -->
 <script setup lang="ts">
-import { computed, onMounted } from "vue";                   // Vue 核心 API
+import { computed, onMounted, ref, watch } from "vue";                   // Vue 核心 API
 import { useRouter } from "vue-router";                      // 路由 API：用于跳转到详情页
 import { invoke } from "@tauri-apps/api/core";                // Tauri IPC 调用
 import { usePackageStore } from "../stores/packages";         // 软件包状态 Store
+import { useToolbarStore } from "../stores/toolbar";
 import PageToolbar from "../components/PageToolbar.vue";
 
-const router = useRouter();        // 路由实例
-const pkgStore = usePackageStore(); // 软件包 Store 实例
+const router = useRouter();
+const pkgStore = usePackageStore();
+const toolbar = useToolbarStore();
 
-/** 组件挂载时获取软件包列表 */
+const pageSize = 50;
+const currentPage = ref(1);
+
 onMounted(() => {
   pkgStore.fetchPackages();
 });
 
-/** 检查器类型显示文本映射 - 将后端返回的类型值转换为可读的中英文名称 */
+/** 检查器类型显示文本映射 */
 const checkerText: Record<string, string> = {
   github_release: "GitHub Release",
   github_tag: "GitHub Tag",
@@ -37,25 +41,47 @@ const checkerText: Record<string, string> = {
   manual: "手动",
 };
 
-/** 检查所有软件包的上游版本 - 批量触发版本检查并刷新列表 */
+/** 检查所有软件包的上游版本 */
 async function checkAll() {
   pkgStore.loading = true;
+  toolbar.setProgress(0, 1);
   try {
-    await invoke("check_all_upstream");           // 调用后端批量检查命令
-    await pkgStore.fetchPackages();                // 刷新列表获取最新状态
+    await invoke("check_all_upstream");
+    await pkgStore.fetchPackages();
   } finally {
     pkgStore.loading = false;
+    toolbar.clearProgress();
   }
 }
 
-/** 统计摘要 - 通过计算属性实时汇总软件包数据 */
+/** 统计摘要 */
 const summary = computed(() => {
   const p = pkgStore.packages;
   return {
-    total: p.length,                            // 总数量
-    outdated: p.filter((x) => x.is_outdated).length,   // 需要更新的数量
-    upToDate: p.filter((x) => !x.is_outdated).length,  // 已最新的数量
+    total: p.length,
+    outdated: p.filter((x) => x.is_outdated).length,
+    upToDate: p.filter((x) => !x.is_outdated).length,
   };
+});
+
+/** 当前页数据 */
+const pageData = computed(() => {
+  const start = (currentPage.value - 1) * pageSize;
+  return pkgStore.packages.slice(start, start + pageSize);
+});
+
+/** 跳转到指定页 */
+function goToPage(page: number) {
+  currentPage.value = page;
+}
+
+/** 同步统计到底部工具栏 */
+watch(summary, (s) => {
+  toolbar.setInfo(`总计: ${s.total}  |  已最新: ${s.upToDate}  |  需更新: ${s.outdated}`);
+  toolbar.setPagination(s.total, currentPage.value, pageSize, goToPage);
+}, { immediate: true });
+watch(currentPage, (p) => {
+  toolbar.setPagination(summary.value.total, p, pageSize, goToPage);
 });
 </script>
 
@@ -66,13 +92,6 @@ const summary = computed(() => {
         {{ pkgStore.loading ? "检查中..." : "检查全部更新" }}
       </button>
     </PageToolbar>
-
-    <!-- 统计摘要行 - 显示总计、已最新、需更新的数量 -->
-    <div style="display: flex; gap: 1rem; margin-bottom: 1rem; font-size: 0.875rem; color: var(--text-secondary)">
-      <span>总计: {{ summary.total }}</span>
-      <span style="color: var(--success)">已最新: {{ summary.upToDate }}</span>
-      <span style="color: var(--warning)">需更新: {{ summary.outdated }}</span>
-    </div>
 
     <!-- 软件包表格 - 显示所有软件包的简要信息 -->
     <div class="card">
@@ -88,7 +107,7 @@ const summary = computed(() => {
         </thead>
         <tbody>
           <!-- 每行对应一个软件包，点击整行跳转到详情页 -->
-          <tr v-for="pkg in pkgStore.packages" :key="pkg.pkgname" @click="router.push(`/packages/${pkg.pkgname}`)">
+          <tr v-for="pkg in pageData" :key="pkg.pkgname" @click="router.push(`/packages/${pkg.pkgname}`)">
             <td><strong>{{ pkg.pkgname }}</strong></td>
             <td>{{ pkg.package_type_id }}</td>
             <td>{{ checkerText[pkg.checker_type_id] || pkg.checker_type_id }}</td>

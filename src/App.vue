@@ -18,33 +18,27 @@ import { useRoute } from "vue-router";                                    // 路
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";  // Tauri Webview 窗口 API：获取当前窗口信息
 import Sidebar from "./components/Sidebar.vue";                           // 侧边栏导航组件
 import TabBar from "./components/TabBar.vue";                             // 标签栏组件（类 VS Code 风格）
+import BottomToolbar from "./components/BottomToolbar.vue";               // 底部工具栏
 import { useTabStore } from "./stores/tabs";                              // 标签页状态管理 Store
+import { useToolbarStore } from "./stores/toolbar";                       // 工具栏状态 Store
 
-const route = useRoute();           // 当前路由对象
-const tabStore = useTabStore();     // 标签页 Store 实例
+const route = useRoute();
+const tabStore = useTabStore();
+const toolbarStore = useToolbarStore();
 
-/** 侧边栏是否收起 - 控制侧边栏展开/折叠状态 */
 const sidebarCollapsed = ref(true);
-
-/** 是否为弹出窗口 - 标记当前窗口类型，影响布局渲染 */
 const isPopupWindow = ref(false);
 
-/**
- * 组件挂载时检测窗口类型
- * 通过 Tauri 的 WebviewWindow API 获取当前窗口标签
- * 如果是弹出窗口（settings/enums/logs），则不显示主窗口布局
- */
 onMounted(async () => {
   const win = getCurrentWebviewWindow();
   isPopupWindow.value = win.label === "settings" || win.label === "enums" || win.label === "logs";
 });
 
-/**
- * 监听路由变化，自动打开对应标签页
- */
+/** 监听路由变化 */
 watch(
   () => route.path,
   (path) => {
+    toolbarStore.reset();
     const routeLabels: Record<string, string> = {
       "/": "仪表盘",
       "/packages": "软件管理",
@@ -81,6 +75,8 @@ watch(
         <main class="main-content">
           <RouterView />
         </main>
+        <!-- 底部工具栏 - 信息显示、分页、进度条 -->
+        <BottomToolbar />
       </div>
     </template>
   </div>

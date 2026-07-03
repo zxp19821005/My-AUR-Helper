@@ -23,32 +23,32 @@ import { ref, onMounted } from "vue";                    // Vue 核心 API
 import { useRoute } from "vue-router";                   // 路由 API：获取路由参数
 import { invoke } from "@tauri-apps/api/core";            // Tauri IPC 调用
 import type { SoftwareInfo, License, Language } from "../types";  // 类型定义
+import { useToolbarStore } from "../stores/toolbar";
 import PageToolbar from "../components/PageToolbar.vue";
 
 const route = useRoute();
+const toolbar = useToolbarStore();
 
-/** 软件包信息 - 当前查看的软件包数据 */
+/** 软件包信息 */
 const pkg = ref<SoftwareInfo | null>(null);
 
-/** 上游版本号 - 最近一次版本检查的结果 */
+/** 上游版本号 */
 const upstreamVer = ref("");
 
-/** 检查中状态 - 标识是否正在检查上游版本 */
+/** 检查中状态 */
 const checking = ref(false);
 
-/** 错误信息 - 操作失败时的错误提示 */
+/** 错误信息 */
 const error = ref("");
 
-/** License 列表 - 软件包可用的许可证选项 */
+/** License 列表 */
 const licenses = ref<License[]>([]);
 
-/** 编程语言列表 - 软件包可选的编程语言 */
+/** 编程语言列表 */
 const languages = ref<Language[]>([]);
 
 /**
  * 组件挂载时加载数据
- * - 获取软件包信息（通过路由参数中的包名）
- * - 获取 License 和编程语言列表（用于下拉选择）
  */
 onMounted(async () => {
   const pkgname = route.params.pkgname as string;
@@ -56,6 +56,9 @@ onMounted(async () => {
     pkg.value = await invoke<SoftwareInfo | null>("get_software", { pkgname });
     licenses.value = await invoke<License[]>("get_licenses");
     languages.value = await invoke<Language[]>("get_languages");
+    if (pkg.value) {
+      toolbar.setInfo(`${pkg.value.pkgname}  |  ${pkg.value.is_outdated ? "需更新" : "已最新"}`);
+    }
   } catch {
     error.value = "Failed to load package";
   }

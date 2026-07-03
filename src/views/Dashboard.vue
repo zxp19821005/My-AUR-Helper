@@ -11,20 +11,20 @@
   - get_proxies: 代理源列表
 -->
 <script setup lang="ts">
-import { ref, onMounted } from "vue";                        // Vue 核心 API
-import { useRouter } from "vue-router";                      // 路由 API：用于页面跳转
-import { usePackageStore } from "../stores/packages";         // 软件包状态 Store
-import { invoke } from "@tauri-apps/api/core";                // Tauri IPC 调用
-import type { ProxyInfo } from "../types";                   // 类型定义
+import { ref, onMounted, watch } from "vue";
+import { useRouter } from "vue-router";
+import { usePackageStore } from "../stores/packages";
+import { invoke } from "@tauri-apps/api/core";
+import type { ProxyInfo } from "../types";
+import { useToolbarStore } from "../stores/toolbar";
 import PageToolbar from "../components/PageToolbar.vue";
 
-const router = useRouter();         // 路由实例，用于快速操作按钮导航
-const pkgStore = usePackageStore(); // 软件包 Store 实例
+const router = useRouter();
+const pkgStore = usePackageStore();
+const toolbar = useToolbarStore();
 
-/** 代理源数量 - 从后端获取的代理源列表长度 */
 const proxyCount = ref(0);
 
-/** 组件挂载时加载数据 */
 onMounted(async () => {
   await pkgStore.fetchPackages();
   try {
@@ -33,7 +33,12 @@ onMounted(async () => {
   } catch { /* 忽略代理获取错误 */ }
 });
 
-/** 统计数据计算函数 */
+watch(() => [pkgStore.packages.length, pkgStore.packages.filter(p => p.is_outdated).length], () => {
+  const total = pkgStore.packages.length;
+  const outdated = pkgStore.packages.filter(p => p.is_outdated).length;
+  toolbar.setInfo(`总计: ${total}  |  已最新: ${total - outdated}  |  需更新: ${outdated}`);
+}, { immediate: true });
+
 const stats = {
   total: () => pkgStore.packages.length,
   updated: () => pkgStore.packages.filter((p) => !p.is_outdated).length,
