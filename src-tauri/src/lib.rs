@@ -198,11 +198,17 @@ pub fn run() {
             commands::software::get_software,            // 根据包名获取单个软件包
             commands::software::search_software,         // 搜索软件包
             commands::software::add_software,            // 添加新的软件包
+            commands::software::update_software,         // 更新软件包信息
             commands::software::delete_software,         // 删除软件包
+            commands::software::batch_delete_software,   // 批量删除软件包
             commands::software::set_software_license,    // 设置软件包的 License
             commands::software::set_software_language,   // 设置软件包的编程语言
+            commands::software::sync_from_aur,           // 从 AUR 同步软件包
+            commands::software::sync_from_pkgbuild,      // 从 PKGBUILD 文件同步
+            commands::software::update_aur_info,         // 更新 AUR 信息
             commands::software::check_upstream_version,  // 检查单个软件包的上游版本
             commands::software::check_all_upstream,      // 检查所有软件包的上游版本
+            commands::software::check_selected_upstream, // 检查选中的软件包上游版本
             // 扫描
             commands::scan::scan_directory,              // 扫描指定目录（单层）
             commands::scan::scan_directory_recursive,    // 递归扫描目录树
