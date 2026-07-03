@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch, inject } from "vue";
-import { useRouter } from "vue-router";
+import { computed, onMounted, ref, watch, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { usePackageStore } from "../stores/packages";
 import { FOOTER_KEY } from "../composables/footer";
+import { usePackageActions } from "../composables/packageActions";
 import PageToolbar from "../components/PageToolbar.vue";
 import SoftwareFormModal from "../components/SoftwareFormModal.vue";
 import SoftwareDetailModal from "../components/SoftwareDetailModal.vue";
@@ -20,7 +19,6 @@ import {
   Download,
 } from "@lucide/vue";
 
-const router = useRouter();
 const pkgStore = usePackageStore();
 const footer = inject(FOOTER_KEY)!;
 
@@ -28,7 +26,6 @@ const pageSize = 50;
 const currentPage = ref(1);
 const entries = ref<SoftwareListEntry[]>([]);
 const selectedPkgnames = ref(new Set<string>());
-const loading = ref(false);
 
 // 弹窗状态
 const showModal = ref(false);
@@ -37,17 +34,30 @@ const modalPkgname = ref("");
 const showDetailModal = ref(false);
 const detailPkgname = ref("");
 
+const {
+  loading,
+  syncFromAur,
+  syncFromPkgbuild,
+  updateAurInfo,
+  checkSelectedUpstream,
+  deleteSelected,
+  checkAll,
+  rowSyncFromAur,
+  rowSyncFromPkgbuild,
+  rowCheckUpstream,
+  rowDelete,
+} = usePackageActions(fetchView, footer);
+
 onMounted(async () => {
   await Promise.all([fetchView(), pkgStore.fetchPackages()]);
   syncToolbar();
 });
 
 async function fetchView() {
-  loading.value = true;
   try {
     entries.value = await invoke<SoftwareListEntry[]>("list_software_view");
   } finally {
-    loading.value = false;
+    syncToolbar();
   }
 }
 
@@ -94,7 +104,6 @@ function toggleSelectAll() {
   }
 }
 
-/** 格式化 Unix 时间戳为日期字符串 */
 function fmtTimestamp(ts: number | null): string {
   if (ts == null) return "-";
   const d = new Date(ts * 1000);
@@ -104,7 +113,6 @@ function fmtTimestamp(ts: number | null): string {
   });
 }
 
-/** 格式化 ISO 日期字符串 */
 function fmtDate(iso: string | null): string {
   if (!iso) return "-";
   const d = new Date(iso);
@@ -112,65 +120,6 @@ function fmtDate(iso: string | null): string {
     year: "numeric", month: "2-digit", day: "2-digit",
     hour: "2-digit", minute: "2-digit",
   });
-}
-
-const checkerText: Record<string, string> = {
-  github_release: "GitHub Release",
-  github_tag: "GitHub Tag",
-  gitee: "Gitee",
-  gitlab: "GitLab",
-  redirect: "重定向",
-  http: "HTTP",
-  manual: "手动",
-};
-
-// ── Toolbar operations ──
-
-async function syncFromAur() {
-  loading.value = true;
-  try {
-    const list = Array.from(selectedPkgnames.value);
-    if (list.length) {
-      await invoke("update_aur_info", { pkgnameList: list });
-    } else {
-      await invoke("sync_from_aur");
-    }
-    await Promise.all([fetchView(), pkgStore.fetchPackages()]);
-  } finally {
-    loading.value = false;
-  }
-}
-
-let unlistenProgress: (() => void) | null = null;
-
-async function syncFromPkgbuild() {
-  loading.value = true;
-  footer.progress = { current: 0, total: 1, message: "准备中..." };
-  try {
-    // 监听进度事件
-    unlistenProgress = await listen<{ current: number; total: number; pkgname: string; message: string }>(
-      "sync-progress",
-      (event) => {
-        const { current, total, message } = event.payload;
-        footer.progress = { current, total, message };
-      }
-    );
-
-    const list = Array.from(selectedPkgnames.value);
-    if (list.length) {
-      for (const pkgname of list) {
-        await invoke("sync_from_pkgbuild", { pkgname });
-      }
-    } else {
-      await invoke("sync_from_pkgbuild", { pkgname: null });
-    }
-    await Promise.all([fetchView(), pkgStore.fetchPackages()]);
-  } finally {
-    unlistenProgress?.();
-    unlistenProgress = null;
-    footer.progress = null;
-    loading.value = false;
-  }
 }
 
 function openAddModal() {
@@ -194,122 +143,28 @@ function onModalSaved() {
   Promise.all([fetchView(), pkgStore.fetchPackages()]);
 }
 
-async function updateAurInfo() {
-  loading.value = true;
-  try {
-    const list = Array.from(selectedPkgnames.value);
-    await invoke("update_aur_info", { pkgnameList: list.length ? list : null });
-    await Promise.all([fetchView(), pkgStore.fetchPackages()]);
-  } finally {
-    loading.value = false;
-  }
-}
-
-async function checkSelectedUpstream() {
-  loading.value = true;
-  try {
-    const list = Array.from(selectedPkgnames.value);
-    if (list.length) {
-      await invoke("check_selected_upstream", { pkgnameList: list });
-    } else {
-      await invoke("check_all_upstream");
-    }
-    await Promise.all([fetchView(), pkgStore.fetchPackages()]);
-  } finally {
-    loading.value = false;
-  }
-}
-
-async function deleteSelected() {
-  const list = Array.from(selectedPkgnames.value);
-  if (!list.length) return;
-  if (!confirm(`确认删除选中的 ${list.length} 个软件包？`)) return;
-  loading.value = true;
-  try {
-    await invoke("batch_delete_software", { pkgnameList: list });
-    selectedPkgnames.value = new Set();
-    await Promise.all([fetchView(), pkgStore.fetchPackages()]);
-  } finally {
-    loading.value = false;
-  }
-}
-
-async function checkAll() {
-  loading.value = true;
-  footer.progress = { current: 0, total: 1 };
-  try {
-    await invoke("check_all_upstream");
-    await Promise.all([fetchView(), pkgStore.fetchPackages()]);
-  } finally {
-    loading.value = false;
-    footer.progress = null;
-  }
-}
-
-// ── Row operations ──
-
-async function rowSyncFromAur(pkgname: string) {
-  loading.value = true;
-  try {
-    await invoke("update_aur_info", { pkgnameList: [pkgname] });
-    await Promise.all([fetchView(), pkgStore.fetchPackages()]);
-  } finally {
-    loading.value = false;
-  }
-}
-
-async function rowSyncFromPkgbuild(pkgname: string) {
-  loading.value = true;
-  try {
-    await invoke("sync_from_pkgbuild", { pkgname });
-    await Promise.all([fetchView(), pkgStore.fetchPackages()]);
-  } finally {
-    loading.value = false;
-  }
-}
-
-async function rowCheckUpstream(pkgname: string) {
-  loading.value = true;
-  try {
-    await invoke("check_selected_upstream", { pkgnameList: [pkgname] });
-    await Promise.all([fetchView(), pkgStore.fetchPackages()]);
-  } finally {
-    loading.value = false;
-  }
-}
-
-async function rowDelete(pkgname: string) {
-  if (!confirm(`确认删除 ${pkgname}？`)) return;
-  loading.value = true;
-  try {
-    await invoke("batch_delete_software", { pkgnameList: [pkgname] });
-    selectedPkgnames.value = new Set(Array.from(selectedPkgnames.value).filter(n => n !== pkgname));
-    await Promise.all([fetchView(), pkgStore.fetchPackages()]);
-  } finally {
-    loading.value = false;
-  }
-}
+const setSelected = (v: Set<string>) => { selectedPkgnames.value = v; };
 </script>
 
 <template>
   <div>
     <PageToolbar>
-      <button class="btn-icon btn-icon-accent" @click="syncFromAur" :disabled="loading" title="从AUR同步">
+      <button class="btn-icon btn-icon-accent" @click="syncFromAur(selectedPkgnames)" :disabled="loading" title="从AUR同步">
         <RefreshCw :size="16" />
       </button>
-      <button class="btn-icon btn-icon-accent" @click="syncFromPkgbuild" :disabled="loading" title="从PKGBUILD同步">
+      <button class="btn-icon btn-icon-accent" @click="syncFromPkgbuild(selectedPkgnames)" :disabled="loading" title="从PKGBUILD同步">
         <Download :size="16" />
       </button>
       <button class="btn-icon btn-icon-success" @click="openAddModal" title="添加软件">
         <Plus :size="16" />
       </button>
-      <button class="btn-icon btn-icon-info" @click="updateAurInfo" :disabled="loading" title="更新AUR信息">
+      <button class="btn-icon btn-icon-info" @click="updateAurInfo(selectedPkgnames)" :disabled="loading" title="更新AUR信息">
         <Info :size="16" />
       </button>
-      <button class="btn-icon btn-icon-info" @click="checkSelectedUpstream" :disabled="loading || selectedPkgnames.size === 0" title="更新上游信息">
+      <button class="btn-icon btn-icon-info" @click="checkSelectedUpstream(selectedPkgnames)" :disabled="loading || selectedPkgnames.size === 0" title="更新上游信息">
         <RefreshCw :size="16" />
       </button>
-      <button class="btn-icon btn-icon-danger" @click="deleteSelected" :disabled="selectedPkgnames.size === 0" title="删除选中">
+      <button class="btn-icon btn-icon-danger" @click="deleteSelected(selectedPkgnames, setSelected)" :disabled="selectedPkgnames.size === 0" title="删除选中">
         <Trash2 :size="16" />
       </button>
       <button class="btn-icon btn-icon-warning" @click="checkAll" :disabled="loading" title="检查全部更新">
@@ -367,7 +222,7 @@ async function rowDelete(pkgname: string) {
                 <button class="btn-icon btn-icon-info" @click.stop="rowCheckUpstream(pkg.pkgname)" :disabled="loading" title="更新上游信息">
                   <RefreshCw :size="14" />
                 </button>
-                <button class="btn-icon btn-icon-danger" @click.stop="rowDelete(pkg.pkgname)" :disabled="loading" title="删除">
+                <button class="btn-icon btn-icon-danger" @click.stop="rowDelete(pkg.pkgname, selectedPkgnames, setSelected)" :disabled="loading" title="删除">
                   <Trash2 :size="14" />
                 </button>
               </div>
@@ -432,137 +287,4 @@ async function rowDelete(pkgname: string) {
   align-items: center;
 }
 
-/* 工具栏按钮图标样式 */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-}
-.btn svg {
-  flex-shrink: 0;
-}
-
-/* 操作列图标按钮 */
-.btn-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border-radius: 6px;
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.btn-icon:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* 默认 - 查看/编辑 */
-.btn-icon-default {
-  background-color: rgba(154, 156, 184, 0.12);
-  color: var(--text-secondary);
-}
-.btn-icon-default:hover:not(:disabled) {
-  background-color: rgba(154, 156, 184, 0.25);
-  color: var(--text-primary);
-}
-
-/* 同步/操作 - 强调色 */
-.btn-icon-accent {
-  background-color: rgba(108, 99, 255, 0.1);
-  color: var(--accent);
-}
-.btn-icon-accent:hover:not(:disabled) {
-  background-color: rgba(108, 99, 255, 0.2);
-  color: var(--accent);
-}
-
-/* 添加 - 成功色 */
-.btn-icon-success {
-  background-color: rgba(76, 175, 125, 0.1);
-  color: var(--success);
-}
-.btn-icon-success:hover:not(:disabled) {
-  background-color: rgba(76, 175, 125, 0.2);
-  color: var(--success);
-}
-
-/* 信息更新 - 信息色 */
-.btn-icon-info {
-  background-color: rgba(66, 165, 245, 0.1);
-  color: #42a5f5;
-}
-.btn-icon-info:hover:not(:disabled) {
-  background-color: rgba(66, 165, 245, 0.2);
-  color: #42a5f5;
-}
-
-/* 删除 - 危险色 */
-.btn-icon-danger {
-  background-color: rgba(239, 83, 80, 0.1);
-  color: var(--error);
-}
-.btn-icon-danger:hover:not(:disabled) {
-  background-color: rgba(239, 83, 80, 0.2);
-  color: var(--error);
-}
-
-/* 检查 - 警告色 */
-.btn-icon-warning {
-  background-color: rgba(255, 167, 38, 0.1);
-  color: var(--warning);
-}
-.btn-icon-warning:hover:not(:disabled) {
-  background-color: rgba(255, 167, 38, 0.2);
-  color: var(--warning);
-}
-
-.btn-sm {
-  padding: 0.2rem 0.5rem;
-  font-size: 0.75rem;
-}
-.btn-danger-text {
-  color: var(--danger, #e53e3e);
-}
-.btn-danger-text:hover {
-  background-color: var(--danger, #e53e3e);
-  color: #fff;
-}
-
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-.modal {
-  background: var(--bg-card, #fff);
-  border-radius: 8px;
-  padding: 1.5rem;
-  min-width: 320px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
-}
-.modal h3 {
-  margin: 0 0 1rem;
-}
-.form-input {
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  font-size: 0.875rem;
-  box-sizing: border-box;
-}
-.modal-actions {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: flex-end;
-  margin-top: 1rem;
-}
 </style>

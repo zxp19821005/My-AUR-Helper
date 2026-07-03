@@ -6,7 +6,6 @@
 
 # 系统架构设计
 
-<!-- ========== 技术栈：列出项目使用的所有关键技术及其用途 ========== -->
 ## 技术栈
 
 | 层 | 技术 | 说明 |
@@ -21,10 +20,8 @@
 | 日志 | tracing + tauri-plugin-log | 结构化日志，支持文件输出 |
 | 序列化 | serde / serde_json | Rust 数据结构 ↔ JSON |
 
-<!-- ========== 代码规范：文件组织原则 ========== -->
 ## 代码规范
 
-<!-- 文件组织原则：确保项目结构清晰、模块边界明确 -->
 ### 文件组织原则
 
 1. **单一职责**: 每个文件只负责一个功能模块
@@ -33,86 +30,136 @@
 4. **代码重用**: 优先提取通用组件和工具函数，避免重复代码
 5. **命名一致**: 文件名、函数名、组件名需与功能模块统一
 
-<!-- Rust 后端文件结构：按功能模块划分的目录树 -->
-### Rust 后端文件结构
+### 拆分规则
+
+- `commands/software.rs` 按功能拆分: `software.rs`, `software_sync.rs`, `software_check.rs`
+- `commands/files.rs` 按功能拆分: `files.rs`, `files_scan.rs`
+- `db/mod.rs` 按表拆分: `db/software_info.rs`, `db/aur_info.rs` 等
+- Vue 组件拆分: 通用逻辑提取到 `composables/`，通用样式提取到全局 CSS
+
+## Rust 后端文件结构
 
 ```
 src-tauri/src/
-├── lib.rs                    # 库入口，Tauri Builder 配置
+├── lib.rs                    # 库入口，Tauri Builder 配置 (262行)
 ├── main.rs                   # 程序入口
+├── logger.rs                 # 日志配置
 ├── models/
-│   └── mod.rs                # 数据模型（Package、Proxy、Backup、Log 等）
+│   ├── mod.rs                # 数据模型导出
+│   ├── software_info.rs      # 软件包信息模型
+│   ├── software_list_entry.rs # 软件包列表展示模型
+│   ├── aur_info.rs           # AUR 信息模型
+│   ├── upstream_info.rs      # 上游版本信息模型
+│   ├── proxy_info.rs         # 代理信息模型
+│   ├── proxy_type.rs         # 代理类型枚举
+│   ├── proxy_test.rs         # 代理测试结果模型
+│   ├── backup_software.rs    # 备份软件模型
+│   ├── cache_software.rs     # 缓存软件模型
+│   ├── log_entry.rs          # 日志模型
+│   ├── setting.rs            # 设置模型
+│   ├── checker_type.rs       # 检查器类型枚举
+│   ├── package_type.rs       # 包类型枚举
+│   ├── enum_license.rs       # 许可证枚举
+│   └── enum_programming_language.rs # 编程语言枚举
 ├── db/
-│   ├── mod.rs                # 数据库初始化和连接管理
-│   ├── packages.rs           # Package CRUD 操作
-│   ├── proxies.rs            # Proxy CRUD 操作
-│   ├── backup_configs.rs     # BackupConfig CRUD 操作
-│   ├── logs.rs               # Log CRUD 操作
-│   ├── settings.rs           # Settings 操作
-│   ├── checker_configs.rs    # CheckerConfig CRUD 操作
-│   ├── licenses.rs           # License CRUD 操作
-│   └── languages.rs          # Language CRUD 操作
+│   ├── mod.rs                # 数据库初始化和连接管理 (61行)
+│   ├── schema.rs             # 数据库 Schema 定义 (155行)
+│   ├── migration.rs          # 数据库迁移脚本
+│   ├── seed.rs               # 初始数据填充
+│   ├── software_info.rs      # SoftwareInfo 表操作 (186行)
+│   ├── aur_info.rs           # AurInfo 表操作
+│   ├── upstream_info.rs      # UpstreamInfo 表操作
+│   ├── proxies_info.rs       # ProxiesInfo 表操作
+│   ├── proxies_test.rs       # ProxiesTest 表操作
+│   ├── backup_software.rs    # BackupSoftware 表操作
+│   ├── cache_software.rs     # CacheSoftware 表操作
+│   ├── logs.rs               # Logs 表操作
+│   ├── settings.rs           # Settings 表操作
+│   ├── enum_licenses.rs      # EnumLicenses 表操作
+│   └── enum_programming_languages.rs # EnumProgrammingLanguages 表操作
 ├── commands/
-│   ├── mod.rs                # 命令模块导出
-│   ├── packages.rs           # 包管理命令
+│   ├── mod.rs                # 命令模块导出 (42行)
+│   ├── software.rs           # 软件包 CRUD 命令 (163行)
+│   ├── software_sync.rs      # 软件包同步命令 (246行)
+│   ├── software_check.rs     # 软件包版本检查命令 (144行)
+│   ├── files.rs              # 文件操作命令 (221行)
+│   ├── files_scan.rs         # 包文件扫描命令 (85行)
 │   ├── backup.rs             # 备份命令
-│   ├── proxy.rs              # 代理命令
-│   ├── files.rs              # 文件操作命令
-│   ├── sys_command.rs        # 系统命令（pacman/makepkg）
+│   ├── proxy.rs              # 代理命令 (83行)
+│   ├── sys_command.rs        # 系统命令 (183行)
+│   ├── scan.rs               # 目录扫描命令 (193行)
 │   ├── logs.rs               # 日志命令
 │   ├── settings.rs           # 设置命令
-│   └── enums.rs              # 枚举查询命令
+│   └── enums.rs              # 枚举查询命令 (144行)
 ├── checkers/
-│   └── mod.rs                # 版本检查器（所有实现）
+│   ├── mod.rs                # 检查器工厂函数 (33行)
+│   ├── trait_def.rs          # VersionChecker trait 定义
+│   ├── github.rs             # GitHub 检查器 (112行)
+│   ├── gitee.rs              # Gitee 检查器
+│   ├── gitlab.rs             # GitLab 检查器
+│   ├── redirect.rs           # 重定向检查器
+│   ├── http.rs               # HTTP 页面解析检查器
+│   ├── manual.rs             # 手动检查器
+│   └── utils.rs              # 检查器工具函数
 ├── aur/
-│   └── mod.rs                # AUR RPC 交互和 PKGBUILD 解析
+│   ├── mod.rs                # AUR 模块导出
+│   ├── rpc.rs                # AUR RPC API 请求 (83行)
+│   └── pkgbuild.rs           # PKGBUILD 文件解析 (186行)
 ├── proxy/
-│   └── mod.rs                # 代理获取和管理
-├── backup/
-│   └── mod.rs                # 备份扫描和执行
-└── log/
-    └── mod.rs                # tracing 日志初始化
+│   ├── mod.rs                # 代理模块导出
+│   ├── fetch.rs              # 代理获取 (146行)
+│   └── test.rs               # 代理测试
+└── backup/
+    ├── mod.rs                # 备份模块导出
+    └── execute.rs            # 备份执行逻辑 (123行)
 ```
 
-<!-- Vue 前端文件结构：前端页面和组件的组织方式 -->
-### Vue 前端文件结构
+## Vue 前端文件结构
 
 ```
 src/
-├── main.ts                   # 入口文件
-├── App.vue                   # 根组件
+├── main.ts                   # 入口文件 (31行)
+├── App.vue                   # 根组件 (87行)
 ├── router/
-│   └── index.ts              # 路由配置
-├── views/                    # 页面组件（每个页面一个文件）
-│   ├── Dashboard.vue
-│   ├── PackageList.vue
-│   ├── PackageDetail.vue
-│   ├── BackupManager.vue
-│   ├── ProxySettings.vue
-│   ├── LogViewer.vue
-│   ├── Settings.vue
-│   ├── LicenseManager.vue
-│   └── LanguageManager.vue
-├── components/               # 通用组件（跨页面复用）
-│   ├── ui/                   # 基础 UI 组件
-│   ├── forms/                # 表单组件
-│   └── layout/               # 布局组件
-├── stores/
-│   └── packages.ts           # Pinia 状态管理
+│   └── index.ts              # 路由配置 (103行)
+├── views/                    # 页面组件
+│   ├── Dashboard.vue         # 仪表盘 (103行)
+│   ├── PackageList.vue       # 软件包列表 (290行)
+│   ├── PackageDetail.vue     # 软件包详情/编辑 (320行) ⚠️
+│   ├── BackupManager.vue     # 备份管理 (85行)
+│   ├── CacheManager.vue      # 缓存管理 (86行)
+│   ├── ProxySettings.vue     # 代理设置 (148行)
+│   ├── LogViewer.vue         # 日志查看 (122行)
+│   ├── Settings.vue          # 应用设置 (266行)
+│   ├── LicenseManager.vue    # 许可证管理 (208行)
+│   └── LanguageManager.vue   # 编程语言管理 (241行)
+├── components/               # 通用组件
+│   ├── PageToolbar.vue       # 页面工具栏 (92行)
+│   ├── Sidebar.vue           # 侧边栏 (198行)
+│   ├── BottomToolbar.vue     # 底部工具栏 (167行)
+│   ├── TabBar.vue            # 标签栏 (158行)
+│   ├── PopupLayout.vue       # 弹窗布局 (153行)
+│   ├── SoftwareFormModal.vue # 软件包添加/编辑弹窗 (353行) ⚠️
+│   ├── SoftwareDetailModal.vue # 软件包详情弹窗 (233行)
+│   ├── SettingsPopup.vue     # 设置弹窗 (34行)
+│   ├── LogsPopup.vue         # 日志弹窗 (24行)
+│   └── EnumLayout.vue        # 枚举管理布局 (26行)
+├── composables/              # 组合式函数
+│   ├── footer.ts             # 底部工具栏状态 (23行)
+│   └── packageActions.ts     # 软件包操作逻辑 (189行)
+├── stores/                   # Pinia 状态管理
+│   ├── packages.ts           # 软件包状态 (57行)
+│   └── tabs.ts               # 标签页状态 (77行)
 ├── types/
-│   └── index.ts              # TypeScript 类型定义
-└── assets/                   # 静态资源
+│   └── index.ts              # TypeScript 类型定义 (207行)
+└── assets/
+    └── styles.css            # 全局样式
 ```
 
-<!-- ========== 系统架构图：展示前后端交互和各模块调用关系 ========== -->
+> ⚠️ 标记的文件超过 300 行限制，需要进一步拆分
+
 ## 系统架构图
 
-<!--
-  架构分层说明：
-  - 顶层：Tauri 桌面窗口，提供原生桌面体验
-  - 中间层（前端）：Vue 3 页面通过 IPC 与后端通信
-  - 底层（后端）：Rust 模块分层处理业务逻辑
--->
 ```
 ┌─────────────────────────────────────────────────┐
 │                  Tauri 桌面窗口                    │
@@ -149,24 +196,28 @@ src/
 └─────────────────────────────────────────────────┘
 ```
 
-<!-- ========== 模块职责：详细说明每个后端模块的功能边界 ========== -->
 ## 模块职责
 
-<!-- commands/ — 作为前后端通信的桥梁，接收前端 IPC 调用并分发到各业务模块 -->
 ### commands/ — Tauri IPC 命令入口
+
 作为前后端通信桥梁，所有 `#[tauri::command]` 在此定义，参数/返回值自动序列化为 JSON。
 
-<!-- models/ — 定义所有数据模型，用于 Rust 内部和数据库之间的数据交换 -->
+- `software.rs` — 软件包 CRUD 操作
+- `software_sync.rs` — AUR 同步和 PKGBUILD 解析
+- `software_check.rs` — 上游版本检查
+- `files.rs` — 文件/目录操作
+- `files_scan.rs` — 包文件扫描和解析
+
 ### models/ — 数据模型
-定义核心数据结构：Package、ProxySource、BackupConfig、LogEntry 等，统一用于 Rust 和 SQLite。
 
-<!-- db/ — 数据库访问层，封装所有 SQLite 操作，每个文件负责一张表 -->
+定义核心数据结构：SoftwareInfo、AurInfo、UpstreamInfo、ProxyInfo 等，统一用于 Rust 和 SQLite。
+
 ### db/ — 数据库层
-封装所有 SQLite 操作，提供 CRUD 方法。使用 rusqlite 的 prepared statement 确保 SQL 注入防护。
-按功能拆分为独立文件，每个文件负责一张表的操作。
 
-<!-- checkers/ — 版本检查器体系，基于 trait 的多态实现，支持多种版本获取方式 -->
+封装所有 SQLite 操作，提供 CRUD 方法。使用 rusqlite 的 prepared statement 确保 SQL 注入防护。按功能拆分为独立文件，每个文件负责一张表的操作。
+
 ### checkers/ — 版本检查器体系
+
 基于 `VersionChecker` trait 的多态实现：
 - GitHubChecker: 通过 GitHub API 获取最新 release/tag
 - GiteeChecker: 通过 Gitee API
@@ -175,29 +226,24 @@ src/
 - HttpChecker: 解析 HTML 页面版本信息
 - ManualChecker: 占位，等待用户手动更新
 
-<!-- aur/ — AUR 交互模块，负责从 AUR 获取包信息并解析 PKGBUILD -->
 ### aur/ — AUR 交互
+
 - 通过 AUR RPC v12 接口获取用户维护的包列表
 - 解析本地 PKGBUILD 文件，提取版本、URL、检查器信息
 - 自动推断合适的检查器类型
 
-<!-- proxy/ — 代理管理模块，从 Greasyfork 获取代理列表并检测可用性 -->
 ### proxy/ — 代理管理
+
 - 从 Greasyfork userscript 中解析代理列表
 - 代理健康检测（延迟测试）
 - 按类型分类（download/clone/raw）
 
-<!-- backup/ — 备份管理模块，扫描 pacman 缓存并备份已安装的包文件 -->
 ### backup/ — 备份管理
+
 - 扫描 pacman/paru/yay 缓存目录
 - 复制新版本 .pkg.tar.zst 到备份目录
 - 清理备份目录中的旧版本
 
-<!-- log/ — 日志模块，基于 tracing 框架实现结构化日志输出 -->
-### log/ — 日志模块
-基于 tracing 框架，支持控制台和文件日志输出。
-
-<!-- ========== 检查器选择逻辑：描述如何根据 PKGBUILD 内容自动选择合适的版本检查器 ========== -->
 ## 检查器选择逻辑
 
 ```

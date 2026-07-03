@@ -6,7 +6,6 @@
 
 # My-AUR-Helper 项目开发计划
 
-<!-- ========== 项目概述：说明项目的目标和技术选型 ========== -->
 ## 项目概述
 
 Tauri 桌面应用，用于管理 AUR 软件包更新、本地备份和代理。
@@ -16,10 +15,8 @@ Tauri 桌面应用，用于管理 AUR 软件包更新、本地备份和代理。
 - **数据库**: SQLite (via rusqlite)
 - **日志**: tracing + tauri-plugin-log
 
-<!-- ========== 代码规范：强制性的编码标准，所有贡献者必须遵守 ========== -->
 ## 代码规范（强制）
 
-<!-- 文件组织原则：确保项目结构清晰，便于维护和扩展 -->
 ### 文件组织原则
 1. **单一职责**: 每个文件只负责一个功能模块
 2. **行数限制**: 单个文件不超过 300 行
@@ -27,18 +24,36 @@ Tauri 桌面应用，用于管理 AUR 软件包更新、本地备份和代理。
 4. **代码重用**: 优先提取通用组件和工具函数，避免重复代码
 5. **命名一致**: 文件名、函数名、组件名需与功能模块统一
 
-<!-- 拆分规则：具体说明哪些模块需要按规则拆分 -->
 ### 拆分规则
+- `commands/software.rs` 按功能拆分: `software.rs`, `software_sync.rs`, `software_check.rs`
+- `commands/files.rs` 按功能拆分: `files.rs`, `files_scan.rs`
 - `db/mod.rs` 按表拆分: `db/software_info.rs`, `db/aur_info.rs` 等
-- Vue 组件拆分: 通用组件提取到 `src/components/`
+- Vue 组件拆分: 通用逻辑提取到 `composables/`，通用样式提取到全局 CSS
 
-<!-- ========== 当前进度：使用任务列表跟踪开发状态 ========== -->
 ## 当前进度
 
 - [x] 初始化 Rust 工具链
 - [x] 搭建 Tauri + Vue 项目骨架
 - [x] 实现基础功能模块
-- [x] 拆分 db/mod.rs (630行 → 9个文件)
+- [x] 拆分 db/mod.rs (630行 → 14个文件)
+- [x] 拆分 commands/software.rs (537行 → 3个文件)
+  - software.rs (163行) — CRUD 操作
+  - software_sync.rs (246行) — AUR 同步
+  - software_check.rs (144行) — 版本检查
+- [x] 拆分 commands/files.rs (332行 → 2个文件)
+  - files.rs (221行) — 文件操作
+  - files_scan.rs (85行) — 包文件扫描
+- [x] 提取 Vue 公共样式到全局 CSS
+  - btn-icon 系列样式
+  - modal 系列样式
+  - form 系列样式
+  - info-table 样式
+- [x] 提取 PackageList.vue 操作逻辑到 composable
+  - packageActions.ts (189行)
+  - PackageList.vue 从 568行 减至 290行
+- [ ] 拆分超限 Vue 文件
+  - [ ] SoftwareFormModal.vue (353行) — 提取表单逻辑到 composable
+  - [ ] PackageDetail.vue (320行) — 提取表单逻辑到 composable
 - [ ] 重构数据库 schema
   - [x] 更新 DATABASE.md 设计文档
   - [ ] 重写 models/mod.rs
@@ -47,37 +62,41 @@ Tauri 桌面应用，用于管理 AUR 软件包更新、本地备份和代理。
   - [ ] 更新前端 types/index.ts
   - [ ] 更新前端 views
 
-<!-- ========== 项目架构：展示完整的目录结构和功能模块 ========== -->
 ## 项目架构
 
 ```
 My-AUR-Helper/
 ├── docs/                    # 项目文档
+│   ├── ARCHITECTURE.md      # 系统架构设计
+│   ├── DATABASE.md          # 数据库设计
+│   ├── API.md               # Tauri Command API
+│   └── PLAN.md              # 项目开发计划
 ├── .opencode/               # opencode 配置
 │   └── rules/               # AI 编码规则
 ├── src/                     # Vue 前端
-│   ├── views/               # 页面组件
-│   ├── components/          # 通用组件
-│   ├── stores/              # Pinia 状态
-│   └── types/               # TypeScript 类型
+│   ├── views/               # 页面组件 (10个)
+│   ├── components/          # 通用组件 (11个)
+│   ├── composables/         # 组合式函数 (2个)
+│   ├── stores/              # Pinia 状态 (2个)
+│   ├── types/               # TypeScript 类型
+│   └── assets/              # 静态资源 (styles.css)
 ├── src-tauri/               # Rust 后端
 │   ├── src/
 │   │   ├── lib.rs           # 库入口
 │   │   ├── main.rs          # 程序入口
-│   │   ├── models/          # 数据模型
-│   │   ├── db/              # SQLite 数据库（按表拆分）
-│   │   ├── commands/        # Tauri IPC 命令
-│   │   ├── checkers/        # 版本检查器
-│   │   ├── aur/             # AUR 交互 + 软件同步
-│   │   ├── backup/          # 备份管理
-│   │   ├── proxy/           # 代理管理
-│   │   └── log/             # 日志模块
+│   │   ├── logger.rs        # 日志配置
+│   │   ├── models/          # 数据模型 (15个文件)
+│   │   ├── db/              # SQLite 数据库 (14个文件)
+│   │   ├── commands/        # Tauri IPC 命令 (12个文件)
+│   │   ├── checkers/        # 版本检查器 (8个文件)
+│   │   ├── aur/             # AUR 交互 (3个文件)
+│   │   ├── backup/          # 备份管理 (2个文件)
+│   │   └── proxy/           # 代理管理 (3个文件)
 │   ├── Cargo.toml
 │   └── tauri.conf.json
 └── package.json
 ```
 
-<!-- ========== 数据库设计：核心数据库表列表 ========== -->
 ## 数据库设计 (SQLite)
 
 参见 [DATABASE.md](DATABASE.md)
@@ -92,8 +111,9 @@ My-AUR-Helper/
 - `proxies_test` — 代理测试结果
 - `enum_licenses` — 许可证枚举
 - `enum_programming_languages` — 编程语言枚举
+- `logs` — 应用日志
+- `settings` — 应用设置
 
-<!-- ========== 模块依赖关系：展示后端各模块之间的调用层级 ========== -->
 ## 模块依赖关系
 
 ```
@@ -110,12 +130,14 @@ Tauri Commands (commands/)
    日志模块 (log/) → 文件/控制台
 ```
 
-<!-- ========== 开发命令：日常开发中使用的常用命令 ========== -->
 ## 开发命令
 
 ```bash
+pnpm install       # 安装前端依赖
 pnpm tauri dev     # 开发模式
-pnpm tauri build   # 构建
+pnpm tauri build   # 构建生产版本
 cargo check        # Rust 类型检查
-cargo clippy       # Rust lint
+cargo clippy       # Rust lint 检查
+cargo fmt          # Rust 代码格式化
+pnpm vue-tsc --noEmit  # TypeScript 类型检查
 ```

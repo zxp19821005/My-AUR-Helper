@@ -17,6 +17,9 @@ pub mod enums;
 /// 文件操作命令
 pub mod files;
 
+/// 包文件扫描命令
+pub mod files_scan;
+
 /// 日志管理命令
 pub mod logs;
 
@@ -26,8 +29,14 @@ pub mod proxy;
 /// 设置管理命令
 pub mod settings;
 
-/// 软件包管理命令
+/// 软件包 CRUD 和设置命令
 pub mod software;
+
+/// 软件包 AUR 同步相关命令
+pub mod software_sync;
+
+/// 软件包上游版本检查相关命令
+pub mod software_check;
 
 /// 系统命令执行
 pub mod sys_command;

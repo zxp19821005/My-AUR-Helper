@@ -204,12 +204,12 @@ pub fn run() {
             commands::software::batch_delete_software,   // 批量删除软件包
             commands::software::set_software_license,    // 设置软件包的 License
             commands::software::set_software_language,   // 设置软件包的编程语言
-            commands::software::sync_from_aur,           // 从 AUR 同步软件包
-            commands::software::sync_from_pkgbuild,      // 从 PKGBUILD 文件同步
-            commands::software::update_aur_info,         // 更新 AUR 信息
-            commands::software::check_upstream_version,  // 检查单个软件包的上游版本
-            commands::software::check_all_upstream,      // 检查所有软件包的上游版本
-            commands::software::check_selected_upstream, // 检查选中的软件包上游版本
+            commands::software_sync::sync_from_aur,           // 从 AUR 同步软件包
+            commands::software_sync::sync_from_pkgbuild,      // 从 PKGBUILD 文件同步
+            commands::software_sync::update_aur_info,         // 更新 AUR 信息
+            commands::software_check::check_upstream_version,  // 检查单个软件包的上游版本
+            commands::software_check::check_all_upstream,      // 检查所有软件包的上游版本
+            commands::software_check::check_selected_upstream, // 检查选中的软件包上游版本
             // 扫描
             commands::scan::scan_directory,              // 扫描指定目录（单层）
             commands::scan::scan_directory_recursive,    // 递归扫描目录树
@@ -231,7 +231,7 @@ pub fn run() {
             commands::files::list_directory,             // 列出目录内容
             commands::files::file_exists,                // 检查文件是否存在
             commands::files::file_metadata,              // 获取文件元信息
-            commands::files::scan_pkg_files,             // 扫描 .pkg.tar 文件
+            commands::files_scan::scan_pkg_files,         // 扫描 .pkg.tar 文件
             commands::files::batch_delete,               // 批量删除文件
             // 系统命令
             commands::sys_command::run_command,          // 执行任意系统命令
