@@ -125,7 +125,7 @@ src/
 ├── views/                    # 页面组件
 │   ├── Dashboard.vue         # 仪表盘 (103行)
 │   ├── PackageList.vue       # 软件包列表 (290行)
-│   ├── PackageDetail.vue     # 软件包详情/编辑 (320行) ⚠️
+│   ├── PackageDetail.vue     # 软件包详情/编辑 (237行)
 │   ├── BackupManager.vue     # 备份管理 (85行)
 │   ├── CacheManager.vue      # 缓存管理 (86行)
 │   ├── ProxySettings.vue     # 代理设置 (148行)
@@ -139,14 +139,15 @@ src/
 │   ├── BottomToolbar.vue     # 底部工具栏 (167行)
 │   ├── TabBar.vue            # 标签栏 (158行)
 │   ├── PopupLayout.vue       # 弹窗布局 (153行)
-│   ├── SoftwareFormModal.vue # 软件包添加/编辑弹窗 (353行) ⚠️
+│   ├── SoftwareFormModal.vue # 软件包添加/编辑弹窗 (179行)
 │   ├── SoftwareDetailModal.vue # 软件包详情弹窗 (233行)
 │   ├── SettingsPopup.vue     # 设置弹窗 (34行)
 │   ├── LogsPopup.vue         # 日志弹窗 (24行)
 │   └── EnumLayout.vue        # 枚举管理布局 (26行)
 ├── composables/              # 组合式函数
 │   ├── footer.ts             # 底部工具栏状态 (23行)
-│   └── packageActions.ts     # 软件包操作逻辑 (189行)
+│   ├── packageActions.ts     # 软件包操作逻辑 (189行)
+│   └── useSoftwareForm.ts    # 软件包表单逻辑 (218行)
 ├── stores/                   # Pinia 状态管理
 │   ├── packages.ts           # 软件包状态 (57行)
 │   └── tabs.ts               # 标签页状态 (77行)
@@ -155,8 +156,6 @@ src/
 └── assets/
     └── styles.css            # 全局样式
 ```
-
-> ⚠️ 标记的文件超过 300 行限制，需要进一步拆分
 
 ## 系统架构图
 
