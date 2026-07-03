@@ -26,8 +26,9 @@ const toolbar = useToolbarStore();
 const pageSize = 50;
 const currentPage = ref(1);
 
-onMounted(() => {
-  pkgStore.fetchPackages();
+onMounted(async () => {
+  await pkgStore.fetchPackages();
+  syncToolbar();
 });
 
 /** 检查器类型显示文本映射 */
@@ -48,6 +49,7 @@ async function checkAll() {
   try {
     await invoke("check_all_upstream");
     await pkgStore.fetchPackages();
+    syncToolbar();
   } finally {
     pkgStore.loading = false;
     toolbar.clearProgress();
@@ -75,11 +77,14 @@ function goToPage(page: number) {
   currentPage.value = page;
 }
 
-/** 同步统计到底部工具栏 */
-watch(summary, (s) => {
+function syncToolbar() {
+  const s = summary.value;
   toolbar.setInfo(`总计: ${s.total}  |  已最新: ${s.upToDate}  |  需更新: ${s.outdated}`);
   toolbar.setPagination(s.total, currentPage.value, pageSize, goToPage);
-}, { immediate: true });
+}
+
+/** 同步统计到底部工具栏 */
+watch(summary, syncToolbar);
 watch(currentPage, (p) => {
   toolbar.setPagination(summary.value.total, p, pageSize, goToPage);
 });

@@ -11,7 +11,7 @@
   - get_proxies: 代理源列表
 -->
 <script setup lang="ts">
-import { ref, onMounted, watch } from "vue";
+import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { usePackageStore } from "../stores/packages";
 import { invoke } from "@tauri-apps/api/core";
@@ -27,17 +27,14 @@ const proxyCount = ref(0);
 
 onMounted(async () => {
   await pkgStore.fetchPackages();
+  const total = pkgStore.packages.length;
+  const outdated = pkgStore.packages.filter(p => p.is_outdated).length;
+  toolbar.setInfo(`总计: ${total}  |  已最新: ${total - outdated}  |  需更新: ${outdated}`);
   try {
     const proxies = await invoke<ProxyInfo[]>("get_proxies");
     proxyCount.value = proxies.length;
   } catch { /* 忽略代理获取错误 */ }
 });
-
-watch(() => [pkgStore.packages.length, pkgStore.packages.filter(p => p.is_outdated).length], () => {
-  const total = pkgStore.packages.length;
-  const outdated = pkgStore.packages.filter(p => p.is_outdated).length;
-  toolbar.setInfo(`总计: ${total}  |  已最新: ${total - outdated}  |  需更新: ${outdated}`);
-}, { immediate: true });
 
 const stats = {
   total: () => pkgStore.packages.length,
