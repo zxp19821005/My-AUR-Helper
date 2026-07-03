@@ -1,0 +1,6 @@
+{
+  // $schema: opencode 配置的 JSON Schema 地址，用于编辑器的自动补全和校验
+  "$schema": "https://opencode.ai/config.json",
+  // model: AI 编码助手使用的默认模型名称
+  "model": "opencode/deepseek-v4-flash-free"
+}

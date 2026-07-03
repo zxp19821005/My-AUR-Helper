@@ -1,0 +1,187 @@
+/* ================================================================ */
+/* styles.css - 全局样式表                                            */
+/*                                                                  */
+/* 功能：                                                             */
+/* - 定义应用的主题颜色和 CSS 变量                                     */
+/* - 支持深色/浅色主题切换                                           */
+/* - 提供全局通用样式类（卡片、按钮、徽章、选择框等）                  */
+/* ================================================================ */
+
+/* ===== 深色主题（默认）CSS 变量定义 ===== */
+:root {
+  --bg-primary: #1a1b2e;        /* 主背景色 - 深色 */
+  --bg-secondary: #232541;      /* 次背景色 - 稍亮 */
+  --bg-card: #2a2d4a;          /* 卡片背景色 */
+  --text-primary: #e8e9f0;     /* 主文字色 - 浅色 */
+  --text-secondary: #9a9cb8;   /* 次文字色 - 灰色 */
+  --accent: #6c63ff;           /* 强调色 - 紫色 */
+  --accent-hover: #5a52e0;     /* 强调色悬停态 - 稍暗 */
+  --success: #4caf7d;          /* 成功色 - 绿色 */
+  --warning: #ffa726;          /* 警告色 - 橙色 */
+  --error: #ef5350;            /* 错误色 - 红色 */
+  --border: #353857;           /* 边框色 */
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;  /* 字体栈 */
+  font-size: 14px;             /* 默认字体大小 */
+}
+
+/* ===== 浅色主题 CSS 变量定义 ===== */
+[data-theme="light"] {
+  --bg-primary: #f5f5f5;       /* 主背景色 - 浅灰色 */
+  --bg-secondary: #ffffff;     /* 次背景色 - 白色 */
+  --bg-card: #ffffff;          /* 卡片背景色 - 白色 */
+  --text-primary: #1a1a1a;    /* 主文字色 - 深色 */
+  --text-secondary: #666666;   /* 次文字色 - 中灰色 */
+  --accent: #6c63ff;           /* 强调色 - 紫色（与深色主题一致） */
+  --accent-hover: #5a52e0;     /* 强调色悬停态 */
+  --success: #4caf7d;          /* 成功色 - 绿色 */
+  --warning: #ff9800;          /* 警告色 - 橙色 */
+  --error: #f44336;            /* 错误色 - 红色 */
+  --border: #e0e0e0;           /* 边框色 - 浅灰 */
+}
+
+/* ===== 全局重置样式 ===== */
+/* 清除所有元素的默认内外边距，使用 border-box 盒模型 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* 隐藏所有滚动条（WebKit 内核） */
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* 隐藏所有滚动条（Firefox） */
+* {
+  scrollbar-width: none;
+}
+
+/* ===== 全局 body 样式 ===== */
+body {
+  background-color: var(--bg-primary);   /* 使用主题主背景色 */
+  color: var(--text-primary);            /* 使用主题主文字色 */
+  min-height: 100vh;                     /* 至少占满视口高度 */
+}
+
+/* ===== 应用根容器 ===== */
+#app-container {
+  display: flex;                          /* Flexbox 布局 */
+  min-height: 100vh;                      /* 至少占满视口高度 */
+  height: 100vh;                          /* 占满视口高度 */
+}
+
+/* ===== 主内容区域 ===== */
+.main-area {
+  flex: 1;                                /* 填充剩余空间 */
+  display: flex;                          /* Flexbox 布局 */
+  flex-direction: column;                 /* 垂直排列子元素 */
+  min-width: 0;                           /* 防止内容溢出 */
+  overflow: hidden;                       /* 隐藏溢出内容 */
+}
+
+/* ===== 主内容滚动区 ===== */
+.main-content {
+  flex: 1;                                /* 填充剩余空间 */
+  padding: 1.25rem;                       /* 内边距 */
+  overflow-y: auto;                       /* 允许垂直滚动 */
+}
+
+/* ===== 卡片通用样式 ===== */
+.card {
+  background-color: var(--bg-card);       /* 卡片背景 */
+  border-radius: 12px;                    /* 圆角 */
+  padding: 1.5rem;                        /* 内边距 */
+  border: 1px solid var(--border);        /* 边框 */
+}
+
+/* ===== 基础按钮样式 ===== */
+.btn {
+  padding: 0.5rem 1rem;                   /* 按钮内边距 */
+  border-radius: 8px;                     /* 圆角 */
+  border: none;                           /* 无边框 */
+  cursor: pointer;                        /* 指针光标 */
+  font-size: 0.875rem;                    /* 字体大小（相对 14px） */
+  transition: all 0.2s;                   /* 过渡动画 */
+}
+
+/* ===== 主要按钮 ===== */
+.btn-primary {
+  background-color: var(--accent);        /* 强调色背景 */
+  color: white;                            /* 白色文字 */
+}
+
+.btn-primary:hover {
+  background-color: var(--accent-hover);  /* 悬停时加深 */
+}
+
+/* ===== 危险按钮 ===== */
+.btn-danger {
+  background-color: var(--error);         /* 红色背景 */
+  color: white;                            /* 白色文字 */
+}
+
+/* ===== 描边按钮 ===== */
+.btn-outline {
+  background-color: transparent;          /* 透明背景 */
+  border: 1px solid var(--border);        /* 边框 */
+  color: var(--text-secondary);            /* 灰色文字 */
+}
+
+.btn-outline:hover {
+  border-color: var(--accent);            /* 悬停时强调色边框 */
+  color: var(--accent);                    /* 悬停时强调色文字 */
+}
+
+/* ===== 状态徽章 ===== */
+.status-badge {
+  display: inline-block;                   /* 行内块级 */
+  padding: 0.25rem 0.75rem;               /* 内边距 */
+  border-radius: 20px;                     /* 圆形徽章 */
+  font-size: 0.75rem;                      /* 小字体 */
+  font-weight: 600;                        /* 加粗 */
+}
+
+/* 已最新状态 */
+.status-up_to_date {
+  background-color: rgba(76, 175, 125, 0.15);  /* 绿色半透明背景 */
+  color: var(--success);                        /* 绿色文字 */
+}
+
+/* 有更新可用状态 */
+.status-update_available {
+  background-color: rgba(255, 167, 38, 0.15);  /* 橙色半透明背景 */
+  color: var(--warning);                        /* 橙色文字 */
+}
+
+/* 错误状态 */
+.status-error {
+  background-color: rgba(239, 83, 80, 0.15);   /* 红色半透明背景 */
+  color: var(--error);                          /* 红色文字 */
+}
+
+/* 检查中状态 */
+.status-checking {
+  background-color: rgba(108, 99, 255, 0.15);  /* 紫色半透明背景 */
+  color: var(--accent);                         /* 紫色文字 */
+}
+
+/* 手动检查状态 */
+.status-manual {
+  background-color: rgba(154, 156, 184, 0.15); /* 灰色半透明背景 */
+  color: var(--text-secondary);                 /* 灰色文字 */
+}
+
+/* ===== 选择框（下拉菜单）通用样式 ===== */
+select {
+  appearance: none;                    /* 移除默认外观 */
+  -webkit-appearance: none;            /* WebKit 内核兼容 */
+  background-color: var(--bg-primary); /* 使用主背景色 */
+  color: var(--text-primary);          /* 主文字色 */
+}
+
+/* 选择框选项样式 */
+select option {
+  background-color: var(--bg-primary); /* 使用主背景色 */
+  color: var(--text-primary);          /* 主文字色 */
+}

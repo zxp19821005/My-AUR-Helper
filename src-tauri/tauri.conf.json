@@ -1,0 +1,34 @@
+{
+  // $schema: Tauri v2 配置的 JSON Schema 地址，用于编辑器的自动补全和校验
+  "$schema": "https://raw.githubusercontent.com/nicegui/tauri/v2/tooling/cli/schema.json",
+  // productName: 应用产品名称，显示在窗口标题栏和系统菜单中
+  "productName": "My AUR Helper",
+  // version: 应用版本号，遵循语义化版本 (SemVer)
+  "version": "0.1.0",
+  // identifier: 应用唯一标识符（反向域名格式），用于系统级区分
+  "identifier": "com.zxp19821005.aur-helper",
+  // build: 构建相关的命令和路径配置
+  "build": {
+    "beforeDevCommand": "pnpm dev",  // 开发模式下在启动 WebView 前运行的命令
+    "devUrl": "http://localhost:1420",            // 开发模式下 WebView 加载的 URL（Vite 服务器）
+    "beforeBuildCommand": "pnpm build",           // 构建前运行命令（编译前端）
+    "frontendDist": "../dist"                     // 构建后的前端静态文件目录
+  },
+  // app: 应用窗口和安全配置
+  "app": {
+    // windows: 窗口定义列表，可配置多个窗口
+    "windows": [
+      {
+        "title": "My AUR Helper",     // 窗口标题
+        "width": 1200,                // 窗口初始宽度（像素）
+        "height": 800,                // 窗口初始高度（像素）
+        "resizable": true,            // 是否允许用户调整窗口大小
+        "fullscreen": false           // 是否默认全屏
+      }
+    ],
+    // security: 安全策略配置
+    "security": {
+      "csp": null  // Content-Security-Policy: null 表示不限制（开发方便，生产建议配置）
+    }
+  }
+}

@@ -1,0 +1,22 @@
+<!doctype html>
+<!-- index.html: Tauri 应用的 HTML 入口文件                          -->
+<!-- Vite 以此文件为起点构建前端，Tauri 的 WebView 加载此页面。      -->
+<!-- lang="zh-CN" 声明页面语言为简体中文                             -->
+<html lang="zh-CN">
+  <head>
+    <!-- charset: 使用 UTF-8 编码，支持 Unicode 字符集 -->
+    <meta charset="UTF-8" />
+    <!-- favicon: SVG 格式的浏览器标签页图标 -->
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <!-- viewport: 响应式视口设置，适配桌面和移动端 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- title: 浏览器标签页标题 -->
+    <title>My AUR Helper</title>
+  </head>
+  <body>
+    <!-- #app: Vue 应用的挂载点，所有 Vue 组件渲染到此 div 内部 -->
+    <div id="app"></div>
+    <!-- script: 引入 Vite 打包的 TypeScript 入口文件，type="module" 启用 ESM -->
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

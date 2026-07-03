@@ -1,0 +1,36 @@
+{
+  // name: 项目名称，用于 npm/pnpm 包管理标识
+  "name": "my-aur-helper",
+  // private: 私有项目，禁止发布到 npm 公共仓库
+  "private": true,
+  // version: 当前版本号，遵循语义化版本规范
+  "version": "0.1.0",
+  // type: 模块系统类型，"module" 表示使用 ESM (ECMAScript Modules)
+  "type": "module",
+  // scripts: 常用命令别名，通过 pnpm run <script> 执行
+  "scripts": {
+    "dev": "vite",                           // 启动 Vite 开发服务器（热更新）
+    "build": "vue-tsc --noEmit && vite build", // 先 TypeScript 类型检查，再构建
+    "preview": "vite preview",               // 预览构建产物的本地服务器
+    "tauri": "tauri",                        // Tauri CLI 命令代理
+    "lint": "eslint . --ext ts,vue"          // ESLint 代码检查
+  },
+  // dependencies: 运行时依赖，打包时会包含在最终产物中
+  "dependencies": {
+    "@lucide/vue": "^1.22.0",                    // Lucide 图标库的 Vue 封装
+    "@tauri-apps/api": "^2.0.0",                 // Tauri 前端 API（invoke 等）
+    "@tauri-apps/plugin-log": "^2.0.0",          // Tauri 日志插件
+    "@tauri-apps/plugin-shell": "^2.0.0",        // Tauri Shell 插件（运行系统命令）
+    "pinia": "^2.1.7",                           // Vue 状态管理库
+    "vue": "^3.4.0",                             // Vue 3 前端框架
+    "vue-router": "^4.3.0"                       // Vue 路由管理
+  },
+  // devDependencies: 开发依赖，仅在开发/构建时使用
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0",                 // Tauri CLI 构建工具
+    "@vitejs/plugin-vue": "^5.0.0",              // Vite 的 Vue 插件（SFC 编译）
+    "typescript": "^5.7.0",                      // TypeScript 编译器
+    "vite": "^5.4.0",                            // 前端构建工具
+    "vue-tsc": "^2.2.0"                          // Vue TypeScript 类型检查
+  }
+}
