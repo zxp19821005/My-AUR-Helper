@@ -16,21 +16,15 @@ import { useRouter } from "vue-router";
 import { usePackageStore } from "../stores/packages";
 import { invoke } from "@tauri-apps/api/core";
 import type { ProxyInfo } from "../types";
-import { inject } from "vue";
-import { FOOTER_KEY } from "../composables/footer";
 import PageToolbar from "../components/PageToolbar.vue";
 
 const router = useRouter();
 const pkgStore = usePackageStore();
-const footer = inject(FOOTER_KEY)!;
 
 const proxyCount = ref(0);
 
 onMounted(async () => {
   await pkgStore.fetchPackages();
-  const total = pkgStore.packages.length;
-  const outdated = pkgStore.packages.filter(p => p.is_outdated).length;
-  footer.infoText = `总计: ${total}  |  已最新: ${total - outdated}  |  需更新: ${outdated}`;
   try {
     const proxies = await invoke<ProxyInfo[]>("get_proxies");
     proxyCount.value = proxies.length;
