@@ -2,8 +2,8 @@ use anyhow::Result;    // 通用错误处理
 use reqwest::Client;   // HTTP 客户端，用于发送 API 请求
 use log::info;         // 日志记录
 
-/// AUR RPC API 的基础 URL
-const AUR_RPC_URL: &str = "https://aur.archlinux.org/rpc/v12";
+/// AUR RPC API 的基础 URL（v5 接口）
+const AUR_RPC_URL: &str = "https://aur.archlinux.org/rpc/v5";
 
 /// AUR 包数据结构
 /// 对应 AUR RPC v12 接口返回的包信息字段
