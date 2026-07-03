@@ -20,48 +20,49 @@ pub struct AurPackageData {
     pub out_of_date: Option<bool>,                // 是否标记为过期
 }
 
-/// 通过维护者名获取 AUR 包列表
+/// 通过用户名获取 AUR 包列表（包括维护者和共同维护者）
 /// @param client - 复用的 HTTP 客户端
-/// @param username - AUR 维护者的用户名
-/// @returns 该维护者维护的所有包的数据列表
-pub async fn fetch_packages_by_maintainer(client: &Client, username: &str) -> Result<Vec<AurPackageData>> {
-    // 构建 AUR RPC 搜索 URL，按维护者查询
-    let url = format!("{}/search/{}?by=maintainer", AUR_RPC_URL, username);
-    let resp = client.get(&url).send().await?;          // 发送 HTTP GET 请求
-    let data: serde_json::Value = resp.json().await?;  // 解析 JSON 响应
-    let mut packages = Vec::new();
-    // 遍历结果数组，提取每个包的信息
-    if let Some(results) = data["results"].as_array() {
-        for item in results {
-            let pkgname = item["Name"].as_str().unwrap_or("").to_string();
-            if pkgname.is_empty() {
-                continue; // 跳过无名称的条目
+/// @param username - AUR 用户名
+/// @returns 该用户维护或共同维护的所有包的数据列表
+pub async fn fetch_packages_by_user(client: &Client, username: &str) -> Result<Vec<AurPackageData>> {
+    let mut all = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    // 分别查询维护者和共同维护者，合并去重
+    for by_field in &["maintainer", "comaintainers"] {
+        let url = format!("{}/search/{}?by={}", AUR_RPC_URL, username, by_field);
+        if let Ok(resp) = client.get(&url).send().await {
+            if let Ok(data) = resp.json::<serde_json::Value>().await {
+                if let Some(results) = data["results"].as_array() {
+                    for item in results {
+                        let pkgname = item["Name"].as_str().unwrap_or("").to_string();
+                        if pkgname.is_empty() || !seen.insert(pkgname.clone()) {
+                            continue;
+                        }
+                        all.push(AurPackageData {
+                            pkgname,
+                            pkgdesc: item["Description"].as_str().map(|s| s.to_string()),
+                            version: item["Version"].as_str().map(|s| s.to_string()),
+                            url: item["URL"].as_str().map(|s| s.to_string()),
+                            license: item["License"].as_array()
+                                .and_then(|a| a.first())
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string()),
+                            depends: item["Depends"].as_array()
+                                .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()),
+                            makedepends: item["MakeDepends"].as_array()
+                                .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()),
+                            optdepends: item["OptDepends"].as_array()
+                                .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()),
+                            out_of_date: item["OutOfDate"].as_i64().map(|v| v != 0),
+                        });
+                    }
+                }
             }
-            // 将 JSON 字段映射到 AurPackageData 结构体
-            packages.push(AurPackageData {
-                pkgname,
-                pkgdesc: item["Description"].as_str().map(|s| s.to_string()),
-                version: item["Version"].as_str().map(|s| s.to_string()),
-                url: item["URL"].as_str().map(|s| s.to_string()),
-                // License 字段是数组，取第一个元素
-                license: item["License"].as_array()
-                    .and_then(|a| a.first())
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string()),
-                // 数组字段，过滤出所有字符串元素
-                depends: item["Depends"].as_array()
-                    .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()),
-                makedepends: item["MakeDepends"].as_array()
-                    .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()),
-                optdepends: item["OptDepends"].as_array()
-                    .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()),
-                // OutOfDate 为非 0 表示已过期
-                out_of_date: item["OutOfDate"].as_i64().map(|v| v != 0),
-            });
         }
     }
-    info!("Fetched {} packages from AUR", packages.len());
-    Ok(packages)
+    info!("Fetched {} packages from AUR (maintainer + comaintainer)", all.len());
+    Ok(all)
 }
 
 /// 获取单个 AUR 包信息
