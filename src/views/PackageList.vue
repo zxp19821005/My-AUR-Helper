@@ -12,16 +12,16 @@
   - check_all_upstream: 检查所有上游版本
 -->
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";                   // Vue 核心 API
-import { useRouter } from "vue-router";                      // 路由 API：用于跳转到详情页
-import { invoke } from "@tauri-apps/api/core";                // Tauri IPC 调用
-import { usePackageStore } from "../stores/packages";         // 软件包状态 Store
-import { useToolbarStore } from "../stores/toolbar";
+import { computed, onMounted, ref, watch, inject } from "vue";
+import { useRouter } from "vue-router";
+import { invoke } from "@tauri-apps/api/core";
+import { usePackageStore } from "../stores/packages";
+import { FOOTER_KEY } from "../composables/footer";
 import PageToolbar from "../components/PageToolbar.vue";
 
 const router = useRouter();
 const pkgStore = usePackageStore();
-const toolbar = useToolbarStore();
+const footer = inject(FOOTER_KEY)!;
 
 const pageSize = 50;
 const currentPage = ref(1);
@@ -45,14 +45,14 @@ const checkerText: Record<string, string> = {
 /** 检查所有软件包的上游版本 */
 async function checkAll() {
   pkgStore.loading = true;
-  toolbar.setProgress(0, 1);
+  footer.progress = { current: 0, total: 1 };
   try {
     await invoke("check_all_upstream");
     await pkgStore.fetchPackages();
     syncToolbar();
   } finally {
     pkgStore.loading = false;
-    toolbar.clearProgress();
+    footer.progress = null;
   }
 }
 
@@ -79,14 +79,19 @@ function goToPage(page: number) {
 
 function syncToolbar() {
   const s = summary.value;
-  toolbar.setInfo(`总计: ${s.total}  |  已最新: ${s.upToDate}  |  需更新: ${s.outdated}`);
-  toolbar.setPagination(s.total, currentPage.value, pageSize, goToPage);
+  footer.infoText = `总计: ${s.total}  |  已最新: ${s.upToDate}  |  需更新: ${s.outdated}`;
+  footer.showPagination = s.total > pageSize;
+  footer.totalRecords = s.total;
+  footer.currentPage = currentPage.value;
+  footer.pageSize = pageSize;
+  footer.onPageChange = goToPage;
 }
 
 /** 同步统计到底部工具栏 */
 watch(summary, syncToolbar);
 watch(currentPage, (p) => {
-  toolbar.setPagination(summary.value.total, p, pageSize, goToPage);
+  footer.currentPage = p;
+  footer.onPageChange = goToPage;
 });
 </script>
 

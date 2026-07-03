@@ -12,13 +12,13 @@
   - set_proxy_active: 设置代理启用状态
 -->
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { ProxyInfo } from "../types";
-import { useToolbarStore } from "../stores/toolbar";
+import { FOOTER_KEY } from "../composables/footer";
 import PageToolbar from "../components/PageToolbar.vue";
 
-const toolbar = useToolbarStore();
+const footer = inject(FOOTER_KEY)!;
 
 /** 代理列表 */
 const proxies = ref<ProxyInfo[]>([]);
@@ -35,7 +35,7 @@ onMounted(async () => {
 async function loadProxies() {
   try {
     proxies.value = await invoke<ProxyInfo[]>("get_proxies");
-    toolbar.setInfo(`代理源: ${proxies.value.length} 个`);
+    footer.infoText = `代理源: ${proxies.value.length} 个`;
   } catch { /* 忽略加载错误 */ }
 }
 

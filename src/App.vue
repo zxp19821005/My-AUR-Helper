@@ -13,21 +13,25 @@
   - logs: 日志窗口
 -->
 <script setup lang="ts">
-import { ref, watch, onMounted } from "vue";                              // Vue 核心 API：响应式数据、侦听器、生命周期
-import { useRoute } from "vue-router";                                    // 路由 API：获取当前路由信息
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";  // Tauri Webview 窗口 API：获取当前窗口信息
-import Sidebar from "./components/Sidebar.vue";                           // 侧边栏导航组件
-import TabBar from "./components/TabBar.vue";                             // 标签栏组件（类 VS Code 风格）
-import BottomToolbar from "./components/BottomToolbar.vue";               // 底部工具栏
-import { useTabStore } from "./stores/tabs";                              // 标签页状态管理 Store
-import { useToolbarStore } from "./stores/toolbar";                       // 工具栏状态 Store
+import { ref, watch, onMounted, reactive, provide } from "vue";
+import { useRoute } from "vue-router";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import Sidebar from "./components/Sidebar.vue";
+import TabBar from "./components/TabBar.vue";
+import BottomToolbar from "./components/BottomToolbar.vue";
+import { useTabStore } from "./stores/tabs";
+import { FOOTER_KEY, defaultFooterState } from "./composables/footer";
+import type { FooterState } from "./composables/footer";
 
 const route = useRoute();
 const tabStore = useTabStore();
-const toolbarStore = useToolbarStore();
 
 const sidebarCollapsed = ref(true);
 const isPopupWindow = ref(false);
+
+/** 底部工具栏状态 - 通过 provide/inject 共享 */
+const footerState = reactive<FooterState>(defaultFooterState());
+provide(FOOTER_KEY, footerState);
 
 onMounted(async () => {
   const win = getCurrentWebviewWindow();
@@ -38,7 +42,7 @@ onMounted(async () => {
 watch(
   () => route.path,
   (path) => {
-    toolbarStore.reset();
+    Object.assign(footerState, defaultFooterState());
     const routeLabels: Record<string, string> = {
       "/": "仪表盘",
       "/packages": "软件管理",

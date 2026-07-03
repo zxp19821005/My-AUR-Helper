@@ -1,17 +1,18 @@
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
-import { useToolbarStore } from "../stores/toolbar";
+import { ref, computed, inject } from "vue";
+import { FOOTER_KEY } from "../composables/footer";
 
-const toolbar = useToolbarStore();
+const footer = inject(FOOTER_KEY)!;
 
-const totalPages = computed(() => Math.ceil(toolbar.totalRecords / toolbar.pageSize) || 1);
+const totalPages = computed(() => Math.ceil(footer.totalRecords / footer.pageSize) || 1);
 
-const jumpInput = ref("");
+const jumpInput = ref(String(footer.currentPage));
 let jumpTimer: ReturnType<typeof setTimeout> | null = null;
 
 function goTo(page: number) {
   if (page < 1 || page > totalPages.value) return;
-  if (toolbar.onPageChange) toolbar.onPageChange(page);
+  footer.currentPage = page;
+  if (footer.onPageChange) footer.onPageChange(page);
 }
 
 function onJumpInput() {
@@ -22,22 +23,23 @@ function onJumpInput() {
   }, 500);
 }
 
-watch(() => toolbar.currentPage, (p) => {
+import { watch } from "vue";
+watch(() => footer.currentPage, (p) => {
   jumpInput.value = String(p);
-}, { immediate: true });
+});
 </script>
 
 <template>
   <div class="bottom-toolbar">
     <div class="btf-left">
-      <span v-if="toolbar.infoText">{{ toolbar.infoText }}</span>
+      <span v-if="footer.infoText">{{ footer.infoText }}</span>
     </div>
     <div class="btf-center">
-      <template v-if="toolbar.showPagination">
-        <button class="btf-btn" :disabled="toolbar.currentPage <= 1" @click="goTo(1)" title="首页">
+      <template v-if="footer.showPagination">
+        <button class="btf-btn" :disabled="footer.currentPage <= 1" @click="goTo(1)" title="首页">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
         </button>
-        <button class="btf-btn" :disabled="toolbar.currentPage <= 1" @click="goTo(toolbar.currentPage - 1)" title="上一页">
+        <button class="btf-btn" :disabled="footer.currentPage <= 1" @click="goTo(footer.currentPage - 1)" title="上一页">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
         </button>
 
@@ -46,22 +48,22 @@ watch(() => toolbar.currentPage, (p) => {
           <span class="btf-text">/ {{ totalPages }} 页</span>
         </span>
 
-        <button class="btf-btn" :disabled="toolbar.currentPage >= totalPages" @click="goTo(toolbar.currentPage + 1)" title="下一页">
+        <button class="btf-btn" :disabled="footer.currentPage >= totalPages" @click="goTo(footer.currentPage + 1)" title="下一页">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
         </button>
-        <button class="btf-btn" :disabled="toolbar.currentPage >= totalPages" @click="goTo(totalPages)" title="末页">
+        <button class="btf-btn" :disabled="footer.currentPage >= totalPages" @click="goTo(totalPages)" title="末页">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
         </button>
 
-        <span class="btf-text">共 {{ toolbar.totalRecords }} 条</span>
+        <span class="btf-text">共 {{ footer.totalRecords }} 条</span>
       </template>
     </div>
     <div class="btf-right">
-      <div v-if="toolbar.progress" class="btf-progress">
+      <div v-if="footer.progress" class="btf-progress">
         <div class="btf-progress-track">
-          <div class="btf-progress-fill" :style="{ width: (toolbar.progress.current / toolbar.progress.total * 100) + '%' }"></div>
+          <div class="btf-progress-fill" :style="{ width: (footer.progress.current / footer.progress.total * 100) + '%' }"></div>
         </div>
-        <span class="btf-text">{{ toolbar.progress.current }} / {{ toolbar.progress.total }}</span>
+        <span class="btf-text">{{ footer.progress.current }} / {{ footer.progress.total }}</span>
       </div>
     </div>
   </div>

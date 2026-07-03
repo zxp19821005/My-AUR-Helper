@@ -19,15 +19,15 @@
   - set_software_language: 设置编程语言
 -->
 <script setup lang="ts">
-import { ref, onMounted } from "vue";                    // Vue 核心 API
-import { useRoute } from "vue-router";                   // 路由 API：获取路由参数
-import { invoke } from "@tauri-apps/api/core";            // Tauri IPC 调用
-import type { SoftwareInfo, License, Language } from "../types";  // 类型定义
-import { useToolbarStore } from "../stores/toolbar";
+import { ref, onMounted, inject } from "vue";
+import { useRoute } from "vue-router";
+import { invoke } from "@tauri-apps/api/core";
+import type { SoftwareInfo, License, Language } from "../types";
+import { FOOTER_KEY } from "../composables/footer";
 import PageToolbar from "../components/PageToolbar.vue";
 
 const route = useRoute();
-const toolbar = useToolbarStore();
+const footer = inject(FOOTER_KEY)!;
 
 /** 软件包信息 */
 const pkg = ref<SoftwareInfo | null>(null);
@@ -57,7 +57,7 @@ onMounted(async () => {
     licenses.value = await invoke<License[]>("get_licenses");
     languages.value = await invoke<Language[]>("get_languages");
     if (pkg.value) {
-      toolbar.setInfo(`${pkg.value.pkgname}  |  ${pkg.value.is_outdated ? "需更新" : "已最新"}`);
+      footer.infoText = `${pkg.value.pkgname}  |  ${pkg.value.is_outdated ? "需更新" : "已最新"}`;
     }
   } catch {
     error.value = "Failed to load package";

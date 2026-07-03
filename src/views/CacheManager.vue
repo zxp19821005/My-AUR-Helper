@@ -10,13 +10,13 @@
   - get_setting: 获取缓存目录设置
 -->
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { CachePackage, Setting } from "../types";
-import { useToolbarStore } from "../stores/toolbar";
+import { FOOTER_KEY } from "../composables/footer";
 import PageToolbar from "../components/PageToolbar.vue";
 
-const toolbar = useToolbarStore();
+const footer = inject(FOOTER_KEY)!;
 
 /** 缓存目录 */
 const cacheDir = ref("");
@@ -33,20 +33,20 @@ onMounted(async () => {
     const setting = await invoke<Setting | null>("get_setting", { key: "backup_dir" });
     if (setting) cacheDir.value = setting.value;
   } catch { /* ignore */ }
-  toolbar.setInfo(`缓存目录: ${cacheDir.value || "未设置"}`);
+  footer.infoText = `缓存目录: ${cacheDir.value || "未设置"}`;
 });
 
 /** 扫描缓存目录 */
 async function scanCache() {
   if (!cacheDir.value) return;
   scanning.value = true;
-  toolbar.setProgress(0, 1);
+  footer.progress = { current: 0, total: 1 };
   try {
     packages.value = await invoke<CachePackage[]>("scan_pkg_files_cmd", { directory: cacheDir.value });
-    toolbar.setInfo(`缓存目录: ${cacheDir.value}  |  找到 ${packages.value.length} 个包文件`);
+    footer.infoText = `缓存目录: ${cacheDir.value}  |  找到 ${packages.value.length} 个包文件`;
   } catch { /* ignore */ }
   scanning.value = false;
-  toolbar.clearProgress();
+  footer.progress = null;
 }
 
 function formatSize(bytes: number): string {
