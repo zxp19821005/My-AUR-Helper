@@ -177,13 +177,13 @@ export function useSoftwareForm() {
     }
   }
 
-  function init(mode: string, pkgname?: string) {
+  async function init(mode: string, pkgname?: string) {
     error.value = "";
     loadEnums();
-    resetForm(mode);
     if (mode === "edit" && pkgname) {
-      loadSoftware(pkgname);
+      await loadSoftware(pkgname);
     }
+    resetForm(mode);
   }
 
   return {

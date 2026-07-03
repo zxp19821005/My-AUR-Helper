@@ -8,7 +8,6 @@
 import { ref, onMounted, inject, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { invoke } from "@tauri-apps/api/core";
-import type { SoftwareInfo } from "../types";
 import { FOOTER_KEY } from "../composables/footer";
 import { useSoftwareForm, pkgTypes, checkerTypes } from "../composables/useSoftwareForm";
 import PageToolbar from "../components/PageToolbar.vue";
@@ -18,11 +17,10 @@ const router = useRouter();
 const footer = inject(FOOTER_KEY)!;
 
 const {
-  saving, error, form, licenses, languages,
-  isDirty, save, resetForm, loadEnums,
+  saving, error, form, licenses, languages, pkg,
+  isDirty, save, resetForm, init,
 } = useSoftwareForm();
 
-const pkg = ref<SoftwareInfo | null>(null);
 const checking = ref(false);
 const successMsg = ref("");
 
@@ -36,16 +34,8 @@ function syncFooter() {
 
 onMounted(async () => {
   const pkgname = route.params.pkgname as string;
-  error.value = "";
-  loadEnums();
-  const data = await invoke<SoftwareInfo | null>("get_software", { pkgname });
-  if (data) {
-    pkg.value = data;
-    resetForm("edit");
-    syncFooter();
-  } else {
-    error.value = "加载软件包信息失败";
-  }
+  await init("edit", pkgname);
+  syncFooter();
 });
 
 async function checkUpdate() {
@@ -54,12 +44,8 @@ async function checkUpdate() {
   error.value = "";
   try {
     await invoke<string>("check_upstream_version", { pkgname: pkg.value.pkgname });
-    const updated = await invoke<SoftwareInfo | null>("get_software", { pkgname: pkg.value.pkgname });
-    if (updated) {
-      pkg.value = updated;
-      resetForm("edit");
-      syncFooter();
-    }
+    await init("edit", pkg.value.pkgname);
+    syncFooter();
   } catch (e) {
     error.value = String(e);
   } finally {
@@ -70,10 +56,8 @@ async function checkUpdate() {
 async function handleSave() {
   const ok = await save("edit");
   if (ok) {
-    const updated = await invoke<SoftwareInfo | null>("get_software", { pkgname: pkg.value!.pkgname });
-    if (updated) {
-      pkg.value = updated;
-      resetForm("edit");
+    if (pkg.value) {
+      await init("edit", pkg.value.pkgname);
       syncFooter();
     }
     successMsg.value = "保存成功";
