@@ -23,9 +23,17 @@ impl Database {
         }
 
         if columns.contains(&"last_updated".to_string()) {
+            // 先尝试将纯数字文本直接转为整数
+            self.conn.execute_batch(
+                "UPDATE aur_info SET last_updated = CAST(last_updated AS INTEGER)
+                 WHERE typeof(last_updated) = 'text' AND last_updated IS NOT NULL
+                 AND last_updated NOT LIKE '%-%';"
+            )?;
+            // 再尝试将日期格式文本转为时间戳
             self.conn.execute_batch(
                 "UPDATE aur_info SET last_updated = CAST(strftime('%s', last_updated) AS INTEGER)
-                 WHERE typeof(last_updated) = 'text' AND last_updated IS NOT NULL;"
+                 WHERE typeof(last_updated) = 'text' AND last_updated IS NOT NULL
+                 AND last_updated LIKE '%-%';"
             )?;
         }
         Ok(())

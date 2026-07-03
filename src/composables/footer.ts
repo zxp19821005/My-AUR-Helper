@@ -7,7 +7,7 @@ export interface FooterState {
   currentPage: number;
   pageSize: number;
   onPageChange: ((page: number) => void) | null;
-  progress: { current: number; total: number } | null;
+  progress: { current: number; total: number; message?: string } | null;
 }
 
 export const defaultFooterState = (): FooterState => ({

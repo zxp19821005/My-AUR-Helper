@@ -30,7 +30,7 @@ impl Database {
     /// @returns 可选的 AUR 包信息
     pub fn get_aur_info(&self, software_id: i64) -> Result<Option<AurInfo>> {
         let mut stmt = self.conn.prepare(
-            "SELECT software_id, pkgdesc, aur_version, license_id, last_updated, depends, makedepends, optdepends, out_of_date FROM aur_info WHERE software_id=?1"
+            "SELECT software_id, pkgdesc, aur_version, license_id, CAST(last_updated AS INTEGER), depends, makedepends, optdepends, out_of_date FROM aur_info WHERE software_id=?1"
         )?;
         let mut rows = stmt.query_map(rusqlite::params![software_id], |row| {
             Ok(AurInfo {

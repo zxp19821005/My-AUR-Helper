@@ -152,4 +152,35 @@ impl Database {
         }
         Ok(items)
     }
+
+    /// 获取软件包列表展示数据（LEFT JOIN aur_info + upstream_info）
+    pub fn get_software_list_entries(&self) -> Result<Vec<SoftwareListEntry>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT s.software_id, s.pkgname, s.package_type_id, s.checker_type_id, s.is_outdated,
+                    a.aur_version, CAST(a.last_updated AS INTEGER),
+                    u.upstream_version, u.last_checked
+             FROM software_info s
+             LEFT JOIN aur_info a ON s.software_id = a.software_id
+             LEFT JOIN upstream_info u ON s.software_id = u.software_id
+             ORDER BY s.pkgname"
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok(SoftwareListEntry {
+                software_id: row.get(0)?,
+                pkgname: row.get(1)?,
+                package_type_id: PackageType::from_id(row.get(2)?),
+                checker_type_id: CheckerType::from_id(row.get(3)?),
+                is_outdated: row.get::<_, i32>(4)? != 0,
+                aur_version: row.get(5)?,
+                aur_last_updated: row.get(6)?,
+                upstream_version: row.get(7)?,
+                upstream_last_checked: row.get(8)?,
+            })
+        })?;
+        let mut items = Vec::new();
+        for row in rows {
+            items.push(row?);
+        }
+        Ok(items)
+    }
 }

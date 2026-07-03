@@ -19,6 +19,7 @@ mod proxy_test;                    // 代理测试结果模型
 mod proxy_type;                    // 代理类型枚举
 mod setting;                       // 设置模型
 mod software_info;                 // 软件包信息模型
+mod software_list_entry;           // 软件包列表展示模型
 mod upstream_info;                 // 上游版本信息模型
 
 pub use aur_info::AurInfo;
@@ -34,4 +35,5 @@ pub use proxy_test::ProxyTest;
 pub use proxy_type::ProxyType;
 pub use setting::Setting;
 pub use software_info::SoftwareInfo;
+pub use software_list_entry::SoftwareListEntry;
 pub use upstream_info::UpstreamInfo;

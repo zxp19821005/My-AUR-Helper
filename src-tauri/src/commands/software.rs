@@ -2,7 +2,7 @@
  * software.rs - 软件包管理命令
  */
 use log::{info, debug, error};
-use tauri::State;
+use tauri::{Emitter, State};
 
 use crate::aur;
 use crate::checkers;
@@ -16,6 +16,16 @@ pub async fn list_software(state: State<'_, AppState>) -> Result<Vec<SoftwareInf
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let result = db.get_all_software().map_err(|e| e.to_string())?;
     info!("Listed {} software entries", result.len());
+    Ok(result)
+}
+
+/// 获取软件包列表展示数据（含 AUR + Upstream 信息）
+#[tauri::command]
+pub async fn list_software_view(state: State<'_, AppState>) -> Result<Vec<SoftwareListEntry>, String> {
+    debug!("Listing software view");
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let result = db.get_software_list_entries().map_err(|e| e.to_string())?;
+    info!("Listed {} software view entries", result.len());
     Ok(result)
 }
 
@@ -174,11 +184,15 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> Result<i64, String> {
 
 /// 从 PKGBUILD 文件同步软件包
 #[tauri::command]
-pub async fn sync_from_pkgbuild(state: State<'_, AppState>) -> Result<i64, String> {
+pub async fn sync_from_pkgbuild(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+    pkgname: Option<String>,
+) -> Result<i64, String> {
     info!("Syncing packages from PKGBUILD files");
     let aur_dir = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
-        db.get_setting("aur_files_dir")
+        db.get_setting("aur_packages_dir")
             .map_err(|e| e.to_string())?
             .map(|s| s.value)
             .unwrap_or_default()
@@ -187,15 +201,103 @@ pub async fn sync_from_pkgbuild(state: State<'_, AppState>) -> Result<i64, Strin
         return Err("AUR files directory not configured".to_string());
     }
     let path = std::path::Path::new(&aur_dir);
-    let packages = aur::sync_from_local_files(path)
-        .await
-        .map_err(|e| e.to_string())?;
-    let db = state.db.lock().map_err(|e| e.to_string())?;
-    for sw in &packages {
-        let _ = db.upsert_software(sw);
+
+    // 先收集所有目录
+    let mut dir_entries = Vec::new();
+    let mut entries = tokio::fs::read_dir(&path).await.map_err(|e| e.to_string())?;
+    while let Some(entry) = entries.next_entry().await.map_err(|e| e.to_string())? {
+        if entry.file_type().await.map_err(|e| e.to_string())?.is_dir() {
+            if let Some(ref filter_name) = pkgname {
+                let dir_name = entry.file_name().to_string_lossy().to_string();
+                if dir_name != *filter_name {
+                    continue;
+                }
+            }
+            dir_entries.push(entry);
+        }
     }
-    info!("Synced {} packages from PKGBUILD files", packages.len());
-    Ok(packages.len() as i64)
+
+    let total = dir_entries.len();
+    info!("Found {} package directories to sync", total);
+
+    // 发送初始进度（总数）
+    let _ = app.emit("sync-progress", serde_json::json!({
+        "current": 0,
+        "total": total,
+        "pkgname": "",
+        "message": format!("开始同步，共 {} 个包", total),
+    }));
+
+    let mut count = 0i64;
+    for (i, entry) in dir_entries.iter().enumerate() {
+        let dir_name = entry.file_name().to_string_lossy().to_string();
+        let pkg_path = entry.path();
+
+        // 发送开始处理事件
+        let _ = app.emit("sync-progress", serde_json::json!({
+            "current": i,
+            "total": total,
+            "pkgname": dir_name,
+            "message": format!("[{}/{}] 正在处理: {}", i + 1, total, dir_name),
+        }));
+
+        match aur::read_pkgbuild(&pkg_path).await {
+            Ok(Some((sw, _))) => {
+                let pkg_type = match sw.package_type_id.as_id() {
+                    2 => "二进制包",
+                    3 => "Git",
+                    4 => "AppImage",
+                    _ => "编译安装",
+                };
+                info!(
+                    "[{}/{}] {} - 类型: {}, 自动检查: {}, 检查测试版: {}, 检查二进制: {}",
+                    i + 1, total, sw.pkgname, pkg_type,
+                    sw.auto_check_enabled, sw.check_test_versions, sw.check_binary_files
+                );
+
+                let db = state.db.lock().map_err(|e| e.to_string())?;
+                let _ = db.upsert_software(&sw);
+                count += 1;
+
+                // 发送完成单个包事件
+                let _ = app.emit("sync-progress", serde_json::json!({
+                    "current": i + 1,
+                    "total": total,
+                    "pkgname": sw.pkgname,
+                    "message": format!("[{}/{}] 已完成: {}", i + 1, total, dir_name),
+                }));
+            }
+            Ok(None) => {
+                info!("[{}/{}] {} - 跳过（无 PKGBUILD 文件）", i + 1, total, dir_name);
+                let _ = app.emit("sync-progress", serde_json::json!({
+                    "current": i + 1,
+                    "total": total,
+                    "pkgname": dir_name,
+                    "message": format!("[{}/{}] 跳过: {} (无 PKGBUILD)", i + 1, total, dir_name),
+                }));
+            }
+            Err(e) => {
+                error!("[{}/{}] {} - 解析失败: {}", i + 1, total, dir_name, e);
+                let _ = app.emit("sync-progress", serde_json::json!({
+                    "current": i + 1,
+                    "total": total,
+                    "pkgname": dir_name,
+                    "message": format!("[{}/{}] 失败: {} ({})", i + 1, total, dir_name, e),
+                }));
+            }
+        }
+    }
+
+    // 发送完成事件
+    let _ = app.emit("sync-progress", serde_json::json!({
+        "current": total,
+        "total": total,
+        "pkgname": "",
+        "message": format!("同步完成，成功 {} 个", count),
+    }));
+
+    info!("Synced {} packages from PKGBUILD files", count);
+    Ok(count)
 }
 
 /// 更新指定软件包的 AUR 信息

@@ -60,6 +60,7 @@ watch(() => footer.currentPage, (p) => {
     </div>
     <div class="btf-right">
       <div v-if="footer.progress" class="btf-progress">
+        <span v-if="footer.progress.message" class="btf-progress-msg">{{ footer.progress.message }}</span>
         <div class="btf-progress-track">
           <div class="btf-progress-fill" :style="{ width: (footer.progress.current / footer.progress.total * 100) + '%' }"></div>
         </div>
@@ -141,6 +142,14 @@ watch(() => footer.currentPage, (p) => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+.btf-progress-msg {
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+  font-size: 0.75rem;
 }
 .btf-progress-track {
   width: 120px;

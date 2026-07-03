@@ -192,3 +192,16 @@ export interface CachePackage {
   arch: string;
   size: number;
 }
+
+/** 软件包列表展示条目（含 AUR + Upstream 信息） */
+export interface SoftwareListEntry {
+  software_id: number;
+  pkgname: string;
+  package_type_id: PackageType;
+  checker_type_id: CheckerType;
+  is_outdated: boolean;
+  aur_version: string | null;
+  aur_last_updated: number | null;
+  upstream_version: string | null;
+  upstream_last_checked: string | null;
+}

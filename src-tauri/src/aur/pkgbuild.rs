@@ -27,56 +27,83 @@ pub async fn read_pkgbuild(path: &Path) -> Result<Option<(SoftwareInfo, Option<S
 fn parse_pkgbuild(content: &str, path: &Path) -> Result<(SoftwareInfo, Option<String>)> {
     // 预编译正则表达式，匹配 PKGBUILD 中的变量赋值
     let re_pkgname = Regex::new(r"^pkgname=([a-zA-Z0-9@._+-]+)").unwrap();
-    let re_pkgdesc = Regex::new(r#"^pkgdesc="([^"]*)"#).unwrap();
+    let re_pkgver = Regex::new(r"^pkgver=(.+)").unwrap();
     let re_url = Regex::new(r#"^url="([^"]*)"#).unwrap();
-    let re_ghurl = Regex::new(r#"^_ghurl="([^"]*)"#).unwrap();     // GitHub URL 自定义变量
-    let re_giteeurl = Regex::new(r#"^_giteeurl="([^"]*)"#).unwrap(); // Gitee URL 自定义变量
-    let re_gitlaburl = Regex::new(r#"^_gitlaburl="([^"]*)"#).unwrap(); // GitLab URL 自定义变量
-    let re_dlurl = Regex::new(r#"^_dlurl="([^"]*)"#).unwrap();     // 下载 URL 自定义变量
+    let re_ghurl = Regex::new(r#"^_ghurl="([^"]*)"#).unwrap();
+    let re_giteeurl = Regex::new(r#"^_giteeurl="([^"]*)"#).unwrap();
+    let re_gitlaburl = Regex::new(r#"^_gitlaburl="([^"]*)"#).unwrap();
+    let re_dlurl = Regex::new(r#"^_dlurl="([^"]*)"#).unwrap();
+    // 匹配 source 数组中的 GitHub URL
+    let re_source_gh = Regex::new(r#"github\.com/([^/]+/[^/]+)"#).unwrap();
 
     let mut pkgname = String::new();
-    let mut _pkgdesc = None;        // 包描述（当前未使用）
-    let mut url = None;             // 项目主页 URL
-    let mut upstream_url = None;    // 上游版本检查 URL
-    let mut checker_type = CheckerType::Manual; // 默认为手动检查
+    let mut pkgver = String::new();
+    let mut url = None;
+    let mut upstream_url = None;
+    let mut in_source = false;
+    let mut checker_type = CheckerType::GitHubRelease; // 默认 GitHub 检查器
 
     // 逐行解析 PKGBUILD
     for line in content.lines() {
         let trimmed = line.trim();
-        if let Some(cap) = re_pkgname.captures(trimmed) {
-            pkgname = cap[1].to_string();                        // 提取 pkgname
-        } else if let Some(cap) = re_pkgdesc.captures(trimmed) {
-            _pkgdesc = Some(cap[1].to_string());                 // 提取 pkgdesc
-        } else if let Some(cap) = re_url.captures(trimmed) {
-            let u = cap[1].to_string();
-            url = Some(u.clone());
-            // 如果 URL 包含 github.com，自动设为 GitHub Release 检查器
-            if u.contains("github.com") {
-                checker_type = CheckerType::GitHubRelease;
+
+        // 处理 source 数组中的 URL
+        if in_source {
+            if let Some(cap) = re_source_gh.captures(trimmed) {
+                let gh_url = format!("https://github.com/{}", &cap[1]);
+                if upstream_url.is_none() {
+                    upstream_url = Some(gh_url);
+                }
             }
+            if trimmed.contains(')') || (!trimmed.ends_with('\\') && !trimmed.ends_with('"')) {
+                in_source = false;
+            }
+        }
+
+        if let Some(cap) = re_pkgname.captures(trimmed) {
+            pkgname = cap[1].to_string();
+        } else if let Some(cap) = re_pkgver.captures(trimmed) {
+            pkgver = cap[1].trim().to_string();
+        } else if let Some(cap) = re_url.captures(trimmed) {
+            url = Some(cap[1].to_string());
         } else if let Some(cap) = re_ghurl.captures(trimmed) {
-            upstream_url = Some(cap[1].to_string());             // 提取自定义 GitHub URL
-            checker_type = CheckerType::GitHubRelease;
+            upstream_url = Some(cap[1].to_string());
         } else if let Some(cap) = re_giteeurl.captures(trimmed) {
-            upstream_url = Some(cap[1].to_string());             // 提取自定义 Gitee URL
+            upstream_url = Some(cap[1].to_string());
             checker_type = CheckerType::Gitee;
         } else if let Some(cap) = re_gitlaburl.captures(trimmed) {
-            upstream_url = Some(cap[1].to_string());             // 提取自定义 GitLab URL
+            upstream_url = Some(cap[1].to_string());
             checker_type = CheckerType::GitLab;
         } else if let Some(cap) = re_dlurl.captures(trimmed) {
-            upstream_url = Some(cap[1].to_string());             // 提取自定义下载 URL
-            if checker_type == CheckerType::Manual {
-                checker_type = CheckerType::Redirect;            // 仅当尚未识别时设为重定向检查器
+            if upstream_url.is_none() {
+                upstream_url = Some(cap[1].to_string());
+            }
+        } else if trimmed.starts_with("source=") || trimmed.starts_with("source=(") {
+            // 开始 source 数组
+            if let Some(cap) = re_source_gh.captures(trimmed) {
+                let gh_url = format!("https://github.com/{}", &cap[1]);
+                if upstream_url.is_none() {
+                    upstream_url = Some(gh_url);
+                }
+            }
+            if !trimmed.contains(')') {
+                in_source = true;
             }
         }
     }
 
-    // 根据主页 URL 进一步推断检查器类型（如果尚未确定）
-    if let Some(ref u) = url {
-        if u.contains("gitee.com") && checker_type == CheckerType::Manual {
-            checker_type = CheckerType::Gitee;
+    // 根据主页 URL 推断检查器类型（如果尚未确定）
+    if upstream_url.is_none() {
+        if let Some(ref u) = url {
+            upstream_url = Some(u.clone());
         }
-        if u.contains("gitlab.com") && checker_type == CheckerType::Manual {
+    }
+    if let Some(ref u) = upstream_url {
+        if u.contains("github.com") {
+            checker_type = CheckerType::GitHubRelease;
+        } else if u.contains("gitee.com") {
+            checker_type = CheckerType::Gitee;
+        } else if u.contains("gitlab.com") {
             checker_type = CheckerType::GitLab;
         }
     }
@@ -91,34 +118,64 @@ fn parse_pkgbuild(content: &str, path: &Path) -> Result<(SoftwareInfo, Option<St
         pkgname
     };
 
+    // 根据包名后缀判断软件类型
+    let package_type_id = if pkgname_final.ends_with("-bin") {
+        PackageType::Binary
+    } else if pkgname_final.ends_with("-git") {
+        PackageType::Git
+    } else if pkgname_final.ends_with("-appimage") {
+        PackageType::AppImage
+    } else {
+        PackageType::Compiled
+    };
+
+    // 根据版本号判断是否为测试版本
+    let version_lower = pkgver.to_lowercase();
+    let check_test_versions = version_lower.contains("beta")
+        || version_lower.contains("alpha")
+        || version_lower.contains("rc")
+        || version_lower.contains("dev")
+        || version_lower.contains("pre");
+
+    // -bin 包默认检查二进制文件
+    let check_binary_files = pkgname_final.ends_with("-bin");
+
     // 构建 SoftwareInfo 结构体
     let sw = SoftwareInfo {
         software_id: None,
         pkgname: pkgname_final,
-        upstream_url: upstream_url.clone().or(url),
-        package_type_id: PackageType::Compiled,
+        upstream_url,
+        package_type_id,
         checker_type_id: checker_type,
         is_outdated: false,
-        check_test_versions: false,
-        check_binary_files: false,
-        auto_check_enabled: true,
+        check_test_versions,
+        check_binary_files,
+        auto_check_enabled: false,
         license_id: None,
         language_id: None,
     };
 
-    Ok((sw, upstream_url))
+    Ok((sw, None))
 }
 
 /// 从本地目录同步包信息
 /// 遍历指定目录下的所有子目录，读取每个子目录中的 PKGBUILD
 /// @param pkgs_dir - 存放 AUR 包目录的父目录路径
+/// @param pkgname - 可选，指定包名时只同步该包
 /// @returns 解析得到的所有软件包信息列表
-pub async fn sync_from_local_files(pkgs_dir: &Path) -> Result<Vec<SoftwareInfo>> {
+pub async fn sync_from_local_files(pkgs_dir: &Path, pkgname: Option<&str>) -> Result<Vec<SoftwareInfo>> {
     let mut packages = Vec::new();
     let mut entries = fs::read_dir(pkgs_dir).await?; // 读取目录内容
     // 遍历每个子目录
     while let Some(entry) = entries.next_entry().await? {
         if entry.file_type().await?.is_dir() {           // 只处理目录
+            // 如果指定了包名，只处理匹配的目录
+            if let Some(filter_name) = pkgname {
+                let dir_name = entry.file_name().to_string_lossy().to_string();
+                if dir_name != filter_name {
+                    continue;
+                }
+            }
             if let Some((sw, _)) = read_pkgbuild(&entry.path()).await? {
                 packages.push(sw);                       // 收集解析结果
             }
