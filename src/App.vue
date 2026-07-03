@@ -45,7 +45,6 @@ const pageTitle: Record<string, string> = {
   "/": "仪表盘",
   "/packages": "软件管理",
   "/backup": "备份管理",
-  "/cache": "缓存管理",
   "/proxy": "代理管理",
 };
 
@@ -54,7 +53,6 @@ const pageIcons: Record<string, string> = {
   "/": "LayoutDashboard",
   "/packages": "Package",
   "/backup": "HardDrive",
-  "/cache": "Database",
   "/proxy": "Globe",
 };
 

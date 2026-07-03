@@ -17,7 +17,6 @@ pub mod db;         // 数据库操作模块
 pub mod logger;     // 日志宏模块
 pub mod models;     // 数据模型模块
 pub mod proxy;      // 代理管理模块
-pub mod scan;       // 缓存扫描模块
 
 use std::path::PathBuf;       // 路径缓冲区，用于构建文件路径
 use std::sync::Mutex;         // 互斥锁，保证数据库连接的线程安全访问
@@ -205,8 +204,9 @@ pub fn run() {
             commands::software::check_upstream_version,  // 检查单个软件包的上游版本
             commands::software::check_all_upstream,      // 检查所有软件包的上游版本
             // 扫描
-            commands::scan::scan_caches,                 // 扫描系统缓存目录
-            commands::scan::scan_directory,              // 扫描指定目录
+            commands::scan::scan_directory,              // 扫描指定目录（单层）
+            commands::scan::scan_directory_recursive,    // 递归扫描目录树
+            commands::scan::scan_pkg_files_cmd,          // 扫描 .pkg.tar.zst 包文件
             // 备份管理
             commands::backup::run_backup,                // 执行备份操作
             // 代理管理

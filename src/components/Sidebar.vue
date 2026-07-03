@@ -19,7 +19,6 @@ import {
   LayoutDashboard,   // 仪表盘图标
   Package,            // 软件包图标
   HardDrive,          // 备份图标
-  Database,           // 缓存图标
   Globe,              // 代理图标
   PanelLeftClose,     // 收起图标
   PanelLeftOpen,      // 展开图标
@@ -40,7 +39,6 @@ const iconMap: Record<string, any> = {
   LayoutDashboard,
   Package,
   HardDrive,
-  Database,
   Globe,
 };
 
@@ -49,7 +47,6 @@ const navItems = [
   { path: "/", label: "仪表盘", icon: "LayoutDashboard" },
   { path: "/packages", label: "软件管理", icon: "Package" },
   { path: "/backup", label: "备份管理", icon: "HardDrive" },
-  { path: "/cache", label: "缓存管理", icon: "Database" },
   { path: "/proxy", label: "代理管理", icon: "Globe" },
 ];
 

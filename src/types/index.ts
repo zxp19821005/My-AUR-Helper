@@ -183,21 +183,6 @@ export interface Setting {
 }
 
 /**
- * 检测到的缓存信息
- * 存储系统缓存扫描结果，用于缓存管理
- */
-export interface DetectedCache {
-  /** 缓存类型 - pacman/paru/yay 等包管理器标识 */
-  cache_type: string;
-  /** 缓存路径 - 缓存文件在磁盘上的路径 */
-  cache_path: string;
-  /** 包数量 - 缓存中包含的软件包数量 */
-  package_count: number;
-  /** 总大小 - 缓存占用的磁盘空间（字节） */
-  total_size_bytes: number;
-}
-
-/**
  * 备份结果
  * 存储备份操作的执行结果，用于显示备份状态
  */
