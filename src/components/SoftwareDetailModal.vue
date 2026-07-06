@@ -11,7 +11,7 @@
 <script setup lang="ts">
 import { ref, watch, computed } from "vue";
 import { invoke } from "@tauri-apps/api/core";
-import { ArrowLeft, ArrowRight, Edit, Trash2, RefreshCw, FileCode, GitBranch } from "@lucide/vue";
+import { ArrowLeft, ArrowRight, Edit, Trash2, RefreshCw, FileCode, GitBranch, X } from "@lucide/vue";
 import type { SoftwareDetail } from "../types";
 import { pkgTypeOptions, checkerTypeOptions } from "../utils/enums";
 import Modal from "./common/Modal.vue";
@@ -164,10 +164,10 @@ watch(
 </script>
 
 <template>
-  <Modal :show="show" width="640px" @close="emit('close')">
+  <Modal :show="show" width="640px" hide-header @close="emit('close')">
     <template #error v-if="error">{{ error }}</template>
 
-    <!-- 弹窗头部：标题 + 左右导航 -->
+    <!-- 弹窗头部：标题 + 左右导航 + 关闭按钮 -->
     <div class="detail-header">
       <button
         class="nav-btn"
@@ -180,14 +180,19 @@ watch(
       <div class="header-title">
         <h3 class="pkg-title">{{ detail?.pkgname || "软件详情" }}</h3>
       </div>
-      <button
-        class="nav-btn"
-        :class="{ disabled: !nextPkgname }"
-        @click="navigate('next')"
-        title="下一个"
-      >
-        <ArrowRight :size="18" />
-      </button>
+      <div class="header-right">
+        <button
+          class="nav-btn"
+          :class="{ disabled: !nextPkgname }"
+          @click="navigate('next')"
+          title="下一个"
+        >
+          <ArrowRight :size="18" />
+        </button>
+        <button class="close-btn" @click="emit('close')" title="关闭">
+          <X :size="18" />
+        </button>
+      </div>
     </div>
 
     <!-- 加载中 -->
@@ -328,6 +333,12 @@ watch(
   text-align: center;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
 .pkg-title {
   font-size: 1rem;
   font-weight: 600;
@@ -335,7 +346,8 @@ watch(
   margin: 0;
 }
 
-.nav-btn {
+.nav-btn,
+.close-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -349,7 +361,8 @@ watch(
   transition: all 0.15s;
 }
 
-.nav-btn:hover:not(.disabled) {
+.nav-btn:hover:not(.disabled),
+.close-btn:hover {
   border-color: var(--accent);
   color: var(--accent);
   background-color: var(--bg-hover);
