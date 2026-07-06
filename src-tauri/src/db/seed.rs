@@ -43,6 +43,28 @@ impl Database {
                 rusqlite::params![name, desc, exts, build_sys, build_cmd],
             )?;
         }
+
+        // 常见开源 License 默认数据（首次启动可用，完整列表可通过 SPDX 同步获取）
+        let licenses = [
+            ("MIT", "MIT License", "https://opensource.org/licenses/MIT", false, true, "宽松许可，允许几乎任何用途", "permissive"),
+            ("Apache-2.0", "Apache License 2.0", "https://opensource.org/licenses/Apache-2.0", false, true, "宽松许可，含专利授权条款", "permissive"),
+            ("BSD-3-Clause", "BSD 3-Clause License", "https://opensource.org/licenses/BSD-3-Clause", false, true, "宽松许可，禁止使用作者名宣传", "permissive"),
+            ("BSD-2-Clause", "BSD 2-Clause License", "https://opensource.org/licenses/BSD-2-Clause", false, true, "简化版 BSD 许可", "permissive"),
+            ("ISC", "ISC License", "https://opensource.org/licenses/ISC", false, true, "类 MIT 的宽松许可", "permissive"),
+            ("Unlicense", "The Unlicense", "https://unlicense.org", false, true, "放弃版权，完全自由使用", "permissive"),
+            ("MPL-2.0", "Mozilla Public License 2.0", "https://opensource.org/licenses/MPL-2.0", false, true, "弱 copyleft，文件级授权", "weak_copyleft"),
+            ("LGPL-3.0-only", "GNU Lesser General Public License v3.0 only", "https://opensource.org/licenses/LGPL-3.0", false, true, "弱 copyleft，库可被链接", "weak_copyleft"),
+            ("GPL-3.0-only", "GNU General Public License v3.0 only", "https://opensource.org/licenses/GPL-3.0", false, true, "强 copyleft，衍生作品须开源", "copyleft"),
+            ("GPL-2.0-only", "GNU General Public License v2.0 only", "https://opensource.org/licenses/GPL-2.0", false, true, "强 copyleft，Linux 内核采用", "copyleft"),
+            ("AGPL-3.0-only", "GNU Affero General Public License v3.0 only", "https://opensource.org/licenses/AGPL-3.0", false, true, "强 copyleft，含网络服务条款", "copyleft"),
+            ("CC0-1.0", "Creative Commons Zero v1.0 Universal", "https://creativecommons.org/publicdomain/zero/1.0", false, true, "公共领域，完全放弃版权", "public_domain"),
+        ];
+        for (spdx_id, full_name, url, is_deprecated, is_osi_approved, description, category) in licenses {
+            self.conn.execute(
+                "INSERT OR IGNORE INTO enum_licenses (spdx_id, full_name, url, is_deprecated, is_osi_approved, description, category) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                rusqlite::params![spdx_id, full_name, url, is_deprecated as i32, is_osi_approved as i32, description, category],
+            )?;
+        }
         Ok(())
     }
 }
