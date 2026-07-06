@@ -189,6 +189,23 @@ impl Database {
         Ok(rows.next().transpose()?)
     }
 
+    /// 根据包名获取上一个和下一个软件包（按包名字母顺序）
+    pub fn get_prev_next_software(&self, pkgname: &str) -> AppResult<(Option<String>, Option<String>)> {
+        let mut stmt = self.conn.prepare(
+            "SELECT pkgname FROM software_info WHERE pkgname < ?1 ORDER BY pkgname DESC LIMIT 1"
+        )?;
+        let prev = stmt.query_map(rusqlite::params![pkgname], |row| row.get(0))?
+            .next().transpose()?;
+
+        let mut stmt = self.conn.prepare(
+            "SELECT pkgname FROM software_info WHERE pkgname > ?1 ORDER BY pkgname ASC LIMIT 1"
+        )?;
+        let next = stmt.query_map(rusqlite::params![pkgname], |row| row.get(0))?
+            .next().transpose()?;
+
+        Ok((prev, next))
+    }
+
     /// 获取软件包列表展示数据（LEFT JOIN aur_info + upstream_info）
     pub fn get_software_list_entries(&self) -> AppResult<Vec<SoftwareListEntry>> {
         let mut stmt = self.conn.prepare(

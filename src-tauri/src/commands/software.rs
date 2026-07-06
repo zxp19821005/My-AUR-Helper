@@ -50,6 +50,18 @@ pub async fn get_software_detail(
         .map_err(|e| e.to_string())
 }
 
+/// 获取上一个和下一个软件包名称（用于导航）
+#[tauri::command]
+pub async fn get_prev_next_software(
+    state: State<'_, AppState>,
+    pkgname: String,
+) -> Result<(Option<String>, Option<String>), String> {
+    debug!("正在获取上一个/下一个软件包: {}", pkgname);
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.get_prev_next_software(&pkgname)
+        .map_err(|e| e.to_string())
+}
+
 /// 搜索软件包
 #[tauri::command]
 pub async fn search_software(
