@@ -1,9 +1,9 @@
-use anyhow::Result;              // 通用错误处理
-use async_trait::async_trait;   // 异步 trait 支持
-use reqwest::Client;            // HTTP 客户端
+use async_trait::async_trait;
+use reqwest::Client;
 
-use super::trait_def::VersionChecker; // 版本检查器 trait
-use super::utils::{clean_version, extract_owner_repo}; // 工具函数：清理版本号、提取 owner/repo
+use super::trait_def::VersionChecker;
+use super::utils::{clean_version, extract_owner_repo};
+use crate::errors::AppResult;
 
 /// GitHub Release 检查器
 /// 通过 GitHub API 获取最新 release 的 tag_name
@@ -18,7 +18,7 @@ impl VersionChecker for GitHubReleaseChecker {
     /// 检查 GitHub 最新 Release 版本
     /// @param upstream_url - GitHub 仓库 URL
     /// @returns 清理后的版本号字符串
-    async fn check(&self, client: &Client, upstream_url: &str, _pkgname: &str) -> Result<Option<String>> {
+    async fn check(&self, client: &Client, upstream_url: &str, _pkgname: &str) -> AppResult<Option<String>> {
         if upstream_url.is_empty() {
             return Ok(None);
         }
@@ -43,7 +43,7 @@ impl VersionChecker for GitHubTagChecker {
     /// 检查 GitHub 最新 Tag 版本
     /// @param upstream_url - GitHub 仓库 URL
     /// @returns 清理后的版本号字符串
-    async fn check(&self, client: &Client, upstream_url: &str, _pkgname: &str) -> Result<Option<String>> {
+    async fn check(&self, client: &Client, upstream_url: &str, _pkgname: &str) -> AppResult<Option<String>> {
         if upstream_url.is_empty() {
             return Ok(None);
         }
@@ -63,7 +63,7 @@ impl VersionChecker for GitHubTagChecker {
 /// @param repo - 仓库名
 /// @param token - 可选的 GitHub Token（用于认证）
 /// @returns 最新 release 的 tag_name（清理后）
-pub async fn check_github_release(client: &Client, owner: &str, repo: &str, token: Option<&str>) -> Result<Option<String>> {
+pub async fn check_github_release(client: &Client, owner: &str, repo: &str, token: Option<&str>) -> AppResult<Option<String>> {
     let api_url = format!("https://api.github.com/repos/{}/{}/releases/latest", owner, repo);
     let mut req = client
         .get(&api_url)
@@ -89,7 +89,7 @@ pub async fn check_github_release(client: &Client, owner: &str, repo: &str, toke
 /// @param repo - 仓库名
 /// @param token - 可选的 GitHub Token（用于认证）
 /// @returns 最新 tag 的名称（清理后）
-pub async fn check_github_tag(client: &Client, owner: &str, repo: &str, token: Option<&str>) -> Result<Option<String>> {
+pub async fn check_github_tag(client: &Client, owner: &str, repo: &str, token: Option<&str>) -> AppResult<Option<String>> {
     let tags_url = format!("https://api.github.com/repos/{}/{}/tags?per_page=1", owner, repo);
     let mut req = client
         .get(&tags_url)

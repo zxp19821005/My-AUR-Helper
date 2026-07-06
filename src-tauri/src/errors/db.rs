@@ -41,7 +41,7 @@ impl From<rusqlite::Error> for AppError {
 
 /// 从 Mutex PoisonError 转换为 AppError
 /// 数据库锁中毒通常由于 panic 导致
-impl<'a, T> From<PoisonError<T>> for AppError {
+impl<T> From<PoisonError<T>> for AppError {
     fn from(e: PoisonError<T>) -> Self {
         AppError::DatabaseLocked(format!("数据库锁中毒: {}", e))
     }

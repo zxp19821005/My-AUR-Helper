@@ -3,13 +3,13 @@
  *
  * 管理已有数据库的表结构变更
  */
-use anyhow::Result;
+use crate::errors::AppResult;
 
 use super::Database;
 
 impl Database {
     /// 迁移 aur_info 表（删除无用列，转换 last_updated 类型）
-    pub fn migrate_aur_info(&self) -> Result<()> {
+    pub fn migrate_aur_info(&self) -> AppResult<()> {
         let mut stmt = self.conn.prepare("PRAGMA table_info(aur_info)")?;
         let columns: Vec<String> = stmt.query_map([], |row| row.get(1))?
             .filter_map(|r| r.ok())
@@ -40,7 +40,7 @@ impl Database {
     }
 
     /// 迁移 software_info 表（重命名列，删除 created_at）
-    pub fn migrate_software_info(&self) -> Result<()> {
+    pub fn migrate_software_info(&self) -> AppResult<()> {
         let mut stmt = self.conn.prepare("PRAGMA table_info(software_info)")?;
         let columns: Vec<String> = stmt.query_map([], |row| row.get(1))?
             .filter_map(|r| r.ok())

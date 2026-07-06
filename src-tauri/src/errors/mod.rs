@@ -135,3 +135,10 @@ impl From<&str> for AppError {
         AppError::Unknown(s.to_string())
     }
 }
+
+/// 转换为字符串（方便 Tauri command 返回 String 错误）
+impl From<AppError> for String {
+    fn from(e: AppError) -> Self {
+        e.to_string()
+    }
+}

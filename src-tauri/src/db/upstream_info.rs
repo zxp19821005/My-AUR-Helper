@@ -1,4 +1,4 @@
-use anyhow::Result; // 通用错误处理
+use crate::errors::AppResult; // 通用错误处理
 
 use crate::models::*; // 数据模型
 
@@ -7,7 +7,7 @@ use super::Database;  // 数据库结构体
 impl Database {
     /// 插入或更新上游版本信息
     /// @param info - 上游版本信息（按 software_id 去重）
-    pub fn upsert_upstream_info(&self, info: &UpstreamInfo) -> Result<()> {
+    pub fn upsert_upstream_info(&self, info: &UpstreamInfo) -> AppResult<()> {
         self.conn.execute(
             "INSERT INTO upstream_info (software_id, upstream_url, upstream_version, upstream_license, last_checked)
              VALUES (?1, ?2, ?3, ?4, ?5)
@@ -25,7 +25,7 @@ impl Database {
     /// 获取指定软件包的上游版本信息
     /// @param software_id - 软件包 ID
     /// @returns 可选的的上游版本信息
-    pub fn get_upstream_info(&self, software_id: i64) -> Result<Option<UpstreamInfo>> {
+    pub fn get_upstream_info(&self, software_id: i64) -> AppResult<Option<UpstreamInfo>> {
         let mut stmt = self.conn.prepare(
             "SELECT software_id, upstream_url, upstream_version, upstream_license, last_checked FROM upstream_info WHERE software_id=?1"
         )?;
@@ -43,7 +43,7 @@ impl Database {
 
     /// 删除指定软件包的上游版本信息
     /// @param software_id - 软件包 ID
-    pub fn delete_upstream_info(&self, software_id: i64) -> Result<()> {
+    pub fn delete_upstream_info(&self, software_id: i64) -> AppResult<()> {
         self.conn.execute(
             "DELETE FROM upstream_info WHERE software_id=?1",
             rusqlite::params![software_id],

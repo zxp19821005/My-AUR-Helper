@@ -34,7 +34,7 @@ mod upstream_info;
 
 use std::path::Path;
 
-use anyhow::Result;
+use crate::errors::AppResult;
 use rusqlite::Connection;
 
 /// 数据库结构体，包装 rusqlite 连接
@@ -44,14 +44,14 @@ pub struct Database {
 
 impl Database {
     /// 打开或创建数据库文件
-    pub fn new(path: &Path) -> Result<Self> {
+    pub fn new(path: &Path) -> AppResult<Self> {
         let conn = Connection::open(path)?;
         conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
         Ok(Self { conn })
     }
 
     /// 初始化数据库：建表 → 迁移 → 填充默认数据
-    pub fn initialize(&self) -> Result<()> {
+    pub fn initialize(&self) -> AppResult<()> {
         self.create_tables()?;
         self.migrate_aur_info()?;
         self.migrate_software_info()?;

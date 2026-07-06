@@ -29,7 +29,10 @@ pub async fn list_software_view(state: State<'_, AppState>) -> Result<Vec<Softwa
 
 /// 根据包名获取单个软件包信息
 #[tauri::command]
-pub async fn get_software(state: State<'_, AppState>, pkgname: String) -> Result<Option<SoftwareInfo>, String> {
+pub async fn get_software(
+    state: State<'_, AppState>,
+    pkgname: String,
+) -> Result<Option<SoftwareInfo>, String> {
     debug!("正在获取软件包: {}", pkgname);
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.get_software_by_name(&pkgname).map_err(|e| e.to_string())
@@ -37,7 +40,10 @@ pub async fn get_software(state: State<'_, AppState>, pkgname: String) -> Result
 
 /// 搜索软件包
 #[tauri::command]
-pub async fn search_software(state: State<'_, AppState>, keyword: String) -> Result<Vec<SoftwareInfo>, String> {
+pub async fn search_software(
+    state: State<'_, AppState>,
+    keyword: String,
+) -> Result<Vec<SoftwareInfo>, String> {
     debug!("正在搜索软件包: {}", keyword);
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let result = db.search_software(&keyword).map_err(|e| e.to_string())?;
@@ -149,7 +155,10 @@ pub async fn delete_software(state: State<'_, AppState>, software_id: i64) -> Re
 
 /// 批量删除软件包
 #[tauri::command]
-pub async fn batch_delete_software(state: State<'_, AppState>, ids: Vec<i64>) -> Result<i64, String> {
+pub async fn batch_delete_software(
+    state: State<'_, AppState>,
+    ids: Vec<i64>,
+) -> Result<i64, String> {
     info!("正在批量删除 {} 个软件包", ids.len());
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let mut count = 0i64;

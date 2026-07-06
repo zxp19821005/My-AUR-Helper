@@ -1,4 +1,4 @@
-use anyhow::Result;              // 通用错误处理
+use crate::errors::AppResult;
 use async_trait::async_trait;   // 异步 trait 支持
 use reqwest::Client;            // HTTP 客户端
 
@@ -19,7 +19,7 @@ impl VersionChecker for RedirectChecker {
     /// 通过重定向 URL 检查版本
     /// @param upstream_url - 会触发重定向的下载 URL
     /// @returns 从重定向目标 URL 中提取的版本号
-    async fn check(&self, client: &Client, upstream_url: &str, _pkgname: &str) -> Result<Option<String>> {
+    async fn check(&self, client: &Client, upstream_url: &str, _pkgname: &str) -> AppResult<Option<String>> {
         if upstream_url.is_empty() {
             return Ok(None);
         }

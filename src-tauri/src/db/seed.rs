@@ -3,13 +3,13 @@
  *
  * 数据库首次初始化时插入默认设置和编程语言
  */
-use anyhow::Result;
+use crate::errors::AppResult;
 
 use super::Database;
 
 impl Database {
     /// 插入默认设置和编程语言数据（仅在表为空时插入）
-    pub fn seed_defaults(&self) -> Result<()> {
+    pub fn seed_defaults(&self) -> AppResult<()> {
         let defaults = vec![
             ("aur_username", "zxp19821005", "AUR 维护者用户名", "aur"),
             ("aur_packages_dir", "/run/media/zxp/LocalBak/git/My_AUR_Files", "本地 AUR 包文件目录", "aur"),

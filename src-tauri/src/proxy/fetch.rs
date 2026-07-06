@@ -1,6 +1,7 @@
-use anyhow::Result;    // 通用错误处理
-use reqwest::Client;   // HTTP 客户端
-use log::info;         // 日志记录
+use reqwest::Client;
+use log::info;
+
+use crate::errors::AppResult;
 
 /// 从 userscript 获取的代理信息
 #[derive(Debug, Clone)]
@@ -18,7 +19,7 @@ const PROXY_SOURCE_URL: &str =
 /// 解析 userscript 中的 download_url, clone_url, raw_url 数组
 /// @param client - 复用的 HTTP 客户端
 /// @returns 解析得到的代理列表
-pub async fn fetch_proxy_list_from_userscript(client: &Client) -> Result<Vec<FetchedProxy>> {
+pub async fn fetch_proxy_list_from_userscript(client: &Client) -> AppResult<Vec<FetchedProxy>> {
     let resp = client.get(PROXY_SOURCE_URL).send().await?;
     let text = resp.text().await?;
     let mut proxies = Vec::new();

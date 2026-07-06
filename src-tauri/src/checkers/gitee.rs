@@ -1,4 +1,4 @@
-use anyhow::Result;            // 通用错误处理
+use crate::errors::AppResult;
 use async_trait::async_trait; // 异步 trait 支持
 use reqwest::Client;          // HTTP 客户端
 
@@ -18,7 +18,7 @@ impl VersionChecker for GiteeChecker {
     /// 检查 Gitee 最新 Release 版本
     /// @param upstream_url - Gitee 仓库 URL，例如 https://gitee.com/owner/repo
     /// @returns 清理后的版本号字符串
-    async fn check(&self, client: &Client, upstream_url: &str, _pkgname: &str) -> Result<Option<String>> {
+    async fn check(&self, client: &Client, upstream_url: &str, _pkgname: &str) -> AppResult<Option<String>> {
         if upstream_url.is_empty() {
             return Ok(None);
         }

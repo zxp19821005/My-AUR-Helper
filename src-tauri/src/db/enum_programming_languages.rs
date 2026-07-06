@@ -1,4 +1,4 @@
-use anyhow::Result; // 通用错误处理
+use crate::errors::AppResult; // 通用错误处理
 
 use crate::models::*; // 数据模型
 
@@ -7,7 +7,7 @@ use super::Database;  // 数据库结构体
 impl Database {
     /// 获取所有编程语言记录（按名称排序）
     /// @returns 所有编程语言列表
-    pub fn get_all_languages(&self) -> Result<Vec<EnumProgrammingLanguage>> {
+    pub fn get_all_languages(&self) -> AppResult<Vec<EnumProgrammingLanguage>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, name, description, file_extensions, build_system, build_command FROM enum_programming_languages ORDER BY name"
         )?;
@@ -31,7 +31,7 @@ impl Database {
     /// 插入或更新编程语言记录（按 name 去重）
     /// @param lang - 编程语言信息
     /// @returns 新插入或更新的记录 ID
-    pub fn upsert_language(&self, lang: &EnumProgrammingLanguage) -> Result<i64> {
+    pub fn upsert_language(&self, lang: &EnumProgrammingLanguage) -> AppResult<i64> {
         self.conn.execute(
             "INSERT INTO enum_programming_languages (name, description, file_extensions, build_system, build_command)
              VALUES (?1, ?2, ?3, ?4, ?5)
@@ -45,7 +45,7 @@ impl Database {
 
     /// 删除编程语言记录
     /// @param name - 要删除的编程语言名称
-    pub fn delete_language(&self, name: &str) -> Result<()> {
+    pub fn delete_language(&self, name: &str) -> AppResult<()> {
         self.conn.execute(
             "DELETE FROM enum_programming_languages WHERE name=?1",
             rusqlite::params![name],

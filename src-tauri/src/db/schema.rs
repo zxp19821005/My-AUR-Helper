@@ -3,13 +3,13 @@
  *
  * 集中管理所有 CREATE TABLE 语句
  */
-use anyhow::Result;
+use crate::errors::AppResult;
 
 use super::Database;
 
 impl Database {
     /// 创建所有数据库表（如不存在）
-    pub fn create_tables(&self) -> Result<()> {
+    pub fn create_tables(&self) -> AppResult<()> {
         self.conn.execute_batch(
             "
             -- 软件包信息表

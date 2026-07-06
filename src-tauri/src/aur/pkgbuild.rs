@@ -1,4 +1,4 @@
-use anyhow::Result;           // 通用错误处理
+use crate::errors::AppResult;           // 通用错误处理
 use regex::Regex;              // 正则表达式，用于解析 PKGBUILD 变量
 use std::path::Path;           // 文件路径操作
 use tokio::fs;                 // 异步文件系统操作
@@ -10,7 +10,7 @@ use crate::models::{CheckerType, PackageType, SoftwareInfo}; // 项目数据模�
 /// @param path - PKGBUILD 所在目录的路径
 /// @returns 解析结果：(SoftwareInfo 结构体, 可选的上游 URL)
 ///          如果目录中不存在 PKGBUILD 文件则返回 None
-pub async fn read_pkgbuild(path: &Path) -> Result<Option<(SoftwareInfo, Option<String>)>> {
+pub async fn read_pkgbuild(path: &Path) -> AppResult<Option<(SoftwareInfo, Option<String>)>> {
     let pkgbuild_path = path.join("PKGBUILD");
     if !pkgbuild_path.exists() {
         return Ok(None); // 没有 PKGBUILD 文件，跳过
@@ -24,7 +24,7 @@ pub async fn read_pkgbuild(path: &Path) -> Result<Option<(SoftwareInfo, Option<S
 /// @param content - PKGBUILD 文件的文本内容
 /// @param path - 包目录路径（用于在无 pkgname 时作为包名）
 /// @returns (SoftwareInfo 结构体, 可选的上游 URL)
-fn parse_pkgbuild(content: &str, path: &Path) -> Result<(SoftwareInfo, Option<String>)> {
+fn parse_pkgbuild(content: &str, path: &Path) -> AppResult<(SoftwareInfo, Option<String>)> {
     // 预编译正则表达式，匹配 PKGBUILD 中的变量赋值
     let re_pkgname = Regex::new(r"^pkgname=([a-zA-Z0-9@._+-]+)").unwrap();
     let re_pkgver = Regex::new(r"^pkgver=(.+)").unwrap();
@@ -163,7 +163,7 @@ fn parse_pkgbuild(content: &str, path: &Path) -> Result<(SoftwareInfo, Option<St
 /// @param pkgs_dir - 存放 AUR 包目录的父目录路径
 /// @param pkgname - 可选，指定包名时只同步该包
 /// @returns 解析得到的所有软件包信息列表
-pub async fn sync_from_local_files(pkgs_dir: &Path, pkgname: Option<&str>) -> Result<Vec<SoftwareInfo>> {
+pub async fn sync_from_local_files(pkgs_dir: &Path, pkgname: Option<&str>) -> AppResult<Vec<SoftwareInfo>> {
     let mut packages = Vec::new();
     let mut entries = fs::read_dir(pkgs_dir).await?; // 读取目录内容
     // 遍历每个子目录

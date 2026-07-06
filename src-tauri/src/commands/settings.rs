@@ -3,42 +3,35 @@
  *
  * 提供应用设置的 CRUD 操作
  */
-use log::{info, debug};     // 日志记录
-use tauri::State;           // Tauri 状态管理
+use log::{debug, info};
+use tauri::State;
 
-use crate::models::Setting; // 设置模型
-use crate::AppState;        // 应用状态
+use crate::errors::AppResult;
+use crate::models::Setting;
+use crate::AppState;
 
 /// 获取所有设置
-/// @param state - Tauri 应用状态
-/// @returns 所有设置项列表
 #[tauri::command]
-pub async fn get_settings(state: State<'_, AppState>) -> Result<Vec<Setting>, String> {
+pub async fn get_settings(state: State<'_, AppState>) -> AppResult<Vec<Setting>> {
     debug!("正在获取所有设置");
-    let db = state.db.lock().map_err(|e| e.to_string())?;
-    let result = db.get_all_settings().map_err(|e| e.to_string())?;
+    let db = state.db.lock()?;
+    let result = db.get_all_settings()?;
     info!("已获取 {} 项设置", result.len());
     Ok(result)
 }
 
 /// 获取单个设置
-/// @param state - Tauri 应用状态
-/// @param key - 设置键名
-/// @returns 可选的设置项
 #[tauri::command]
-pub async fn get_setting(state: State<'_, AppState>, key: String) -> Result<Option<Setting>, String> {
+pub async fn get_setting(state: State<'_, AppState>, key: String) -> AppResult<Option<Setting>> {
     debug!("正在获取设置: {}", key);
-    let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.get_setting(&key).map_err(|e| e.to_string())
+    let db = state.db.lock()?;
+    db.get_setting(&key)
 }
 
 /// 设置配置值（如果 key 不存在则创建，存在则更新）
-/// @param state - Tauri 应用状态
-/// @param key - 设置键名
-/// @param value - 设置值
 #[tauri::command]
-pub async fn set_setting(state: State<'_, AppState>, key: String, value: String) -> Result<(), String> {
+pub async fn set_setting(state: State<'_, AppState>, key: String, value: String) -> AppResult<()> {
     info!("正在设置 {} = {}", key, value);
-    let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.set_setting(&key, &value).map_err(|e| e.to_string())
+    let db = state.db.lock()?;
+    db.set_setting(&key, &value)
 }

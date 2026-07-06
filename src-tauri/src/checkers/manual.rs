@@ -1,4 +1,4 @@
-use anyhow::Result;            // 通用错误处理
+use crate::errors::AppResult;
 use async_trait::async_trait; // 异步 trait 支持
 use reqwest::Client;          // HTTP 客户端
 
@@ -17,7 +17,7 @@ impl VersionChecker for ManualChecker {
 
     /// 手动检查 - 始终不返回版本信息
     /// 用户需要手动更新版本号
-    async fn check(&self, _client: &Client, _upstream_url: &str, _pkgname: &str) -> Result<Option<String>> {
+    async fn check(&self, _client: &Client, _upstream_url: &str, _pkgname: &str) -> AppResult<Option<String>> {
         Ok(None) // 手动检查器不执行任何网络请求
     }
 }

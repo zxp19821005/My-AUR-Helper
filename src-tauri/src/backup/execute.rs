@@ -1,8 +1,9 @@
-use anyhow::Result;         // 通用错误处理
-use std::path::Path;         // 文件路径操作
-use std::path::PathBuf;      // 可变的路径缓冲区
-use tokio::fs;               // 异步文件系统操作
-use log::info;               // 日志记录
+use std::path::Path;
+use std::path::PathBuf;
+use tokio::fs;
+use log::info;
+
+use crate::errors::AppResult;
 
 /// 备份配置
 pub struct BackupConfig {
@@ -23,7 +24,7 @@ pub struct BackupResult {
 /// 然后清理备份目录中每个包的旧版本（仅保留最新版本）
 /// @param config - 备份配置（源目录和目标目录）
 /// @returns 备份结果统计
-pub async fn run_backup(config: &BackupConfig) -> Result<BackupResult> {
+pub async fn run_backup(config: &BackupConfig) -> AppResult<BackupResult> {
     let mut result = BackupResult {
         copied: 0,
         removed: 0,

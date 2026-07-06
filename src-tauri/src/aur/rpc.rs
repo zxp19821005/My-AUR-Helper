@@ -1,4 +1,4 @@
-use anyhow::Result;    // 通用错误处理
+use crate::errors::AppResult;    // 通用错误处理
 use reqwest::Client;   // HTTP 客户端，用于发送 API 请求
 use log::info;         // 日志记录
 
@@ -24,7 +24,7 @@ pub struct AurPackageData {
 /// @param client - 复用的 HTTP 客户端
 /// @param username - AUR 用户名
 /// @returns 该用户维护或共同维护的所有包的数据列表
-pub async fn fetch_packages_by_user(client: &Client, username: &str) -> Result<Vec<AurPackageData>> {
+pub async fn fetch_packages_by_user(client: &Client, username: &str) -> AppResult<Vec<AurPackageData>> {
     let mut all = Vec::new();
     let mut seen = std::collections::HashSet::new();
 
@@ -69,7 +69,7 @@ pub async fn fetch_packages_by_user(client: &Client, username: &str) -> Result<V
 /// @param client - 复用的 HTTP 客户端
 /// @param pkgname - 要查询的 AUR 包名
 /// @returns 包信息的 JSON Value（包含完整原始数据），如果包不存在则返回 None
-pub async fn get_package_info(client: &Client, pkgname: &str) -> Result<Option<serde_json::Value>> {
+pub async fn get_package_info(client: &Client, pkgname: &str) -> AppResult<Option<serde_json::Value>> {
     // 构建 AUR RPC info 接口 URL
     let url = format!("{}/info/{}", AUR_RPC_URL, pkgname);
     let resp = client.get(&url).send().await?;

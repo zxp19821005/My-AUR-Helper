@@ -1,4 +1,4 @@
-use anyhow::Result; // 通用错误处理
+use crate::errors::AppResult; // 通用错误处理
 
 use crate::models::*; // 数据模型
 
@@ -8,7 +8,7 @@ impl Database {
     /// 插入或更新 License 记录（按 spdx_id 去重）
     /// @param lic - License 信息
     /// @returns 新插入或更新的记录 ID
-    pub fn upsert_license(&self, lic: &EnumLicense) -> Result<i64> {
+    pub fn upsert_license(&self, lic: &EnumLicense) -> AppResult<i64> {
         self.conn.execute(
             "INSERT INTO enum_licenses (spdx_id, full_name, url, is_deprecated, is_osi_approved, description, category)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
@@ -26,7 +26,7 @@ impl Database {
 
     /// 获取所有 License 列表（按 spdx_id 排序）
     /// @returns 所有 License 记录
-    pub fn get_all_licenses(&self) -> Result<Vec<EnumLicense>> {
+    pub fn get_all_licenses(&self) -> AppResult<Vec<EnumLicense>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, spdx_id, full_name, url, is_deprecated, is_osi_approved, description, category, created_at FROM enum_licenses ORDER BY spdx_id"
         )?;
@@ -53,7 +53,7 @@ impl Database {
     /// 根据 SPDX ID 获取 License
     /// @param spdx_id - SPDX 标准 ID
     /// @returns 可选的 License 记录
-    pub fn get_license_by_spdx_id(&self, spdx_id: &str) -> Result<Option<EnumLicense>> {
+    pub fn get_license_by_spdx_id(&self, spdx_id: &str) -> AppResult<Option<EnumLicense>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, spdx_id, full_name, url, is_deprecated, is_osi_approved, description, category, created_at FROM enum_licenses WHERE spdx_id=?1"
         )?;
@@ -75,7 +75,7 @@ impl Database {
 
     /// 删除所有 License 记录
     /// 用于 SPDX 全量同步前清空旧数据
-    pub fn delete_all_licenses(&self) -> Result<()> {
+    pub fn delete_all_licenses(&self) -> AppResult<()> {
         self.conn.execute("DELETE FROM enum_licenses", [])?;
         Ok(())
     }

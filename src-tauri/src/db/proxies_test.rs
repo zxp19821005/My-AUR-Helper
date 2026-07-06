@@ -1,4 +1,4 @@
-use anyhow::Result; // 通用错误处理
+use crate::errors::AppResult; // 通用错误处理
 
 use crate::models::*; // 数据模型
 
@@ -8,7 +8,7 @@ impl Database {
     /// 插入代理测试结果记录
     /// @param test - 代理测试信息
     /// @returns 新插入记录的 ID
-    pub fn insert_proxy_test(&self, test: &ProxyTest) -> Result<i64> {
+    pub fn insert_proxy_test(&self, test: &ProxyTest) -> AppResult<i64> {
         self.conn.execute(
             "INSERT INTO proxies_test (proxy_id, test_time, avg_latency, success_count, fail_count) VALUES (?1, ?2, ?3, ?4, ?5)",
             rusqlite::params![test.proxy_id, test.test_time, test.avg_latency, test.success_count, test.fail_count],
@@ -19,7 +19,7 @@ impl Database {
     /// 获取指定代理的所有测试记录（按时间降序）
     /// @param proxy_id - 代理 ID
     /// @returns 该代理的测试记录列表
-    pub fn get_proxy_tests(&self, proxy_id: i64) -> Result<Vec<ProxyTest>> {
+    pub fn get_proxy_tests(&self, proxy_id: i64) -> AppResult<Vec<ProxyTest>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, proxy_id, test_time, avg_latency, success_count, fail_count FROM proxies_test WHERE proxy_id=?1 ORDER BY test_time DESC"
         )?;
@@ -43,7 +43,7 @@ impl Database {
     /// 获取指定代理的最新测试记录
     /// @param proxy_id - 代理 ID
     /// @returns 可选的最近一次测试记录
-    pub fn get_latest_proxy_test(&self, proxy_id: i64) -> Result<Option<ProxyTest>> {
+    pub fn get_latest_proxy_test(&self, proxy_id: i64) -> AppResult<Option<ProxyTest>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, proxy_id, test_time, avg_latency, success_count, fail_count FROM proxies_test WHERE proxy_id=?1 ORDER BY test_time DESC LIMIT 1"
         )?;

@@ -1,4 +1,4 @@
-use anyhow::Result; // 通用错误处理
+use crate::errors::AppResult; // 通用错误处理
 
 use crate::models::*; // 数据模型
 
@@ -8,7 +8,7 @@ impl Database {
     /// 插入代理记录（忽略重复 URL）
     /// @param proxy - 代理信息
     /// @returns 新插入记录的 ID（如果已存在则返回 0）
-    pub fn insert_proxy(&self, proxy: &ProxyInfo) -> Result<i64> {
+    pub fn insert_proxy(&self, proxy: &ProxyInfo) -> AppResult<i64> {
         self.conn.execute(
             "INSERT OR IGNORE INTO proxies_info (proxy_name, proxy_type, url, is_active) VALUES (?1, ?2, ?3, ?4)",
             rusqlite::params![proxy.proxy_name, proxy.proxy_type.as_str(), proxy.url, proxy.is_active as i32],
@@ -18,7 +18,7 @@ impl Database {
 
     /// 获取所有代理记录（按名称排序）
     /// @returns 所有代理信息列表
-    pub fn get_all_proxies(&self) -> Result<Vec<ProxyInfo>> {
+    pub fn get_all_proxies(&self) -> AppResult<Vec<ProxyInfo>> {
         let mut stmt = self.conn.prepare(
             "SELECT proxy_id, proxy_name, proxy_type, url, is_active FROM proxies_info ORDER BY proxy_name"
         )?;
@@ -41,7 +41,7 @@ impl Database {
     /// 获取指定类型的所有已启用代理
     /// @param proxy_type - 代理类型
     /// @returns 已启用且匹配类型的代理列表
-    pub fn get_active_proxies(&self, proxy_type: &ProxyType) -> Result<Vec<ProxyInfo>> {
+    pub fn get_active_proxies(&self, proxy_type: &ProxyType) -> AppResult<Vec<ProxyInfo>> {
         let mut stmt = self.conn.prepare(
             "SELECT proxy_id, proxy_name, proxy_type, url, is_active FROM proxies_info WHERE is_active=1 AND proxy_type=?1 ORDER BY proxy_name"
         )?;
@@ -64,7 +64,7 @@ impl Database {
     /// 更新代理的启用状态
     /// @param proxy_id - 代理 ID
     /// @param is_active - 是否启用
-    pub fn update_proxy_active(&self, proxy_id: i64, is_active: bool) -> Result<()> {
+    pub fn update_proxy_active(&self, proxy_id: i64, is_active: bool) -> AppResult<()> {
         self.conn.execute(
             "UPDATE proxies_info SET is_active=?1 WHERE proxy_id=?2",
             rusqlite::params![is_active as i32, proxy_id],
@@ -74,7 +74,7 @@ impl Database {
 
     /// 删除代理记录
     /// @param proxy_id - 代理 ID
-    pub fn delete_proxy(&self, proxy_id: i64) -> Result<()> {
+    pub fn delete_proxy(&self, proxy_id: i64) -> AppResult<()> {
         self.conn.execute(
             "DELETE FROM proxies_info WHERE proxy_id=?1",
             rusqlite::params![proxy_id],

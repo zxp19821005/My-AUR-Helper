@@ -7,7 +7,9 @@ use log::debug;
 use tauri::command;
 use tokio::fs;
 
-/// 包文件信息（用于解析 .pkg.tar.zst/.xz 文件名）
+use crate::errors::AppResult;
+
+/// 包文件信息
 #[derive(serde::Serialize)]
 pub struct PkgFileInfo {
     pub filename: String,
@@ -19,7 +21,6 @@ pub struct PkgFileInfo {
 }
 
 /// 解析 pacman 包文件名
-/// 格式：{name}-{epoch}:{version}-{pkgrel}-{arch}.pkg.tar.{zst|xz}
 fn parse_pkg_filename(filename: &str) -> Option<PkgFileInfo> {
     let base = if filename.ends_with(".pkg.tar.zst") {
         filename.trim_end_matches(".pkg.tar.zst")
@@ -63,16 +64,16 @@ fn parse_pkg_filename(filename: &str) -> Option<PkgFileInfo> {
 
 /// 扫描目录中的 .pkg.tar 文件
 #[command]
-pub async fn scan_pkg_files(directory: String) -> Result<Vec<PkgFileInfo>, String> {
+pub async fn scan_pkg_files(directory: String) -> AppResult<Vec<PkgFileInfo>> {
     debug!("正在扫描目录中的 PKG 文件: {}", directory);
-    let mut entries = fs::read_dir(&directory).await.map_err(|e| e.to_string())?;
+    let mut entries = fs::read_dir(&directory).await?;
     let mut result = Vec::new();
-    while let Some(entry) = entries.next_entry().await.map_err(|e| e.to_string())? {
+    while let Some(entry) = entries.next_entry().await? {
         let path = entry.path();
         if path.is_file() {
             let filename = path.file_name().unwrap().to_string_lossy().to_string();
             if filename.ends_with(".pkg.tar.zst") || filename.ends_with(".pkg.tar.xz") {
-                let meta = fs::metadata(&path).await.map_err(|e| e.to_string())?;
+                let meta = fs::metadata(&path).await?;
                 if let Some(mut pkg) = parse_pkg_filename(&filename) {
                     pkg.size = meta.len();
                     result.push(pkg);

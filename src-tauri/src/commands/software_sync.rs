@@ -1,36 +1,32 @@
 /**
  * software_sync.rs - 软件包 AUR 同步相关命令
  */
-use log::{info, error};
+use log::{error, info};
 use tauri::{Emitter, State};
 
 use crate::aur;
+use crate::errors::{AppError, AppResult};
 use crate::models::*;
 use crate::AppState;
 
 /// 从 AUR 同步软件包（按用户名）
 #[tauri::command]
-pub async fn sync_from_aur(state: State<'_, AppState>) -> Result<i64, String> {
+pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
     info!("正在从 AUR 同步软件包");
     let username = {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        db.get_setting("aur_username")
-            .map_err(|e| e.to_string())?
+        let db = state.db.lock()?;
+        db.get_setting("aur_username")?
             .map(|s| s.value)
             .unwrap_or_default()
     };
     if username.is_empty() {
-        return Err("AUR username not configured".to_string());
+        return Err(AppError::ConfigError("AUR 用户名未配置".to_string()));
     }
     let client = reqwest::Client::new();
-    let packages = aur::fetch_packages_by_user(&client, &username)
-        .await
-        .map_err(|e| e.to_string())?;
-    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let packages = aur::fetch_packages_by_user(&client, &username).await?;
+    let db = state.db.lock()?;
     for pkg in &packages {
-        let sw = db
-            .get_software_by_name(&pkg.pkgname)
-            .map_err(|e| e.to_string())?;
+        let sw = db.get_software_by_name(&pkg.pkgname)?;
         let software_id = if let Some(existing) = sw {
             existing.software_id.unwrap_or(0)
         } else {
@@ -47,7 +43,7 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> Result<i64, String> {
                 license_id: None,
                 language_id: None,
             };
-            db.insert_software(&new_sw).map_err(|e| e.to_string())?
+            db.insert_software(&new_sw)?
         };
         let aur_info = AurInfo {
             software_id,
@@ -81,25 +77,24 @@ pub async fn sync_from_pkgbuild(
     state: State<'_, AppState>,
     app: tauri::AppHandle,
     pkgname: Option<String>,
-) -> Result<i64, String> {
+) -> AppResult<i64> {
     info!("正在从 PKGBUILD 文件同步软件包");
     let aur_dir = {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        db.get_setting("aur_packages_dir")
-            .map_err(|e| e.to_string())?
+        let db = state.db.lock()?;
+        db.get_setting("aur_packages_dir")?
             .map(|s| s.value)
             .unwrap_or_default()
     };
     if aur_dir.is_empty() {
-        return Err("AUR files directory not configured".to_string());
+        return Err(AppError::ConfigError("AUR 文件目录未配置".to_string()));
     }
     let path = std::path::Path::new(&aur_dir);
 
     // 先收集所有目录
     let mut dir_entries = Vec::new();
-    let mut entries = tokio::fs::read_dir(&path).await.map_err(|e| e.to_string())?;
-    while let Some(entry) = entries.next_entry().await.map_err(|e| e.to_string())? {
-        if entry.file_type().await.map_err(|e| e.to_string())?.is_dir() {
+    let mut entries = tokio::fs::read_dir(&path).await?;
+    while let Some(entry) = entries.next_entry().await? {
+        if entry.file_type().await?.is_dir() {
             if let Some(ref filter_name) = pkgname {
                 let dir_name = entry.file_name().to_string_lossy().to_string();
                 if dir_name != *filter_name {
@@ -144,11 +139,16 @@ pub async fn sync_from_pkgbuild(
                 };
                 info!(
                     "[{}/{}] {} - 类型: {}, 自动检查: {}, 检查测试版: {}, 检查二进制: {}",
-                    i + 1, total, sw.pkgname, pkg_type,
-                    sw.auto_check_enabled, sw.check_test_versions, sw.check_binary_files
+                    i + 1,
+                    total,
+                    sw.pkgname,
+                    pkg_type,
+                    sw.auto_check_enabled,
+                    sw.check_test_versions,
+                    sw.check_binary_files
                 );
 
-                let db = state.db.lock().map_err(|e| e.to_string())?;
+                let db = state.db.lock()?;
                 let _ = db.upsert_software(&sw);
                 count += 1;
 
@@ -198,14 +198,13 @@ pub async fn sync_from_pkgbuild(
 pub async fn update_aur_info(
     state: State<'_, AppState>,
     pkgname_list: Option<Vec<String>>,
-) -> Result<i64, String> {
+) -> AppResult<i64> {
     info!("正在更新软件包的 AUR 信息");
     let pkgnames: Vec<String> = if let Some(list) = pkgname_list {
         list
     } else {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        db.get_all_software()
-            .map_err(|e| e.to_string())?
+        let db = state.db.lock()?;
+        db.get_all_software()?
             .into_iter()
             .map(|s| s.pkgname)
             .collect()
@@ -214,8 +213,8 @@ pub async fn update_aur_info(
     let mut count = 0i64;
     for pkgname in &pkgnames {
         if let Ok(Some(data)) = aur::get_package_info(&client, pkgname).await {
-            let db = state.db.lock().map_err(|e| e.to_string())?;
-            let sw = db.get_software_by_name(pkgname).map_err(|e| e.to_string())?;
+            let db = state.db.lock()?;
+            let sw = db.get_software_by_name(pkgname)?;
             if let Some(existing) = sw {
                 if let Some(sid) = existing.software_id {
                     let info = AurInfo {
