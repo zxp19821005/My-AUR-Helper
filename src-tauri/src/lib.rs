@@ -208,6 +208,7 @@ pub fn run() {
             commands::software::list_software,           // 获取所有软件包列表
             commands::software::list_software_view,      // 获取软件包列表展示数据
             commands::software::get_software,            // 根据包名获取单个软件包
+            commands::software::get_software_detail,     // 获取软件包完整详情
             commands::software::search_software,         // 搜索软件包
             commands::software::add_software,            // 添加新的软件包
             commands::software::update_software,         // 更新软件包信息

@@ -50,6 +50,29 @@ export interface SoftwareInfo {
 }
 
 /**
+ * 软件包完整详情
+ * 包含基本信息 + AUR 信息 + 上游版本信息
+ */
+export interface SoftwareDetail {
+  software_id: number | null;
+  pkgname: string;
+  upstream_url: string | null;
+  package_type_id: PackageType;
+  checker_type_id: CheckerType;
+  is_outdated: boolean;
+  check_test_versions: boolean;
+  check_binary_files: boolean;
+  auto_check_enabled: boolean;
+  license_id: number | null;
+  language_id: number | null;
+  aur_version: string | null;
+  aur_last_updated: number | null;
+  aur_pkgdesc: string | null;
+  upstream_version: string | null;
+  upstream_last_checked: string | null;
+}
+
+/**
  * 上游版本信息
  * 存储软件包的上游版本检查结果，对应后端 UpstreamInfo 结构体
  */

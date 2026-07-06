@@ -153,6 +153,42 @@ impl Database {
         Ok(items)
     }
 
+    /// 根据包名获取软件包完整详情（含 AUR + 上游信息）
+    pub fn get_software_detail_by_name(&self, pkgname: &str) -> AppResult<Option<SoftwareDetail>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT s.software_id, s.pkgname, s.upstream_url, s.package_type_id, s.checker_type_id,
+                    s.is_outdated, s.check_test_versions, s.check_binary_files, s.auto_check_enabled,
+                    s.license_id, s.language_id,
+                    a.aur_version, CAST(a.last_updated AS INTEGER), a.pkgdesc,
+                    u.upstream_version, u.last_checked
+             FROM software_info s
+             LEFT JOIN aur_info a ON s.software_id = a.software_id
+             LEFT JOIN upstream_info u ON s.software_id = u.software_id
+             WHERE s.pkgname = ?1"
+        )?;
+        let mut rows = stmt.query_map(rusqlite::params![pkgname], |row| {
+            Ok(SoftwareDetail {
+                software_id: Some(row.get(0)?),
+                pkgname: row.get(1)?,
+                upstream_url: row.get(2)?,
+                package_type_id: PackageType::from_id(row.get(3)?),
+                checker_type_id: CheckerType::from_id(row.get(4)?),
+                is_outdated: row.get::<_, i32>(5)? != 0,
+                check_test_versions: row.get::<_, i32>(6)? != 0,
+                check_binary_files: row.get::<_, i32>(7)? != 0,
+                auto_check_enabled: row.get::<_, i32>(8)? != 0,
+                license_id: row.get(9)?,
+                language_id: row.get(10)?,
+                aur_version: row.get(11)?,
+                aur_last_updated: row.get(12)?,
+                aur_pkgdesc: row.get(13)?,
+                upstream_version: row.get(14)?,
+                upstream_last_checked: row.get(15)?,
+            })
+        })?;
+        Ok(rows.next().transpose()?)
+    }
+
     /// 获取软件包列表展示数据（LEFT JOIN aur_info + upstream_info）
     pub fn get_software_list_entries(&self) -> AppResult<Vec<SoftwareListEntry>> {
         let mut stmt = self.conn.prepare(

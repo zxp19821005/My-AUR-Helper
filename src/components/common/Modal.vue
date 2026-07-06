@@ -2,6 +2,7 @@
 defineProps<{
   show: boolean;
   title?: string;
+  width?: string;
 }>();
 
 const emit = defineEmits<{
@@ -12,7 +13,7 @@ const emit = defineEmits<{
 <template>
   <Teleport to="body">
     <div v-if="show" class="modal-overlay" @click.self="emit('close')">
-      <div class="modal">
+      <div class="modal" :style="width ? { maxWidth: width, minWidth: width } : {}">
         <div class="modal-header">
           <h3 v-if="title">{{ title }}</h3>
           <slot name="header"></slot>

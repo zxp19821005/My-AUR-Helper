@@ -1,16 +1,11 @@
-use serde::{Deserialize, Serialize}; // serde 序列化/反序列化支持
+use serde::{Deserialize, Serialize};
 
-/// 软件包类型枚举
-/// 定义包的来源和构建方式的分类
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(into = "i32", try_from = "i32")]
 pub enum PackageType {
-    /// 编译安装 (ID: 1) - 从源码编译的 AUR 包
     Compiled,
-    /// 二进制包 (ID: 2) - 预编译的二进制包
     Binary,
-    /// Git 仓库 (ID: 3) - 直接从 Git 仓库安装
     Git,
-    /// AppImage (ID: 4) - AppImage 格式的便携应用
     AppImage,
 }
 
@@ -34,7 +29,20 @@ impl PackageType {
             2 => PackageType::Binary,
             3 => PackageType::Git,
             4 => PackageType::AppImage,
-            _ => PackageType::Compiled, // 默认值
+            _ => PackageType::Compiled,
         }
+    }
+}
+
+impl From<PackageType> for i32 {
+    fn from(pt: PackageType) -> Self {
+        pt.as_id()
+    }
+}
+
+impl TryFrom<i32> for PackageType {
+    type Error = String;
+    fn try_from(id: i32) -> Result<Self, Self::Error> {
+        Ok(PackageType::from_id(id))
     }
 }

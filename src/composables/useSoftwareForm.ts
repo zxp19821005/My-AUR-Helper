@@ -5,7 +5,7 @@
  */
 import { ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
-import type { SoftwareInfo, License, Language } from "../types";
+import type { SoftwareDetail, License, Language } from "../types";
 import { pkgTypeOptions, checkerTypeOptions } from "../utils/enums";
 
 export interface SoftwareForm {
@@ -40,12 +40,12 @@ export const checkerTypes = checkerTypeOptions;
 export function useSoftwareForm() {
   const saving = ref(false);
   const error = ref("");
-  const pkg = ref<SoftwareInfo | null>(null);
+  const detail = ref<SoftwareDetail | null>(null);
   const licenses = ref<License[]>([]);
   const languages = ref<Language[]>([]);
   const form = ref<SoftwareForm>({ ...defaultForm });
 
-  function isDirty(original: SoftwareInfo | null): boolean {
+  function isDirty(original: SoftwareDetail | null): boolean {
     if (!original) return false;
     return (
       form.value.upstream_url !== (original.upstream_url ?? "") ||
@@ -60,9 +60,9 @@ export function useSoftwareForm() {
     );
   }
 
-  function canSave(mode: string, isDirty: boolean): boolean {
+  function canSave(mode: string, dirty: boolean): boolean {
     if (mode === "add") return form.value.pkgname.trim().length > 0;
-    return isDirty;
+    return dirty;
   }
 
   async function loadEnums() {
@@ -76,8 +76,8 @@ export function useSoftwareForm() {
 
   async function loadSoftware(pkgname: string): Promise<boolean> {
     try {
-      const data = await invoke<SoftwareInfo | null>("get_software", { pkgname });
-      pkg.value = data;
+      const data = await invoke<SoftwareDetail | null>("get_software_detail", { pkgname });
+      detail.value = data;
       if (data) {
         form.value = {
           pkgname: data.pkgname,
@@ -100,18 +100,18 @@ export function useSoftwareForm() {
   }
 
   function resetForm(mode: string) {
-    if (mode === "edit" && pkg.value) {
+    if (mode === "edit" && detail.value) {
       form.value = {
-        pkgname: pkg.value.pkgname,
-        upstream_url: pkg.value.upstream_url ?? "",
-        package_type_id: pkg.value.package_type_id,
-        checker_type_id: pkg.value.checker_type_id,
-        is_outdated: pkg.value.is_outdated,
-        check_test_versions: pkg.value.check_test_versions,
-        check_binary_files: pkg.value.check_binary_files,
-        auto_check_enabled: pkg.value.auto_check_enabled,
-        license_id: pkg.value.license_id,
-        language_id: pkg.value.language_id,
+        pkgname: detail.value.pkgname,
+        upstream_url: detail.value.upstream_url ?? "",
+        package_type_id: detail.value.package_type_id,
+        checker_type_id: detail.value.checker_type_id,
+        is_outdated: detail.value.is_outdated,
+        check_test_versions: detail.value.check_test_versions,
+        check_binary_files: detail.value.check_binary_files,
+        auto_check_enabled: detail.value.auto_check_enabled,
+        license_id: detail.value.license_id,
+        language_id: detail.value.language_id,
       };
     } else {
       form.value = { ...defaultForm };
@@ -153,10 +153,10 @@ export function useSoftwareForm() {
           languageId: form.value.language_id,
         });
       } else {
-        if (!pkg.value?.software_id) return false;
+        if (!detail.value?.software_id) return false;
         await invoke("update_software", {
-          softwareId: pkg.value.software_id,
-          pkgname: pkg.value.pkgname,
+          softwareId: detail.value.software_id,
+          pkgname: detail.value.pkgname,
           upstreamUrl: form.value.upstream_url || null,
           packageType: form.value.package_type_id,
           checkerType: form.value.checker_type_id,
@@ -189,7 +189,7 @@ export function useSoftwareForm() {
   return {
     saving,
     error,
-    pkg,
+    detail,
     licenses,
     languages,
     form,

@@ -38,6 +38,18 @@ pub async fn get_software(
     db.get_software_by_name(&pkgname).map_err(|e| e.to_string())
 }
 
+/// 根据包名获取软件包完整详情（含 AUR + 上游信息）
+#[tauri::command]
+pub async fn get_software_detail(
+    state: State<'_, AppState>,
+    pkgname: String,
+) -> Result<Option<SoftwareDetail>, String> {
+    debug!("正在获取软件包详情: {}", pkgname);
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.get_software_detail_by_name(&pkgname)
+        .map_err(|e| e.to_string())
+}
+
 /// 搜索软件包
 #[tauri::command]
 pub async fn search_software(

@@ -1,22 +1,14 @@
-use serde::{Deserialize, Serialize}; // serde 序列化/反序列化支持
+use serde::{Deserialize, Serialize};
 
-/// 版本检查器类型枚举
-/// 定义检查上游版本的不同策略
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(into = "i32", try_from = "i32")]
 pub enum CheckerType {
-    /// GitHub Release (ID: 1) - 通过 GitHub API 获取最新 release
     GitHubRelease,
-    /// GitHub Tag (ID: 2) - 通过 GitHub API 获取最新 tag
     GitHubTag,
-    /// Gitee (ID: 3) - 通过 Gitee API v5 获取最新 release
     Gitee,
-    /// GitLab (ID: 4) - 通过 GitLab API v4 获取最新 release
     GitLab,
-    /// HTTP 重定向 (ID: 5) - 从重定向 URL 中提取版本号
     Redirect,
-    /// HTTP 页面解析 (ID: 6) - 从 HTML 页面内容中提取版本号
     Http,
-    /// 手动检查 (ID: 7) - 不自动检查，由用户手动更新
     Manual,
 }
 
@@ -61,5 +53,18 @@ impl CheckerType {
             CheckerType::Http,
             CheckerType::Manual,
         ]
+    }
+}
+
+impl From<CheckerType> for i32 {
+    fn from(ct: CheckerType) -> Self {
+        ct.as_id()
+    }
+}
+
+impl TryFrom<i32> for CheckerType {
+    type Error = String;
+    fn try_from(id: i32) -> Result<Self, Self::Error> {
+        Ok(CheckerType::from_id(id))
     }
 }

@@ -17,18 +17,18 @@ const router = useRouter();
 const footer = inject(FOOTER_KEY)!;
 
 const {
-  saving, error, form, licenses, languages, pkg,
+  saving, error, form, licenses, languages, detail,
   isDirty, save, resetForm, init,
 } = useSoftwareForm();
 
 const checking = ref(false);
 const successMsg = ref("");
 
-const dirty = computed(() => isDirty(pkg.value));
+const dirty = computed(() => isDirty(detail.value));
 
 function syncFooter() {
-  if (pkg.value) {
-    footer.infoText = `${pkg.value.pkgname}  |  ${pkg.value.is_outdated ? "需更新" : "已最新"}`;
+  if (detail.value) {
+    footer.infoText = `${detail.value.pkgname}  |  ${detail.value.is_outdated ? "需更新" : "已最新"}`;
   }
 }
 
@@ -39,12 +39,12 @@ onMounted(async () => {
 });
 
 async function checkUpdate() {
-  if (!pkg.value) return;
+  if (!detail.value) return;
   checking.value = true;
   error.value = "";
   try {
-    await invoke<string>("check_upstream_version", { pkgname: pkg.value.pkgname });
-    await init("edit", pkg.value.pkgname);
+    await invoke<string>("check_upstream_version", { pkgname: detail.value.pkgname });
+    await init("edit", detail.value.pkgname);
     syncFooter();
   } catch (e) {
     error.value = String(e);
@@ -56,8 +56,8 @@ async function checkUpdate() {
 async function handleSave() {
   const ok = await save("edit");
   if (ok) {
-    if (pkg.value) {
-      await init("edit", pkg.value.pkgname);
+    if (detail.value) {
+      await init("edit", detail.value.pkgname);
       syncFooter();
     }
     successMsg.value = "保存成功";
@@ -96,14 +96,14 @@ function handleReset() {
       {{ successMsg }}
     </div>
 
-    <div v-if="pkg" class="card" style="margin-top: 1rem">
-      <h3 class="section-title">{{ pkg.pkgname }}</h3>
+    <div v-if="detail" class="card" style="margin-top: 1rem">
+      <h3 class="section-title">{{ detail.pkgname }}</h3>
 
       <table class="info-table">
         <tbody>
           <tr>
             <td class="label">包名</td>
-            <td class="value">{{ pkg.pkgname }}</td>
+            <td class="value">{{ detail.pkgname }}</td>
           </tr>
           <tr>
             <td class="label">上游地址</td>
