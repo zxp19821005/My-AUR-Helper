@@ -244,6 +244,7 @@ const setSelected = (v: Set<string>) => { selectedPkgnames.value = v; };
       :show="showDetailModal"
       :pkgname="detailPkgname"
       @close="showDetailModal = false"
+      @navigate="detailPkgname = $event"
     />
   </div>
 </template>
