@@ -167,27 +167,29 @@ watch(
   <Modal :show="show" width="640px" hide-header @close="emit('close')">
     <template #error v-if="error">{{ error }}</template>
 
-    <!-- 弹窗头部：标题 + 居中浮动导航按钮 -->
+    <!-- 弹窗头部：包名 -->
     <div class="detail-header">
-      <div class="header-nav">
-        <button
-          class="nav-btn"
-          :class="{ disabled: !prevPkgname }"
-          @click.stop="navigate('prev')"
-          title="上一个"
-        >
-          <ArrowLeft :size="18" />
-        </button>
-        <span class="pkg-title">{{ detail?.pkgname || "软件详情" }}</span>
-        <button
-          class="nav-btn"
-          :class="{ disabled: !nextPkgname }"
-          @click.stop="navigate('next')"
-          title="下一个"
-        >
-          <ArrowRight :size="18" />
-        </button>
-      </div>
+      <h3 class="pkg-title">{{ detail?.pkgname || "软件详情" }}</h3>
+    </div>
+
+    <!-- 悬浮导航按钮：左右两侧垂直居中 -->
+    <div class="floating-nav">
+      <button
+        class="nav-btn"
+        :class="{ disabled: !prevPkgname }"
+        @click.stop="navigate('prev')"
+        title="上一个"
+      >
+        <ArrowLeft :size="20" />
+      </button>
+      <button
+        class="nav-btn"
+        :class="{ disabled: !nextPkgname }"
+        @click.stop="navigate('next')"
+        title="下一个"
+      >
+        <ArrowRight :size="20" />
+      </button>
     </div>
 
     <!-- 加载中 -->
@@ -317,51 +319,54 @@ watch(
 
 <style scoped>
 .detail-header {
-  display: flex;
-  justify-content: center;
+  text-align: center;
   margin-bottom: 0.75rem;
-}
-
-.header-nav {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.25rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .pkg-title {
   font-size: 0.9375rem;
   font-weight: 600;
   color: var(--text-primary);
-  padding: 0.375rem 1rem;
-  white-space: nowrap;
+  margin: 0;
 }
 
-.nav-btn {
+.floating-nav {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  transform: translateY(-50%);
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+  padding: 0 0.5rem;
+}
+
+.floating-nav .nav-btn {
+  pointer-events: auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: transparent;
-  border: none;
-  border-radius: 6px;
+  width: 36px;
+  height: 36px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--border);
+  border-radius: 50%;
   color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.15s;
+  backdrop-filter: blur(4px);
 }
 
-.nav-btn:hover:not(.disabled) {
-  background-color: var(--bg-hover);
-  color: var(--accent);
+.floating-nav .nav-btn:hover:not(.disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+  transform: scale(1.1);
 }
 
-.nav-btn.disabled {
-  opacity: 0.4;
+.floating-nav .nav-btn.disabled {
+  opacity: 0.3;
   cursor: not-allowed;
 }
 
