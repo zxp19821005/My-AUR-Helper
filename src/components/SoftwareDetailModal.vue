@@ -145,11 +145,18 @@ function formatTimestamp(ts: number | null): string {
 }
 
 watch(
+  () => props.pkgname,
+  () => {
+    if (props.show) {
+      loadSoftware();
+    }
+  }
+);
+
+watch(
   () => props.show,
   (val) => {
-    if (val) {
-      loadSoftware();
-    } else {
+    if (!val) {
       showEditModal.value = false;
     }
   }
