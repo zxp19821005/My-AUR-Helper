@@ -322,6 +322,7 @@ select option {
   padding: 1rem 1.25rem;
   overflow-y: auto;
   flex: 1;
+  position: relative;
 }
 .modal-footer {
   display: flex;
