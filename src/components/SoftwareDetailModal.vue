@@ -167,30 +167,25 @@ watch(
   <Modal :show="show" width="640px" hide-header @close="emit('close')">
     <template #error v-if="error">{{ error }}</template>
 
-    <!-- 弹窗头部：标题 + 左右导航 + 关闭按钮 -->
+    <!-- 弹窗头部：标题 + 居中浮动导航按钮 -->
     <div class="detail-header">
-      <button
-        class="nav-btn"
-        :class="{ disabled: !prevPkgname }"
-        @click="navigate('prev')"
-        title="上一个"
-      >
-        <ArrowLeft :size="18" />
-      </button>
-      <div class="header-title">
-        <h3 class="pkg-title">{{ detail?.pkgname || "软件详情" }}</h3>
-      </div>
-      <div class="header-right">
+      <div class="header-nav">
+        <button
+          class="nav-btn"
+          :class="{ disabled: !prevPkgname }"
+          @click.stop="navigate('prev')"
+          title="上一个"
+        >
+          <ArrowLeft :size="18" />
+        </button>
+        <span class="pkg-title">{{ detail?.pkgname || "软件详情" }}</span>
         <button
           class="nav-btn"
           :class="{ disabled: !nextPkgname }"
-          @click="navigate('next')"
+          @click.stop="navigate('next')"
           title="下一个"
         >
           <ArrowRight :size="18" />
-        </button>
-        <button class="close-btn" @click="emit('close')" title="关闭">
-          <X :size="18" />
         </button>
       </div>
     </div>
@@ -323,49 +318,46 @@ watch(
 <style scoped>
 .detail-header {
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  justify-content: center;
   margin-bottom: 0.75rem;
 }
 
-.header-title {
-  flex: 1;
-  text-align: center;
-}
-
-.header-right {
+.header-nav {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
+  gap: 0.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.25rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .pkg-title {
-  font-size: 1rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--text-primary);
-  margin: 0;
+  padding: 0.375rem 1rem;
+  white-space: nowrap;
 }
 
-.nav-btn,
-.close-btn {
+.nav-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 32px;
   height: 32px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
+  background: transparent;
+  border: none;
   border-radius: 6px;
   color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.15s;
 }
 
-.nav-btn:hover:not(.disabled),
-.close-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+.nav-btn:hover:not(.disabled) {
   background-color: var(--bg-hover);
+  color: var(--accent);
 }
 
 .nav-btn.disabled {
