@@ -217,6 +217,10 @@ watch(
               </td>
             </tr>
             <tr>
+              <td class="label">包描述</td>
+              <td class="value">{{ detail.aur_pkgdesc || '—' }}</td>
+            </tr>
+            <tr>
               <td class="label">自动检查</td>
               <td class="value">{{ detail.auto_check_enabled ? '已启用' : '已禁用' }}</td>
             </tr>
@@ -232,42 +236,41 @@ watch(
         </table>
       </div>
 
-      <!-- AUR 信息 -->
-      <div class="section">
-        <h4 class="section-title">AUR 信息</h4>
-        <table class="info-table">
-          <tbody>
-            <tr>
-              <td class="label">AUR 版本</td>
-              <td class="value version-cell">{{ detail.aur_version || '—' }}</td>
-            </tr>
-            <tr>
-              <td class="label">包描述</td>
-              <td class="value">{{ detail.aur_pkgdesc || '—' }}</td>
-            </tr>
-            <tr>
-              <td class="label">更新时间</td>
-              <td class="value">{{ formatTimestamp(detail.aur_last_updated) }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <!-- AUR 信息和上游信息并排 -->
+      <div class="side-by-side">
+        <!-- AUR 信息 -->
+        <div class="section half-section">
+          <h4 class="section-title">AUR 信息</h4>
+          <table class="info-table">
+            <tbody>
+              <tr>
+                <td class="label">AUR 版本</td>
+                <td class="value version-cell">{{ detail.aur_version || '—' }}</td>
+              </tr>
+              <tr>
+                <td class="label">更新时间</td>
+                <td class="value">{{ formatTimestamp(detail.aur_last_updated) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-      <!-- 上游信息 -->
-      <div class="section">
-        <h4 class="section-title">上游版本信息</h4>
-        <table class="info-table">
-          <tbody>
-            <tr>
-              <td class="label">上游版本</td>
-              <td class="value version-cell">{{ detail.upstream_version || '—' }}</td>
-            </tr>
-            <tr>
-              <td class="label">上次检查</td>
-              <td class="value">{{ detail.upstream_last_checked || '—' }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <!-- 上游信息 -->
+        <div class="section half-section">
+          <h4 class="section-title">上游版本信息</h4>
+          <table class="info-table">
+            <tbody>
+              <tr>
+                <td class="label">上游版本</td>
+                <td class="value version-cell">{{ detail.upstream_version || '—' }}</td>
+              </tr>
+              <tr>
+                <td class="label">上次检查</td>
+                <td class="value">{{ detail.upstream_last_checked || '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -366,6 +369,16 @@ watch(
 .detail-content {
   max-height: 50vh;
   overflow-y: auto;
+}
+
+.side-by-side {
+  display: flex;
+  gap: 1rem;
+}
+
+.side-by-side .half-section {
+  flex: 1;
+  min-width: 0;
 }
 
 .section {
