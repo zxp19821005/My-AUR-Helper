@@ -14,7 +14,7 @@ pub async fn check_upstream_version(
     state: State<'_, AppState>,
     pkgname: String,
 ) -> Result<String, String> {
-    info!("Checking upstream version for: {}", pkgname);
+    info!("正在检查上游版本: {}", pkgname);
     let client = reqwest::Client::new();
     let sw = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -24,7 +24,7 @@ pub async fn check_upstream_version(
     };
     let checker = checkers::get_checker(&sw.checker_type_id);
     let upstream_url = sw.upstream_url.as_deref().unwrap_or("");
-    debug!("Using checker: {} for {}", checker.name(), pkgname);
+    debug!("使用检查器: {} 检查 {}", checker.name(), pkgname);
     match checker.check(&client, upstream_url, &sw.pkgname).await {
         Ok(Some(version)) => {
             let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -43,16 +43,16 @@ pub async fn check_upstream_version(
                 last_checked: None,
             };
             db.upsert_upstream_info(&upstream_info).map_err(|e| e.to_string())?;
-            info!("Checked {}: {} -> outdated={}", pkgname, version, is_outdated);
+            info!("已检查 {}: {} -> 需更新={}", pkgname, version, is_outdated);
             Ok(version)
         }
         Ok(None) => {
-            error!("Could not determine upstream version for {}", pkgname);
-            Err("Could not determine upstream version".to_string())
+            error!("无法确定 {} 的上游版本", pkgname);
+            Err("无法确定上游版本".to_string())
         }
         Err(e) => {
-            error!("Version check failed for {}: {}", pkgname, e);
-            Err(format!("Check failed: {}", e))
+            error!("版本检查失败 {}: {}", pkgname, e);
+            Err(format!("检查失败: {}", e))
         }
     }
 }
@@ -60,7 +60,7 @@ pub async fn check_upstream_version(
 /// 检查所有软件包的上游版本
 #[tauri::command]
 pub async fn check_all_upstream(state: State<'_, AppState>) -> Result<Vec<(String, String)>, String> {
-    info!("Checking upstream versions for all software");
+    info!("正在检查所有软件包的上游版本");
     let client = reqwest::Client::new();
     let packages = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -87,7 +87,7 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> Result<Vec<(Strin
                     last_checked: None,
                 };
                 let _ = db.upsert_upstream_info(&upstream_info);
-                debug!("Checked {}: {} -> outdated={}", sw.pkgname, version, is_outdated);
+                debug!("已检查 {}: {} -> 需更新={}", sw.pkgname, version, is_outdated);
                 results.push((sw.pkgname.clone(), version));
             }
             _ => {
@@ -96,7 +96,7 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> Result<Vec<(Strin
             }
         }
     }
-    info!("Completed upstream check for {} packages", results.len());
+    info!("已完成 {} 个软件包的上游版本检查", results.len());
     Ok(results)
 }
 
@@ -106,7 +106,7 @@ pub async fn check_selected_upstream(
     state: State<'_, AppState>,
     pkgname_list: Vec<String>,
 ) -> Result<Vec<(String, String)>, String> {
-    info!("Checking upstream versions for {} packages", pkgname_list.len());
+    info!("正在检查 {} 个软件包的上游版本", pkgname_list.len());
     let client = reqwest::Client::new();
     let mut results = Vec::new();
     for pkgname in &pkgname_list {

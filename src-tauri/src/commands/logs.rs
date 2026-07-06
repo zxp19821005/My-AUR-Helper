@@ -18,7 +18,7 @@ pub async fn get_logs(
     state: State<'_, AppState>,
     limit: Option<i64>,
 ) -> Result<Vec<LogEntry>, String> {
-    debug!("Getting logs (limit={:?})", limit);
+    debug!("正在获取日志 (limit={:?})", limit);
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.get_logs(limit.unwrap_or(100)) // 默认返回最近 100 条
         .map_err(|e| e.to_string())
@@ -28,7 +28,7 @@ pub async fn get_logs(
 /// @param state - Tauri 应用状态
 #[tauri::command]
 pub async fn clear_logs(state: State<'_, AppState>) -> Result<(), String> {
-    info!("Clearing all logs");
+    info!("正在清空所有日志");
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.clear_logs().map_err(|e| e.to_string())
 }

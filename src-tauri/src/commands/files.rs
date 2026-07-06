@@ -40,10 +40,10 @@ pub struct BatchDeleteResult {
 /// 复制文件或目录
 #[command]
 pub async fn copy_file(src: String, dst: String) -> Result<(), String> {
-    debug!("Copying file: {} -> {}", src, dst);
+    debug!("正在复制文件: {} -> {}", src, dst);
     let src_path = Path::new(&src);
     if !src_path.exists() {
-        return Err(format!("Source file does not exist: {}", src));
+        return Err(format!("源文件不存在: {}", src));
     }
     if src_path.is_dir() {
         copy_dir_recursive(&src, &dst).await?;
@@ -77,10 +77,10 @@ async fn copy_dir_recursive(src: &str, dst: &str) -> Result<(), String> {
 /// 移动文件或目录
 #[command]
 pub async fn move_file(src: String, dst: String) -> Result<(), String> {
-    debug!("Moving file: {} -> {}", src, dst);
+    debug!("正在移动文件: {} -> {}", src, dst);
     let src_path = Path::new(&src);
     if !src_path.exists() {
-        return Err(format!("Source file does not exist: {}", src));
+        return Err(format!("源文件不存在: {}", src));
     }
     if let Some(parent) = Path::new(&dst).parent() {
         fs::create_dir_all(parent).await.map_err(|e| e.to_string())?;
@@ -92,10 +92,10 @@ pub async fn move_file(src: String, dst: String) -> Result<(), String> {
 /// 删除文件或目录
 #[command]
 pub async fn delete_file(path: String) -> Result<(), String> {
-    debug!("Deleting file: {}", path);
+    debug!("正在删除文件: {}", path);
     let p = Path::new(&path);
     if !p.exists() {
-        return Err(format!("File does not exist: {}", path));
+        return Err(format!("文件不存在: {}", path));
     }
     if p.is_dir() {
         fs::remove_dir_all(&path).await.map_err(|e| e.to_string())?;
@@ -108,13 +108,13 @@ pub async fn delete_file(path: String) -> Result<(), String> {
 /// 删除目录（仅限目录）
 #[command]
 pub async fn delete_directory(path: String) -> Result<(), String> {
-    debug!("Deleting directory: {}", path);
+    debug!("正在删除目录: {}", path);
     let p = Path::new(&path);
     if !p.exists() {
-        return Err(format!("Directory does not exist: {}", path));
+        return Err(format!("目录不存在: {}", path));
     }
     if !p.is_dir() {
-        return Err(format!("Path is not a directory: {}", path));
+        return Err(format!("路径不是目录: {}", path));
     }
     fs::remove_dir_all(&path).await.map_err(|e| e.to_string())?;
     Ok(())
@@ -123,7 +123,7 @@ pub async fn delete_directory(path: String) -> Result<(), String> {
 /// 创建目录（支持递归创建）
 #[command]
 pub async fn create_directory(path: String) -> Result<(), String> {
-    debug!("Creating directory: {}", path);
+    debug!("正在创建目录: {}", path);
     fs::create_dir_all(&path).await.map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -131,14 +131,14 @@ pub async fn create_directory(path: String) -> Result<(), String> {
 /// 读取文件内容为字符串
 #[command]
 pub async fn read_file(path: String) -> Result<String, String> {
-    debug!("Reading file: {}", path);
+    debug!("正在读取文件: {}", path);
     fs::read_to_string(&path).await.map_err(|e| e.to_string())
 }
 
 /// 列出目录内容
 #[command]
 pub async fn list_directory(path: String) -> Result<Vec<DirEntry>, String> {
-    debug!("Listing directory: {}", path);
+    debug!("正在列出目录内容: {}", path);
     let mut entries = fs::read_dir(&path).await.map_err(|e| e.to_string())?;
     let mut result = Vec::new();
     while let Some(entry) = entries.next_entry().await.map_err(|e| e.to_string())? {
@@ -164,14 +164,14 @@ pub async fn list_directory(path: String) -> Result<Vec<DirEntry>, String> {
 /// 检查文件是否存在
 #[command]
 pub async fn file_exists(path: String) -> Result<bool, String> {
-    debug!("Checking file exists: {}", path);
+    debug!("正在检查文件是否存在: {}", path);
     Ok(Path::new(&path).exists())
 }
 
 /// 获取文件元信息
 #[command]
 pub async fn file_metadata(path: String) -> Result<FileMetadata, String> {
-    debug!("Getting file metadata: {}", path);
+    debug!("正在获取文件元信息: {}", path);
     let meta = fs::metadata(&path).await.map_err(|e| e.to_string())?;
     let modified_at = meta.modified().ok().and_then(|t| {
         t.duration_since(UNIX_EPOCH).ok().map(|d| {
@@ -198,13 +198,13 @@ pub async fn file_metadata(path: String) -> Result<FileMetadata, String> {
 /// 批量删除文件或目录
 #[command]
 pub async fn batch_delete(paths: Vec<String>) -> Result<BatchDeleteResult, String> {
-    info!("Batch deleting {} files", paths.len());
+    info!("正在批量删除 {} 个文件", paths.len());
     let mut deleted = 0usize;
     let mut errors = Vec::new();
     for path in &paths {
         let p = Path::new(path);
         if !p.exists() {
-            errors.push(format!("Not found: {}", path));
+            errors.push(format!("未找到: {}", path));
             continue;
         }
         let result = if p.is_dir() {

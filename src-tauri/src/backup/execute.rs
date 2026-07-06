@@ -54,7 +54,7 @@ pub async fn run_backup(config: &BackupConfig) -> Result<BackupResult> {
                     if !backup_file.exists() || is_newer(&path, &backup_file).await {
                         fs::copy(&path, &backup_file).await?;
                         result.copied += 1;
-                        info!("Copied to backup: {}", filename);
+                        info!("已复制到备份: {}", filename);
                     }
                 }
             }
@@ -98,7 +98,7 @@ pub async fn run_backup(config: &BackupConfig) -> Result<BackupResult> {
             for (_, old_path) in sorted.iter().skip(1) {
                 fs::remove_file(old_path).await?;
                 result.removed += 1;
-                info!("Removed old backup version: {}", old_path.display());
+                info!("已删除旧备份版本: {}", old_path.display());
             }
         }
     }

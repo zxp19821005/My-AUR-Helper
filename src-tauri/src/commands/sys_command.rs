@@ -23,14 +23,14 @@ pub struct CommandOutput {
 /// @returns 命令执行结果（退出码、标准输出、标准错误）
 #[command]
 pub async fn run_command(command: String, args: Vec<String>) -> Result<CommandOutput, String> {
-    debug!("Running command: {} {:?}", command, args);
+    debug!("正在执行命令: {} {:?}", command, args);
     let output = Command::new(&command)
         .args(&args)
         .output()
         .await
-        .map_err(|e| format!("Failed to execute {}: {}", command, e))?;
+        .map_err(|e| format!("执行 {} 失败: {}", command, e))?;
     let exit_code = output.status.code().unwrap_or(-1);
-    debug!("Command exited with code: {}", exit_code);
+    debug!("命令退出码: {}", exit_code);
     Ok(CommandOutput {
         exit_code,
         stdout: String::from_utf8_lossy(&output.stdout).to_string(),
@@ -43,12 +43,12 @@ pub async fn run_command(command: String, args: Vec<String>) -> Result<CommandOu
 /// @returns 命令执行结果
 #[command]
 pub async fn install_package(pkgname: String) -> Result<CommandOutput, String> {
-    info!("Installing package: {}", pkgname);
+    info!("正在安装软件包: {}", pkgname);
     let output = Command::new("sudo")
         .args(["pacman", "-S", "--noconfirm", &pkgname])
         .output()
         .await
-        .map_err(|e| format!("Failed to run pacman: {}", e))?;
+        .map_err(|e| format!("执行 pacman 失败: {}", e))?;
     Ok(CommandOutput {
         exit_code: output.status.code().unwrap_or(-1),
         stdout: String::from_utf8_lossy(&output.stdout).to_string(),
@@ -61,12 +61,12 @@ pub async fn install_package(pkgname: String) -> Result<CommandOutput, String> {
 /// @returns 命令执行结果
 #[command]
 pub async fn remove_package(pkgname: String) -> Result<CommandOutput, String> {
-    info!("Removing package: {}", pkgname);
+    info!("正在卸载软件包: {}", pkgname);
     let output = Command::new("sudo")
         .args(["pacman", "-R", "--noconfirm", &pkgname])
         .output()
         .await
-        .map_err(|e| format!("Failed to run pacman: {}", e))?;
+        .map_err(|e| format!("执行 pacman 失败: {}", e))?;
     Ok(CommandOutput {
         exit_code: output.status.code().unwrap_or(-1),
         stdout: String::from_utf8_lossy(&output.stdout).to_string(),
@@ -79,12 +79,12 @@ pub async fn remove_package(pkgname: String) -> Result<CommandOutput, String> {
 /// @returns 命令执行结果
 #[command]
 pub async fn clean_cache(_keep_versions: usize) -> Result<CommandOutput, String> {
-    info!("Cleaning pacman cache");
+    info!("正在清理 pacman 缓存");
     let output = Command::new("sudo")
         .args(["pacman", "-Sc", "--noconfirm"])
         .output()
         .await
-        .map_err(|e| format!("Failed to run pacman: {}", e))?;
+        .map_err(|e| format!("执行 pacman 失败: {}", e))?;
     Ok(CommandOutput {
         exit_code: output.status.code().unwrap_or(-1),
         stdout: String::from_utf8_lossy(&output.stdout).to_string(),
@@ -97,15 +97,15 @@ pub async fn clean_cache(_keep_versions: usize) -> Result<CommandOutput, String>
 /// @returns 版本号字符串（如 "1.2.3-1"）
 #[command]
 pub async fn get_package_version(pkgname: String) -> Result<String, String> {
-    debug!("Getting version for package: {}", pkgname);
+    debug!("正在获取软件包版本: {}", pkgname);
     let output = Command::new("pacman")
         .args(["-Qi", &pkgname])
         .output()
         .await
-        .map_err(|e| format!("Failed to run pacman: {}", e))?;
+        .map_err(|e| format!("执行 pacman 失败: {}", e))?;
     if !output.status.success() {
         return Err(format!(
-            "Package not installed: {}",
+            "软件包未安装: {}",
             String::from_utf8_lossy(&output.stderr).trim()
         ));
     }
@@ -113,29 +113,29 @@ pub async fn get_package_version(pkgname: String) -> Result<String, String> {
     // 解析 pacman -Qi 输出中的 Version 字段
     for line in stdout.lines() {
         if let Some(ver) = line.strip_prefix("Version        : ") {
-            debug!("Package {} version: {}", pkgname, ver);
+            debug!("软件包 {} 版本: {}", pkgname, ver);
             return Ok(ver.to_string());
         }
     }
-    Err("Could not parse version".to_string())
+    Err("无法解析版本号".to_string())
 }
 
 /// 列出所有已安装的包
 /// @returns 已安装包名列表
 #[command]
 pub async fn list_installed_packages() -> Result<Vec<String>, String> {
-    debug!("Listing installed packages");
+    debug!("正在列出已安装的软件包");
     let output = Command::new("pacman")
         .args(["-Qq"])
         .output()
         .await
-        .map_err(|e| format!("Failed to run pacman: {}", e))?;
+        .map_err(|e| format!("执行 pacman 失败: {}", e))?;
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
     }
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let packages: Vec<String> = stdout.lines().map(|s| s.to_string()).collect();
-    info!("Found {} installed packages", packages.len());
+    info!("找到 {} 个已安装的软件包", packages.len());
     Ok(packages)
 }
 
@@ -143,12 +143,12 @@ pub async fn list_installed_packages() -> Result<Vec<String>, String> {
 /// @returns 命令执行结果
 #[command]
 pub async fn sync_database() -> Result<CommandOutput, String> {
-    info!("Syncing pacman database");
+    info!("正在同步 pacman 数据库");
     let output = Command::new("sudo")
         .args(["pacman", "-Sy"])
         .output()
         .await
-        .map_err(|e| format!("Failed to run pacman: {}", e))?;
+        .map_err(|e| format!("执行 pacman 失败: {}", e))?;
     Ok(CommandOutput {
         exit_code: output.status.code().unwrap_or(-1),
         stdout: String::from_utf8_lossy(&output.stdout).to_string(),
@@ -162,19 +162,19 @@ pub async fn sync_database() -> Result<CommandOutput, String> {
 /// @returns 命令执行结果
 #[command]
 pub async fn makepkg(directory: String, args: Vec<String>) -> Result<CommandOutput, String> {
-    info!("Running makepkg in: {} with args: {:?}", directory, args);
+    info!("正在目录 {} 中运行 makepkg，参数: {:?}", directory, args);
     let dir = Path::new(&directory);
     if !dir.exists() {
-        return Err(format!("Directory does not exist: {}", directory));
+        return Err(format!("目录不存在: {}", directory));
     }
     let output = Command::new("makepkg")
         .args(&args)
         .current_dir(dir) // 在指定目录中执行
         .output()
         .await
-        .map_err(|e| format!("Failed to run makepkg: {}", e))?;
+        .map_err(|e| format!("执行 makepkg 失败: {}", e))?;
     let exit_code = output.status.code().unwrap_or(-1);
-    info!("makepkg exited with code: {}", exit_code);
+    info!("makepkg 退出码: {}", exit_code);
     Ok(CommandOutput {
         exit_code,
         stdout: String::from_utf8_lossy(&output.stdout).to_string(),

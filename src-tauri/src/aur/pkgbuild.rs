@@ -181,6 +181,6 @@ pub async fn sync_from_local_files(pkgs_dir: &Path, pkgname: Option<&str>) -> Re
             }
         }
     }
-    info!("Synced {} packages from local files", packages.len());
+    info!("已从本地文件同步 {} 个软件包", packages.len());
     Ok(packages)
 }

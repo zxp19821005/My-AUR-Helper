@@ -15,10 +15,10 @@ use crate::AppState;        // 应用状态
 /// @returns License 列表
 #[tauri::command]
 pub async fn get_licenses(state: State<'_, AppState>) -> Result<Vec<EnumLicense>, String> {
-    debug!("Getting all licenses");
+    debug!("正在获取所有 License");
     let db = state.db.lock().map_err(|e| e.to_string())?; // 获取数据库锁
     let result = db.get_all_licenses().map_err(|e| e.to_string())?;
-    info!("Got {} licenses", result.len());
+    info!("已获取 {} 个 License", result.len());
     Ok(result)
 }
 
@@ -28,7 +28,7 @@ pub async fn get_licenses(state: State<'_, AppState>) -> Result<Vec<EnumLicense>
 /// @returns 同步的 License 数量
 #[tauri::command]
 pub async fn sync_licenses_from_spdx(state: State<'_, AppState>) -> Result<usize, String> {
-    info!("Syncing licenses from SPDX");
+    info!("正在从 SPDX 同步 License 数据");
     let client = reqwest::Client::new();
     // 从 GitHub 获取 SPDX License 列表 JSON 数据
     let resp = client
@@ -73,7 +73,7 @@ pub async fn sync_licenses_from_spdx(state: State<'_, AppState>) -> Result<usize
     for lic in &enum_licenses {
         let _ = db.upsert_license(lic); // 逐条插入，忽略错误
     }
-    info!("Synced {} licenses from SPDX", count);
+    info!("已从 SPDX 同步 {} 个 License", count);
     Ok(count)
 }
 
@@ -94,7 +94,7 @@ pub async fn add_license(
     description: Option<String>,
     category: Option<String>,
 ) -> Result<i64, String> {
-    info!("Adding license: {} ({})", spdx_id, full_name);
+    info!("正在添加 License: {} ({})", spdx_id, full_name);
     let lic = EnumLicense {
         id: None,
         spdx_id,
@@ -115,10 +115,10 @@ pub async fn add_license(
 /// @returns 编程语言列表
 #[tauri::command]
 pub async fn get_languages(state: State<'_, AppState>) -> Result<Vec<EnumProgrammingLanguage>, String> {
-    debug!("Getting all languages");
+    debug!("正在获取所有编程语言");
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let result = db.get_all_languages().map_err(|e| e.to_string())?;
-    info!("Got {} languages", result.len());
+    info!("已获取 {} 种编程语言", result.len());
     Ok(result)
 }
 
@@ -128,7 +128,7 @@ pub async fn get_languages(state: State<'_, AppState>) -> Result<Vec<EnumProgram
 /// @returns 新插入或更新的记录 ID
 #[tauri::command]
 pub async fn upsert_language(state: State<'_, AppState>, language: EnumProgrammingLanguage) -> Result<i64, String> {
-    info!("Upserting language: {}", language.name);
+    info!("正在添加/更新编程语言: {}", language.name);
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.upsert_language(&language).map_err(|e| e.to_string())
 }
@@ -138,7 +138,7 @@ pub async fn upsert_language(state: State<'_, AppState>, language: EnumProgrammi
 /// @param name - 要删除的编程语言名称
 #[tauri::command]
 pub async fn delete_language(state: State<'_, AppState>, name: String) -> Result<(), String> {
-    info!("Deleting language: {}", name);
+    info!("正在删除编程语言: {}", name);
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.delete_language(&name).map_err(|e| e.to_string())
 }

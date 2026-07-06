@@ -24,7 +24,7 @@ pub async fn fetch_proxy_list_from_userscript(client: &Client) -> Result<Vec<Fet
     let mut proxies = Vec::new();
     // 从脚本文本中解析三个数组
     parse_userscript_arrays(&text, &mut proxies);
-    info!("Fetched {} proxies from userscript", proxies.len());
+    info!("已从用户脚本获取 {} 个代理", proxies.len());
     Ok(proxies)
 }
 

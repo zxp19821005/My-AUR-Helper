@@ -10,27 +10,27 @@ use crate::AppState;
 /// 获取所有软件包列表
 #[tauri::command]
 pub async fn list_software(state: State<'_, AppState>) -> Result<Vec<SoftwareInfo>, String> {
-    debug!("Listing all software");
+    debug!("正在获取所有软件包列表");
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let result = db.get_all_software().map_err(|e| e.to_string())?;
-    info!("Listed {} software entries", result.len());
+    info!("已列出 {} 个软件包", result.len());
     Ok(result)
 }
 
 /// 获取软件包列表展示数据（含 AUR + Upstream 信息）
 #[tauri::command]
 pub async fn list_software_view(state: State<'_, AppState>) -> Result<Vec<SoftwareListEntry>, String> {
-    debug!("Listing software view");
+    debug!("正在获取软件包视图列表");
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let result = db.get_software_list_entries().map_err(|e| e.to_string())?;
-    info!("Listed {} software view entries", result.len());
+    info!("已列出 {} 个软件包视图条目", result.len());
     Ok(result)
 }
 
 /// 根据包名获取单个软件包信息
 #[tauri::command]
 pub async fn get_software(state: State<'_, AppState>, pkgname: String) -> Result<Option<SoftwareInfo>, String> {
-    debug!("Getting software: {}", pkgname);
+    debug!("正在获取软件包: {}", pkgname);
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.get_software_by_name(&pkgname).map_err(|e| e.to_string())
 }
@@ -38,10 +38,10 @@ pub async fn get_software(state: State<'_, AppState>, pkgname: String) -> Result
 /// 搜索软件包
 #[tauri::command]
 pub async fn search_software(state: State<'_, AppState>, keyword: String) -> Result<Vec<SoftwareInfo>, String> {
-    debug!("Searching software: {}", keyword);
+    debug!("正在搜索软件包: {}", keyword);
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let result = db.search_software(&keyword).map_err(|e| e.to_string())?;
-    info!("Search for '{}' found {} results", keyword, result.len());
+    info!("搜索 '{}' 找到 {} 个结果", keyword, result.len());
     Ok(result)
 }
 
@@ -59,7 +59,7 @@ pub async fn add_software(
     license_id: Option<i64>,
     language_id: Option<i64>,
 ) -> Result<i64, String> {
-    info!("Adding software: {}", pkgname);
+    info!("正在添加软件包: {}", pkgname);
     let sw = SoftwareInfo {
         software_id: None,
         pkgname: pkgname.clone(),
@@ -75,7 +75,7 @@ pub async fn add_software(
     };
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let id = db.insert_software(&sw).map_err(|e| e.to_string())?;
-    info!("Added software '{}' with id {}", pkgname, id);
+    info!("已添加软件包 '{}'，ID: {}", pkgname, id);
     Ok(id)
 }
 
@@ -95,7 +95,7 @@ pub async fn update_software(
     license_id: Option<i64>,
     language_id: Option<i64>,
 ) -> Result<(), String> {
-    info!("Updating software {}: {}", software_id, pkgname);
+    info!("正在更新软件包 {}: {}", software_id, pkgname);
     let sw = SoftwareInfo {
         software_id: Some(software_id),
         pkgname: pkgname.clone(),
@@ -120,7 +120,7 @@ pub async fn set_software_license(
     software_id: i64,
     license_id: Option<i64>,
 ) -> Result<(), String> {
-    info!("Setting license for software {} to {:?}", software_id, license_id);
+    info!("正在设置软件包 {} 的 License 为 {:?}", software_id, license_id);
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.update_software_license(software_id, license_id)
         .map_err(|e| e.to_string())
@@ -133,7 +133,7 @@ pub async fn set_software_language(
     software_id: i64,
     language_id: Option<i64>,
 ) -> Result<(), String> {
-    info!("Setting language for software {} to {:?}", software_id, language_id);
+    info!("正在设置软件包 {} 的编程语言为 {:?}", software_id, language_id);
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.update_software_language(software_id, language_id)
         .map_err(|e| e.to_string())
@@ -142,7 +142,7 @@ pub async fn set_software_language(
 /// 删除单个软件包
 #[tauri::command]
 pub async fn delete_software(state: State<'_, AppState>, software_id: i64) -> Result<(), String> {
-    info!("Deleting software with id {}", software_id);
+    info!("正在删除软件包，ID: {}", software_id);
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.delete_software(software_id).map_err(|e| e.to_string())
 }
@@ -150,7 +150,7 @@ pub async fn delete_software(state: State<'_, AppState>, software_id: i64) -> Re
 /// 批量删除软件包
 #[tauri::command]
 pub async fn batch_delete_software(state: State<'_, AppState>, ids: Vec<i64>) -> Result<i64, String> {
-    info!("Batch deleting {} software packages", ids.len());
+    info!("正在批量删除 {} 个软件包", ids.len());
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let mut count = 0i64;
     for id in &ids {
@@ -158,6 +158,6 @@ pub async fn batch_delete_software(state: State<'_, AppState>, ids: Vec<i64>) ->
             count += 1;
         }
     }
-    info!("Deleted {} software packages", count);
+    info!("已删除 {} 个软件包", count);
     Ok(count)
 }

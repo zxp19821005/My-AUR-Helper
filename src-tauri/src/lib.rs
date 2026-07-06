@@ -82,14 +82,14 @@ pub fn run() {
                 // 自定义日志格式：时间 - 级别: [模块] 消息
                 .format(|out, message, record| {
                     let target = record.target(); // 获取日志来源模块名
-                    let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ"); // 格式化当前时间
-                    // 将日志级别映射为固定长度的字符串
+                    let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f"); // 本地时间格式
+                    // 将日志级别映射为固定长度的中文字符串
                     let level = match record.level() {
-                        log::Level::Error => "ERROR",
-                        log::Level::Warn => "WARN",
-                        log::Level::Info => "INFO",
-                        log::Level::Debug => "DEBUG",
-                        log::Level::Trace => "TRACE",
+                        log::Level::Error => "错误",
+                        log::Level::Warn =>  "警告",
+                        log::Level::Info =>  "信息",
+                        log::Level::Debug => "调试",
+                        log::Level::Trace => "跟踪",
                     };
                     out.finish(format_args!("{} - {}: [{}] {}", now, level, target, message))
                 })
@@ -99,7 +99,7 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         // 应用初始化回调
         .setup(|app| {
-            log::info!("Application starting");
+            log::info!("应用程序启动中");
 
             // 初始化数据库
             let app_dir = app.path().app_config_dir()?;
@@ -111,7 +111,7 @@ pub fn run() {
             // 读取系统托盘设置
             let show_tray = get_setting_string(&database, "show_tray_icon", "true") == "true";
             let close_action = get_setting_string(&database, "close_action", "minimize_to_tray");
-            log::info!("Settings: show_tray_icon={}, close_action={}", show_tray, close_action);
+            log::info!("配置: show_tray_icon={}, close_action={}", show_tray, close_action);
 
             // 存储窗口关闭动作配置
             app.manage(CloseAction(close_action));
@@ -162,9 +162,9 @@ pub fn run() {
                     })
                     .build(app)?;
 
-                log::info!("System tray created");
+                log::info!("系统托盘已创建");
             } else {
-                log::info!("System tray disabled by settings");
+                log::info!("系统托盘已被设置禁用");
             }
 
             // 将数据库存储到应用状态，供命令使用

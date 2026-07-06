@@ -61,7 +61,7 @@ pub async fn fetch_packages_by_user(client: &Client, username: &str) -> Result<V
             }
         }
     }
-    info!("Fetched {} packages from AUR (maintainer + comaintainer)", all.len());
+    info!("已从 AUR 获取 {} 个软件包（维护者 + 共同维护者）", all.len());
     Ok(all)
 }
 

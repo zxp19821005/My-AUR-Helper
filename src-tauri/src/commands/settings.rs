@@ -14,10 +14,10 @@ use crate::AppState;        // 应用状态
 /// @returns 所有设置项列表
 #[tauri::command]
 pub async fn get_settings(state: State<'_, AppState>) -> Result<Vec<Setting>, String> {
-    debug!("Getting all settings");
+    debug!("正在获取所有设置");
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let result = db.get_all_settings().map_err(|e| e.to_string())?;
-    info!("Got {} settings", result.len());
+    info!("已获取 {} 项设置", result.len());
     Ok(result)
 }
 
@@ -27,7 +27,7 @@ pub async fn get_settings(state: State<'_, AppState>) -> Result<Vec<Setting>, St
 /// @returns 可选的设置项
 #[tauri::command]
 pub async fn get_setting(state: State<'_, AppState>, key: String) -> Result<Option<Setting>, String> {
-    debug!("Getting setting: {}", key);
+    debug!("正在获取设置: {}", key);
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.get_setting(&key).map_err(|e| e.to_string())
 }
@@ -38,7 +38,7 @@ pub async fn get_setting(state: State<'_, AppState>, key: String) -> Result<Opti
 /// @param value - 设置值
 #[tauri::command]
 pub async fn set_setting(state: State<'_, AppState>, key: String, value: String) -> Result<(), String> {
-    info!("Setting {} = {}", key, value);
+    info!("正在设置 {} = {}", key, value);
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.set_setting(&key, &value).map_err(|e| e.to_string())
 }

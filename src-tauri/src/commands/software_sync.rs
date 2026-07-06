@@ -11,7 +11,7 @@ use crate::AppState;
 /// 从 AUR 同步软件包（按用户名）
 #[tauri::command]
 pub async fn sync_from_aur(state: State<'_, AppState>) -> Result<i64, String> {
-    info!("Syncing packages from AUR");
+    info!("正在从 AUR 同步软件包");
     let username = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         db.get_setting("aur_username")
@@ -71,7 +71,7 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> Result<i64, String> {
         };
         let _ = db.upsert_aur_info(&aur_info);
     }
-    info!("Synced {} packages from AUR", packages.len());
+    info!("已从 AUR 同步 {} 个软件包", packages.len());
     Ok(packages.len() as i64)
 }
 
@@ -82,7 +82,7 @@ pub async fn sync_from_pkgbuild(
     app: tauri::AppHandle,
     pkgname: Option<String>,
 ) -> Result<i64, String> {
-    info!("Syncing packages from PKGBUILD files");
+    info!("正在从 PKGBUILD 文件同步软件包");
     let aur_dir = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         db.get_setting("aur_packages_dir")
@@ -111,7 +111,7 @@ pub async fn sync_from_pkgbuild(
     }
 
     let total = dir_entries.len();
-    info!("Found {} package directories to sync", total);
+    info!("找到 {} 个软件包目录待同步", total);
 
     // 发送初始进度（总数）
     let _ = app.emit("sync-progress", serde_json::json!({
@@ -189,7 +189,7 @@ pub async fn sync_from_pkgbuild(
         "message": format!("同步完成，成功 {} 个", count),
     }));
 
-    info!("Synced {} packages from PKGBUILD files", count);
+    info!("已从 PKGBUILD 文件同步 {} 个软件包", count);
     Ok(count)
 }
 
@@ -199,7 +199,7 @@ pub async fn update_aur_info(
     state: State<'_, AppState>,
     pkgname_list: Option<Vec<String>>,
 ) -> Result<i64, String> {
-    info!("Updating AUR info for packages");
+    info!("正在更新软件包的 AUR 信息");
     let pkgnames: Vec<String> = if let Some(list) = pkgname_list {
         list
     } else {
@@ -241,6 +241,6 @@ pub async fn update_aur_info(
             }
         }
     }
-    info!("Updated AUR info for {} packages", count);
+    info!("已更新 {} 个软件包的 AUR 信息", count);
     Ok(count)
 }

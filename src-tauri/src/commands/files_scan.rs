@@ -64,7 +64,7 @@ fn parse_pkg_filename(filename: &str) -> Option<PkgFileInfo> {
 /// 扫描目录中的 .pkg.tar 文件
 #[command]
 pub async fn scan_pkg_files(directory: String) -> Result<Vec<PkgFileInfo>, String> {
-    debug!("Scanning PKG files in: {}", directory);
+    debug!("正在扫描目录中的 PKG 文件: {}", directory);
     let mut entries = fs::read_dir(&directory).await.map_err(|e| e.to_string())?;
     let mut result = Vec::new();
     while let Some(entry) = entries.next_entry().await.map_err(|e| e.to_string())? {

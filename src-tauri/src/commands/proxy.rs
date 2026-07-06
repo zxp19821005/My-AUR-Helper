@@ -15,10 +15,10 @@ use crate::AppState;        // 应用状态
 /// @returns 所有代理信息列表
 #[tauri::command]
 pub async fn get_proxies(state: State<'_, AppState>) -> Result<Vec<ProxyInfo>, String> {
-    debug!("Getting all proxies");
+    debug!("正在获取所有代理");
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let result = db.get_all_proxies().map_err(|e| e.to_string())?;
-    info!("Got {} proxies", result.len());
+    info!("已获取 {} 个代理", result.len());
     Ok(result)
 }
 
@@ -28,7 +28,7 @@ pub async fn get_proxies(state: State<'_, AppState>) -> Result<Vec<ProxyInfo>, S
 /// @returns 获取并存入的代理数量
 #[tauri::command]
 pub async fn fetch_proxy_sources(state: State<'_, AppState>) -> Result<usize, String> {
-    info!("Fetching proxy sources from userscript");
+    info!("正在从用户脚本获取代理源");
     let client = reqwest::Client::new();
     // 从 userscript 中提取代理列表
     let proxies = proxy::fetch_proxy_list_from_userscript(&client)
@@ -47,7 +47,7 @@ pub async fn fetch_proxy_sources(state: State<'_, AppState>) -> Result<usize, St
         let _ = db.insert_proxy(&proxy_info); // 忽略重复插入错误
         count += 1;
     }
-    info!("Fetched {} proxy sources", count);
+    info!("已获取 {} 个代理源", count);
     Ok(count)
 }
 
@@ -57,12 +57,12 @@ pub async fn fetch_proxy_sources(state: State<'_, AppState>) -> Result<usize, St
 /// @returns 延迟毫秒数
 #[tauri::command]
 pub async fn test_proxy(_state: State<'_, AppState>, proxy_url: String) -> Result<i64, String> {
-    info!("Testing proxy: {}", proxy_url);
+    info!("正在测试代理: {}", proxy_url);
     let client = reqwest::Client::new();
     let latency = proxy::test_proxy_latency(&client, &proxy_url)
         .await
-        .map_err(|e| format!("Test failed: {}", e))?;
-    info!("Proxy {} latency: {}ms", proxy_url, latency);
+        .map_err(|e| format!("测试失败: {}", e))?;
+    info!("代理 {} 延迟: {}ms", proxy_url, latency);
     Ok(latency)
 }
 
@@ -76,7 +76,7 @@ pub async fn set_proxy_active(
     proxy_id: i64,
     is_active: bool,
 ) -> Result<(), String> {
-    info!("Setting proxy {} active={}", proxy_id, is_active);
+    info!("正在设置代理 {} 启用状态={}", proxy_id, is_active);
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.update_proxy_active(proxy_id, is_active)
         .map_err(|e| e.to_string())
