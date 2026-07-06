@@ -14,6 +14,7 @@ pub mod backup;     // 备份管理模块
 pub mod checkers;   // 版本检查器模块
 pub mod commands;   // Tauri IPC 命令模块
 pub mod db;         // 数据库操作模块
+pub mod errors;     // 统一错误处理模块
 pub mod logger;     // 日志宏模块
 pub mod models;     // 数据模型模块
 pub mod proxy;      // 代理管理模块
@@ -103,10 +104,20 @@ pub fn run() {
 
             // 初始化数据库
             let app_dir = app.path().app_config_dir()?;
-            std::fs::create_dir_all(&app_dir)?;
+            std::fs::create_dir_all(&app_dir).map_err(|e| {
+                errors::AppError::FileOperation(format!("创建配置目录失败: {}", e))
+            })?;
             let db_path = app_dir.join("my_aur_helper.db"); // 数据库文件路径
-            let database = db::Database::new(&db_path)?;    // 创建数据库连接
-            database.initialize()?;                          // 初始化表结构和默认数据
+            let database = db::Database::new(&db_path)
+                .map_err(|e| {
+                    log::error!("数据库初始化失败: {}", e);
+                    errors::AppError::DatabaseError(format!("数据库初始化失败: {}", e))
+                })?;
+            database.initialize()
+                .map_err(|e| {
+                    log::error!("数据库表结构初始化失败: {}", e);
+                    errors::AppError::DatabaseError(format!("数据库表结构初始化失败: {}", e))
+                })?;
 
             // 读取系统托盘设置
             let show_tray = get_setting_string(&database, "show_tray_icon", "true") == "true";
