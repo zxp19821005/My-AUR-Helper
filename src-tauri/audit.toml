@@ -1,0 +1,24 @@
+[advisories]
+# GTK3 绑定不再维护 - 等待 Tauri 官方升级至 GTK4
+# 这些是系统 UI 绑定，安全漏洞风险较低，本应用作为本地桌面应用攻击面有限
+RUSTSEC-2024-0413 = "accept"  # atk - gtk-rs GTK3 bindings - no longer maintained
+RUSTSEC-2024-0416 = "accept"  # atk-sys - gtk-rs GTK3 bindings - no longer maintained
+RUSTSEC-2024-0412 = "accept"  # gdk - gtk-rs GTK3 bindings - no longer maintained
+RUSTSEC-2024-0418 = "accept"  # gdk-sys - gtk-rs GTK3 bindings - no longer maintained
+RUSTSEC-2024-0411 = "accept"  # gdkwayland-sys - gtk-rs GTK3 bindings - no longer maintained
+RUSTSEC-2024-0417 = "accept"  # gdkx11 - gtk-rs GTK3 bindings - no longer maintained
+RUSTSEC-2024-0414 = "accept"  # gdkx11-sys - gtk-rs GTK3 bindings - no longer maintained
+RUSTSEC-2024-0415 = "accept"  # gtk - gtk-rs GTK3 bindings - no longer maintained
+RUSTSEC-2024-0420 = "accept"  # gtk-sys - gtk-rs GTK3 bindings - no longer maintained
+RUSTSEC-2024-0419 = "accept"  # gtk3-macros - gtk-rs GTK3 bindings - no longer maintained
+
+# Unicode 库不再维护 - 这些库相对稳定，安全风险较低
+RUSTSEC-2025-0081 = "accept"  # unic-char-property - is unmaintained
+RUSTSEC-2025-0075 = "accept"  # unic-char-range - is unmaintained
+RUSTSEC-2025-0080 = "accept"  # unic-common - is unmaintained
+RUSTSEC-2025-0100 = "accept"  # unic-ucd-ident - is unmaintained
+RUSTSEC-2025-0098 = "accept"  # unic-ucd-version - is unmaintained
+
+# 其他维护警告
+RUSTSEC-2024-0370 = "accept"  # proc-macro-error - is unmaintained
+RUSTSEC-2024-0429 = "accept"  # glib - Unsoundness in VariantStrIter impls (等待 GTK 绑定升级)
