@@ -42,6 +42,7 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
                 auto_check_enabled: true,
                 license_id: None,
                 language_id: None,
+                version_extract_regex: None,
             };
             db.insert_software(&new_sw)?
         };

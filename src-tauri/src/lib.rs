@@ -18,6 +18,7 @@ pub mod errors;     // 统一错误处理模块
 pub mod logger;     // 日志宏模块
 pub mod models;     // 数据模型模块
 pub mod proxy;      // 代理管理模块
+pub mod versions;   // 版本处理模块
 
 use std::path::PathBuf;       // 路径缓冲区，用于构建文件路径
 use std::sync::Mutex;         // 互斥锁，保证数据库连接的线程安全访问

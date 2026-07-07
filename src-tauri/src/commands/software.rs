@@ -102,6 +102,7 @@ pub async fn add_software(
         auto_check_enabled,
         license_id,
         language_id,
+        version_extract_regex: None,
     };
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let id = db.insert_software(&sw).map_err(|e| e.to_string())?;
@@ -138,6 +139,7 @@ pub async fn update_software(
         auto_check_enabled,
         license_id,
         language_id,
+        version_extract_regex: None,
     };
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.upsert_software(&sw).map_err(|e| e.to_string())

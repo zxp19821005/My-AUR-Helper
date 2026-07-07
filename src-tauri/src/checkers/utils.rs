@@ -1,3 +1,33 @@
+use log::debug;
+
+/// 使用自定义正则表达式从文本中提取版本号
+/// @param text - 包含版本号的文本
+/// @param regex_pattern - 正则表达式模式
+/// @returns 提取到的版本号，如果匹配失败或正则无效则返回 None
+pub fn extract_version_with_regex(text: &str, regex_pattern: &str) -> Option<String> {
+    debug!("[正则提取] 使用正则表达式: {}", regex_pattern);
+    match regex::Regex::new(regex_pattern) {
+        Ok(re) => {
+            if let Some(caps) = re.captures(text) {
+                let version = if caps.len() > 1 {
+                    caps[1].to_string()
+                } else {
+                    caps[0].to_string()
+                };
+                debug!("[正则提取] 提取成功: {}", version);
+                Some(version)
+            } else {
+                debug!("[正则提取] 未匹配到任何内容");
+                None
+            }
+        }
+        Err(e) => {
+            debug!("[正则提取] 正则表达式无效: {}", e);
+            None
+        }
+    }
+}
+
 /// 从 GitHub/GitLab/Gitee 仓库 URL 提取 owner 和 repo
 /// @param repo_url - 仓库 URL，如 https://github.com/owner/repo 或 git@github.com:owner/repo.git
 /// @returns (owner, repo) 元组，如果无法解析则返回 None

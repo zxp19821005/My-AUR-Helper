@@ -16,6 +16,7 @@ pub struct SoftwareDetail {
     pub auto_check_enabled: bool,
     pub license_id: Option<i64>,
     pub language_id: Option<i64>,
+    pub version_extract_regex: Option<String>,
     pub aur_version: Option<String>,
     pub aur_last_updated: Option<i64>,
     pub aur_pkgdesc: Option<String>,

@@ -15,7 +15,6 @@ import {
   Eye,
   Pencil,
   Info,
-  Search,
   Download,
 } from "@lucide/vue";
 
@@ -41,7 +40,6 @@ const {
   updateAurInfo,
   checkSelectedUpstream,
   deleteSelected,
-  checkAll,
   rowSyncFromAur,
   rowSyncFromPkgbuild,
   rowCheckUpstream,
@@ -161,14 +159,11 @@ const setSelected = (v: Set<string>) => { selectedPkgnames.value = v; };
       <button class="btn-icon btn-icon-info" @click="updateAurInfo(selectedPkgnames)" :disabled="loading" title="更新AUR信息">
         <Info :size="16" />
       </button>
-      <button class="btn-icon btn-icon-info" @click="checkSelectedUpstream(selectedPkgnames)" :disabled="loading || selectedPkgnames.size === 0" title="更新上游信息">
+      <button class="btn-icon btn-icon-info" @click="checkSelectedUpstream(selectedPkgnames)" :disabled="loading" title="更新上游信息">
         <RefreshCw :size="16" />
       </button>
       <button class="btn-icon btn-icon-danger" @click="deleteSelected(selectedPkgnames, setSelected)" :disabled="selectedPkgnames.size === 0" title="删除选中">
         <Trash2 :size="16" />
-      </button>
-      <button class="btn-icon btn-icon-warning" @click="checkAll" :disabled="loading" title="检查全部更新">
-        <Search :size="16" />
       </button>
     </PageToolbar>
 

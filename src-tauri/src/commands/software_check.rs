@@ -7,6 +7,7 @@ use tauri::State;
 use crate::checkers;
 use crate::errors::{AppError, AppResult};
 use crate::models::*;
+use crate::versions;
 use crate::AppState;
 
 /// 检查单个软件包的上游版本
@@ -24,14 +25,37 @@ pub async fn check_upstream_version(
     };
     let checker = checkers::get_checker(&sw.checker_type_id);
     let upstream_url = sw.upstream_url.as_deref().unwrap_or("");
+    let version_extract_regex = sw.version_extract_regex.as_deref();
     debug!("使用检查器: {} 检查 {}", checker.name(), pkgname);
-    match checker.check(&client, upstream_url, &sw.pkgname).await {
+    match checker.check(&client, upstream_url, &sw.pkgname, version_extract_regex).await {
         Ok(Some(version)) => {
             let db = state.db.lock()?;
-            let current_ver = db
-                .get_upstream_info(sw.software_id.unwrap_or(0))?
-                .map(|u| u.upstream_version.unwrap_or_default());
-            let is_outdated = current_ver.as_deref() != Some(&version);
+            let aur_ver = db
+                .get_aur_info(sw.software_id.unwrap_or(0))?
+                .map(|a| a.aur_version.unwrap_or_default());
+            
+            debug!("[版本比较] 准备比较版本:");
+            debug!("[版本比较]   AUR版本: {}", aur_ver.as_deref().unwrap_or("(未获取)"));
+            debug!("[版本比较]   上游版本: {}", version);
+            
+            let is_outdated = match aur_ver.as_deref() {
+                Some(aur) => {
+                    let comparison = versions::compare_versions(aur, &version);
+                    debug!("[版本比较]   比较结果: {:?}", comparison);
+                    debug!("[版本比较]   算法: 使用 vercmp 算法，先标准化版本再比较");
+                    comparison == versions::VersionComparison::LessThan
+                }
+                None => {
+                    debug!("[版本比较]   未获取到 AUR 版本，标记为需更新");
+                    true
+                }
+            };
+            
+            info!("[版本检查结果] 软件包: {}", pkgname);
+            info!("[版本检查结果]   AUR版本: {}", aur_ver.as_deref().unwrap_or("(未获取)"));
+            info!("[版本检查结果]   上游版本: {}", version);
+            info!("[版本检查结果]   是否需要更新: {}", if is_outdated { "是" } else { "否" });
+            
             db.update_software_outdated(sw.software_id.unwrap_or(0), is_outdated)?;
             let upstream_info = UpstreamInfo {
                 software_id: sw.software_id.unwrap_or(0),
@@ -41,7 +65,6 @@ pub async fn check_upstream_version(
                 last_checked: None,
             };
             db.upsert_upstream_info(&upstream_info)?;
-            info!("已检查 {}: {} -> 需更新={}", pkgname, version, is_outdated);
             Ok(version)
         }
         Ok(None) => {
@@ -71,13 +94,36 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
     for sw in &packages {
         let checker = checkers::get_checker(&sw.checker_type_id);
         let upstream_url = sw.upstream_url.as_deref().unwrap_or("");
-        match checker.check(&client, upstream_url, &sw.pkgname).await {
+        let version_extract_regex = sw.version_extract_regex.as_deref();
+        match checker.check(&client, upstream_url, &sw.pkgname, version_extract_regex).await {
             Ok(Some(version)) => {
                 let db = state.db.lock()?;
-                let current_ver = db
-                    .get_upstream_info(sw.software_id.unwrap_or(0))?
-                    .map(|u| u.upstream_version.unwrap_or_default());
-                let is_outdated = current_ver.as_deref() != Some(&version);
+                let aur_ver = db
+                    .get_aur_info(sw.software_id.unwrap_or(0))?
+                    .map(|a| a.aur_version.unwrap_or_default());
+                
+                debug!("[版本比较] 准备比较版本:");
+                debug!("[版本比较]   AUR版本: {}", aur_ver.as_deref().unwrap_or("(未获取)"));
+                debug!("[版本比较]   上游版本: {}", version);
+                
+                let is_outdated = match aur_ver.as_deref() {
+                    Some(aur) => {
+                        let comparison = versions::compare_versions(aur, &version);
+                        debug!("[版本比较]   比较结果: {:?}", comparison);
+                        debug!("[版本比较]   算法: 使用 vercmp 算法，先标准化版本再比较");
+                        comparison == versions::VersionComparison::LessThan
+                    }
+                    None => {
+                        debug!("[版本比较]   未获取到 AUR 版本，标记为需更新");
+                        true
+                    }
+                };
+                
+                info!("[版本检查结果] 软件包: {}", sw.pkgname);
+                info!("[版本检查结果]   AUR版本: {}", aur_ver.as_deref().unwrap_or("(未获取)"));
+                info!("[版本检查结果]   上游版本: {}", version);
+                info!("[版本检查结果]   是否需要更新: {}", if is_outdated { "是" } else { "否" });
+                
                 let _ = db.update_software_outdated(sw.software_id.unwrap_or(0), is_outdated);
                 let upstream_info = UpstreamInfo {
                     software_id: sw.software_id.unwrap_or(0),
@@ -87,7 +133,6 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
                     last_checked: None,
                 };
                 let _ = db.upsert_upstream_info(&upstream_info);
-                debug!("已检查 {}: {} -> 需更新={}", sw.pkgname, version, is_outdated);
                 results.push((sw.pkgname.clone(), version));
             }
             _ => {
@@ -117,13 +162,36 @@ pub async fn check_selected_upstream(
         };
         let checker = checkers::get_checker(&sw.checker_type_id);
         let upstream_url = sw.upstream_url.as_deref().unwrap_or("");
-        match checker.check(&client, upstream_url, &sw.pkgname).await {
+        let version_extract_regex = sw.version_extract_regex.as_deref();
+        match checker.check(&client, upstream_url, &sw.pkgname, version_extract_regex).await {
             Ok(Some(version)) => {
                 let db = state.db.lock()?;
-                let current_ver = db
-                    .get_upstream_info(sw.software_id.unwrap_or(0))?
-                    .map(|u| u.upstream_version.unwrap_or_default());
-                let is_outdated = current_ver.as_deref() != Some(&version);
+                let aur_ver = db
+                    .get_aur_info(sw.software_id.unwrap_or(0))?
+                    .map(|a| a.aur_version.unwrap_or_default());
+                
+                debug!("[版本比较] 准备比较版本:");
+                debug!("[版本比较]   AUR版本: {}", aur_ver.as_deref().unwrap_or("(未获取)"));
+                debug!("[版本比较]   上游版本: {}", version);
+                
+                let is_outdated = match aur_ver.as_deref() {
+                    Some(aur) => {
+                        let comparison = versions::compare_versions(aur, &version);
+                        debug!("[版本比较]   比较结果: {:?}", comparison);
+                        debug!("[版本比较]   算法: 使用 vercmp 算法，先标准化版本再比较");
+                        comparison == versions::VersionComparison::LessThan
+                    }
+                    None => {
+                        debug!("[版本比较]   未获取到 AUR 版本，标记为需更新");
+                        true
+                    }
+                };
+                
+                info!("[版本检查结果] 软件包: {}", sw.pkgname);
+                info!("[版本检查结果]   AUR版本: {}", aur_ver.as_deref().unwrap_or("(未获取)"));
+                info!("[版本检查结果]   上游版本: {}", version);
+                info!("[版本检查结果]   是否需要更新: {}", if is_outdated { "是" } else { "否" });
+                
                 let _ = db.update_software_outdated(sw.software_id.unwrap_or(0), is_outdated);
                 let upstream_info = UpstreamInfo {
                     software_id: sw.software_id.unwrap_or(0),

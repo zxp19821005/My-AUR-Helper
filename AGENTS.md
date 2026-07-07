@@ -91,7 +91,13 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/commands/` | Tauri IPC 命令（software/files/sys_command/enums 等） |
 | `src-tauri/src/checkers/` | 版本检查器 |
 | `src-tauri/src/checkers/trait_def.rs` | VersionChecker trait 定义 |
-| `src-tauri/src/checkers/utils.rs` | 检查器工具函数 |
+| `src-tauri/src/checkers/utils.rs` | 检查器工具函数（含版本正则提取） |
+| `src-tauri/src/versions/` | 版本处理模块（解析、标准化、比较） |
+| `src-tauri/src/versions/mod.rs` | versions 模块入口 |
+| `src-tauri/src/versions/aur.rs` | AUR 版本解析和标准化 |
+| `src-tauri/src/versions/upstream.rs` | 上游版本清洗和标准化 |
+| `src-tauri/src/versions/comparison.rs` | 版本比较算法（vercmp） |
+| `src-tauri/src/versions/rules.rs` | 版本清洗规则配置 |
 | `src-tauri/src/aur/mod.rs` | AUR RPC API 交互 |
 | `src-tauri/src/aur/rpc.rs` | AUR RPC 请求封装 |
 | `src-tauri/src/aur/pkgbuild.rs` | PKGBUILD 文件解析 |
@@ -151,7 +157,8 @@ cargo test         # Rust 单元测试
 所有检查器实现 `VersionChecker` trait（定义在 `checkers/trait_def.rs`）：
 
 ### 检查器类型
-- `GitHubChecker` — GitHub API (release/tag)
+- `GitHubReleaseChecker` — GitHub API (release)
+- `GitHubTagChecker` — GitHub API (tag)
 - `GiteeChecker` — Gitee API
 - `GitLabChecker` — GitLab API
 - `RedirectChecker` — HTTP 重定向（跟随 URL 获取版本）
@@ -159,10 +166,32 @@ cargo test         # Rust 单元测试
 - `ManualChecker` — 手动更新（用户指定版本）
 
 ### 工具模块
-- `checkers/utils.rs` — 通用工具函数（版本号比较、HTTP 请求封装等）
+- `checkers/utils.rs` — 通用工具函数（版本号正则提取、URL 解析等）
+
+### 版本提取正则表达式
+每个检查器支持通过 `version_extract_regex` 参数自定义版本提取规则：
+- 正则表达式可以包含捕获组，优先使用第一个捕获组的内容
+- 如果正则匹配失败，检查器会回退到默认的版本提取逻辑
+- 适用于版本号格式不标准的场景
 
 ### 调用方式
 检查器通过 `checkers/mod.rs` 中的工厂函数创建，根据 `CheckerType` 枚举选择合适的检查器。
+
+## 版本处理模块
+
+`versions/` 模块专门处理各类版本号的解析、标准化和比较操作：
+
+### 功能模块
+- `aur.rs` — AUR 版本解析（epoch、version、pkgrel）
+- `upstream.rs` — 上游版本清洗（移除前缀/后缀）
+- `comparison.rs` — 版本比较算法（ALPM/pacman vercmp）
+- `rules.rs` — 版本清洗规则配置
+
+### 核心功能
+1. **AUR 版本处理**：提取完整版本信息，比较时仅使用 version 部分
+2. **上游版本处理**：清洗和标准化版本号，支持自定义规则
+3. **版本比较**：基于 vercmp 算法，支持多种版本格式
+4. **特殊字符处理**：将 `-` 转换为 `_` 符合 AUR 规范
 
 <!-- ========== 数据库结构：核心数据表概述 ========== -->
 ## 数据库结构
@@ -170,14 +199,27 @@ cargo test         # Rust 单元测试
 ### 核心数据表
 | 表名 | 说明 |
 |------|------|
-| `software_info` | 软件包基本信息（名称、版本、描述等） |
-| `aur_info` | AUR 仓库信息（URL、维护者等） |
+| `software_info` | 软件包基本信息（名称、上游URL、检查器类型、版本提取正则等） |
+| `aur_info` | AUR 仓库信息（版本、描述、依赖等） |
 | `upstream_info` | 上游版本信息（来源类型、URL、最新版本等） |
 | `proxies_info` | 代理服务器配置（类型、地址、端口等） |
 | `backup_software` | 备份记录（时间、路径、状态等） |
 | `cache_software` | 缓存的软件包信息 |
 | `logs` | 应用日志（级别、时间、内容） |
 | `settings` | 应用设置项 |
+
+### software_info 表字段说明
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `software_id` | INTEGER | 主键 |
+| `pkgname` | TEXT | 软件包名称（唯一） |
+| `upstream_url` | TEXT | 上游仓库 URL |
+| `checker_type_id` | INTEGER | 检查器类型（枚举） |
+| `version_extract_regex` | TEXT | 版本提取正则表达式（可选） |
+| `is_outdated` | INTEGER | 是否需要更新（0/1） |
+| `check_test_versions` | INTEGER | 是否检查测试版本 |
+| `check_binary_files` | INTEGER | 是否检查二进制文件 |
+| `auto_check_enabled` | INTEGER | 是否启用自动检查 |
 
 <!-- ========== Tauri 能力配置：权限和 IPC 规则 ========== -->
 ## Tauri 能力配置

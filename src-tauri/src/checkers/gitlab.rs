@@ -1,9 +1,10 @@
 use crate::errors::AppResult;
-use async_trait::async_trait; // 异步 trait 支持
-use reqwest::Client;          // HTTP 客户端
+use async_trait::async_trait;
+use log::{debug, info};
+use reqwest::Client;
 
-use super::trait_def::VersionChecker; // 版本检查器 trait
-use super::utils::clean_version;     // 版本号清理工具
+use super::trait_def::VersionChecker;
+use super::utils::{clean_version, extract_version_with_regex};
 
 /// GitLab 检查器
 /// 通过 GitLab API v4 获取最新 release 的 tag_name
@@ -17,35 +18,78 @@ impl VersionChecker for GitLabChecker {
 
     /// 检查 GitLab 最新 Release 版本
     /// @param upstream_url - GitLab 仓库 URL，例如 https://gitlab.com/owner/repo
+    /// @param version_extract_regex - 可选的版本提取正则表达式
     /// @returns 清理后的版本号字符串
-    async fn check(&self, client: &Client, upstream_url: &str, _pkgname: &str) -> AppResult<Option<String>> {
+    async fn check(&self, client: &Client, upstream_url: &str, pkgname: &str, version_extract_regex: Option<&str>) -> AppResult<Option<String>> {
+        info!("[版本检查] 开始检查软件包: {} (检查器: {})", pkgname, self.name());
+        debug!("[版本检查] 上游URL: {}", upstream_url);
+        debug!("[版本检查] 版本提取正则: {:?}", version_extract_regex);
+        
         if upstream_url.is_empty() {
+            debug!("[版本检查] 上游URL为空，跳过检查");
             return Ok(None);
         }
-        // 从 URL 中提取 owner 和 repo
         let parts: Vec<&str> = upstream_url.trim_end_matches('/').trim_end_matches(".git").split('/').collect();
         if parts.len() < 2 {
+            debug!("[版本检查] 无法解析 GitLab URL: {}", upstream_url);
             return Ok(None);
         }
         let owner = parts[parts.len() - 2];
         let repo = parts[parts.len() - 1];
-        // GitLab API 需要 URL 编码的项目路径
+        debug!("[版本检查] 解析到仓库: owner={}, repo={}", owner, repo);
+        
         let project_path = format!("{}%2F{}", owner, repo);
-        // 调用 GitLab API v4 获取最新 release
         let api_url = format!("https://gitlab.com/api/v4/projects/{}/releases/permalink/latest", project_path);
+        
+        debug!("[GitLab API] 请求URL: {}", api_url);
+        debug!("[GitLab API] 请求方法: GET");
+        debug!("[GitLab API] 请求头: User-Agent=my-aur-helper/0.1");
+        debug!("[GitLab API] 项目路径: {}/{}", owner, repo);
+        
         let resp = client
             .get(&api_url)
             .header("User-Agent", "my-aur-helper/0.1")
             .send()
             .await?;
-        if !resp.status().is_success() {
+        let status = resp.status();
+        debug!("[GitLab API] 响应状态码: {}", status);
+        
+        if !status.is_success() {
+            debug!("[GitLab API] 请求失败，状态码: {}", status);
+            if let Ok(body) = resp.text().await {
+                debug!("[GitLab API] 错误响应内容: {}", body);
+            }
             return Ok(None);
         }
+        
         let data: serde_json::Value = resp.json().await?;
-        if let Some(tag) = data["tag_name"].as_str() {
-            Ok(Some(clean_version(tag)))
+        debug!("[GitLab API] 原始响应数据: {}", serde_json::to_string_pretty(&data).unwrap_or_default());
+        
+        let result = if let Some(tag) = data["tag_name"].as_str() {
+            let version = if let Some(regex) = version_extract_regex {
+                debug!("[GitLab API] 使用自定义正则提取版本号");
+                match extract_version_with_regex(tag, regex) {
+                    Some(v) => v,
+                    None => {
+                        debug!("[GitLab API] 自定义正则匹配失败，使用默认清理");
+                        clean_version(tag)
+                    }
+                }
+            } else {
+                clean_version(tag)
+            };
+            debug!("[GitLab API] 提取到版本号: 原始={}, 处理后={}", tag, version);
+            Ok(Some(version))
         } else {
+            debug!("[GitLab API] 响应中未找到 tag_name 字段");
             Ok(None)
+        };
+        
+        if let Ok(Some(version)) = &result {
+            info!("[版本检查] 检查完成: {} -> 上游版本={}", pkgname, version);
+        } else {
+            debug!("[版本检查] 检查完成: {} -> 未找到上游版本", pkgname);
         }
+        result
     }
 }

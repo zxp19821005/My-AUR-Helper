@@ -16,4 +16,5 @@ pub struct SoftwareInfo {
     pub auto_check_enabled: bool,
     pub license_id: Option<i64>,
     pub language_id: Option<i64>,
+    pub version_extract_regex: Option<String>,
 }

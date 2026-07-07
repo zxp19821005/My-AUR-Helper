@@ -153,6 +153,7 @@ fn parse_pkgbuild(content: &str, path: &Path) -> AppResult<(SoftwareInfo, Option
         auto_check_enabled: false,
         license_id: None,
         language_id: None,
+        version_extract_regex: None,
     };
 
     Ok((sw, None))

@@ -39,7 +39,7 @@ impl Database {
         Ok(())
     }
 
-    /// 迁移 software_info 表（重命名列，删除 created_at）
+    /// 迁移 software_info 表（重命名列，删除 created_at，添加 version_extract_regex）
     pub fn migrate_software_info(&self) -> AppResult<()> {
         let mut stmt = self.conn.prepare("PRAGMA table_info(software_info)")?;
         let columns: Vec<String> = stmt.query_map([], |row| row.get(1))?
@@ -54,6 +54,9 @@ impl Database {
         }
         if columns.contains(&"created_at".to_string()) {
             self.conn.execute_batch("ALTER TABLE software_info DROP COLUMN created_at;")?;
+        }
+        if !columns.contains(&"version_extract_regex".to_string()) {
+            self.conn.execute_batch("ALTER TABLE software_info ADD COLUMN version_extract_regex TEXT;")?;
         }
         Ok(())
     }
