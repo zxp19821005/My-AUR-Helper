@@ -1,0 +1,39 @@
+:root {
+  --bg-primary: #1a1b2e;
+  --bg-secondary: #232541;
+  --bg-card: #2a2d4a;
+  --text-primary: #e8e9f0;
+  --text-secondary: #9a9cb8;
+  --text-muted: #6b6e8a;
+  --accent: #6c63ff;
+  --accent-hover: #5a52e0;
+  --success: #4caf7d;
+  --success-bg: rgba(76, 175, 125, 0.15);
+  --warning: #ffa726;
+  --warning-bg: rgba(255, 167, 38, 0.15);
+  --error: #ef5350;
+  --error-bg: rgba(239, 83, 80, 0.15);
+  --border: #353857;
+  --bg-hover: rgba(255, 255, 255, 0.05);
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+}
+
+[data-theme="light"] {
+  --bg-primary: #f5f5f5;
+  --bg-secondary: #ffffff;
+  --bg-card: #ffffff;
+  --text-primary: #1a1a1a;
+  --text-secondary: #666666;
+  --text-muted: #999999;
+  --accent: #6c63ff;
+  --accent-hover: #5a52e0;
+  --success: #4caf7d;
+  --success-bg: rgba(76, 175, 125, 0.1);
+  --warning: #ff9800;
+  --warning-bg: rgba(255, 152, 0, 0.1);
+  --error: #f44336;
+  --error-bg: rgba(244, 67, 54, 0.1);
+  --border: #e0e0e0;
+  --bg-hover: rgba(0, 0, 0, 0.03);
+}
