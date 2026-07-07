@@ -9,35 +9,35 @@ importers:
   .:
     dependencies:
       '@lucide/vue':
-        specifier: ^1.22.0
-        version: 1.22.0(vue@3.5.39(typescript@5.7.2))
+        specifier: ^1.23.0
+        version: 1.23.0(vue@3.5.39(typescript@5.7.2))
       '@tauri-apps/api':
-        specifier: ^2.0.0
+        specifier: ^2.11.1
         version: 2.11.1
       '@tauri-apps/plugin-log':
-        specifier: ^2.0.0
+        specifier: ^2.8.0
         version: 2.8.0
       '@tauri-apps/plugin-shell':
-        specifier: ^2.0.0
+        specifier: ^2.3.5
         version: 2.3.5
       pinia:
-        specifier: ^2.1.7
+        specifier: ^2.3.1
         version: 2.3.1(typescript@5.7.2)(vue@3.5.39(typescript@5.7.2))
       vue:
-        specifier: ^3.4.0
+        specifier: ^3.5.39
         version: 3.5.39(typescript@5.7.2)
       vue-router:
-        specifier: ^4.3.0
+        specifier: ^4.6.4
         version: 4.6.4(vue@3.5.39(typescript@5.7.2))
     devDependencies:
       '@tauri-apps/cli':
-        specifier: ^2.0.0
+        specifier: ^2.11.4
         version: 2.11.4
       '@vitejs/plugin-vue':
         specifier: ^5.0.0
         version: 5.0.0(vite@5.4.0)(vue@3.5.39(typescript@5.7.2))
       typescript:
-        specifier: ^5.7.0
+        specifier: ^5.7.2
         version: 5.7.2
       vite:
         specifier: ^5.4.0
@@ -206,8 +206,8 @@ packages:
   '@jridgewell/sourcemap-codec@1.5.5':
     resolution: {integrity: sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og==}
 
-  '@lucide/vue@1.22.0':
-    resolution: {integrity: sha512-2/+mGF+NrHieiGTwq5wHRVsLhtzoY8x64ovvQkVYDXLrLHKqE/58xR/hveFsxkH0Ey4M8UsvsYNxAHjPgbTyqQ==}
+  '@lucide/vue@1.23.0':
+    resolution: {integrity: sha512-9SIYeY5K+R1iv8F8JUKMGSL7Pck/86BJ8djtZz/lnYsoHtKFUj1H2z6+PvKnC/8blZ8tqTDeDXAoTKobuX80hg==}
     peerDependencies:
       vue: '>=3.0.1'
 
@@ -733,7 +733,7 @@ snapshots:
 
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
-  '@lucide/vue@1.22.0(vue@3.5.39(typescript@5.7.2))':
+  '@lucide/vue@1.23.0(vue@3.5.39(typescript@5.7.2))':
     dependencies:
       vue: 3.5.39(typescript@5.7.2)
 
