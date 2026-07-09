@@ -18,6 +18,11 @@ pub struct SoftwareDetail {
     pub aur_version: Option<String>,
     pub aur_last_updated: Option<i64>,
     pub aur_pkgdesc: Option<String>,
+    pub depends: Option<String>,
+    pub makedepends: Option<String>,
+    pub optdepends: Option<String>,
+    pub aur_license_name: Option<String>,
     pub upstream_version: Option<String>,
     pub upstream_last_checked: Option<i64>,
+    pub upstream_license_name: Option<String>,
 }

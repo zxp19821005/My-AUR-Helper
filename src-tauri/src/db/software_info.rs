@@ -143,10 +143,15 @@ impl Database {
                     s.is_outdated, s.check_test_versions, s.check_binary_files, s.auto_check_enabled,
                     s.language_id, s.version_extract_regex,
                     a.aur_version, CAST(a.last_updated AS INTEGER), a.pkgdesc,
-                    u.upstream_version, CAST(u.last_checked AS INTEGER)
+                    a.depends, a.makedepends, a.optdepends,
+                    al.spdx_id,
+                    u.upstream_version, CAST(u.last_checked AS INTEGER),
+                    ul.spdx_id
              FROM software_info s
              LEFT JOIN aur_info a ON s.software_id = a.software_id
              LEFT JOIN upstream_info u ON s.software_id = u.software_id
+             LEFT JOIN enum_licenses al ON a.license_id = al.id
+             LEFT JOIN enum_licenses ul ON u.upstream_license_id = ul.id
              WHERE s.pkgname = ?1"
         )?;
         let mut rows = stmt.query_map(rusqlite::params![pkgname], |row| {
@@ -165,8 +170,13 @@ impl Database {
                 aur_version: row.get(11)?,
                 aur_last_updated: row.get(12)?,
                 aur_pkgdesc: row.get(13)?,
-                upstream_version: row.get(14)?,
-                upstream_last_checked: row.get(15)?,
+                depends: row.get(14)?,
+                makedepends: row.get(15)?,
+                optdepends: row.get(16)?,
+                aur_license_name: row.get(17)?,
+                upstream_version: row.get(18)?,
+                upstream_last_checked: row.get(19)?,
+                upstream_license_name: row.get(20)?,
             })
         })?;
         Ok(rows.next().transpose()?)

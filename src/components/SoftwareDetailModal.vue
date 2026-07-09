@@ -130,6 +130,16 @@ function getCheckerTypeName(id: number | null): string {
   return checkerTypeOptions.find(c => c.id === id)?.label || '未知';
 }
 
+function parseJsonList(val: string | null): string {
+  if (!val) return '—';
+  try {
+    const arr = JSON.parse(val);
+    return Array.isArray(arr) ? arr.join(', ') : val;
+  } catch {
+    return val;
+  }
+}
+
 watch(() => props.pkgname, () => { if (props.show) loadSoftware(); });
 watch(() => props.show, (val) => { if (!val) showEditModal.value = false; });
 </script>
@@ -165,6 +175,9 @@ watch(() => props.show, (val) => { if (!val) showEditModal.value = false; });
             <tr><td class="label">版本提取关键字</td><td class="value">
               <code v-if="detail.version_extract_regex">{{ detail.version_extract_regex }}</code>
               <span v-else class="empty">未设置</span></td></tr>
+            <tr><td class="label">运行时依赖</td><td class="value">{{ parseJsonList(detail.depends) }}</td></tr>
+            <tr><td class="label">构建依赖</td><td class="value">{{ parseJsonList(detail.makedepends) }}</td></tr>
+            <tr><td class="label">可选依赖</td><td class="value">{{ parseJsonList(detail.optdepends) }}</td></tr>
           </tbody>
         </table>
         <div class="status-row">
@@ -195,6 +208,7 @@ watch(() => props.show, (val) => { if (!val) showEditModal.value = false; });
           <table class="info-table">
             <tbody>
               <tr><td class="label">AUR 版本</td><td class="value version-cell">{{ detail.aur_version || '—' }}</td></tr>
+              <tr><td class="label">AUR License</td><td class="value">{{ detail.aur_license_name || '—' }}</td></tr>
               <tr><td class="label">更新时间</td><td class="value">{{ formatTimestamp(detail.aur_last_updated) }}</td></tr>
             </tbody>
           </table>
@@ -205,6 +219,7 @@ watch(() => props.show, (val) => { if (!val) showEditModal.value = false; });
           <table class="info-table">
             <tbody>
               <tr><td class="label">上游版本</td><td class="value version-cell">{{ detail.upstream_version || '—' }}</td></tr>
+              <tr><td class="label">上游 License</td><td class="value">{{ detail.upstream_license_name || '—' }}</td></tr>
               <tr><td class="label">上次检查</td><td class="value">{{ formatTimestamp(detail.upstream_last_checked) }}</td></tr>
             </tbody>
           </table>

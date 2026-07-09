@@ -68,8 +68,13 @@ export interface SoftwareDetail {
   aur_version: string | null;
   aur_last_updated: number | null;
   aur_pkgdesc: string | null;
+  depends: string | null;
+  makedepends: string | null;
+  optdepends: string | null;
+  aur_license_name: string | null;
   upstream_version: string | null;
   upstream_last_checked: number | null;
+  upstream_license_name: string | null;
 }
 
 /**
