@@ -14,12 +14,24 @@ export function usePackageActions(
 ) {
   // 全局加载状态（用于工具栏批量操作）
   const loading = ref(false);
-  // 按包名追踪加载状态（用于行操作）
-  const loadingPkgnames = ref(new Set<string>());
+  // 按包名+操作类型追踪加载状态（用于行操作）
+  const loadingKeys = ref(new Set<string>());
   let unlistenProgress: (() => void) | null = null;
 
-  function isRowLoading(pkgname: string): boolean {
-    return loadingPkgnames.value.has(pkgname);
+  function isRowLoading(pkgname: string, action?: string): boolean {
+    if (action) {
+      return loadingKeys.value.has(`${pkgname}:${action}`);
+    }
+    // 检查该包是否有任何操作在进行
+    return Array.from(loadingKeys.value).some(k => k.startsWith(`${pkgname}:`));
+  }
+
+  function setRowLoading(pkgname: string, action: string) {
+    loadingKeys.value.add(`${pkgname}:${action}`);
+  }
+
+  function clearRowLoading(pkgname: string, action: string) {
+    loadingKeys.value.delete(`${pkgname}:${action}`);
   }
 
   async function syncFromAur(selectedPkgnames: Set<string>) {
@@ -124,32 +136,32 @@ export function usePackageActions(
   }
 
   async function rowSyncFromAur(pkgname: string) {
-    loadingPkgnames.value.add(pkgname);
+    setRowLoading(pkgname, "sync-aur");
     try {
       await invoke("update_aur_info", { pkgnameList: [pkgname] });
       await fetchView();
     } finally {
-      loadingPkgnames.value.delete(pkgname);
+      clearRowLoading(pkgname, "sync-aur");
     }
   }
 
   async function rowSyncFromPkgbuild(pkgname: string) {
-    loadingPkgnames.value.add(pkgname);
+    setRowLoading(pkgname, "sync-pkgbuild");
     try {
       await invoke("sync_from_pkgbuild", { pkgname });
       await fetchView();
     } finally {
-      loadingPkgnames.value.delete(pkgname);
+      clearRowLoading(pkgname, "sync-pkgbuild");
     }
   }
 
   async function rowCheckUpstream(pkgname: string) {
-    loadingPkgnames.value.add(pkgname);
+    setRowLoading(pkgname, "check-upstream");
     try {
       await invoke("check_selected_upstream", { pkgnameList: [pkgname] });
       await fetchView();
     } finally {
-      loadingPkgnames.value.delete(pkgname);
+      clearRowLoading(pkgname, "check-upstream");
     }
   }
 
@@ -159,7 +171,7 @@ export function usePackageActions(
     setSelectedPkgnames: (v: Set<string>) => void
   ) {
     if (!confirm(`确认删除 ${pkgname}？`)) return;
-    loadingPkgnames.value.add(pkgname);
+    setRowLoading(pkgname, "delete");
     try {
       await invoke("batch_delete_software", { pkgnameList: [pkgname] });
       setSelectedPkgnames(
@@ -167,14 +179,16 @@ export function usePackageActions(
       );
       await fetchView();
     } finally {
-      loadingPkgnames.value.delete(pkgname);
+      clearRowLoading(pkgname, "delete");
     }
   }
 
   return {
     loading,
-    loadingPkgnames,
+    loadingKeys,
     isRowLoading,
+    setRowLoading,
+    clearRowLoading,
     syncFromAur,
     syncFromPkgbuild,
     updateAurInfo,
