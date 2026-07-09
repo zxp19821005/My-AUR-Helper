@@ -35,6 +35,7 @@ const detailPkgname = ref("");
 
 const {
   loading,
+  isRowLoading,
   syncFromAur,
   syncFromPkgbuild,
   updateAurInfo,
@@ -206,16 +207,16 @@ const setSelected = (v: Set<string>) => { selectedPkgnames.value = v; };
                 <button class="btn-icon btn-icon-accent" @click.stop="openEditModal(pkg.pkgname)" title="软件编辑">
                   <Pencil :size="14" />
                 </button>
-                <button class="btn-icon btn-icon-accent" @click.stop="rowSyncFromAur(pkg.pkgname)" :disabled="loading" title="从AUR同步">
+                <button class="btn-icon btn-icon-accent" @click.stop="rowSyncFromAur(pkg.pkgname)" :disabled="isRowLoading(pkg.pkgname)" title="从AUR同步">
                   <RefreshCw :size="14" />
                 </button>
-                <button class="btn-icon btn-icon-accent" @click.stop="rowSyncFromPkgbuild(pkg.pkgname)" :disabled="loading" title="从PKGBUILD同步">
+                <button class="btn-icon btn-icon-accent" @click.stop="rowSyncFromPkgbuild(pkg.pkgname)" :disabled="isRowLoading(pkg.pkgname)" title="从PKGBUILD同步">
                   <Download :size="14" />
                 </button>
-                <button class="btn-icon btn-icon-info" @click.stop="rowCheckUpstream(pkg.pkgname)" :disabled="loading" title="更新上游信息">
+                <button class="btn-icon btn-icon-info" @click.stop="rowCheckUpstream(pkg.pkgname)" :disabled="isRowLoading(pkg.pkgname)" title="更新上游信息">
                   <RefreshCw :size="14" />
                 </button>
-                <button class="btn-icon btn-icon-danger" @click.stop="rowDelete(pkg.pkgname, selectedPkgnames, setSelected)" :disabled="loading" title="删除">
+                <button class="btn-icon btn-icon-danger" @click.stop="rowDelete(pkg.pkgname, selectedPkgnames, setSelected)" :disabled="isRowLoading(pkg.pkgname)" title="删除">
                   <Trash2 :size="14" />
                 </button>
               </div>

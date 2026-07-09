@@ -12,8 +12,15 @@ export function usePackageActions(
   fetchView: () => Promise<void>,
   footer: FooterState
 ) {
+  // 全局加载状态（用于工具栏批量操作）
   const loading = ref(false);
+  // 按包名追踪加载状态（用于行操作）
+  const loadingPkgnames = ref(new Set<string>());
   let unlistenProgress: (() => void) | null = null;
+
+  function isRowLoading(pkgname: string): boolean {
+    return loadingPkgnames.value.has(pkgname);
+  }
 
   async function syncFromAur(selectedPkgnames: Set<string>) {
     loading.value = true;
@@ -117,32 +124,32 @@ export function usePackageActions(
   }
 
   async function rowSyncFromAur(pkgname: string) {
-    loading.value = true;
+    loadingPkgnames.value.add(pkgname);
     try {
       await invoke("update_aur_info", { pkgnameList: [pkgname] });
       await fetchView();
     } finally {
-      loading.value = false;
+      loadingPkgnames.value.delete(pkgname);
     }
   }
 
   async function rowSyncFromPkgbuild(pkgname: string) {
-    loading.value = true;
+    loadingPkgnames.value.add(pkgname);
     try {
       await invoke("sync_from_pkgbuild", { pkgname });
       await fetchView();
     } finally {
-      loading.value = false;
+      loadingPkgnames.value.delete(pkgname);
     }
   }
 
   async function rowCheckUpstream(pkgname: string) {
-    loading.value = true;
+    loadingPkgnames.value.add(pkgname);
     try {
       await invoke("check_selected_upstream", { pkgnameList: [pkgname] });
       await fetchView();
     } finally {
-      loading.value = false;
+      loadingPkgnames.value.delete(pkgname);
     }
   }
 
@@ -152,7 +159,7 @@ export function usePackageActions(
     setSelectedPkgnames: (v: Set<string>) => void
   ) {
     if (!confirm(`确认删除 ${pkgname}？`)) return;
-    loading.value = true;
+    loadingPkgnames.value.add(pkgname);
     try {
       await invoke("batch_delete_software", { pkgnameList: [pkgname] });
       setSelectedPkgnames(
@@ -160,12 +167,14 @@ export function usePackageActions(
       );
       await fetchView();
     } finally {
-      loading.value = false;
+      loadingPkgnames.value.delete(pkgname);
     }
   }
 
   return {
     loading,
+    loadingPkgnames,
+    isRowLoading,
     syncFromAur,
     syncFromPkgbuild,
     updateAurInfo,

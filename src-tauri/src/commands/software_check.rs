@@ -150,48 +150,7 @@ pub async fn check_upstream_version(
     Ok(version)
 }
 
-#[tauri::command]
-pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(String, String)>> {
-    info!("正在检查所有软件包的上游版本");
-    let (packages, settings, timeout, retry, proxy_url) = {
-        let db = state.db.lock()?;
-        let packages = db.get_all_software()?;
-        let settings = build_checker_settings(&db);
-        let timeout = parse_u64(&get_setting_opt(&db, "http_timeout").unwrap_or_default(), 30);
-        let retry = parse_u32(&get_setting_opt(&db, "http_retry_count").unwrap_or_default(), 2);
-        let proxy_url = get_active_proxy(&db);
-        (packages, settings, timeout, retry, proxy_url)
-    };
-    let client = build_client(timeout, proxy_url.as_deref());
-    let mut results = Vec::new();
-    for sw in &packages {
-        let checker = checkers::get_checker(&sw.checker_type_id, settings.clone());
-        let upstream_url = sw.upstream_url.as_deref().unwrap_or("");
-        let version_extract_regex = sw.version_extract_regex.as_deref();
-        let options = CheckOptions {
-            check_test_versions: sw.check_test_versions,
-            check_binary_files: sw.check_binary_files,
-        };
-
-        match check_with_retry(
-            &*checker, &client, upstream_url, &sw.pkgname, version_extract_regex, &options, retry,
-        )
-        .await
-        {
-            Ok(Some(version)) => {
-                let db = state.db.lock()?;
-                let _ = compare_and_update(&db, sw.software_id.unwrap_or(0), &sw.pkgname, &version);
-                results.push((sw.pkgname.clone(), version));
-            }
-            _ => {
-                let db = state.db.lock()?;
-                let _ = db.update_software_outdated(sw.software_id.unwrap_or(0), false);
-            }
-        }
-    }
-    info!("已完成 {} 个软件包的上游版本检查", results.len());
-    Ok(results)
-}
+// check_all_upstream 已移至 software_sync.rs 实现并行检查
 
 #[tauri::command]
 pub async fn check_selected_upstream(
