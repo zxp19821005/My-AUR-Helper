@@ -166,11 +166,31 @@ watch(() => props.show, (val) => { if (!val) showEditModal.value = false; });
               <a v-if="detail.upstream_url" :href="detail.upstream_url" target="_blank">{{ detail.upstream_url }}</a>
               <span v-else>未设置</span></td></tr>
             <tr><td class="label">包描述</td><td class="value">{{ detail.aur_pkgdesc || '—' }}</td></tr>
-            <tr><td class="label">自动检查</td><td class="value">{{ detail.auto_check_enabled ? '已启用' : '已禁用' }}</td></tr>
-            <tr><td class="label">测试版本</td><td class="value">{{ detail.check_test_versions ? '已启用' : '已禁用' }}</td></tr>
-            <tr><td class="label">二进制文件</td><td class="value">{{ detail.check_binary_files ? '已启用' : '已禁用' }}</td></tr>
+            <tr><td class="label">版本提取关键字</td><td class="value">
+              <code v-if="detail.version_extract_regex">{{ detail.version_extract_regex }}</code>
+              <span v-else class="empty">未设置</span></td></tr>
           </tbody>
         </table>
+        <div class="status-row">
+          <span class="status-item">
+            <span class="status-label">自动检查</span>
+            <span :class="['status-value', detail.auto_check_enabled ? 'enabled' : 'disabled']">
+              {{ detail.auto_check_enabled ? '已启用' : '已禁用' }}
+            </span>
+          </span>
+          <span class="status-item">
+            <span class="status-label">测试版本</span>
+            <span :class="['status-value', detail.check_test_versions ? 'enabled' : 'disabled']">
+              {{ detail.check_test_versions ? '已启用' : '已禁用' }}
+            </span>
+          </span>
+          <span class="status-item">
+            <span class="status-label">二进制文件</span>
+            <span :class="['status-value', detail.check_binary_files ? 'enabled' : 'disabled']">
+              {{ detail.check_binary_files ? '已启用' : '已禁用' }}
+            </span>
+          </span>
+        </div>
       </div>
 
       <div class="side-by-side">
@@ -276,4 +296,40 @@ watch(() => props.show, (val) => { if (!val) showEditModal.value = false; });
 
 .spinning { animation: spin 1s linear infinite; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+.status-row {
+  display: flex;
+  gap: 1.25rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.status-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.status-value {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+}
+
+.status-value.enabled {
+  color: var(--success);
+  background: var(--success-bg);
+}
+
+.status-value.disabled {
+  color: var(--error);
+  background: var(--error-bg);
+}
 </style>
