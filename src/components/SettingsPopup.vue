@@ -14,7 +14,7 @@
   - 代理管理设置：代理相关配置
 -->
 <script setup lang="ts">
-import { Settings, Globe, Search, HardDrive, Database, Wifi } from "@lucide/vue";  // Lucide 图标
+import { Settings, Globe, Search, HardDrive, Database, Wifi, ScrollText } from "@lucide/vue";  // Lucide 图标
 import PopupLayout from "./PopupLayout.vue";                                        // 通用弹出窗口布局组件
 
 /** 设置菜单项配置 - 定义设置窗口左侧导航菜单的各个分类 */
@@ -25,6 +25,7 @@ const menuItems = [
   { path: "/settings/backup", label: "备份管理设置", icon: HardDrive },  // 备份设置
   { path: "/settings/cache", label: "缓存软件设置", icon: Database },    // 缓存设置
   { path: "/settings/proxy", label: "代理管理设置", icon: Wifi },       // 代理设置
+  { path: "/settings/log", label: "日志管理设置", icon: ScrollText },   // 日志管理设置
 ];
 </script>
 

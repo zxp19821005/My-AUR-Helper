@@ -29,8 +29,6 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 # tauri: Tauri 桌面框架核心，启用 tray-icon（系统托盘图标）功能
 tauri = { version = "2", features = ["tray-icon"] }
-# tauri-plugin-log: Tauri 日志插件，将 Rust 日志转发到前端
-tauri-plugin-log = "2"
 # tauri-plugin-shell: Tauri Shell 插件，允许运行系统命令（如 pacman）
 tauri-plugin-shell = "2"
 # serde: 序列化/反序列化框架，用于 Rust ↔ JSON 的数据转换

@@ -116,7 +116,9 @@ async function handleDelete() {
 }
 
 function formatTimestamp(ts: number | null): string {
-  return ts ? new Date(ts * 1000).toLocaleString("zh-CN") : "—";
+  return ts ? new Date(ts * 1000).toLocaleDateString("zh-CN", {
+    year: "numeric", month: "2-digit", day: "2-digit",
+  }) : "—";
 }
 
 function getPkgTypeName(id: number | null): string {

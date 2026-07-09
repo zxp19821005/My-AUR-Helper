@@ -7,7 +7,9 @@ defineProps<{
 
 function formatTimestamp(ts: number | null): string {
   if (!ts) return "—";
-  return new Date(ts * 1000).toLocaleString("zh-CN");
+  return new Date(ts * 1000).toLocaleDateString("zh-CN", {
+    year: "numeric", month: "2-digit", day: "2-digit",
+  });
 }
 </script>
 

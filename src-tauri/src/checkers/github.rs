@@ -8,7 +8,15 @@ use crate::errors::AppResult;
 
 /// GitHub Release 检查器
 /// 通过 GitHub API 获取最新 release 的 tag_name
-pub struct GitHubReleaseChecker;
+pub struct GitHubReleaseChecker {
+    token: Option<String>,
+}
+
+impl GitHubReleaseChecker {
+    pub fn new(token: Option<String>) -> Self {
+        Self { token }
+    }
+}
 
 #[async_trait]
 impl VersionChecker for GitHubReleaseChecker {
@@ -37,8 +45,9 @@ impl VersionChecker for GitHubReleaseChecker {
             }
         };
         debug!("[版本检查] 解析到仓库: owner={}, repo={}", owner, repo);
+        debug!("[版本检查] GitHub Token: {}", if self.token.is_some() { "已配置" } else { "未配置" });
         
-        let result = check_github_release(client, &owner, &repo, None, version_extract_regex).await;
+        let result = check_github_release(client, &owner, &repo, self.token.as_deref(), version_extract_regex).await;
         if let Ok(Some(version)) = &result {
             info!("[版本检查] 检查完成: {} -> 上游版本={}", pkgname, version);
         } else {
@@ -50,7 +59,15 @@ impl VersionChecker for GitHubReleaseChecker {
 
 /// GitHub Tag 检查器
 /// 通过 GitHub API 获取最新的 tag 名称
-pub struct GitHubTagChecker;
+pub struct GitHubTagChecker {
+    token: Option<String>,
+}
+
+impl GitHubTagChecker {
+    pub fn new(token: Option<String>) -> Self {
+        Self { token }
+    }
+}
 
 #[async_trait]
 impl VersionChecker for GitHubTagChecker {
@@ -79,11 +96,9 @@ impl VersionChecker for GitHubTagChecker {
             }
         };
         debug!("[版本检查] 解析到仓库: owner={}, repo={}", owner, repo);
+        debug!("[版本检查] GitHub Token: {}", if self.token.is_some() { "已配置" } else { "未配置" });
         
-        let token = std::env::var("GITHUB_TOKEN").ok();
-        debug!("[版本检查] GitHub Token: {}", if token.is_some() { "已配置" } else { "未配置" });
-        
-        let result = check_github_tag(client, &owner, &repo, token.as_deref(), version_extract_regex).await;
+        let result = check_github_tag(client, &owner, &repo, self.token.as_deref(), version_extract_regex).await;
         if let Ok(Some(version)) = &result {
             info!("[版本检查] 检查完成: {} -> 上游版本={}", pkgname, version);
         } else {

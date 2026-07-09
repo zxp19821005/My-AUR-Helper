@@ -17,6 +17,13 @@ impl Database {
             ("github_backup_repo", "https://github.com/zxp19821005/My_AUR_Files", "GitHub 备份仓库地址", "backup"),
             ("show_tray_icon", "true", "是否显示系统托盘图标", "general"),
             ("close_action", "minimize_to_tray", "关闭窗口动作 (minimize_to_tray/exit)", "general"),
+            ("log_max_size", "10485760", "单个日志文件大小上限（字节），默认 10MB", "log"),
+            ("log_max_files", "7", "保留的日志文件最大数量，默认 7", "log"),
+            ("github_token", "", "GitHub Personal Access Token（用于提高 API 速率限制）", "checker"),
+            ("gitee_token", "", "Gitee 私人令牌（access_token，用于提高 API 速率限制）", "checker"),
+            ("gitlab_token", "", "GitLab Personal Access Token（用于提高 API 速率限制）", "checker"),
+            ("http_timeout", "30", "HTTP 请求超时时间（秒）", "checker"),
+            ("http_retry_count", "2", "HTTP 请求失败重试次数", "checker"),
         ];
         for (key, value, description, category) in defaults {
             self.conn.execute(

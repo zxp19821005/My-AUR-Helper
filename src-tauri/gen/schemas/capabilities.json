@@ -1,1 +1,1 @@
-{"default":{"identifier":"default","description":"Default capability","local":true,"windows":["*"],"permissions":["core:default","shell:allow-open","log:default","core:webview:default","core:webview:allow-create-webview-window"]}}
+{"default":{"identifier":"default","description":"Default capability","local":true,"windows":["*"],"permissions":["core:default","shell:allow-open","core:webview:default","core:webview:allow-create-webview-window","core:window:allow-set-focus"]}}

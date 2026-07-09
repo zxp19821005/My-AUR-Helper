@@ -18,6 +18,7 @@ pub struct AurPackageData {
     pub makedepends: Option<Vec<String>>,         // 构建依赖
     pub optdepends: Option<Vec<String>>,          // 可选依赖
     pub out_of_date: Option<bool>,                // 是否标记为过期
+    pub last_modified: Option<i64>,               // 最后修改时间（Unix 时间戳）
 }
 
 /// 通过用户名获取 AUR 包列表（包括维护者和共同维护者）
@@ -55,6 +56,7 @@ pub async fn fetch_packages_by_user(client: &Client, username: &str) -> AppResul
                             optdepends: item["OptDepends"].as_array()
                                 .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()),
                             out_of_date: item["OutOfDate"].as_i64().map(|v| v != 0),
+                            last_modified: item["LastModified"].as_i64(),
                         });
                     }
                 }

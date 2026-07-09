@@ -70,6 +70,7 @@ const routes = [
       { path: "backup", name: "SettingsBackup", component: Settings },    // 备份设置
       { path: "cache", name: "SettingsCache", component: Settings },      // 缓存设置
       { path: "proxy", name: "SettingsProxy", component: Settings },      // 代理设置
+      { path: "log", name: "SettingsLog", component: Settings },          // 日志管理设置
     ],
   },
 

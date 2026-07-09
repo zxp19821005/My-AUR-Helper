@@ -15,7 +15,7 @@ pub mod checkers;   // 版本检查器模块
 pub mod commands;   // Tauri IPC 命令模块
 pub mod db;         // 数据库操作模块
 pub mod errors;     // 统一错误处理模块
-pub mod logger;     // 日志宏模块
+pub mod logger;     // 日志轮转与输出模块
 pub mod models;     // 数据模型模块
 pub mod proxy;      // 代理管理模块
 pub mod versions;   // 版本处理模块
@@ -61,48 +61,13 @@ fn get_setting_string(db: &db::Database, key: &str, default: &str) -> String {
 
 /// 运行 Tauri 应用
 pub fn run() {
-    // 初始化日志目录
     let config_dir = get_config_dir();
-    let logs_dir = config_dir.join("logs");
-    std::fs::create_dir_all(&logs_dir).ok();
 
     tauri::Builder::default()
-        // 配置日志插件
-        .plugin(
-            tauri_plugin_log::Builder::new()
-                .clear_targets()  // 清除默认日志目标
-                .targets([
-                    // 输出到标准输出
-                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
-                    // 输出到日志文件
-                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Folder {
-                        path: logs_dir,
-                        file_name: Some("my_aur_helper".to_string()),
-                    }),
-                ])
-                .level(tauri_plugin_log::log::LevelFilter::Debug) // 设置日志级别为 Debug
-                // 自定义日志格式：时间 - 级别: [模块] 消息
-                .format(|out, message, record| {
-                    let target = record.target(); // 获取日志来源模块名
-                    let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f"); // 本地时间格式
-                    // 将日志级别映射为固定长度的中文字符串
-                    let level = match record.level() {
-                        log::Level::Error => "错误",
-                        log::Level::Warn =>  "警告",
-                        log::Level::Info =>  "信息",
-                        log::Level::Debug => "调试",
-                        log::Level::Trace => "跟踪",
-                    };
-                    out.finish(format_args!("{} - {}: [{}] {}", now, level, target, message))
-                })
-                .build(),
-        )
         // 配置 Shell 插件，用于执行系统命令
         .plugin(tauri_plugin_shell::init())
         // 应用初始化回调
-        .setup(|app| {
-            log::info!("应用程序启动中");
-
+        .setup(move |app| {
             // 初始化数据库
             let app_dir = app.path().app_config_dir()?;
             std::fs::create_dir_all(&app_dir).map_err(|e| {
@@ -111,14 +76,27 @@ pub fn run() {
             let db_path = app_dir.join("my_aur_helper.db"); // 数据库文件路径
             let database = db::Database::new(&db_path)
                 .map_err(|e| {
-                    log::error!("数据库初始化失败: {}", e);
+                    eprintln!("数据库初始化失败: {}", e);
                     errors::AppError::DatabaseError(format!("数据库初始化失败: {}", e))
                 })?;
             database.initialize()
                 .map_err(|e| {
-                    log::error!("数据库表结构初始化失败: {}", e);
+                    eprintln!("数据库表结构初始化失败: {}", e);
                     errors::AppError::DatabaseError(format!("数据库表结构初始化失败: {}", e))
                 })?;
+
+            // 读取日志设置并初始化日志轮转系统
+            let logs_dir = config_dir.join("logs");
+            let log_max_size: u64 = get_setting_string(&database, "log_max_size", "10485760")
+                .parse()
+                .unwrap_or(10485760);
+            let log_max_files: usize = get_setting_string(&database, "log_max_files", "7")
+                .parse()
+                .unwrap_or(7);
+            logger::update_log_settings(log_max_size, log_max_files);
+            let rotating_logger = logger::RotatingLogger::new(logs_dir, "applog".to_string());
+            rotating_logger.init().expect("初始化日志记录器失败");
+            log::info!("日志系统已初始化，最大大小: {}KB, 最大文件数: {}", log_max_size / 1024, log_max_files);
 
             // 读取系统托盘设置
             let show_tray = get_setting_string(&database, "show_tray_icon", "true") == "true";
@@ -263,6 +241,7 @@ pub fn run() {
             commands::settings::get_settings,            // 获取所有设置
             commands::settings::get_setting,             // 获取单个设置
             commands::settings::set_setting,             // 设置配置值
+            commands::settings::apply_log_settings,      // 应用日志轮转设置
             // 枚举值管理
             commands::enums::get_licenses,               // 获取所有 License
             commands::enums::sync_licenses_from_spdx,    // 从 SPDX 同步 License

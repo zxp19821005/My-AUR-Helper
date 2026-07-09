@@ -35,3 +35,11 @@ pub async fn set_setting(state: State<'_, AppState>, key: String, value: String)
     let db = state.db.lock()?;
     db.set_setting(&key, &value)
 }
+
+/// 应用日志轮转设置（运行时更新）
+#[tauri::command]
+pub async fn apply_log_settings(max_size: u64, max_files: usize) -> AppResult<()> {
+    info!("正在更新日志设置: 最大大小={}KB, 最大文件数={}", max_size / 1024, max_files);
+    crate::logger::update_log_settings(max_size, max_files);
+    Ok(())
+}

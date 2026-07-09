@@ -51,7 +51,7 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
             pkgdesc: pkg.pkgdesc.clone(),
             aur_version: pkg.version.clone(),
             license_id: None,
-            last_updated: None,
+            last_updated: pkg.last_modified,
             depends: pkg
                 .depends
                 .as_ref()

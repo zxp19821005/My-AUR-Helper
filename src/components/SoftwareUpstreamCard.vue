@@ -3,6 +3,14 @@ defineProps<{
   upstreamVersion: string | null;
   upstreamLastChecked: string | null;
 }>();
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return d.toLocaleDateString("zh-CN", {
+    year: "numeric", month: "2-digit", day: "2-digit",
+  });
+}
 </script>
 
 <template>
@@ -19,7 +27,7 @@ defineProps<{
         </tr>
         <tr>
           <td class="label">上次检查</td>
-          <td class="value">{{ upstreamLastChecked || '—' }}</td>
+          <td class="value">{{ fmtDate(upstreamLastChecked) }}</td>
         </tr>
       </tbody>
     </table>

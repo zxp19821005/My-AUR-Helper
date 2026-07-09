@@ -181,18 +181,22 @@ pub async fn delete_software(state: State<'_, AppState>, software_id: i64) -> Re
     db.delete_software(software_id).map_err(|e| e.to_string())
 }
 
-/// 批量删除软件包
+/// 批量删除软件包（按包名）
 #[tauri::command]
 pub async fn batch_delete_software(
     state: State<'_, AppState>,
-    ids: Vec<i64>,
+    pkgname_list: Vec<String>,
 ) -> Result<i64, String> {
-    info!("正在批量删除 {} 个软件包", ids.len());
+    info!("正在批量删除 {} 个软件包", pkgname_list.len());
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let mut count = 0i64;
-    for id in &ids {
-        if db.delete_software(*id).is_ok() {
-            count += 1;
+    for pkgname in &pkgname_list {
+        if let Some(sw) = db.get_software_by_name(pkgname).map_err(|e| e.to_string())? {
+            if let Some(id) = sw.software_id {
+                if db.delete_software(id).is_ok() {
+                    count += 1;
+                }
+            }
         }
     }
     info!("已删除 {} 个软件包", count);

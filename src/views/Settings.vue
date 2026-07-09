@@ -50,6 +50,7 @@ const categoryMap: Record<string, string> = {
   "/settings/backup": "backup",
   "/settings/cache": "cache",
   "/settings/proxy": "proxy",
+  "/settings/log": "log",
 };
 
 /** 当前设置分类 - 根据路由路径计算得出的设置分组 */
@@ -63,6 +64,7 @@ const categoryLabels: Record<string, string> = {
   backup: "备份管理设置",
   cache: "缓存软件设置",
   proxy: "代理管理设置",
+  log: "日志管理设置",
 };
 
 /** 过滤后的设置项 - 仅显示当前分类对应的设置项 */
@@ -134,6 +136,31 @@ function applySettings() {
   document.documentElement.setAttribute("data-theme", theme.value);
   document.documentElement.style.fontSize = fontSize.value + "px";
 }
+
+function getSettingValue(key: string): string {
+  return settings.value.find((s) => s.key === key)?.value ?? "";
+}
+
+function updateLocalSetting(key: string, value: string) {
+  const idx = settings.value.findIndex((s) => s.key === key);
+  if (idx >= 0) {
+    settings.value[idx] = { ...settings.value[idx], value };
+  }
+}
+
+async function saveLogSize(value: string) {
+  updateLocalSetting("log_max_size", value);
+  await saveSetting("log_max_size", value);
+  const maxFiles = parseInt(getSettingValue("log_max_files") || "7");
+  await invoke("apply_log_settings", { maxSize: parseInt(value), maxFiles });
+}
+
+async function saveLogCount(value: string) {
+  updateLocalSetting("log_max_files", value);
+  await saveSetting("log_max_files", value);
+  const maxSize = parseInt(getSettingValue("log_max_size") || "10485760");
+  await invoke("apply_log_settings", { maxSize, maxFiles: parseInt(value) });
+}
 </script>
 
 <template>
@@ -187,7 +214,51 @@ function applySettings() {
       <p style="color: var(--text-secondary)">暂无设置项</p>
     </div>
 
-    <!-- 服务端设置列表 - 显示当前分类的所有可编辑设置项 -->
+    <!-- 日志管理设置 - 显示日志轮转配置 -->
+    <div v-else-if="category === 'log'" class="card">
+      <div class="setting-row">
+        <div class="setting-label">
+          <strong>单个日志文件大小上限</strong>
+          <span class="setting-desc">当日志文件超过此大小时自动轮转（log_max_size）</span>
+        </div>
+        <div class="setting-input">
+          <select
+            :value="getSettingValue('log_max_size')"
+            @change="saveLogSize(($event.target as HTMLSelectElement).value)"
+            class="select-input"
+          >
+            <option value="1048576">1 MB</option>
+            <option value="5242880">5 MB</option>
+            <option value="10485760">10 MB（默认）</option>
+            <option value="20971520">20 MB</option>
+            <option value="52428800">50 MB</option>
+            <option value="104857600">100 MB</option>
+          </select>
+        </div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-label">
+          <strong>保留的日志文件数量</strong>
+          <span class="setting-desc">超过此数量时自动删除最旧的日志文件（log_max_files）</span>
+        </div>
+        <div class="setting-input">
+          <select
+            :value="getSettingValue('log_max_files')"
+            @change="saveLogCount(($event.target as HTMLSelectElement).value)"
+            class="select-input"
+          >
+            <option value="3">3 个</option>
+            <option value="5">5 个</option>
+            <option value="7">7 个（默认）</option>
+            <option value="14">14 个</option>
+            <option value="30">30 个</option>
+            <option value="60">60 个</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 服务端设置列表 - 显示其他分类的所有可编辑设置项 -->
     <div v-else-if="filteredSettings.length > 0" class="card">
       <div v-for="s in filteredSettings" :key="s.key" class="setting-row">
         <div class="setting-label">
@@ -199,7 +270,7 @@ function applySettings() {
           <input
             type="text"
             :value="s.value"
-            @change="(e) => saveSetting(s.key, (e.target as HTMLInputElement).value)"
+            @change="(e) => saveSetting(s.key, (e.target as HTMLSelectElement).value)"
             class="text-input"
           />
         </div>
