@@ -1,14 +1,36 @@
+/**
+ * aur.rs - AUR 信息同步和更新命令
+ *
+ * 功能：从 AUR RPC API 批量同步软件包信息，或更新指定软件包的 AUR 信息。
+ * 使用 tokio::spawn 并行发起网络请求，结果收集到内存后批量写入数据库。
+ *
+ * 工作流程：
+ * 1. 从数据库读取所有软件包列表
+ * 2. 通过 AUR RPC API 批量查询软件包信息
+ * 3. 在内存中收集所有同步结果
+ * 4. 批量写入数据库，减少锁竞争
+ */
 use log::{debug, info};
 use tauri::State;
 
 use crate::aur;
 use crate::commands::proxy_utils::{build_client, get_active_proxy};
-use crate::commands::software_sync_utils::{get_setting_opt, parse_u64, detect_package_defaults, AurSyncResult};
+use super::utils::{get_setting_opt, parse_u64, detect_package_defaults, AurSyncResult};
 use crate::errors::{AppError, AppResult};
 use crate::models::*;
 use crate::AppState;
 
 /// 并行同步 AUR 信息
+///
+/// 从 AUR RPC API 批量获取所有软件包的最新信息，
+/// 自动推断包类型和检查器类型，并更新数据库。
+///
+/// # 参数
+/// - `state`: Tauri 应用状态，包含数据库连接
+///
+/// # 返回
+/// - `Ok(count)`: 成功同步的软件包数量
+/// - `Err(e)`: 同步过程中发生错误
 #[tauri::command]
 pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
     info!("正在从 AUR 同步软件包");
@@ -141,6 +163,16 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
 }
 
 /// 并行更新 AUR 信息
+///
+/// 更新指定软件包（或全部）的 AUR 信息，包括描述、版本、依赖等。
+///
+/// # 参数
+/// - `state`: Tauri 应用状态，包含数据库连接
+/// - `pkgname_list`: 可选的软件包名称列表，None 表示更新全部
+///
+/// # 返回
+/// - `Ok(count)`: 成功更新的软件包数量
+/// - `Err(e)`: 更新过程中发生错误
 #[tauri::command]
 pub async fn update_aur_info(
     state: State<'_, AppState>,

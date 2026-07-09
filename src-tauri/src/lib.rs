@@ -196,10 +196,10 @@ pub fn run() {
             commands::software::batch_delete_software,   // 批量删除软件包
             commands::software::set_software_license,    // 设置软件包的 License
             commands::software::set_software_language,   // 设置软件包的编程语言
-            commands::software_sync::sync_from_aur,           // 从 AUR 同步软件包
-            commands::software_sync_pkgbuild::sync_from_pkgbuild, // 从 PKGBUILD 文件同步
-            commands::software_sync::update_aur_info,         // 更新 AUR 信息
-            commands::software_sync_upstream::check_all_upstream, // 并行检查所有软件包的上游版本
+            commands::software_sync::aur::sync_from_aur,           // 从 AUR 同步软件包
+            commands::software_sync::aur::update_aur_info,         // 更新 AUR 信息
+            commands::software_sync::pkgbuild::sync_from_pkgbuild,      // 从 PKGBUILD 文件同步
+            commands::software_sync::upstream::check_all_upstream,      // 并行检查所有软件包的上游版本
             commands::software_check::check_upstream_version,  // 检查单个软件包的上游版本
             commands::software_check::check_selected_upstream, // 检查选中的软件包上游版本
             // 扫描

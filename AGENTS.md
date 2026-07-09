@@ -58,6 +58,10 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 - 结构体/枚举命名：PascalCase
 - 使用 `Result<T, Error>` 进行错误处理
 - 异步代码使用 `async/await`
+- **模块设计原则（强制）**：
+  - `mod.rs` 仅负责模块声明和导出，不包含任何具体实现
+  - 每个子文件负责单一功能，保持代码可维护性
+  - 所有文件严格控制在 300 行以内
 - **注释规范（强制）**：
   - 所有文件必须在开头添加文件级注释，说明功能、工作流程适用场景
   - 所有公开函数（`pub fn`）必须添加文档注释（`///`），包含参数、返回值说明
@@ -95,6 +99,12 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/db/logs.rs` | 日志表 |
 | `src-tauri/src/db/settings.rs` | 设置表 |
 | `src-tauri/src/commands/` | Tauri IPC 命令（software/files/sys_command/enums 等） |
+| `src-tauri/src/commands/software_sync/` | 软件包同步命令模块（目录结构） |
+| `src-tauri/src/commands/software_sync/mod.rs` | 模块声明和导出（不含具体实现） |
+| `src-tauri/src/commands/software_sync/aur.rs` | AUR 信息同步和更新命令 |
+| `src-tauri/src/commands/software_sync/upstream.rs` | 上游版本并行检查命令 |
+| `src-tauri/src/commands/software_sync/pkgbuild.rs` | PKGBUILD 文件同步命令 |
+| `src-tauri/src/commands/software_sync/utils.rs` | 同步工具函数和类型定义 |
 | `src-tauri/src/checkers/` | 版本检查器模块 |
 | `src-tauri/src/checkers/mod.rs` | 检查器工厂函数 |
 | `src-tauri/src/checkers/trait_def.rs` | VersionChecker trait 定义 |

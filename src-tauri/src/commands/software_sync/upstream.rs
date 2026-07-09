@@ -1,8 +1,22 @@
+/**
+ * upstream.rs - 上游版本检查命令（并行执行）
+ *
+ * 功能：并行检查所有软件包的上游最新版本。
+ * 使用 tokio::spawn 并行发起网络请求，每个包独立检查，
+ * 结果收集到内存后批量写入数据库，减少锁竞争。
+ *
+ * 工作流程：
+ * 1. 从数据库读取所有软件包及其检查器配置
+ * 2. 为每个包创建 tokio::spawn 任务并行检查
+ * 3. 每个任务调用对应检查器的 check 方法，支持重试
+ * 4. 收集所有结果到内存
+ * 5. 批量更新数据库中的 upstream_info 和 is_outdated 字段
+ */
 use log::{info, error};
 use tauri::State;
 
 use crate::commands::proxy_utils::{build_client, get_active_proxy};
-use crate::commands::software_sync_utils::{
+use super::utils::{
     get_setting_opt, parse_u64, parse_u32, build_checker_settings, UpstreamCheckResult,
 };
 use crate::errors::AppResult;
@@ -116,6 +130,21 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
     Ok(success_results)
 }
 
+/// 带重试的版本检查
+///
+/// # 参数
+/// - `checker`: 版本检查器实例
+/// - `client`: HTTP 客户端
+/// - `upstream_url`: 上游仓库 URL
+/// - `pkgname`: 软件包名称
+/// - `version_extract_regex`: 版本提取正则表达式（可选）
+/// - `options`: 检查选项
+/// - `retry_count`: 最大重试次数
+///
+/// # 返回
+/// - `Ok(Some(version))`: 检查成功，返回版本号
+/// - `Ok(None)`: 检查成功，但未找到版本
+/// - `Err(e)`: 所有重试均失败
 async fn check_with_retry(
     checker: &dyn crate::checkers::VersionChecker,
     client: &reqwest::Client,

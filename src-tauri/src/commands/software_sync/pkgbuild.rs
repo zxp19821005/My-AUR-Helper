@@ -1,3 +1,16 @@
+/**
+ * pkgbuild.rs - PKGBUILD 文件同步命令
+ *
+ * 功能：扫描 AUR 软件包目录中的 PKGBUILD 文件，解析并同步软件包信息到数据库。
+ * 支持进度事件推送，前端可实时显示同步进度。
+ *
+ * 工作流程：
+ * 1. 从配置读取 AUR 软件包目录路径
+ * 2. 遍历目录下的所有子目录（每个子目录代表一个软件包）
+ * 3. 对每个子目录调用 aur::read_pkgbuild 解析 PKGBUILD 文件
+ * 4. 将解析结果写入数据库
+ * 5. 通过 Tauri emit 推送进度事件到前端
+ */
 use log::{error, info};
 use tauri::{Emitter, State};
 
@@ -5,6 +18,16 @@ use crate::aur;
 use crate::errors::{AppError, AppResult};
 use crate::AppState;
 
+/// 从 PKGBUILD 文件同步软件包信息
+///
+/// # 参数
+/// - `state`: Tauri 应用状态，包含数据库连接
+/// - `app`: Tauri AppHandle，用于发送进度事件
+/// - `pkgname`: 可选的软件包名称过滤器，如果指定则只同步该软件包
+///
+/// # 返回
+/// - `Ok(count)`: 成功同步的软件包数量
+/// - `Err(e)`: 同步过程中发生错误
 #[tauri::command]
 pub async fn sync_from_pkgbuild(
     state: State<'_, AppState>,
