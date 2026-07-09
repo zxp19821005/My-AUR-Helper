@@ -6,7 +6,6 @@ mod manual;
 mod redirect;
 mod trait_def;
 mod utils;
-mod git_describe;
 
 pub use trait_def::{CheckOptions, VersionChecker};
 

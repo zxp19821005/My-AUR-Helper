@@ -96,12 +96,15 @@ src-tauri/src/
 │   ├── settings.rs           # 设置命令
 │   └── enums.rs              # 枚举查询命令 (144行)
 ├── checkers/
-│   ├── mod.rs                # 检查器工厂函数 (33行)
+│   ├── mod.rs                # 检查器工厂函数 (31行)
 │   ├── trait_def.rs          # VersionChecker trait 定义
 │   ├── github/               # GitHub 检查器模块（目录结构）
-│   │   ├── mod.rs            # GitHub 检查器定义和路由 (157行)
+│   │   ├── mod.rs            # 模块声明和导出 (8行)
 │   │   ├── tags.rs           # GitHub Tags 检查逻辑 (79行)
-│   │   └── api.rs            # GitHub API 检查逻辑（releases, 资产过滤）(163行)
+│   │   ├── api.rs            # GitHub API 检查逻辑（releases, 资产过滤）(163行)
+│   │   ├── git_describe.rs   # Git Describe 格式化（-git 包版本）(149行)
+│   │   ├── tags_checker.rs   # GitHubTagsChecker 检查器实现 (75行)
+│   │   └── api_checker.rs    # GitHubAPIChecker 检查器实现 (82行)
 │   ├── gitee.rs              # Gitee 检查器
 │   ├── gitlab.rs             # GitLab 检查器
 │   ├── redirect.rs           # 重定向检查器
@@ -230,7 +233,13 @@ src/
 基于 `VersionChecker` trait 的多态实现：
 - GitHubTagsChecker: 通过 GitHub API 获取最新 tags，支持版本提取关键字
 - GitHubAPIChecker: 通过 GitHub API 获取最新 release，支持二进制文件检查
-- GitHub 模块采用目录结构：`mod.rs`（检查器定义）+ `tags.rs`（Tags逻辑）+ `api.rs`（API逻辑）
+- GitHub 模块采用目录结构：
+  - `mod.rs`: 模块声明和导出（不含具体实现）
+  - `tags_checker.rs`: GitHubTagsChecker 检查器实现
+  - `api_checker.rs`: GitHubAPIChecker 检查器实现
+  - `tags.rs`: Tags 分页获取和版本比较逻辑
+  - `api.rs`: Release API 调用和资产过滤逻辑
+  - `git_describe.rs`: Git Describe 格式化（-git 包专用）
 - GiteeChecker: 通过 Gitee API
 - GitLabChecker: 通过 GitLab API
 - RedirectChecker: 跟踪 HTTP 重定向获取版本
