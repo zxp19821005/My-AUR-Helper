@@ -1,122 +1,149 @@
-use async_trait::async_trait;
-use log::{debug, info, warn};
+use log::debug;
 use reqwest::Client;
-use std::path::Path;
-use std::process::Stdio;
-use tokio::process::Command;
+use serde_json;
 
-use super::trait_def::{CheckOptions, VersionChecker};
 use crate::errors::AppResult;
 
-pub struct GitDescribeChecker;
+pub async fn check_github_git_describe(
+    client: &Client,
+    owner: &str,
+    repo: &str,
+    pkgname: &str,
+) -> AppResult<Option<String>> {
+    // 1. 获取最新的 tag
+    let tags_url = format!("https://api.github.com/repos/{}/{}/tags?per_page=1", owner, repo);
+    let tags_resp = client.get(&tags_url)
+        .header("User-Agent", "my-aur-helper/0.1")
+        .header("Accept", "application/vnd.github.v3+json")
+        .send().await?;
 
-#[async_trait]
-impl VersionChecker for GitDescribeChecker {
-    fn name(&self) -> &'static str {
-        "git_describe"
+    let latest_tag_name = if tags_resp.status().is_success() {
+        let tags: Vec<serde_json::Value> = tags_resp.json().await?;
+        tags.first().and_then(|t| t["name"].as_str()).map(|s| s.to_string())
+    } else {
+        debug!("[GitDescribe] {}: 获取 tags 失败", pkgname);
+        None
+    };
+
+    // 2. 获取默认分支的最新 commit
+    let repo_url = format!("https://api.github.com/repos/{}/{}", owner, repo);
+    let repo_resp = client.get(&repo_url)
+        .header("User-Agent", "my-aur-helper/0.1")
+        .header("Accept", "application/vnd.github.v3+json")
+        .send().await?;
+
+    let default_branch = if repo_resp.status().is_success() {
+        let repo_data: serde_json::Value = repo_resp.json().await?;
+        repo_data["default_branch"].as_str().unwrap_or("main").to_string()
+    } else {
+        "main".to_string()
+    };
+
+    let commits_url = format!(
+        "https://api.github.com/repos/{}/{}/commits?sha={}&per_page=1",
+        owner, repo, default_branch
+    );
+    let commits_resp = client.get(&commits_url)
+        .header("User-Agent", "my-aur-helper/0.1")
+        .header("Accept", "application/vnd.github.v3+json")
+        .send().await?;
+
+    let latest_commit_sha = if commits_resp.status().is_success() {
+        let commits: Vec<serde_json::Value> = commits_resp.json().await?;
+        commits.first().and_then(|c| c["sha"].as_str()).map(|s| s[..7].to_string())
+    } else {
+        debug!("[GitDescribe] {}: 获取 commits 失败", pkgname);
+        None
+    };
+
+    // 3. 格式化版本
+    if let Some(tag) = latest_tag_name {
+        if let Some(hash) = latest_commit_sha {
+            let commit_count = get_commit_count_since_tag(client, owner, repo, &tag, &default_branch).await;
+            
+            let version = if let Some(count) = commit_count {
+                format!("{}.r{}.g{}", tag, count, hash)
+            } else {
+                format!("{}.r0.g{}", tag, hash)
+            };
+            
+            debug!("[GitDescribe] {}: 格式化版本={}", pkgname, version);
+            return Ok(Some(version));
+        }
     }
 
-    async fn check(
-        &self,
-        _client: &Client,
-        upstream_url: &str,
-        pkgname: &str,
-        _version_extract_regex: Option<&str>,
-        _options: &CheckOptions,
-    ) -> AppResult<Option<String>> {
-        info!("[GitDescribe] {}: 开始检查", pkgname);
-
-        if upstream_url.is_empty() {
-            debug!("[GitDescribe] {}: 上游URL为空", pkgname);
-            return Ok(None);
-        }
-
-        let clone_url = if upstream_url.contains("github.com")
-            || upstream_url.contains("gitlab")
-            || upstream_url.contains("gitee.com")
-        {
-            upstream_url.to_string()
+    // 如果没有 tag，使用 r{count}.{hash} 格式
+    if let Some(hash) = latest_commit_sha {
+        let total_commits = get_total_commit_count(client, owner, repo, &default_branch).await;
+        let version = if let Some(count) = total_commits {
+            format!("r{}.{}", count, hash)
         } else {
-            let url = upstream_url.trim_end_matches('/');
-            if url.starts_with("http") || url.starts_with("git@") {
-                url.to_string()
-            } else {
-                format!("https://{}", url)
-            }
+            format!("r0.{}", hash)
         };
+        debug!("[GitDescribe] {}: 无tag，使用={}", pkgname, version);
+        return Ok(Some(version));
+    }
 
-        let tmp_dir = std::env::temp_dir().join(format!("aur_vcs_{}", pkgname));
-        let _ = std::fs::remove_dir_all(&tmp_dir);
-        std::fs::create_dir_all(&tmp_dir)?;
+    Ok(None)
+}
 
-        let version = match fetch_git_describe(&clone_url, &tmp_dir).await {
-            Ok(Some(v)) => {
-                info!("[GitDescribe] {}: 上游版本={}", pkgname, v);
-                Some(v)
-            }
-            Ok(None) => {
-                warn!("[GitDescribe] {}: 无法获取版本", pkgname);
-                None
-            }
-            Err(e) => {
-                warn!("[GitDescribe] {}: 出错: {}", pkgname, e);
-                None
-            }
-        };
+async fn get_commit_count_since_tag(
+    client: &Client,
+    owner: &str,
+    repo: &str,
+    tag: &str,
+    branch: &str,
+) -> Option<usize> {
+    let tags_url = format!("https://api.github.com/repos/{}/{}/tags?per_page=100", owner, repo);
+    let tags_resp = client.get(&tags_url)
+        .header("User-Agent", "my-aur-helper/0.1")
+        .send().await.ok()?;
+    
+    let tags: Vec<serde_json::Value> = tags_resp.json().await.ok()?;
+    let tag_commit = tags.iter().find(|t| t["name"].as_str() == Some(tag))
+        .and_then(|t| t["commit"]["sha"].as_str())?;
 
-        let _ = std::fs::remove_dir_all(&tmp_dir);
-        Ok(version)
+    let compare_url = format!(
+        "https://api.github.com/repos/{}/{}/compare/{}...{}",
+        owner, repo, tag_commit, branch
+    );
+    let compare_resp = client.get(&compare_url)
+        .header("User-Agent", "my-aur-helper/0.1")
+        .send().await.ok()?;
+    
+    if compare_resp.status().is_success() {
+        let compare_data: serde_json::Value = compare_resp.json().await.ok()?;
+        compare_data["ahead_by"].as_u64().map(|n| n as usize)
+    } else {
+        None
     }
 }
 
-async fn fetch_git_describe(repo_url: &str, dest: &Path) -> AppResult<Option<String>> {
-    debug!("[GitDescribe] 克隆仓库: {}", repo_url);
-    let clone_output = Command::new("git")
-        .args([
-            "clone",
-            "--depth=1",
-            "--bare",
-            repo_url,
-            dest.to_str().unwrap_or(""),
-        ])
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped())
-        .output()
-        .await
-        .map_err(|e| crate::errors::AppError::VersionCheckError(format!("git clone失败: {}", e)))?;
-
-    if !clone_output.status.success() {
-        let stderr = String::from_utf8_lossy(&clone_output.stderr);
-        debug!("[GitDescribe] 克隆失败: {}", stderr);
-        return Ok(None);
+async fn get_total_commit_count(
+    client: &Client,
+    owner: &str,
+    repo: &str,
+    branch: &str,
+) -> Option<usize> {
+    let commits_url = format!(
+        "https://api.github.com/repos/{}/{}/commits?sha={}&per_page=1",
+        owner, repo, branch
+    );
+    
+    let resp = client.get(&commits_url)
+        .header("User-Agent", "my-aur-helper/0.1")
+        .send().await.ok()?;
+    
+    if let Some(link) = resp.headers().get("link") {
+        let link_str = link.to_str().ok()?;
+        if let Some(page) = link_str.split(',').find(|l| l.contains("rel=\"last\"")) {
+            if let Some(num) = page.split('?').nth(1) {
+                if let Some(count) = num.split('&').find(|p| p.starts_with("page=")) {
+                    return count[5..].parse::<usize>().ok();
+                }
+            }
+        }
     }
-
-    let describe_output = Command::new("git")
-        .args(["--git-dir", dest.to_str().unwrap_or(""), "describe", "--always", "--long", "--abbrev=7"])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .await
-        .map_err(|e| crate::errors::AppError::VersionCheckError(format!("git describe失败: {}", e)))?;
-
-    if !describe_output.status.success() {
-        let stderr = String::from_utf8_lossy(&describe_output.stderr);
-        debug!("[GitDescribe] describe失败: {}", stderr);
-        return Ok(None);
-    }
-
-    let raw_version = String::from_utf8_lossy(&describe_output.stdout).trim().to_string();
-    if raw_version.is_empty() {
-        return Ok(None);
-    }
-
-    debug!("[GitDescribe] git describe原始输出: {}", raw_version);
-
-    let version = raw_version
-        .trim_start_matches('v')
-        .trim_start_matches('V')
-        .replace('-', ".");
-
-    debug!("[GitDescribe] 转换后版本: {}", version);
-    Ok(Some(version))
+    
+    None
 }

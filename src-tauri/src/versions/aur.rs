@@ -1,4 +1,5 @@
 use log::debug;
+use super::remove_git_describe_metadata;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AurVersion {
@@ -46,7 +47,10 @@ impl AurVersion {
     }
 
     pub fn normalize(version: &str) -> String {
-        version.replace('-', "_")
+        let result = version.replace('-', "_");
+        
+        // 使用公共函数清理 git describe 格式
+        remove_git_describe_metadata(&result)
     }
 
     pub fn to_string_full(&self) -> String {

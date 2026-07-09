@@ -71,6 +71,9 @@ fn compare_and_update(
         .get_aur_info(software_id)?
         .map(|a| a.aur_version.unwrap_or_default());
 
+    // 清理版本号前缀（移除 v 前缀）用于存储
+    let cleaned_version = version.strip_prefix('v').unwrap_or(version);
+
     let is_outdated = match aur_ver.as_deref() {
         Some(aur) => versions::compare_versions(aur, version) == versions::VersionComparison::LessThan,
         None => true,
@@ -81,7 +84,7 @@ fn compare_and_update(
     db.update_software_outdated(software_id, is_outdated)?;
     let upstream_info = UpstreamInfo {
         software_id,
-        upstream_version: Some(version.to_string()),
+        upstream_version: Some(cleaned_version.to_string()),
         upstream_license_id: None,
         last_checked: Some(Utc::now().timestamp()),
     };

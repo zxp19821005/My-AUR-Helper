@@ -1,4 +1,5 @@
 use log::debug;
+use super::git_version::{extract_commit_count, is_r_format};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VersionComparison {
@@ -9,15 +10,34 @@ pub enum VersionComparison {
 }
 
 pub fn compare_vercmp(a: &str, b: &str) -> VersionComparison {
-    let a = a.trim();
-    let b = b.trim();
+    // 将 _ 统一替换为 . 以便正确分割组件
+    let a = a.replace('_', ".").trim().to_string();
+    let b = b.replace('_', ".").trim().to_string();
 
     if a == b {
         return VersionComparison::Equal;
     }
 
-    let (a_epoch, a_rest) = split_epoch(a);
-    let (b_epoch, b_rest) = split_epoch(b);
+    // 特殊处理 rN.HASH 格式（没有 tag 的 git 版本）
+    if is_r_format(&a) && is_r_format(&b) {
+        let a_count = extract_commit_count(&a);
+        let b_count = extract_commit_count(&b);
+        
+        match (a_count, b_count) {
+            (Some(a_count), Some(b_count)) => {
+                debug!("[版本比较] r格式比较: AUR commit_count={} vs 上游 commit_count={}", a_count, b_count);
+                return match a_count.cmp(&b_count) {
+                    std::cmp::Ordering::Less => VersionComparison::LessThan,
+                    std::cmp::Ordering::Greater => VersionComparison::GreaterThan,
+                    std::cmp::Ordering::Equal => VersionComparison::Equal,
+                };
+            }
+            _ => return VersionComparison::Incomparable,
+        }
+    }
+
+    let (a_epoch, a_rest) = split_epoch(&a);
+    let (b_epoch, b_rest) = split_epoch(&b);
 
     if let (Some(ae), Some(be)) = (a_epoch, b_epoch) {
         match ae.cmp(&be) {
@@ -176,6 +196,12 @@ fn compare_component(a: &str, b: &str) -> std::cmp::Ordering {
 
 fn is_prerelease_component(s: &str) -> bool {
     s.starts_with("alpha") || s.starts_with("beta") || s.starts_with("rc") || s.starts_with("pre") || s.starts_with("dev")
+}
+
+pub fn is_prerelease(version: &str) -> bool {
+    let lower = version.to_lowercase();
+    lower.contains("alpha") || lower.contains("beta") || lower.contains("rc") 
+        || lower.contains("pre") || lower.contains("dev") || lower.contains("snapshot")
 }
 
 #[cfg(test)]

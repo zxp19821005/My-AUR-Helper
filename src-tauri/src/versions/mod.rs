@@ -1,10 +1,15 @@
 pub mod aur;
 pub mod comparison;
+pub mod git_version;
 pub mod rules;
 pub mod upstream;
 
 pub use aur::AurVersion;
 pub use comparison::VersionComparison;
+pub use comparison::is_prerelease;
+pub use git_version::remove_git_describe_metadata;
+pub use git_version::extract_commit_count;
+pub use git_version::is_r_format;
 pub use upstream::UpstreamVersion;
 
 use log::debug;

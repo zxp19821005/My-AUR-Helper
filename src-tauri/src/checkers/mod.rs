@@ -21,13 +21,12 @@ pub struct CheckerSettings {
 
 pub fn get_checker(checker_type: &CheckerType, settings: CheckerSettings) -> Box<dyn VersionChecker> {
     match checker_type {
-        CheckerType::GitHubRelease => Box::new(github::GitHubReleaseChecker::new(settings.github_token)),
-        CheckerType::GitHubTag => Box::new(github::GitHubTagChecker::new(settings.github_token)),
+        CheckerType::GitHubTags => Box::new(github::GitHubTagsChecker::new(settings.github_token)),
+        CheckerType::GitHubAPI => Box::new(github::GitHubAPIChecker::new(settings.github_token)),
         CheckerType::Gitee => Box::new(gitee::GiteeChecker::new(settings.gitee_token)),
         CheckerType::GitLab => Box::new(gitlab::GitLabChecker::new(settings.gitlab_token)),
         CheckerType::Redirect => Box::new(redirect::RedirectChecker),
         CheckerType::Http => Box::new(http::HttpChecker),
         CheckerType::Manual => Box::new(manual::ManualChecker),
-        CheckerType::GitDescribe => Box::new(git_describe::GitDescribeChecker),
     }
 }

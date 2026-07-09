@@ -41,7 +41,7 @@ fn parse_pkgbuild(content: &str, path: &Path) -> AppResult<(SoftwareInfo, Option
     let mut url = None;
     let mut upstream_url = None;
     let mut in_source = false;
-    let mut checker_type = CheckerType::GitHubRelease; // 默认 GitHub 检查器
+    let mut checker_type = CheckerType::GitHubAPI; // 默认 GitHub API 检查器
 
     // 逐行解析 PKGBUILD
     for line in content.lines() {
@@ -100,7 +100,7 @@ fn parse_pkgbuild(content: &str, path: &Path) -> AppResult<(SoftwareInfo, Option
     }
     if let Some(ref u) = upstream_url {
         if u.contains("github.com") {
-            checker_type = CheckerType::GitHubRelease;
+            checker_type = CheckerType::GitHubAPI;
         } else if u.contains("gitee.com") {
             checker_type = CheckerType::Gitee;
         } else if u.contains("gitlab.com") {
@@ -131,8 +131,8 @@ fn parse_pkgbuild(content: &str, path: &Path) -> AppResult<(SoftwareInfo, Option
 
     // 根据包名后缀和类型重写检查器类型
     let checker_type = match package_type_id {
-        PackageType::Git => CheckerType::GitDescribe,
-        PackageType::Compiled if matches!(checker_type, CheckerType::GitHubRelease) => CheckerType::GitHubTag,
+        PackageType::Git => CheckerType::GitHubAPI,
+        PackageType::Compiled if matches!(checker_type, CheckerType::GitHubAPI) => CheckerType::GitHubTags,
         _ => checker_type,
     };
 

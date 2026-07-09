@@ -251,12 +251,12 @@ pub async fn update_aur_info(
 
 pub fn detect_package_defaults(pkgname: &str) -> (PackageType, CheckerType, bool, bool) {
     if pkgname.ends_with("-git") {
-        (PackageType::Git, CheckerType::GitDescribe, true, false)
+        (PackageType::Git, CheckerType::GitHubAPI, true, false)
     } else if pkgname.ends_with("-bin") {
-        (PackageType::Binary, CheckerType::GitHubTag, false, true)
+        (PackageType::Binary, CheckerType::GitHubAPI, false, true)
     } else if pkgname.ends_with("-appimage") {
-        (PackageType::AppImage, CheckerType::GitHubTag, false, true)
+        (PackageType::AppImage, CheckerType::GitHubAPI, false, true)
     } else {
-        (PackageType::Compiled, CheckerType::GitHubTag, false, false)
+        (PackageType::Compiled, CheckerType::GitHubTags, false, false)
     }
 }

@@ -1,5 +1,6 @@
 use log::debug;
 use regex::Regex;
+use super::remove_git_describe_metadata;
 
 use super::rules::CleanupRules;
 
@@ -45,6 +46,9 @@ impl UpstreamVersion {
         result = Self::remove_prefixes(&result, &rules.prefixes);
         
         result = Self::remove_suffixes(&result, &rules.suffixes);
+        
+        // 使用公共函数清理 git describe 格式
+        result = remove_git_describe_metadata(&result);
         
         result = Self::remove_build_metadata(&result);
         
@@ -176,5 +180,21 @@ mod tests {
         let v = UpstreamVersion::parse_with_rules("myapp-1.2.3-custom", &rules);
         assert_eq!(v.raw, "myapp-1.2.3-custom");
         assert_eq!(v.normalized_version, "1.2.3");
+    }
+
+    #[test]
+    fn test_parse_git_describe_format() {
+        // 测试 git describe 格式的版本
+        let v = UpstreamVersion::parse("v2.0.1.r0.g30a6260");
+        assert_eq!(v.raw, "v2.0.1.r0.g30a6260");
+        assert_eq!(v.normalized_version, "2.0.1");
+        
+        let v = UpstreamVersion::parse("1.7.0.r0.gb9a08cc");
+        assert_eq!(v.raw, "1.7.0.r0.gb9a08cc");
+        assert_eq!(v.normalized_version, "1.7.0");
+        
+        let v = UpstreamVersion::parse("2.0.1.r5.g9a27946");
+        assert_eq!(v.raw, "2.0.1.r5.g9a27946");
+        assert_eq!(v.normalized_version, "2.0.1");
     }
 }

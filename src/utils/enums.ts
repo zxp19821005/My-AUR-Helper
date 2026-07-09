@@ -6,14 +6,13 @@ export const pkgTypes: Record<number, string> = {
 };
 
 export const checkerTypes: Record<number, string> = {
-  1: "GitHub Release",
-  2: "GitHub Tag",
+  1: "GitHub Tags",
+  2: "GitHub API",
   3: "Gitee",
   4: "GitLab",
   5: "重定向",
   6: "HTTP 页面解析",
   7: "手动",
-  8: "Git Describe",
 };
 
 export const pkgTypeOptions = Object.entries(pkgTypes).map(([id, label]) => ({
