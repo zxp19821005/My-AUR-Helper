@@ -21,7 +21,7 @@ pub async fn get_licenses(state: State<'_, AppState>) -> AppResult<Vec<EnumLicen
     Ok(result)
 }
 
-/// 从 SPDX 同步 License 数据
+/// 从 SPDX 同步 License 数据（不删除自定义 License）
 #[tauri::command]
 pub async fn sync_licenses_from_spdx(state: State<'_, AppState>) -> AppResult<usize> {
     info!("正在从 SPDX 同步 License 数据");
@@ -35,36 +35,19 @@ pub async fn sync_licenses_from_spdx(state: State<'_, AppState>) -> AppResult<us
         .as_array()
         .ok_or_else(|| AppError::ParseError("SPDX 数据格式错误".into()))?;
 
-    let mut enum_licenses = Vec::new();
+    let db = state.db.lock()?;
+    let mut count = 0usize;
     for lic in licenses {
         let spdx_id = lic["licenseId"].as_str().unwrap_or("");
         let full_name = lic["name"].as_str().unwrap_or("");
-        let url = lic["seeAlso"]
-            .as_array()
-            .and_then(|a| a.first())
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-        let is_deprecated = lic["isDeprecatedLicenseId"].as_bool().unwrap_or(false);
-        let is_osi_approved = lic["isOsiApproved"].as_bool().unwrap_or(false);
-        let category = lic["licenseCategory"].as_str().map(|s| s.to_string());
-        enum_licenses.push(EnumLicense {
-            id: None,
-            spdx_id: spdx_id.to_string(),
-            full_name: full_name.to_string(),
-            url,
-            is_deprecated,
-            is_osi_approved,
-            description: None,
-            category,
-            created_at: None,
-        });
-    }
-
-    let db = state.db.lock()?;
-    db.delete_all_licenses()?;
-    let count = enum_licenses.len();
-    for lic in &enum_licenses {
-        let _ = db.upsert_license(lic);
+        if !spdx_id.is_empty() && !full_name.is_empty() {
+            let _ = db.upsert_license(&EnumLicense {
+                id: None,
+                spdx_id: spdx_id.to_string(),
+                full_name: full_name.to_string(),
+            });
+            count += 1;
+        }
     }
     info!("已从 SPDX 同步 {} 个 License", count);
     Ok(count)
@@ -76,24 +59,14 @@ pub async fn add_license(
     state: State<'_, AppState>,
     spdx_id: String,
     full_name: String,
-    url: Option<String>,
-    description: Option<String>,
-    category: Option<String>,
 ) -> AppResult<i64> {
     info!("正在添加 License: {} ({})", spdx_id, full_name);
-    let lic = EnumLicense {
+    let db = state.db.lock()?;
+    db.upsert_license(&EnumLicense {
         id: None,
         spdx_id,
         full_name,
-        url,
-        is_deprecated: false,
-        is_osi_approved: false,
-        description,
-        category,
-        created_at: None,
-    };
-    let db = state.db.lock()?;
-    db.upsert_license(&lic)
+    })
 }
 
 /// 获取所有编程语言列表
@@ -132,24 +105,14 @@ pub async fn update_license(
     id: i64,
     spdx_id: String,
     full_name: String,
-    url: Option<String>,
-    description: Option<String>,
-    category: Option<String>,
 ) -> AppResult<()> {
     info!("正在更新 License {}: {} ({})", id, spdx_id, full_name);
-    let lic = EnumLicense {
+    let db = state.db.lock()?;
+    db.update_license(&EnumLicense {
         id: Some(id),
         spdx_id,
         full_name,
-        url,
-        is_deprecated: false,
-        is_osi_approved: false,
-        description,
-        category,
-        created_at: None,
-    };
-    let db = state.db.lock()?;
-    db.update_license(&lic)
+    })
 }
 
 /// 删除 License

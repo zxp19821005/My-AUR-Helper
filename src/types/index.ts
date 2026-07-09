@@ -115,29 +115,10 @@ export type License = EnumLicense;
 /** 编程语言类型别名 - 指向完整的 EnumProgrammingLanguage 接口 */
 export type Language = EnumProgrammingLanguage;
 
-/**
- * License 信息
- * 存储 SPDX License 数据，用于软件包许可证管理
- */
 export interface EnumLicense {
-  /** License ID - 数据库主键 */
   id: number | null;
-  /** SPDX ID - SPDX 标准标识符，如 "MIT"、"GPL-3.0" */
   spdx_id: string;
-  /** 完整名称 - License 的完整名称 */
   full_name: string;
-  /** License URL - License 的官方文档链接 */
-  url: string | null;
-  /** 是否已弃用 - 是否被 SPDX 标记为已弃用 */
-  is_deprecated: boolean;
-  /** 是否被 OSI 批准 - 是否符合开源促进会标准 */
-  is_osi_approved: boolean;
-  /** 描述 - License 的简要说明 */
-  description: string | null;
-  /** 分类 - License 的分类标签 */
-  category: string | null;
-  /** 创建时间 - ISO 格式时间字符串 */
-  created_at: string | null;
 }
 
 /**

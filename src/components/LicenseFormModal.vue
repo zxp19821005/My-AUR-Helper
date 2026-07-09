@@ -8,21 +8,11 @@ const props = defineProps<{
     id: number | null;
     spdx_id: string;
     full_name: string;
-    url: string;
-    description: string;
-    category: string;
   };
 }>();
 
 const emit = defineEmits<{
-  save: [data: {
-    id: number | null;
-    spdx_id: string;
-    full_name: string;
-    url: string;
-    description: string;
-    category: string;
-  }];
+  save: [data: { id: number | null; spdx_id: string; full_name: string }];
   close: [];
 }>();
 
@@ -45,18 +35,6 @@ watch(() => props.show, (val) => {
         <label>完整名称</label>
         <input v-model="form.full_name" class="form-input" placeholder="如 MIT License" />
       </div>
-      <div class="form-group">
-        <label>URL</label>
-        <input v-model="form.url" class="form-input" placeholder="https://..." />
-      </div>
-      <div class="form-group">
-        <label>描述</label>
-        <input v-model="form.description" class="form-input" placeholder="可选" />
-      </div>
-      <div class="form-group">
-        <label>分类</label>
-        <input v-model="form.category" class="form-input" placeholder="如 license, exception" />
-      </div>
       <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem">
         <button class="btn btn-outline" @click="emit('close')">取消</button>
         <button class="btn btn-primary" @click="emit('save', form)" :disabled="!form.spdx_id.trim() || !form.full_name.trim()">确认</button>
@@ -75,7 +53,6 @@ watch(() => props.show, (val) => {
   justify-content: center;
   z-index: 1000;
 }
-
 .modal-card {
   background: var(--bg-primary);
   border-radius: 12px;
@@ -83,18 +60,13 @@ watch(() => props.show, (val) => {
   min-width: 400px;
   max-width: 500px;
 }
-
-.form-group {
-  margin-bottom: 0.75rem;
-}
-
+.form-group { margin-bottom: 0.75rem; }
 .form-group label {
   display: block;
   font-size: 0.8125rem;
   margin-bottom: 0.25rem;
   color: var(--text-secondary);
 }
-
 .form-input {
   width: 100%;
   padding: 0.375rem 0.5rem;

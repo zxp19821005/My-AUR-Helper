@@ -99,15 +99,9 @@ impl Database {
 
             -- License 枚举表
             CREATE TABLE IF NOT EXISTS enum_licenses (
-                id              INTEGER PRIMARY KEY AUTOINCREMENT,
-                spdx_id         TEXT NOT NULL UNIQUE,
-                full_name       TEXT NOT NULL,
-                url             TEXT,
-                is_deprecated   INTEGER NOT NULL DEFAULT 0,
-                is_osi_approved INTEGER NOT NULL DEFAULT 0,
-                description     TEXT,
-                category        TEXT,
-                created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                spdx_id   TEXT NOT NULL UNIQUE,
+                full_name TEXT NOT NULL
             );
 
             -- 编程语言枚举表

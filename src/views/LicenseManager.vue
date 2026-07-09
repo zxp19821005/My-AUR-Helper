@@ -15,9 +15,6 @@ const modalForm = ref({
   id: null as number | null,
   spdx_id: "",
   full_name: "",
-  url: "",
-  description: "",
-  category: "",
 });
 
 onMounted(() => loadLicenses());
@@ -46,41 +43,28 @@ async function syncFromSPDX() {
 
 function openAdd() {
   modalMode.value = "add";
-  modalForm.value = { id: null, spdx_id: "", full_name: "", url: "", description: "", category: "" };
+  modalForm.value = { id: null, spdx_id: "", full_name: "" };
   showModal.value = true;
 }
 
 function openEdit(lic: License) {
   modalMode.value = "edit";
-  modalForm.value = {
-    id: lic.id,
-    spdx_id: lic.spdx_id,
-    full_name: lic.full_name,
-    url: lic.url || "",
-    description: lic.description || "",
-    category: lic.category || "",
-  };
+  modalForm.value = { id: lic.id, spdx_id: lic.spdx_id, full_name: lic.full_name };
   showModal.value = true;
 }
 
-async function handleSave(data: { id: number | null; spdx_id: string; full_name: string; url: string; description: string; category: string }) {
+async function handleSave(data: { id: number | null; spdx_id: string; full_name: string }) {
   try {
     if (modalMode.value === "add") {
       await invoke("add_license", {
         spdxId: data.spdx_id.trim(),
         fullName: data.full_name.trim(),
-        url: data.url || null,
-        description: data.description || null,
-        category: data.category || null,
       });
     } else {
       await invoke("update_license", {
         id: data.id,
         spdxId: data.spdx_id.trim(),
         fullName: data.full_name.trim(),
-        url: data.url || null,
-        description: data.description || null,
-        category: data.category || null,
       });
     }
     showModal.value = false;
@@ -111,9 +95,6 @@ const filtered = computed(() => {
       l.full_name.toLowerCase().includes(q)
   );
 });
-
-const osiCount = computed(() => licenses.value.filter((l) => l.is_osi_approved).length);
-const deprecatedCount = computed(() => licenses.value.filter((l) => l.is_deprecated).length);
 </script>
 
 <template>
@@ -123,9 +104,7 @@ const deprecatedCount = computed(() => licenses.value.filter((l) => l.is_depreca
     </div>
 
     <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; align-items: center; flex-wrap: wrap">
-      <span style="color: var(--text-secondary); font-size: 0.875rem">
-        总计: {{ licenses.length }} | OSI 批准: {{ osiCount }} | 已弃用: {{ deprecatedCount }}
-      </span>
+      <span style="color: var(--text-secondary); font-size: 0.875rem">总计: {{ licenses.length }}</span>
       <button class="btn btn-primary" @click="openAdd">新增 License</button>
       <button class="btn btn-outline" @click="syncFromSPDX" :disabled="syncing">
         {{ syncing ? "同步中..." : "从 SPDX 同步" }}
@@ -148,15 +127,8 @@ const deprecatedCount = computed(() => licenses.value.filter((l) => l.is_depreca
 
       <div v-else class="license-grid">
         <div v-for="(lic, idx) in filtered" :key="lic.id ?? idx" class="license-card">
-          <div class="license-id">
-            <strong>{{ lic.spdx_id }}</strong>
-            <span v-if="lic.is_deprecated" class="badge-deprecated">已弃用</span>
-            <span v-if="lic.is_osi_approved" class="badge-osi">OSI</span>
-          </div>
+          <div class="license-id">{{ lic.spdx_id }}</div>
           <div class="license-name">{{ lic.full_name }}</div>
-          <div v-if="lic.url" class="license-url">
-            <a :href="lic.url" target="_blank" rel="noopener">{{ lic.url }}</a>
-          </div>
           <div class="license-actions">
             <button class="btn-sm" @click="openEdit(lic)">编辑</button>
             <button class="btn-sm btn-sm-danger" @click="handleDelete(lic)">删除</button>
@@ -185,50 +157,27 @@ const deprecatedCount = computed(() => licenses.value.filter((l) => l.is_depreca
   color: var(--text-primary);
   font-size: 0.875rem;
 }
-
 .license-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 0.75rem;
 }
-
 .license-card {
   padding: 0.75rem;
   border: 1px solid var(--border);
   border-radius: 8px;
 }
-
 .license-id {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
   margin-bottom: 0.25rem;
 }
-
 .license-name {
   font-size: 0.8125rem;
   color: var(--text-secondary);
-  margin-bottom: 0.25rem;
-}
-
-.license-url {
-  font-size: 0.75rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   margin-bottom: 0.5rem;
 }
-
-.license-url a {
-  color: var(--accent);
-  text-decoration: none;
-}
-
-.license-actions {
-  display: flex;
-  gap: 0.375rem;
-}
-
+.license-actions { display: flex; gap: 0.375rem; }
 .btn-sm {
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
@@ -238,26 +187,5 @@ const deprecatedCount = computed(() => licenses.value.filter((l) => l.is_depreca
   font-size: 0.75rem;
   cursor: pointer;
 }
-
-.btn-sm-danger {
-  color: var(--error);
-  border-color: var(--error);
-}
-
-.badge-deprecated {
-  font-size: 0.625rem;
-  background-color: rgba(239, 83, 80, 0.15);
-  color: var(--error);
-  padding: 0.125rem 0.375rem;
-  border-radius: 4px;
-}
-
-.badge-osi {
-  font-size: 0.625rem;
-  background-color: rgba(76, 175, 125, 0.15);
-  color: var(--success);
-  padding: 0.125rem 0.375rem;
-  border-radius: 4px;
-}
-
+.btn-sm-danger { color: var(--error); border-color: var(--error); }
 </style>

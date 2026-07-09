@@ -190,4 +190,30 @@ impl Database {
 
         Ok(())
     }
+
+    pub fn migrate_enum_licenses(&self) -> AppResult<()> {
+        let mut stmt = self.conn.prepare("PRAGMA table_info(enum_licenses)")?;
+        let columns: Vec<String> = stmt.query_map([], |row| row.get(1))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        if columns.len() > 3 {
+            self.conn.execute_batch("PRAGMA foreign_keys=OFF;")?;
+            self.conn.execute_batch(
+                "CREATE TABLE enum_licenses_new (
+                    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                    spdx_id   TEXT NOT NULL UNIQUE,
+                    full_name TEXT NOT NULL
+                );"
+            )?;
+            self.conn.execute_batch(
+                "INSERT INTO enum_licenses_new (id, spdx_id, full_name)
+                 SELECT id, spdx_id, full_name FROM enum_licenses;"
+            )?;
+            self.conn.execute_batch("DROP TABLE enum_licenses;")?;
+            self.conn.execute_batch("ALTER TABLE enum_licenses_new RENAME TO enum_licenses;")?;
+            self.conn.execute_batch("PRAGMA foreign_keys=ON;")?;
+        }
+        Ok(())
+    }
 }

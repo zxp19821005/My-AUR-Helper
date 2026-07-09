@@ -56,6 +56,7 @@ impl Database {
         self.migrate_aur_info()?;
         self.migrate_software_info()?;
         self.migrate_upstream_info()?;
+        self.migrate_enum_licenses()?;
         self.seed_defaults()?;
         Ok(())
     }
