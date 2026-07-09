@@ -78,14 +78,18 @@ src-tauri/src/
 │   ├── enum_licenses.rs      # EnumLicenses 表操作
 │   └── enum_programming_languages.rs # EnumProgrammingLanguages 表操作
 ├── commands/
-│   ├── mod.rs                # 命令模块导出 (42行)
+│   ├── mod.rs                # 命令模块导出 (48行)
 │   ├── software.rs           # 软件包 CRUD 命令 (163行)
-│   ├── software_sync.rs      # 软件包同步命令 (261行)
-│   ├── software_check.rs     # 软件包版本检查命令 (144行)
+│   ├── software_sync.rs      # AUR 同步命令（并行执行）(236行)
+│   ├── software_sync_upstream.rs # 上游版本检查命令（并行执行）(136行)
+│   ├── software_sync_utils.rs # 同步工具函数和类型 (68行)
+│   ├── software_sync_pkgbuild.rs # PKGBUILD 同步命令 (122行)
+│   ├── software_check.rs     # 软件包版本检查命令 (195行)
 │   ├── files.rs              # 文件操作命令 (221行)
 │   ├── files_scan.rs         # 包文件扫描命令 (85行)
 │   ├── backup.rs             # 备份命令
 │   ├── proxy.rs              # 代理命令 (83行)
+│   ├── proxy_utils.rs        # 代理工具命令
 │   ├── sys_command.rs        # 系统命令 (183行)
 │   ├── scan.rs               # 目录扫描命令 (193行)
 │   ├── logs.rs               # 日志命令
@@ -94,7 +98,10 @@ src-tauri/src/
 ├── checkers/
 │   ├── mod.rs                # 检查器工厂函数 (33行)
 │   ├── trait_def.rs          # VersionChecker trait 定义
-│   ├── github.rs             # GitHub 检查器 (112行)
+│   ├── github/               # GitHub 检查器模块（目录结构）
+│   │   ├── mod.rs            # GitHub 检查器定义和路由 (157行)
+│   │   ├── tags.rs           # GitHub Tags 检查逻辑 (79行)
+│   │   └── api.rs            # GitHub API 检查逻辑（releases, 资产过滤）(163行)
 │   ├── gitee.rs              # Gitee 检查器
 │   ├── gitlab.rs             # GitLab 检查器
 │   ├── redirect.rs           # 重定向检查器
@@ -202,8 +209,11 @@ src/
 作为前后端通信桥梁，所有 `#[tauri::command]` 在此定义，参数/返回值自动序列化为 JSON。
 
 - `software.rs` — 软件包 CRUD 操作
-- `software_sync.rs` — AUR 同步和 PKGBUILD 解析
-- `software_check.rs` — 上游版本检查
+- `software_sync.rs` — AUR 同步（并行执行，tokio::spawn）
+- `software_sync_upstream.rs` — 上游版本检查（并行执行，tokio::spawn）
+- `software_sync_utils.rs` — 同步工具函数和类型定义
+- `software_sync_pkgbuild.rs` — PKGBUILD 解析和同步
+- `software_check.rs` — 单个/选中软件包上游版本检查
 - `files.rs` — 文件/目录操作
 - `files_scan.rs` — 包文件扫描和解析
 
@@ -218,7 +228,9 @@ src/
 ### checkers/ — 版本检查器体系
 
 基于 `VersionChecker` trait 的多态实现：
-- GitHubChecker: 通过 GitHub API 获取最新 release/tag
+- GitHubTagsChecker: 通过 GitHub API 获取最新 tags，支持版本提取关键字
+- GitHubAPIChecker: 通过 GitHub API 获取最新 release，支持二进制文件检查
+- GitHub 模块采用目录结构：`mod.rs`（检查器定义）+ `tags.rs`（Tags逻辑）+ `api.rs`（API逻辑）
 - GiteeChecker: 通过 Gitee API
 - GitLabChecker: 通过 GitLab API
 - RedirectChecker: 跟踪 HTTP 重定向获取版本

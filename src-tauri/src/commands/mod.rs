@@ -38,11 +38,17 @@ pub mod software;
 /// 软件包 AUR 同步相关命令
 pub mod software_sync;
 
+/// 软件包上游版本检查相关命令（并行执行）
+pub mod software_sync_upstream;
+
 /// 软件包 PKGBUILD 同步相关命令
 pub mod software_sync_pkgbuild;
 
 /// 软件包上游版本检查相关命令
 pub mod software_check;
+
+/// 软件包同步工具函数
+pub mod software_sync_utils;
 
 /// 系统命令执行
 pub mod sys_command;
