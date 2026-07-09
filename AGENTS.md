@@ -105,6 +105,10 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/commands/software_sync/upstream.rs` | 上游版本并行检查命令 |
 | `src-tauri/src/commands/software_sync/pkgbuild.rs` | PKGBUILD 文件同步命令 |
 | `src-tauri/src/commands/software_sync/utils.rs` | 同步工具函数和类型定义 |
+| `src-tauri/src/commands/files/` | 文件操作命令模块（目录结构） |
+| `src-tauri/src/commands/files/mod.rs` | 模块声明和导出（不含具体实现） |
+| `src-tauri/src/commands/files/operations.rs` | 文件和目录的增删改查操作 |
+| `src-tauri/src/commands/files/scan.rs` | 包文件扫描功能 |
 | `src-tauri/src/checkers/` | 版本检查器模块 |
 | `src-tauri/src/checkers/mod.rs` | 检查器工厂函数 |
 | `src-tauri/src/checkers/trait_def.rs` | VersionChecker trait 定义 |

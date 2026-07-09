@@ -214,17 +214,17 @@ pub fn run() {
             commands::proxy::test_proxy,                 // 测试代理延迟
             commands::proxy::set_proxy_active,           // 设置代理启用状态
             // 文件操作
-            commands::files::copy_file,                  // 复制文件或目录
-            commands::files::move_file,                  // 移动文件或目录
-            commands::files::delete_file,                // 删除文件或目录
-            commands::files::delete_directory,           // 删除目录
-            commands::files::create_directory,           // 创建目录
-            commands::files::read_file,                  // 读取文件内容
-            commands::files::list_directory,             // 列出目录内容
-            commands::files::file_exists,                // 检查文件是否存在
-            commands::files::file_metadata,              // 获取文件元信息
-            commands::files_scan::scan_pkg_files,         // 扫描 .pkg.tar 文件
-            commands::files::batch_delete,               // 批量删除文件
+            commands::files::operations::copy_file,                  // 复制文件或目录
+            commands::files::operations::move_file,                  // 移动文件或目录
+            commands::files::operations::delete_file,                // 删除文件或目录
+            commands::files::operations::delete_directory,           // 删除目录
+            commands::files::operations::create_directory,           // 创建目录
+            commands::files::operations::read_file,                  // 读取文件内容
+            commands::files::operations::list_directory,             // 列出目录内容
+            commands::files::operations::file_exists,                // 检查文件是否存在
+            commands::files::operations::file_metadata,              // 获取文件元信息
+            commands::files::scan::scan_pkg_files,                   // 扫描 .pkg.tar 文件
+            commands::files::operations::batch_delete,               // 批量删除文件
             // 系统命令
             commands::sys_command::run_command,          // 执行任意系统命令
             commands::sys_command::install_package,      // 安装软件包

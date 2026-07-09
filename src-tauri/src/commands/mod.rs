@@ -14,11 +14,8 @@ pub mod scan;
 /// 枚举值管理命令（License、编程语言）
 pub mod enums;
 
-/// 文件操作命令
+/// 文件操作命令模块（包含 operations 和 scan 子模块）
 pub mod files;
-
-/// 包文件扫描命令
-pub mod files_scan;
 
 /// 日志管理命令
 pub mod logs;
