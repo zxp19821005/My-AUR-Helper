@@ -2,23 +2,39 @@ use log::{debug, info};
 use tauri::State;
 
 use crate::aur;
+use crate::commands::proxy_utils::{build_client, get_active_proxy};
 use crate::errors::{AppError, AppResult};
 use crate::models::*;
 use crate::AppState;
 
+fn get_setting_opt(db: &crate::db::Database, key: &str) -> Option<String> {
+    db.get_setting(key)
+        .ok()
+        .flatten()
+        .map(|s| s.value)
+        .filter(|v| !v.is_empty())
+}
+
+fn parse_u64(val: &str, default: u64) -> u64 {
+    val.parse().unwrap_or(default)
+}
+
 #[tauri::command]
 pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
     info!("正在从 AUR 同步软件包");
-    let username = {
+    let (username, timeout, proxy_url) = {
         let db = state.db.lock()?;
-        db.get_setting("aur_username")?
+        let username = db.get_setting("aur_username")?
             .map(|s| s.value)
-            .unwrap_or_default()
+            .unwrap_or_default();
+        let timeout = parse_u64(&get_setting_opt(&db, "http_timeout").unwrap_or_default(), 30);
+        let proxy_url = get_active_proxy(&db);
+        (username, timeout, proxy_url)
     };
     if username.is_empty() {
         return Err(AppError::ConfigError("AUR 用户名未配置".to_string()));
     }
-    let client = reqwest::Client::new();
+    let client = build_client(timeout, proxy_url.as_deref());
     let packages = aur::fetch_packages_by_user(&client, &username).await?;
     info!("获取到 {} 个软件包的原始数据", packages.len());
     let db = state.db.lock()?;
@@ -30,18 +46,35 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
             pkg.depends, pkg.makedepends, pkg.optdepends, pkg.out_of_date);
 
         let sw = db.get_software_by_name(&pkg.pkgname)?;
-        let software_id = if let Some(existing) = sw {
-            existing.software_id.unwrap_or(0)
+        let software_id = if let Some(mut existing) = sw {
+            let software_id = existing.software_id.unwrap_or(0);
+            let (package_type_id, checker_type_id, check_test_versions, check_binary_files) = detect_package_defaults(&existing.pkgname);
+            if existing.checker_type_id != checker_type_id
+                || existing.package_type_id != package_type_id
+                || existing.check_test_versions != check_test_versions
+                || existing.check_binary_files != check_binary_files
+            {
+                debug!("  更新检查器: {} 当前={:?} → 期望={:?}", existing.pkgname, existing.checker_type_id, checker_type_id);
+                existing.checker_type_id = checker_type_id;
+                existing.package_type_id = package_type_id;
+                existing.check_test_versions = check_test_versions;
+                existing.check_binary_files = check_binary_files;
+                let _ = db.upsert_software(&existing);
+            }
+            software_id
         } else {
+            let pkgname = &pkg.pkgname;
+            let (package_type_id, checker_type_id, check_test_versions, check_binary_files) = detect_package_defaults(pkgname);
+
             let new_sw = SoftwareInfo {
                 software_id: None,
-                pkgname: pkg.pkgname.clone(),
+                pkgname: pkgname.clone(),
                 upstream_url: pkg.url.clone(),
-                package_type_id: PackageType::Compiled,
-                checker_type_id: CheckerType::Manual,
+                package_type_id,
+                checker_type_id,
                 is_outdated: false,
-                check_test_versions: false,
-                check_binary_files: false,
+                check_test_versions,
+                check_binary_files,
                 auto_check_enabled: true,
                 language_id: None,
                 version_extract_regex: None,
@@ -111,7 +144,13 @@ pub async fn update_aur_info(
             .map(|s| s.pkgname)
             .collect()
     };
-    let client = reqwest::Client::new();
+    let (settings_timeout, proxy_url) = {
+        let db = state.db.lock()?;
+        let timeout = parse_u64(&get_setting_opt(&db, "http_timeout").unwrap_or_default(), 30);
+        let proxy_url = get_active_proxy(&db);
+        (timeout, proxy_url)
+    };
+    let client = build_client(settings_timeout, proxy_url.as_deref());
     let mut count = 0i64;
     for pkgname in &pkgnames {
         debug!("请求 AUR 信息: {}", pkgname);
@@ -189,4 +228,16 @@ pub async fn update_aur_info(
     }
     info!("已更新 {} 个软件包的 AUR 信息", count);
     Ok(count)
+}
+
+pub fn detect_package_defaults(pkgname: &str) -> (PackageType, CheckerType, bool, bool) {
+    if pkgname.ends_with("-git") {
+        (PackageType::Git, CheckerType::GitDescribe, true, false)
+    } else if pkgname.ends_with("-bin") {
+        (PackageType::Binary, CheckerType::GitHubTag, false, true)
+    } else if pkgname.ends_with("-appimage") {
+        (PackageType::AppImage, CheckerType::GitHubTag, false, true)
+    } else {
+        (PackageType::Compiled, CheckerType::GitHubTag, false, false)
+    }
 }

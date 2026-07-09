@@ -1,9 +1,9 @@
 use chrono::Utc;
 use log::{debug, error, info};
-use std::time::Duration;
 use tauri::State;
 
-use crate::checkers::{self, CheckerSettings};
+use crate::checkers::{self, CheckOptions, CheckerSettings};
+use crate::commands::proxy_utils::{build_client, get_active_proxy};
 use crate::errors::{AppError, AppResult};
 use crate::models::*;
 use crate::versions;
@@ -25,19 +25,13 @@ fn build_checker_settings(db: &crate::db::Database) -> CheckerSettings {
     }
 }
 
-fn build_client(timeout_secs: u64) -> reqwest::Client {
-    reqwest::Client::builder()
-        .timeout(Duration::from_secs(timeout_secs))
-        .build()
-        .unwrap_or_default()
-}
-
 async fn check_with_retry(
     checker: &dyn checkers::VersionChecker,
     client: &reqwest::Client,
     upstream_url: &str,
     pkgname: &str,
     version_extract_regex: Option<&str>,
+    options: &CheckOptions,
     retry_count: u32,
 ) -> AppResult<Option<String>> {
     let mut last_error = None;
@@ -46,7 +40,7 @@ async fn check_with_retry(
             info!("[重试] 第 {} 次重试 {}", attempt, pkgname);
         }
         match checker
-            .check(client, upstream_url, pkgname, version_extract_regex)
+            .check(client, upstream_url, pkgname, version_extract_regex, options)
             .await
         {
             Ok(result) => return Ok(result),
@@ -67,128 +61,123 @@ fn parse_u32(val: &str, default: u32) -> u32 {
     val.parse().unwrap_or(default)
 }
 
+fn compare_and_update(
+    db: &crate::db::Database,
+    software_id: i64,
+    pkgname: &str,
+    version: &str,
+) -> AppResult<()> {
+    let aur_ver = db
+        .get_aur_info(software_id)?
+        .map(|a| a.aur_version.unwrap_or_default());
+
+    let is_outdated = match aur_ver.as_deref() {
+        Some(aur) => versions::compare_versions(aur, version) == versions::VersionComparison::LessThan,
+        None => true,
+    };
+
+    info!("[版本检查结果] {}: AUR={:?} 上游={} 需更新={}", pkgname, aur_ver, version, is_outdated);
+
+    db.update_software_outdated(software_id, is_outdated)?;
+    let upstream_info = UpstreamInfo {
+        software_id,
+        upstream_version: Some(version.to_string()),
+        upstream_license_id: None,
+        last_checked: Some(Utc::now().timestamp()),
+    };
+    db.upsert_upstream_info(&upstream_info)?;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn check_upstream_version(
     state: State<'_, AppState>,
     pkgname: String,
 ) -> AppResult<String> {
     info!("正在检查上游版本: {}", pkgname);
-    let (sw, settings, timeout, retry) = {
+    let (sw, settings, timeout, retry, proxy_url) = {
         let db = state.db.lock()?;
         let sw = db.get_software_by_name(&pkgname)?
             .ok_or_else(|| AppError::PackageNotFound(pkgname.clone()))?;
         let settings = build_checker_settings(&db);
         let timeout = parse_u64(&get_setting_opt(&db, "http_timeout").unwrap_or_default(), 30);
         let retry = parse_u32(&get_setting_opt(&db, "http_retry_count").unwrap_or_default(), 2);
-        (sw, settings, timeout, retry)
+        let proxy_url = get_active_proxy(&db);
+        (sw, settings, timeout, retry, proxy_url)
     };
-    let client = build_client(timeout);
+    let has_aur_version = {
+        let db = state.db.lock()?;
+        db.get_aur_info(sw.software_id.unwrap_or(0))?
+            .and_then(|a| a.aur_version)
+            .filter(|v| !v.is_empty())
+            .is_some()
+    };
+    if !has_aur_version {
+        return Err(AppError::VersionCheckError(
+            format!("请先获取 {} 的 AUR 信息", pkgname),
+        ));
+    }
+
+    let client = build_client(timeout, proxy_url.as_deref());
     let checker = checkers::get_checker(&sw.checker_type_id, settings);
     let upstream_url = sw.upstream_url.as_deref().unwrap_or("");
     let version_extract_regex = sw.version_extract_regex.as_deref();
+    let options = CheckOptions {
+        check_test_versions: sw.check_test_versions,
+        check_binary_files: sw.check_binary_files,
+    };
+
     debug!("使用检查器: {} 检查 {}", checker.name(), pkgname);
-    match check_with_retry(&*checker, &client, upstream_url, &sw.pkgname, version_extract_regex, retry).await {
-        Ok(Some(version)) => {
-            let db = state.db.lock()?;
-            let aur_ver = db
-                .get_aur_info(sw.software_id.unwrap_or(0))?
-                .map(|a| a.aur_version.unwrap_or_default());
-
-            debug!("[版本比较] 准备比较版本:");
-            debug!("[版本比较]   AUR版本: {}", aur_ver.as_deref().unwrap_or("(未获取)"));
-            debug!("[版本比较]   上游版本: {}", version);
-
-            let is_outdated = match aur_ver.as_deref() {
-                Some(aur) => {
-                    let comparison = versions::compare_versions(aur, &version);
-                    debug!("[版本比较]   比较结果: {:?}", comparison);
-                    comparison == versions::VersionComparison::LessThan
-                }
-                None => {
-                    debug!("[版本比较]   未获取到 AUR 版本，标记为需更新");
-                    true
-                }
-            };
-
-            info!("[版本检查结果] 软件包: {}", pkgname);
-            info!("[版本检查结果]   AUR版本: {}", aur_ver.as_deref().unwrap_or("(未获取)"));
-            info!("[版本检查结果]   上游版本: {}", version);
-            info!("[版本检查结果]   是否需要更新: {}", if is_outdated { "是" } else { "否" });
-
-            db.update_software_outdated(sw.software_id.unwrap_or(0), is_outdated)?;
-            let upstream_info = UpstreamInfo {
-                software_id: sw.software_id.unwrap_or(0),
-                upstream_version: Some(version.clone()),
-                upstream_license_id: None,
-                last_checked: Some(Utc::now().timestamp()),
-            };
-            db.upsert_upstream_info(&upstream_info)?;
-            Ok(version)
-        }
+    let version = match check_with_retry(
+        &*checker, &client, upstream_url, &sw.pkgname, version_extract_regex, &options, retry,
+    )
+    .await
+    {
+        Ok(Some(v)) => v,
         Ok(None) => {
-            error!("无法确定 {} 的上游版本", pkgname);
-            Err(AppError::VersionCheckError(format!("无法确定 {} 的上游版本", pkgname)))
+            return Err(AppError::VersionCheckError(format!("无法确定 {} 的上游版本", pkgname)));
         }
         Err(e) => {
-            error!("版本检查失败 {}: {}", pkgname, e);
-            Err(AppError::VersionCheckError(format!("检查失败: {}", e)))
+            return Err(AppError::VersionCheckError(format!("检查失败: {}", e)));
         }
-    }
+    };
+
+    let db = state.db.lock()?;
+    compare_and_update(&db, sw.software_id.unwrap_or(0), &sw.pkgname, &version)?;
+    Ok(version)
 }
 
 #[tauri::command]
 pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(String, String)>> {
     info!("正在检查所有软件包的上游版本");
-    let (packages, settings, timeout, retry) = {
+    let (packages, settings, timeout, retry, proxy_url) = {
         let db = state.db.lock()?;
         let packages = db.get_all_software()?;
         let settings = build_checker_settings(&db);
         let timeout = parse_u64(&get_setting_opt(&db, "http_timeout").unwrap_or_default(), 30);
         let retry = parse_u32(&get_setting_opt(&db, "http_retry_count").unwrap_or_default(), 2);
-        (packages, settings, timeout, retry)
+        let proxy_url = get_active_proxy(&db);
+        (packages, settings, timeout, retry, proxy_url)
     };
-    let client = build_client(timeout);
+    let client = build_client(timeout, proxy_url.as_deref());
     let mut results = Vec::new();
     for sw in &packages {
         let checker = checkers::get_checker(&sw.checker_type_id, settings.clone());
         let upstream_url = sw.upstream_url.as_deref().unwrap_or("");
         let version_extract_regex = sw.version_extract_regex.as_deref();
-        match check_with_retry(&*checker, &client, upstream_url, &sw.pkgname, version_extract_regex, retry).await {
+        let options = CheckOptions {
+            check_test_versions: sw.check_test_versions,
+            check_binary_files: sw.check_binary_files,
+        };
+
+        match check_with_retry(
+            &*checker, &client, upstream_url, &sw.pkgname, version_extract_regex, &options, retry,
+        )
+        .await
+        {
             Ok(Some(version)) => {
                 let db = state.db.lock()?;
-                let aur_ver = db
-                    .get_aur_info(sw.software_id.unwrap_or(0))?
-                    .map(|a| a.aur_version.unwrap_or_default());
-
-                debug!("[版本比较] 准备比较版本:");
-                debug!("[版本比较]   AUR版本: {}", aur_ver.as_deref().unwrap_or("(未获取)"));
-                debug!("[版本比较]   上游版本: {}", version);
-
-                let is_outdated = match aur_ver.as_deref() {
-                    Some(aur) => {
-                        let comparison = versions::compare_versions(aur, &version);
-                        debug!("[版本比较]   比较结果: {:?}", comparison);
-                        comparison == versions::VersionComparison::LessThan
-                    }
-                    None => {
-                        debug!("[版本比较]   未获取到 AUR 版本，标记为需更新");
-                        true
-                    }
-                };
-
-                info!("[版本检查结果] 软件包: {}", sw.pkgname);
-                info!("[版本检查结果]   AUR版本: {}", aur_ver.as_deref().unwrap_or("(未获取)"));
-                info!("[版本检查结果]   上游版本: {}", version);
-                info!("[版本检查结果]   是否需要更新: {}", if is_outdated { "是" } else { "否" });
-
-                let _ = db.update_software_outdated(sw.software_id.unwrap_or(0), is_outdated);
-                let upstream_info = UpstreamInfo {
-                    software_id: sw.software_id.unwrap_or(0),
-                    upstream_version: Some(version.clone()),
-                    upstream_license_id: None,
-                    last_checked: Some(Utc::now().timestamp()),
-                };
-                let _ = db.upsert_upstream_info(&upstream_info);
+                let _ = compare_and_update(&db, sw.software_id.unwrap_or(0), &sw.pkgname, &version);
                 results.push((sw.pkgname.clone(), version));
             }
             _ => {
@@ -207,14 +196,15 @@ pub async fn check_selected_upstream(
     pkgname_list: Vec<String>,
 ) -> AppResult<Vec<(String, String)>> {
     info!("正在检查 {} 个软件包的上游版本", pkgname_list.len());
-    let (settings, timeout, retry) = {
+    let (settings, timeout, retry, proxy_url) = {
         let db = state.db.lock()?;
         let settings = build_checker_settings(&db);
         let timeout = parse_u64(&get_setting_opt(&db, "http_timeout").unwrap_or_default(), 30);
         let retry = parse_u32(&get_setting_opt(&db, "http_retry_count").unwrap_or_default(), 2);
-        (settings, timeout, retry)
+        let proxy_url = get_active_proxy(&db);
+        (settings, timeout, retry, proxy_url)
     };
-    let client = build_client(timeout);
+    let client = build_client(timeout, proxy_url.as_deref());
     let mut results = Vec::new();
     for pkgname in &pkgname_list {
         let sw = {
@@ -225,45 +215,19 @@ pub async fn check_selected_upstream(
         let checker = checkers::get_checker(&sw.checker_type_id, settings.clone());
         let upstream_url = sw.upstream_url.as_deref().unwrap_or("");
         let version_extract_regex = sw.version_extract_regex.as_deref();
-        match check_with_retry(&*checker, &client, upstream_url, &sw.pkgname, version_extract_regex, retry).await {
-            Ok(Some(version)) => {
-                let db = state.db.lock()?;
-                let aur_ver = db
-                    .get_aur_info(sw.software_id.unwrap_or(0))?
-                    .map(|a| a.aur_version.unwrap_or_default());
+        let options = CheckOptions {
+            check_test_versions: sw.check_test_versions,
+            check_binary_files: sw.check_binary_files,
+        };
 
-                debug!("[版本比较] 准备比较版本:");
-                debug!("[版本比较]   AUR版本: {}", aur_ver.as_deref().unwrap_or("(未获取)"));
-                debug!("[版本比较]   上游版本: {}", version);
-
-                let is_outdated = match aur_ver.as_deref() {
-                    Some(aur) => {
-                        let comparison = versions::compare_versions(aur, &version);
-                        debug!("[版本比较]   比较结果: {:?}", comparison);
-                        comparison == versions::VersionComparison::LessThan
-                    }
-                    None => {
-                        debug!("[版本比较]   未获取到 AUR 版本，标记为需更新");
-                        true
-                    }
-                };
-
-                info!("[版本检查结果] 软件包: {}", sw.pkgname);
-                info!("[版本检查结果]   AUR版本: {}", aur_ver.as_deref().unwrap_or("(未获取)"));
-                info!("[版本检查结果]   上游版本: {}", version);
-                info!("[版本检查结果]   是否需要更新: {}", if is_outdated { "是" } else { "否" });
-
-                let _ = db.update_software_outdated(sw.software_id.unwrap_or(0), is_outdated);
-                let upstream_info = UpstreamInfo {
-                    software_id: sw.software_id.unwrap_or(0),
-                    upstream_version: Some(version.clone()),
-                    upstream_license_id: None,
-                    last_checked: Some(Utc::now().timestamp()),
-                };
-                let _ = db.upsert_upstream_info(&upstream_info);
-                results.push((sw.pkgname.clone(), version));
-            }
-            _ => {}
+        if let Ok(Some(version)) = check_with_retry(
+            &*checker, &client, upstream_url, &sw.pkgname, version_extract_regex, &options, retry,
+        )
+        .await
+        {
+            let db = state.db.lock()?;
+            let _ = compare_and_update(&db, sw.software_id.unwrap_or(0), &sw.pkgname, &version);
+            results.push((sw.pkgname.clone(), version));
         }
     }
     Ok(results)

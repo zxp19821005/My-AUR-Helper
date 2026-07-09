@@ -7,9 +7,22 @@
 use log::{debug, info};
 use tauri::State;
 
+use crate::commands::proxy_utils::{build_client, get_active_proxy};
 use crate::errors::{AppError, AppResult};
 use crate::models::*;
 use crate::AppState;
+
+fn get_setting_opt(db: &crate::db::Database, key: &str) -> Option<String> {
+    db.get_setting(key)
+        .ok()
+        .flatten()
+        .map(|s| s.value)
+        .filter(|v| !v.is_empty())
+}
+
+fn parse_u64(val: &str, default: u64) -> u64 {
+    val.parse().unwrap_or(default)
+}
 
 /// 获取所有 License 列表
 #[tauri::command]
@@ -25,7 +38,13 @@ pub async fn get_licenses(state: State<'_, AppState>) -> AppResult<Vec<EnumLicen
 #[tauri::command]
 pub async fn sync_licenses_from_spdx(state: State<'_, AppState>) -> AppResult<usize> {
     info!("正在从 SPDX 同步 License 数据");
-    let client = reqwest::Client::new();
+    let (timeout, proxy_url) = {
+        let db = state.db.lock()?;
+        let timeout = parse_u64(&get_setting_opt(&db, "http_timeout").unwrap_or_default(), 30);
+        let proxy_url = get_active_proxy(&db);
+        (timeout, proxy_url)
+    };
+    let client = build_client(timeout, proxy_url.as_deref());
     let resp = client
         .get("https://raw.githubusercontent.com/spdx/license-list-data/main/json/licenses.json")
         .send()

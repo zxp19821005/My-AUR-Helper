@@ -124,13 +124,18 @@ export function useSoftwareForm() {
 
     if (name.endsWith("-bin")) {
       form.value.package_type_id = 2;
+      form.value.checker_type_id = 2;
       form.value.check_binary_files = true;
     } else if (name.endsWith("-git")) {
       form.value.package_type_id = 3;
+      form.value.checker_type_id = 8;
     } else if (name.endsWith("-appimage")) {
       form.value.package_type_id = 4;
+      form.value.checker_type_id = 2;
+      form.value.check_binary_files = true;
     } else {
       form.value.package_type_id = 1;
+      form.value.checker_type_id = 2;
       form.value.check_binary_files = false;
     }
   }

@@ -26,6 +26,9 @@ pub mod logs;
 /// 代理管理命令
 pub mod proxy;
 
+/// 代理工具函数（build_client、get_active_proxy）
+pub mod proxy_utils;
+
 /// 设置管理命令
 pub mod settings;
 

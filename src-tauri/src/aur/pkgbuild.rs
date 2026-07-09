@@ -129,6 +129,13 @@ fn parse_pkgbuild(content: &str, path: &Path) -> AppResult<(SoftwareInfo, Option
         PackageType::Compiled
     };
 
+    // 根据包名后缀和类型重写检查器类型
+    let checker_type = match package_type_id {
+        PackageType::Git => CheckerType::GitDescribe,
+        PackageType::Compiled if matches!(checker_type, CheckerType::GitHubRelease) => CheckerType::GitHubTag,
+        _ => checker_type,
+    };
+
     // 根据版本号判断是否为测试版本
     let version_lower = pkgver.to_lowercase();
     let check_test_versions = version_lower.contains("beta")
@@ -137,8 +144,8 @@ fn parse_pkgbuild(content: &str, path: &Path) -> AppResult<(SoftwareInfo, Option
         || version_lower.contains("dev")
         || version_lower.contains("pre");
 
-    // -bin 包默认检查二进制文件
-    let check_binary_files = pkgname_final.ends_with("-bin");
+    // -bin 和 -appimage 包默认检查二进制文件存在
+    let check_binary_files = pkgname_final.ends_with("-bin") || pkgname_final.ends_with("-appimage");
 
     // 构建 SoftwareInfo 结构体
     let sw = SoftwareInfo {
