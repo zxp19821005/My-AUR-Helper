@@ -1,3 +1,19 @@
+/**
+ * tags_checker.rs - GitHubTagsChecker 检查器实现
+ *
+ * 功能：通过 GitHub Tags API 获取仓库的所有 tags，并提取最新版本号。
+ * 适用场景：
+ * - 需要获取大量 tags 的场景（如 electron2-bin 可能需要几千个 tags）
+ * - 支持版本提取关键字设置，可以过滤特定格式的 tag
+ * - 支持检查测试版本（prerelease）选项
+ *
+ * 工作流程：
+ * 1. 从 upstream_url 解析 owner 和 repo
+ * 2. 如果是 -git 包，使用 git_describe 逻辑
+ * 3. 否则调用 check_github_tags 分页获取所有 tags
+ * 4. 使用版本提取正则或默认逻辑提取版本号
+ * 5. 比较所有版本，返回最新版本
+ */
 use async_trait::async_trait;
 use log::{debug, info};
 use reqwest::Client;
@@ -8,11 +24,18 @@ use crate::checkers::github::git_describe::check_github_git_describe;
 use crate::checkers::github::tags::check_github_tags;
 use crate::errors::AppResult;
 
+/// GitHub Tags 检查器
+/// 通过分页获取所有 tags，提取并比较版本号
 pub struct GitHubTagsChecker {
+    /// GitHub API Token（可选，用于提高请求频率限制）
     token: Option<String>,
 }
 
 impl GitHubTagsChecker {
+    /// 创建新的 GitHubTagsChecker 实例
+    ///
+    /// # 参数
+    /// - `token`: GitHub Personal Access Token，可选
     pub fn new(token: Option<String>) -> Self {
         Self { token }
     }
@@ -20,10 +43,24 @@ impl GitHubTagsChecker {
 
 #[async_trait]
 impl VersionChecker for GitHubTagsChecker {
+    /// 返回检查器名称
     fn name(&self) -> &'static str {
         "github_tags"
     }
 
+    /// 执行版本检查
+    ///
+    /// # 参数
+    /// - `client`: HTTP 客户端
+    /// - `upstream_url`: 上游仓库 URL
+    /// - `pkgname`: 软件包名称
+    /// - `version_extract_regex`: 版本提取正则表达式（可选）
+    /// - `options`: 检查选项（是否检查测试版本、二进制文件等）
+    ///
+    /// # 返回
+    /// - `Ok(Some(version))`: 找到的最新版本
+    /// - `Ok(None)`: 未找到版本
+    /// - `Err(e)`: 检查过程中发生错误
     async fn check(
         &self,
         client: &Client,

@@ -1,3 +1,21 @@
+/**
+ * api.rs - GitHub Release API 版本检查逻辑
+ *
+ * 功能：通过 GitHub Release API 获取最新版本号。
+ * 支持两种模式：
+ * 1. check_github_release_latest: 直接获取 latest release，性能最优
+ * 2. check_github_releases: 遍历最近 10 个 releases，用于测试版本检查或资产过滤
+ *
+ * 二进制文件检查：
+ * - 当 check_binary_files 启用时，会检查 release 的 assets 是否包含 Linux 二进制文件
+ * - 如果提供了 version_extract_regex，会将其用作资产文件名过滤器
+ * - 如果最新版本没有匹配的资产文件，自动回退查找历史版本
+ *
+ * 资产过滤逻辑：
+ * - 默认：排除包含 darwin/macos/windows 的资产，其余视为 Linux 文件
+ * - 自定义：使用 version_extract_regex 正则表达式匹配资产文件名
+ *   例如：填写 "_amd64.deb" 可以只匹配包含该字符串的资产文件
+ */
 use log::{debug, info, warn};
 use reqwest::Client;
 
@@ -5,9 +23,17 @@ use crate::checkers::utils::{clean_version, extract_version_with_regex};
 use crate::errors::AppResult;
 use crate::versions;
 
-/// 检查 release 是否有 Linux 二进制文件
-/// 如果提供了 asset_filter，则用其匹配 asset 名称
+/// 检查 release 的 assets 是否包含 Linux 二进制文件
+///
+/// # 参数
+/// - `assets`: release 的资产文件列表
+/// - `asset_filter`: 资产文件名过滤器（可选），使用正则表达式匹配
+///
+/// # 返回
+/// - `true`: 存在匹配的 Linux 二进制文件
+/// - `false`: 不存在匹配的 Linux 二进制文件
 fn has_linux_binary(assets: &[serde_json::Value], asset_filter: Option<&str>) -> bool {
+    // 判断文件名是否明显是非 Linux 平台
     let not_linux = |name: &str| {
         let lower = name.to_lowercase();
         lower.contains("darwin") || lower.contains("macos") || lower.contains("windows")
@@ -32,6 +58,12 @@ fn has_linux_binary(assets: &[serde_json::Value], asset_filter: Option<&str>) ->
     })
 }
 
+/// 检查并打印 release 资产的详细信息
+///
+/// # 参数
+/// - `data`: release 的 JSON 数据
+/// - `pkgname`: 软件包名称（用于日志）
+/// - `asset_filter`: 资产文件名过滤器（可选）
 fn check_release_assets(data: &serde_json::Value, pkgname: &str, asset_filter: Option<&str>) {
     let assets = data["assets"].as_array();
     if let Some(list) = assets {
@@ -55,6 +87,22 @@ fn check_release_assets(data: &serde_json::Value, pkgname: &str, asset_filter: O
     }
 }
 
+/// 获取 GitHub 仓库的 latest release 并提取版本号
+///
+/// # 参数
+/// - `client`: HTTP 客户端
+/// - `owner`: GitHub 仓库所有者
+/// - `repo`: GitHub 仓库名称
+/// - `token`: GitHub API Token（可选）
+/// - `version_extract_regex`: 版本提取正则表达式（可选）
+///   - 当 check_binary_files 启用时，此参数用作资产文件名过滤器
+/// - `check_binary_files`: 是否检查二进制文件
+/// - `pkgname`: 软件包名称（用于日志）
+///
+/// # 返回
+/// - `Ok(Some(version))`: 找到的最新版本
+/// - `Ok(None)`: 未找到 latest release
+/// - `Err(e)`: 请求失败
 pub async fn check_github_release_latest(
     client: &Client,
     owner: &str,
@@ -113,6 +161,26 @@ pub async fn check_github_release_latest(
     Ok(None)
 }
 
+/// 遍历最近 10 个 releases，提取并比较版本号
+///
+/// 用于以下场景：
+/// - 需要检查测试版本（prerelease）
+/// - 需要检查二进制文件，且最新版本没有匹配的资产文件
+///
+/// # 参数
+/// - `client`: HTTP 客户端
+/// - `owner`: GitHub 仓库所有者
+/// - `repo`: GitHub 仓库名称
+/// - `token`: GitHub API Token（可选）
+/// - `version_extract_regex`: 版本提取正则表达式（可选）
+///   - 当 check_binary_files 启用时，此参数用作资产文件名过滤器
+/// - `check_binary_files`: 是否检查二进制文件
+/// - `pkgname`: 软件包名称（用于日志）
+///
+/// # 返回
+/// - `Ok(Some(version))`: 找到的最新版本
+/// - `Ok(None)`: 未找到任何有效 release
+/// - `Err(e)`: 请求失败
 pub async fn check_github_releases(
     client: &Client,
     owner: &str,
@@ -142,6 +210,7 @@ pub async fn check_github_releases(
 
     for release in &releases {
         if let Some(tag) = release["tag_name"].as_str() {
+            // 跳过 prerelease（除非调用方明确需要）
             if release["prerelease"].as_bool().unwrap_or(false) {
                 continue;
             }
@@ -163,6 +232,7 @@ pub async fn check_github_releases(
                 clean_version(tag)
             };
 
+            // 使用 vercmp 算法比较版本
             best_version = match best_version.take() {
                 Some(current) if versions::compare_versions(&current, &version) == versions::VersionComparison::LessThan => Some(version),
                 Some(current) => Some(current),

@@ -58,6 +58,12 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 - 结构体/枚举命名：PascalCase
 - 使用 `Result<T, Error>` 进行错误处理
 - 异步代码使用 `async/await`
+- **注释规范（强制）**：
+  - 所有文件必须在开头添加文件级注释，说明功能、工作流程适用场景
+  - 所有公开函数（`pub fn`）必须添加文档注释（`///`），包含参数、返回值说明
+  - 所有结构体/枚举必须添加注释说明用途
+  - 复杂逻辑必须添加行内注释（`//`）解释实现思路
+  - 注释语言：中文（与项目文档保持一致）
 
 ### Vue/TypeScript 编码规范
 - 组件命名：PascalCase（文件名和组件名一致）
@@ -89,9 +95,17 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/db/logs.rs` | 日志表 |
 | `src-tauri/src/db/settings.rs` | 设置表 |
 | `src-tauri/src/commands/` | Tauri IPC 命令（software/files/sys_command/enums 等） |
-| `src-tauri/src/checkers/` | 版本检查器 |
+| `src-tauri/src/checkers/` | 版本检查器模块 |
+| `src-tauri/src/checkers/mod.rs` | 检查器工厂函数 |
 | `src-tauri/src/checkers/trait_def.rs` | VersionChecker trait 定义 |
 | `src-tauri/src/checkers/utils.rs` | 检查器工具函数（含版本正则提取） |
+| `src-tauri/src/checkers/github/` | GitHub 检查器模块（目录结构） |
+| `src-tauri/src/checkers/github/mod.rs` | 模块声明和导出（不含具体实现） |
+| `src-tauri/src/checkers/github/tags_checker.rs` | GitHubTagsChecker 检查器实现 |
+| `src-tauri/src/checkers/github/api_checker.rs` | GitHubAPIChecker 检查器实现 |
+| `src-tauri/src/checkers/github/tags.rs` | GitHub Tags 分页获取和版本比较逻辑 |
+| `src-tauri/src/checkers/github/api.rs` | GitHub Release API 调用和资产过滤逻辑 |
+| `src-tauri/src/checkers/github/git_describe.rs` | Git Describe 格式化（-git 包专用） |
 | `src-tauri/src/versions/` | 版本处理模块（解析、标准化、比较） |
 | `src-tauri/src/versions/mod.rs` | versions 模块入口 |
 | `src-tauri/src/versions/aur.rs` | AUR 版本解析和标准化 |
@@ -157,13 +171,22 @@ cargo test         # Rust 单元测试
 所有检查器实现 `VersionChecker` trait（定义在 `checkers/trait_def.rs`）：
 
 ### 检查器类型
-- `GitHubReleaseChecker` — GitHub API (release)
-- `GitHubTagChecker` — GitHub API (tag)
+- `GitHubTagsChecker` — 通过 GitHub Tags API 获取所有 tags，支持版本提取关键字，适合需要获取大量 tags 的场景
+- `GitHubAPIChecker` — 通过 GitHub Release API 获取最新版本，支持二进制文件检查和资产过滤
 - `GiteeChecker` — Gitee API
 - `GitLabChecker` — GitLab API
 - `RedirectChecker` — HTTP 重定向（跟随 URL 获取版本）
 - `HttpChecker` — HTML 页面解析（提取版本号）
 - `ManualChecker` — 手动更新（用户指定版本）
+
+### GitHub 检查器模块结构
+GitHub 检查器采用目录结构（`checkers/github/`），包含以下文件：
+- `mod.rs`: 模块声明和导出（不含具体实现）
+- `tags_checker.rs`: GitHubTagsChecker 检查器实现，实现 `VersionChecker` trait
+- `api_checker.rs`: GitHubAPIChecker 检查器实现，实现 `VersionChecker` trait
+- `tags.rs`: Tags 分页获取和版本比较逻辑
+- `api.rs`: Release API 调用和资产过滤逻辑（含 `has_linux_binary`、`check_release_assets` 等工具函数）
+- `git_describe.rs`: Git Describe 格式化（-git 包专用），通过 GitHub API 生成类似 `git describe` 的版本字符串
 
 ### 工具模块
 - `checkers/utils.rs` — 通用工具函数（版本号正则提取、URL 解析等）
@@ -173,6 +196,7 @@ cargo test         # Rust 单元测试
 - 正则表达式可以包含捕获组，优先使用第一个捕获组的内容
 - 如果正则匹配失败，检查器会回退到默认的版本提取逻辑
 - 适用于版本号格式不标准的场景
+- 当 `check_binary_files` 启用时，此参数用作资产文件名过滤器
 
 ### 调用方式
 检查器通过 `checkers/mod.rs` 中的工厂函数创建，根据 `CheckerType` 枚举选择合适的检查器。

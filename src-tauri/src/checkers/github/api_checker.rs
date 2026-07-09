@@ -1,3 +1,21 @@
+/**
+ * api_checker.rs - GitHubAPIChecker 检查器实现
+ *
+ * 功能：通过 GitHub Release API 获取最新版本号。
+ * 适用场景：
+ * - 需要获取最新 release 版本（非 tag 列表）
+ * - 支持二进制文件检查（check_binary_files 选项）
+ * - 支持通过版本提取关键字过滤资产文件
+ * - 如果最新版本没有匹配的二进制文件，自动回退查找历史版本
+ *
+ * 工作流程：
+ * 1. 从 upstream_url 解析 owner 和 repo
+ * 2. 如果是 -git 包，使用 git_describe 逻辑
+ * 3. 如果启用 check_test_versions，遍历所有 releases 查找最新版本
+ * 4. 否则直接获取 latest release
+ * 5. 如果启用 check_binary_files，检查资产是否包含匹配的二进制文件
+ * 6. 返回找到的最新版本
+ */
 use async_trait::async_trait;
 use log::{debug, info};
 use reqwest::Client;
@@ -8,11 +26,18 @@ use crate::checkers::github::git_describe::check_github_git_describe;
 use crate::checkers::github::api::{check_github_release_latest, check_github_releases};
 use crate::errors::AppResult;
 
+/// GitHub API 检查器
+/// 通过 Release API 获取最新版本，支持二进制文件检查
 pub struct GitHubAPIChecker {
+    /// GitHub API Token（可选，用于提高请求频率限制）
     token: Option<String>,
 }
 
 impl GitHubAPIChecker {
+    /// 创建新的 GitHubAPIChecker 实例
+    ///
+    /// # 参数
+    /// - `token`: GitHub Personal Access Token，可选
     pub fn new(token: Option<String>) -> Self {
         Self { token }
     }
@@ -20,10 +45,25 @@ impl GitHubAPIChecker {
 
 #[async_trait]
 impl VersionChecker for GitHubAPIChecker {
+    /// 返回检查器名称
     fn name(&self) -> &'static str {
         "github_api"
     }
 
+    /// 执行版本检查
+    ///
+    /// # 参数
+    /// - `client`: HTTP 客户端
+    /// - `upstream_url`: 上游仓库 URL
+    /// - `pkgname`: 软件包名称
+    /// - `version_extract_regex`: 版本提取正则表达式（可选）
+    ///   - 当 check_binary_files 启用时，此参数用作资产文件名过滤器
+    /// - `options`: 检查选项（是否检查测试版本、二进制文件等）
+    ///
+    /// # 返回
+    /// - `Ok(Some(version))`: 找到的最新版本
+    /// - `Ok(None)`: 未找到版本
+    /// - `Err(e)`: 检查过程中发生错误
     async fn check(
         &self,
         client: &Client,
@@ -62,6 +102,7 @@ impl VersionChecker for GitHubAPIChecker {
             return result;
         }
 
+        // 如果启用测试版本检查，遍历所有 releases
         if options.check_test_versions {
             let result = check_github_releases(
                 client, &owner, &repo, self.token.as_deref(),
@@ -73,6 +114,7 @@ impl VersionChecker for GitHubAPIChecker {
             return result;
         }
 
+        // 默认：只获取 latest release
         let result = check_github_release_latest(
             client, &owner, &repo, self.token.as_deref(),
             version_extract_regex, options.check_binary_files, pkgname,
