@@ -1,6 +1,8 @@
 {
   // $schema: opencode 配置的 JSON Schema 地址，用于编辑器的自动补全和校验
   "$schema": "https://opencode.ai/config.json",
-  // model: AI 编码助手使用的默认模型名称
-  "model": "opencode/deepseek-v4-flash-free"
+  // default_agent: 使用 oh-my-openagent 的 sisyphus agent
+  // sisyphus 配置了 fallback_models 链：kimi-k2.5 → gpt-5.5 → glm-5 → big-pickle
+  // 当主模型 token 耗尽或 API 失败时，自动切换到下一个免费模型
+  "default_agent": "sisyphus"
 }

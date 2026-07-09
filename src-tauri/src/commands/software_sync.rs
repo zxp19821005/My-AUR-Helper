@@ -45,10 +45,20 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
     };
     info!("准备同步 {} 个软件包的 AUR 信息", pkgnames.len());
 
+    let aur_results = aur::get_packages_info(&client, &pkgnames).await?;
+    debug!("批量查询返回 {} 条结果", aur_results.len());
+
+    let mut pkgname_to_data = std::collections::HashMap::new();
+    for data in &aur_results {
+        if let Some(name) = data["Name"].as_str() {
+            pkgname_to_data.insert(name.to_string(), data.clone());
+        }
+    }
+
     let mut count = 0i64;
     for pkgname in &pkgnames {
-        debug!("请求 AUR 信息: {}", pkgname);
-        if let Ok(Some(data)) = aur::get_package_info(&client, pkgname).await {
+        if let Some(data) = pkgname_to_data.get(pkgname) {
+            debug!("处理软件包: {}", pkgname);
             debug!("AUR API 原始返回: {}", serde_json::to_string_pretty(&data).unwrap_or_default());
 
             let desc = data["Description"].as_str().map(|s| s.to_string());

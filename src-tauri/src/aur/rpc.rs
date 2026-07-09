@@ -97,3 +97,23 @@ pub async fn get_package_info(client: &Client, pkgname: &str) -> AppResult<Optio
         Ok(None)
     }
 }
+
+pub async fn get_packages_info(client: &Client, pkgnames: &[String]) -> AppResult<Vec<serde_json::Value>> {
+    if pkgnames.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut url = format!("{}/info/", AUR_RPC_URL);
+    for name in pkgnames {
+        url.push_str(&format!("arg[]={}&", name));
+    }
+    url.pop();
+    debug!("批量请求 AUR info API: {} 个包", pkgnames.len());
+    let resp = client.get(&url).send().await?;
+    let data: serde_json::Value = resp.json().await?;
+    let resultcount = data["resultcount"].as_i64().unwrap_or(0);
+    debug!("批量查询返回 {} 个结果", resultcount);
+    let results = data["results"].as_array()
+        .map(|arr| arr.iter().cloned().collect())
+        .unwrap_or_default();
+    Ok(results)
+}
