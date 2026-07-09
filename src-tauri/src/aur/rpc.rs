@@ -1,60 +1,49 @@
-use crate::errors::AppResult;    // 通用错误处理
-use reqwest::Client;   // HTTP 客户端，用于发送 API 请求
-use log::info;         // 日志记录
+use crate::errors::AppResult;
+use reqwest::Client;
+use log::{debug, info};
 
-/// AUR RPC API 的基础 URL（v5 接口）
 const AUR_RPC_URL: &str = "https://aur.archlinux.org/rpc/v5";
 
-/// AUR 包数据结构
-/// 对应 AUR RPC v12 接口返回的包信息字段
 #[derive(Debug, Clone)]
 pub struct AurPackageData {
-    pub pkgname: String,                          // 包名
-    pub pkgdesc: Option<String>,                  // 包描述
-    pub version: Option<String>,                  // 当前 AUR 中的版本号
-    pub url: Option<String>,                      // 项目主页 URL
-    pub license: Option<String>,                  // 许可证（取数组第一个）
-    pub depends: Option<Vec<String>>,             // 运行时依赖
-    pub makedepends: Option<Vec<String>>,         // 构建依赖
-    pub optdepends: Option<Vec<String>>,          // 可选依赖
-    pub out_of_date: Option<bool>,                // 是否标记为过期
-    pub last_modified: Option<i64>,               // 最后修改时间（Unix 时间戳）
+    pub pkgname: String,
+    pub pkgdesc: Option<String>,
+    pub version: Option<String>,
+    pub url: Option<String>,
+    pub license: Option<String>,
+    pub depends: Option<Vec<String>>,
+    pub makedepends: Option<Vec<String>>,
+    pub optdepends: Option<Vec<String>>,
+    pub out_of_date: Option<bool>,
+    pub last_modified: Option<i64>,
 }
 
-/// 通过用户名获取 AUR 包列表（包括维护者和共同维护者）
-/// @param client - 复用的 HTTP 客户端
-/// @param username - AUR 用户名
-/// @returns 该用户维护或共同维护的所有包的数据列表
 pub async fn fetch_packages_by_user(client: &Client, username: &str) -> AppResult<Vec<AurPackageData>> {
     let mut all = Vec::new();
     let mut seen = std::collections::HashSet::new();
 
-    // 分别查询维护者和共同维护者，合并去重
     for by_field in &["maintainer", "comaintainers"] {
         let url = format!("{}/search/{}?by={}", AUR_RPC_URL, username, by_field);
+        debug!("请求 AUR search API: {}", url);
         if let Ok(resp) = client.get(&url).send().await {
             if let Ok(data) = resp.json::<serde_json::Value>().await {
                 if let Some(results) = data["results"].as_array() {
+                    info!("  search({}) 返回 {} 条结果", by_field, results.len());
                     for item in results {
                         let pkgname = item["Name"].as_str().unwrap_or("").to_string();
                         if pkgname.is_empty() || !seen.insert(pkgname.clone()) {
                             continue;
                         }
+                        debug!("  解析包: {} (仅search基础字段, info字段需二次请求)", pkgname);
                         all.push(AurPackageData {
                             pkgname,
                             pkgdesc: item["Description"].as_str().map(|s| s.to_string()),
                             version: item["Version"].as_str().map(|s| s.to_string()),
                             url: item["URL"].as_str().map(|s| s.to_string()),
-                            license: item["License"].as_array()
-                                .and_then(|a| a.first())
-                                .and_then(|v| v.as_str())
-                                .map(|s| s.to_string()),
-                            depends: item["Depends"].as_array()
-                                .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()),
-                            makedepends: item["MakeDepends"].as_array()
-                                .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()),
-                            optdepends: item["OptDepends"].as_array()
-                                .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()),
+                            license: None,
+                            depends: None,
+                            makedepends: None,
+                            optdepends: None,
                             out_of_date: item["OutOfDate"].as_i64().map(|v| v != 0),
                             last_modified: item["LastModified"].as_i64(),
                         });
@@ -63,23 +52,48 @@ pub async fn fetch_packages_by_user(client: &Client, username: &str) -> AppResul
             }
         }
     }
-    info!("已从 AUR 获取 {} 个软件包（维护者 + 共同维护者）", all.len());
+
+    info!("search阶段: 共获取 {} 个基础包名, 开始请求每个包的完整 info", all.len());
+
+    for pkg in &mut all {
+        debug!("请求完整信息: {}", pkg.pkgname);
+        if let Ok(Some(data)) = get_package_info(client, &pkg.pkgname).await {
+            debug!("info API 返回: {}", serde_json::to_string(&data).unwrap_or_default());
+            pkg.pkgdesc = data["Description"].as_str().map(|s| s.to_string());
+            pkg.version = data["Version"].as_str().map(|s| s.to_string());
+            pkg.url = data["URL"].as_str().map(|s| s.to_string());
+            pkg.license = data["License"].as_array()
+                .and_then(|a| a.first())
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+            pkg.depends = data["Depends"].as_array()
+                .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect());
+            pkg.makedepends = data["MakeDepends"].as_array()
+                .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect());
+            pkg.optdepends = data["OptDepends"].as_array()
+                .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect());
+            pkg.out_of_date = data["OutOfDate"].as_i64().map(|v| v != 0);
+            pkg.last_modified = data["LastModified"].as_i64();
+        }
+    }
+
+    info!("已从 AUR 获取 {} 个完整软件包信息", all.len());
     Ok(all)
 }
 
-/// 获取单个 AUR 包信息
-/// @param client - 复用的 HTTP 客户端
-/// @param pkgname - 要查询的 AUR 包名
-/// @returns 包信息的 JSON Value（包含完整原始数据），如果包不存在则返回 None
 pub async fn get_package_info(client: &Client, pkgname: &str) -> AppResult<Option<serde_json::Value>> {
-    // 构建 AUR RPC info 接口 URL
     let url = format!("{}/info/{}", AUR_RPC_URL, pkgname);
+    debug!("请求 AUR info API: {}", url);
     let resp = client.get(&url).send().await?;
     let data: serde_json::Value = resp.json().await?;
-    // 检查结果数量，大于 0 说明找到了包
     if data["resultcount"].as_i64().unwrap_or(0) > 0 {
-        Ok(data["results"].as_array().and_then(|a| a.first().cloned()))
+        let result = data["results"].as_array().and_then(|a| a.first().cloned());
+        if result.is_some() {
+            debug!("  info API 返回成功");
+        }
+        Ok(result)
     } else {
+        debug!("  info API 返回空结果");
         Ok(None)
     }
 }

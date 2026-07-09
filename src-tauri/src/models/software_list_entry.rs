@@ -12,5 +12,5 @@ pub struct SoftwareListEntry {
     pub aur_version: Option<String>,
     pub aur_last_updated: Option<i64>,
     pub upstream_version: Option<String>,
-    pub upstream_last_checked: Option<String>,
+    pub upstream_last_checked: Option<i64>,
 }

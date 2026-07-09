@@ -110,9 +110,9 @@ function fmtTimestamp(ts: number | null): string {
   });
 }
 
-function fmtDate(iso: string | null): string {
-  if (!iso) return "-";
-  const d = new Date(iso);
+function fmtDate(ts: number | null): string {
+  if (ts == null) return "-";
+  const d = new Date(ts * 1000);
   return d.toLocaleDateString("zh-CN", {
     year: "numeric", month: "2-digit", day: "2-digit",
   });

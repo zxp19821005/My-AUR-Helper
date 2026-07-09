@@ -35,6 +35,9 @@ pub mod software;
 /// 软件包 AUR 同步相关命令
 pub mod software_sync;
 
+/// 软件包 PKGBUILD 同步相关命令
+pub mod software_sync_pkgbuild;
+
 /// 软件包上游版本检查相关命令
 pub mod software_check;
 

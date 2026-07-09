@@ -45,7 +45,6 @@ export interface SoftwareInfo {
   check_test_versions: boolean;
   check_binary_files: boolean;
   auto_check_enabled: boolean;
-  license_id: number | null;
   language_id: number | null;
   version_extract_regex: string | null;
 }
@@ -64,14 +63,13 @@ export interface SoftwareDetail {
   check_test_versions: boolean;
   check_binary_files: boolean;
   auto_check_enabled: boolean;
-  license_id: number | null;
   language_id: number | null;
   version_extract_regex: string | null;
   aur_version: string | null;
   aur_last_updated: number | null;
   aur_pkgdesc: string | null;
   upstream_version: string | null;
-  upstream_last_checked: string | null;
+  upstream_last_checked: number | null;
 }
 
 /**
@@ -81,14 +79,12 @@ export interface SoftwareDetail {
 export interface UpstreamInfo {
   /** 软件包 ID */
   software_id: number;
-  /** 上游项目地址 */
-  upstream_url: string | null;
   /** 上游版本号 - 从上游检查到的版本字符串 */
   upstream_version: string | null;
-  /** 上游 License - 上游项目声明的许可证 */
-  upstream_license: string | null;
-  /** 上次检查时间 - ISO 格式时间字符串 */
-  last_checked: string | null;
+  /** 上游 License ID - 关联 enum_licenses 表 */
+  upstream_license_id: number | null;
+  /** 上次检查时间 - Unix 时间戳（秒） */
+  last_checked: number | null;
 }
 
 /**
@@ -228,7 +224,7 @@ export interface SoftwareListEntry {
   aur_version: string | null;
   aur_last_updated: number | null;
   upstream_version: string | null;
-  upstream_last_checked: string | null;
+  upstream_last_checked: number | null;
 }
 
 /** Footer 状态接口 - 管理底部工具栏状态 */

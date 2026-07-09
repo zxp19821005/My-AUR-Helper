@@ -55,6 +55,7 @@ impl Database {
         self.create_tables()?;
         self.migrate_aur_info()?;
         self.migrate_software_info()?;
+        self.migrate_upstream_info()?;
         self.seed_defaults()?;
         Ok(())
     }

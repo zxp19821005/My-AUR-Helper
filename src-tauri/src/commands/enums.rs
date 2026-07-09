@@ -117,6 +117,49 @@ pub async fn upsert_language(
     db.upsert_language(&language)
 }
 
+/// 获取单个 License
+#[tauri::command]
+pub async fn get_license(state: State<'_, AppState>, id: i64) -> AppResult<Option<EnumLicense>> {
+    debug!("正在获取 License: {}", id);
+    let db = state.db.lock()?;
+    db.get_license_by_id(id)
+}
+
+/// 更新 License
+#[tauri::command]
+pub async fn update_license(
+    state: State<'_, AppState>,
+    id: i64,
+    spdx_id: String,
+    full_name: String,
+    url: Option<String>,
+    description: Option<String>,
+    category: Option<String>,
+) -> AppResult<()> {
+    info!("正在更新 License {}: {} ({})", id, spdx_id, full_name);
+    let lic = EnumLicense {
+        id: Some(id),
+        spdx_id,
+        full_name,
+        url,
+        is_deprecated: false,
+        is_osi_approved: false,
+        description,
+        category,
+        created_at: None,
+    };
+    let db = state.db.lock()?;
+    db.update_license(&lic)
+}
+
+/// 删除 License
+#[tauri::command]
+pub async fn delete_license(state: State<'_, AppState>, id: i64) -> AppResult<()> {
+    info!("正在删除 License: {}", id);
+    let db = state.db.lock()?;
+    db.delete_license_by_id(id)
+}
+
 /// 删除编程语言
 #[tauri::command]
 pub async fn delete_language(state: State<'_, AppState>, name: String) -> AppResult<()> {

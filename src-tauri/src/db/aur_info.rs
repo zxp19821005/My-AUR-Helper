@@ -48,6 +48,16 @@ impl Database {
         Ok(rows.next().transpose()?)
     }
 
+    /// 设置或更新 AUR 信息的 License（upsert，不存在则创建）
+    pub fn set_aur_license(&self, software_id: i64, license_id: Option<i64>) -> AppResult<()> {
+        self.conn.execute(
+            "INSERT INTO aur_info (software_id, license_id) VALUES (?1, ?2)
+             ON CONFLICT(software_id) DO UPDATE SET license_id=excluded.license_id",
+            rusqlite::params![software_id, license_id],
+        )?;
+        Ok(())
+    }
+
     /// 删除指定软件包的 AUR 信息
     /// @param software_id - 软件包 ID
     pub fn delete_aur_info(&self, software_id: i64) -> AppResult<()> {

@@ -1,13 +1,9 @@
-/**
- * software.rs - 软件包 CRUD 和设置命令
- */
 use log::{debug, info};
 use tauri::State;
 
 use crate::models::*;
 use crate::AppState;
 
-/// 获取所有软件包列表
 #[tauri::command]
 pub async fn list_software(state: State<'_, AppState>) -> Result<Vec<SoftwareInfo>, String> {
     debug!("正在获取所有软件包列表");
@@ -17,7 +13,6 @@ pub async fn list_software(state: State<'_, AppState>) -> Result<Vec<SoftwareInf
     Ok(result)
 }
 
-/// 获取软件包列表展示数据（含 AUR + Upstream 信息）
 #[tauri::command]
 pub async fn list_software_view(state: State<'_, AppState>) -> Result<Vec<SoftwareListEntry>, String> {
     debug!("正在获取软件包视图列表");
@@ -27,7 +22,6 @@ pub async fn list_software_view(state: State<'_, AppState>) -> Result<Vec<Softwa
     Ok(result)
 }
 
-/// 根据包名获取单个软件包信息
 #[tauri::command]
 pub async fn get_software(
     state: State<'_, AppState>,
@@ -38,7 +32,6 @@ pub async fn get_software(
     db.get_software_by_name(&pkgname).map_err(|e| e.to_string())
 }
 
-/// 根据包名获取软件包完整详情（含 AUR + 上游信息）
 #[tauri::command]
 pub async fn get_software_detail(
     state: State<'_, AppState>,
@@ -50,7 +43,6 @@ pub async fn get_software_detail(
         .map_err(|e| e.to_string())
 }
 
-/// 获取上一个和下一个软件包名称（用于导航）
 #[tauri::command]
 pub async fn get_prev_next_software(
     state: State<'_, AppState>,
@@ -62,7 +54,6 @@ pub async fn get_prev_next_software(
         .map_err(|e| e.to_string())
 }
 
-/// 搜索软件包
 #[tauri::command]
 pub async fn search_software(
     state: State<'_, AppState>,
@@ -75,7 +66,6 @@ pub async fn search_software(
     Ok(result)
 }
 
-/// 添加新的软件包
 #[tauri::command]
 pub async fn add_software(
     state: State<'_, AppState>,
@@ -86,7 +76,6 @@ pub async fn add_software(
     check_test_versions: bool,
     check_binary_files: bool,
     auto_check_enabled: bool,
-    license_id: Option<i64>,
     language_id: Option<i64>,
     version_extract_regex: Option<String>,
 ) -> Result<i64, String> {
@@ -101,7 +90,6 @@ pub async fn add_software(
         check_test_versions,
         check_binary_files,
         auto_check_enabled,
-        license_id,
         language_id,
         version_extract_regex,
     };
@@ -111,7 +99,6 @@ pub async fn add_software(
     Ok(id)
 }
 
-/// 更新软件包信息（编辑）
 #[tauri::command]
 pub async fn update_software(
     state: State<'_, AppState>,
@@ -124,7 +111,6 @@ pub async fn update_software(
     check_test_versions: bool,
     check_binary_files: bool,
     auto_check_enabled: bool,
-    license_id: Option<i64>,
     language_id: Option<i64>,
     version_extract_regex: Option<String>,
 ) -> Result<(), String> {
@@ -139,7 +125,6 @@ pub async fn update_software(
         check_test_versions,
         check_binary_files,
         auto_check_enabled,
-        license_id,
         language_id,
         version_extract_regex,
     };
@@ -147,7 +132,6 @@ pub async fn update_software(
     db.upsert_software(&sw).map_err(|e| e.to_string())
 }
 
-/// 设置软件包的 License
 #[tauri::command]
 pub async fn set_software_license(
     state: State<'_, AppState>,
@@ -156,11 +140,10 @@ pub async fn set_software_license(
 ) -> Result<(), String> {
     info!("正在设置软件包 {} 的 License 为 {:?}", software_id, license_id);
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.update_software_license(software_id, license_id)
+    db.set_aur_license(software_id, license_id)
         .map_err(|e| e.to_string())
 }
 
-/// 设置软件包的编程语言
 #[tauri::command]
 pub async fn set_software_language(
     state: State<'_, AppState>,
@@ -173,7 +156,6 @@ pub async fn set_software_language(
         .map_err(|e| e.to_string())
 }
 
-/// 删除单个软件包
 #[tauri::command]
 pub async fn delete_software(state: State<'_, AppState>, software_id: i64) -> Result<(), String> {
     info!("正在删除软件包，ID: {}", software_id);
@@ -181,7 +163,6 @@ pub async fn delete_software(state: State<'_, AppState>, software_id: i64) -> Re
     db.delete_software(software_id).map_err(|e| e.to_string())
 }
 
-/// 批量删除软件包（按包名）
 #[tauri::command]
 pub async fn batch_delete_software(
     state: State<'_, AppState>,

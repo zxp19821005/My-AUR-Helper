@@ -197,7 +197,7 @@ pub fn run() {
             commands::software::set_software_license,    // 设置软件包的 License
             commands::software::set_software_language,   // 设置软件包的编程语言
             commands::software_sync::sync_from_aur,           // 从 AUR 同步软件包
-            commands::software_sync::sync_from_pkgbuild,      // 从 PKGBUILD 文件同步
+            commands::software_sync_pkgbuild::sync_from_pkgbuild, // 从 PKGBUILD 文件同步
             commands::software_sync::update_aur_info,         // 更新 AUR 信息
             commands::software_check::check_upstream_version,  // 检查单个软件包的上游版本
             commands::software_check::check_all_upstream,      // 检查所有软件包的上游版本

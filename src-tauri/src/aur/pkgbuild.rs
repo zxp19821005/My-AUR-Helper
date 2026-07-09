@@ -151,7 +151,6 @@ fn parse_pkgbuild(content: &str, path: &Path) -> AppResult<(SoftwareInfo, Option
         check_test_versions,
         check_binary_files,
         auto_check_enabled: false,
-        license_id: None,
         language_id: None,
         version_extract_regex: None,
     };

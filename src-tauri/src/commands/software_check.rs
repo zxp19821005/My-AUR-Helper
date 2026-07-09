@@ -118,10 +118,9 @@ pub async fn check_upstream_version(
             db.update_software_outdated(sw.software_id.unwrap_or(0), is_outdated)?;
             let upstream_info = UpstreamInfo {
                 software_id: sw.software_id.unwrap_or(0),
-                upstream_url: sw.upstream_url.clone(),
                 upstream_version: Some(version.clone()),
-                upstream_license: None,
-                last_checked: Some(Utc::now().naive_utc()),
+                upstream_license_id: None,
+                last_checked: Some(Utc::now().timestamp()),
             };
             db.upsert_upstream_info(&upstream_info)?;
             Ok(version)
@@ -185,10 +184,9 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
                 let _ = db.update_software_outdated(sw.software_id.unwrap_or(0), is_outdated);
                 let upstream_info = UpstreamInfo {
                     software_id: sw.software_id.unwrap_or(0),
-                    upstream_url: sw.upstream_url.clone(),
                     upstream_version: Some(version.clone()),
-                    upstream_license: None,
-                    last_checked: Some(Utc::now().naive_utc()),
+                    upstream_license_id: None,
+                    last_checked: Some(Utc::now().timestamp()),
                 };
                 let _ = db.upsert_upstream_info(&upstream_info);
                 results.push((sw.pkgname.clone(), version));
@@ -258,10 +256,9 @@ pub async fn check_selected_upstream(
                 let _ = db.update_software_outdated(sw.software_id.unwrap_or(0), is_outdated);
                 let upstream_info = UpstreamInfo {
                     software_id: sw.software_id.unwrap_or(0),
-                    upstream_url: sw.upstream_url.clone(),
                     upstream_version: Some(version.clone()),
-                    upstream_license: None,
-                    last_checked: Some(Utc::now().naive_utc()),
+                    upstream_license_id: None,
+                    last_checked: Some(Utc::now().timestamp()),
                 };
                 let _ = db.upsert_upstream_info(&upstream_info);
                 results.push((sw.pkgname.clone(), version));

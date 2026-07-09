@@ -23,10 +23,8 @@ impl Database {
                 check_test_versions     INTEGER NOT NULL DEFAULT 0,
                 check_binary_files      INTEGER NOT NULL DEFAULT 0,
                 auto_check_enabled      INTEGER NOT NULL DEFAULT 1,
-                license_id              INTEGER,
                 language_id             INTEGER,
                 version_extract_regex   TEXT,
-                FOREIGN KEY (license_id) REFERENCES enum_licenses(id),
                 FOREIGN KEY (language_id) REFERENCES enum_programming_languages(id)
             );
 
@@ -47,12 +45,12 @@ impl Database {
 
             -- 上游版本信息表
             CREATE TABLE IF NOT EXISTS upstream_info (
-                software_id      INTEGER PRIMARY KEY,
-                upstream_url     TEXT,
-                upstream_version TEXT,
-                upstream_license TEXT,
-                last_checked     TEXT,
-                FOREIGN KEY (software_id) REFERENCES software_info(software_id) ON DELETE CASCADE
+                software_id        INTEGER PRIMARY KEY,
+                upstream_version   TEXT,
+                upstream_license_id INTEGER,
+                last_checked       INTEGER,
+                FOREIGN KEY (software_id) REFERENCES software_info(software_id) ON DELETE CASCADE,
+                FOREIGN KEY (upstream_license_id) REFERENCES enum_licenses(id)
             );
 
             -- 备份软件包记录表

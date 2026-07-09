@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
-import { ArrowLeft, ArrowRight, Edit, Trash2, RefreshCw, FileCode, GitBranch } from "@lucide/vue";
 import type { SoftwareDetail } from "../types";
 import { pkgTypeOptions, checkerTypeOptions } from "../utils/enums";
 import Modal from "./common/Modal.vue";
 import SoftwareFormModal from "./SoftwareFormModal.vue";
+import FloatingNav from "./FloatingNav.vue";
+import DetailToolbar from "./DetailToolbar.vue";
 
 const props = defineProps<{
   show: boolean;
@@ -141,14 +142,7 @@ watch(() => props.show, (val) => { if (!val) showEditModal.value = false; });
       <h3 class="pkg-title">{{ detail?.pkgname || "软件详情" }}</h3>
     </div>
 
-    <div class="floating-nav">
-      <button class="nav-btn" :class="{ disabled: !prevPkgname }" @click.stop="navigate('prev')" title="上一个">
-        <ArrowLeft :size="20" />
-      </button>
-      <button class="nav-btn" :class="{ disabled: !nextPkgname }" @click.stop="navigate('next')" title="下一个">
-        <ArrowRight :size="20" />
-      </button>
-    </div>
+    <FloatingNav :prev="prevPkgname" :next="nextPkgname" @navigate="navigate" />
 
     <div v-if="loading" class="loading-text">加载中...</div>
 
@@ -211,7 +205,7 @@ watch(() => props.show, (val) => { if (!val) showEditModal.value = false; });
           <table class="info-table">
             <tbody>
               <tr><td class="label">上游版本</td><td class="value version-cell">{{ detail.upstream_version || '—' }}</td></tr>
-              <tr><td class="label">上次检查</td><td class="value">{{ detail.upstream_last_checked || '—' }}</td></tr>
+              <tr><td class="label">上次检查</td><td class="value">{{ formatTimestamp(detail.upstream_last_checked) }}</td></tr>
             </tbody>
           </table>
         </div>
@@ -219,27 +213,18 @@ watch(() => props.show, (val) => { if (!val) showEditModal.value = false; });
     </div>
 
     <template #footer>
-      <div class="footer-toolbar">
-        <div class="footer-left">
-          <button class="footer-btn" @click="showEditModal = true" :disabled="loading">
-            <Edit :size="14" /><span>编辑</span>
-          </button>
-          <button class="footer-btn danger" @click="handleDelete" :disabled="deleting || loading">
-            <Trash2 :size="14" /><span>删除</span>
-          </button>
-        </div>
-        <div class="footer-right">
-          <button class="footer-btn" @click="updateAurInfo" :disabled="updatingAur || loading">
-            <GitBranch :size="14" /><span>{{ updatingAur ? '更新中...' : 'AUR 信息' }}</span>
-          </button>
-          <button class="footer-btn" @click="updatePkgbuild" :disabled="updatingPkgbuild || loading">
-            <FileCode :size="14" /><span>{{ updatingPkgbuild ? '更新中...' : 'PKGBUILD' }}</span>
-          </button>
-          <button class="footer-btn primary" @click="checkUpdate" :disabled="checking || loading">
-            <RefreshCw :size="14" :class="{ spinning: checking }" /><span>{{ checking ? '检查中...' : '检查上游' }}</span>
-          </button>
-        </div>
-      </div>
+      <DetailToolbar
+        :loading="loading"
+        :updating-aur="updatingAur"
+        :updating-pkgbuild="updatingPkgbuild"
+        :checking="checking"
+        :deleting="deleting"
+        @edit="showEditModal = true"
+        @delete="handleDelete"
+        @update-aur="updateAurInfo"
+        @update-pkgbuild="updatePkgbuild"
+        @check-update="checkUpdate"
+      />
     </template>
   </Modal>
 
@@ -256,48 +241,11 @@ watch(() => props.show, (val) => { if (!val) showEditModal.value = false; });
 .detail-header { text-align: center; margin-bottom: 0.75rem; }
 .pkg-title { font-size: 0.9375rem; font-weight: 600; color: var(--text-primary); margin: 0; }
 
-.floating-nav {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  transform: translateY(-50%);
-  display: flex;
-  justify-content: space-between;
-  pointer-events: none;
-  padding: 0 0.5rem;
-}
-
-.floating-nav .nav-btn {
-  pointer-events: auto;
-  width: 36px;
-  height: 36px;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.15s;
-  backdrop-filter: blur(4px);
-}
-
-.floating-nav .nav-btn:hover:not(.disabled) {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: white;
-  transform: scale(1.1);
-}
-
-.floating-nav .nav-btn.disabled { opacity: 0.3; cursor: not-allowed; }
-
 .loading-text { color: var(--text-secondary); text-align: center; padding: 1.5rem 0; }
 .detail-content { max-height: 50vh; overflow-y: auto; }
 
 .side-by-side { display: flex; gap: 1rem; }
 .side-by-side .half-section { flex: 1; min-width: 0; }
-
-.spinning { animation: spin 1s linear infinite; }
-@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 .status-row {
   display: flex;

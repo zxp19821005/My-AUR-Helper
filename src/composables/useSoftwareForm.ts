@@ -1,8 +1,3 @@
-/**
- * useSoftwareForm.ts - 软件包表单逻辑
- *
- * 提供软件包添加/编辑表单的状态管理和操作
- */
 import { ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { SoftwareDetail, License, Language } from "../types";
@@ -57,7 +52,6 @@ export function useSoftwareForm() {
       form.value.check_test_versions !== original.check_test_versions ||
       form.value.check_binary_files !== original.check_binary_files ||
       form.value.auto_check_enabled !== original.auto_check_enabled ||
-      form.value.license_id !== original.license_id ||
       form.value.language_id !== original.language_id ||
       form.value.version_extract_regex !== (original.version_extract_regex ?? "")
     );
@@ -91,7 +85,7 @@ export function useSoftwareForm() {
           check_test_versions: data.check_test_versions,
           check_binary_files: data.check_binary_files,
           auto_check_enabled: data.auto_check_enabled,
-          license_id: data.license_id,
+          license_id: null,
           language_id: data.language_id,
           version_extract_regex: data.version_extract_regex ?? "",
         };
@@ -114,7 +108,7 @@ export function useSoftwareForm() {
         check_test_versions: detail.value.check_test_versions,
         check_binary_files: detail.value.check_binary_files,
         auto_check_enabled: detail.value.auto_check_enabled,
-        license_id: detail.value.license_id,
+        license_id: null,
         language_id: detail.value.language_id,
         version_extract_regex: detail.value.version_extract_regex ?? "",
       };
@@ -145,8 +139,9 @@ export function useSoftwareForm() {
     saving.value = true;
     error.value = "";
     try {
+      let softwareId: number | null = null;
       if (mode === "add") {
-        await invoke("add_software", {
+        softwareId = await invoke<number>("add_software", {
           pkgname: form.value.pkgname.trim(),
           upstreamUrl: form.value.upstream_url || null,
           packageType: form.value.package_type_id,
@@ -154,12 +149,12 @@ export function useSoftwareForm() {
           checkTestVersions: form.value.check_test_versions,
           checkBinaryFiles: form.value.check_binary_files,
           autoCheckEnabled: form.value.auto_check_enabled,
-          licenseId: form.value.license_id,
           languageId: form.value.language_id,
           versionExtractRegex: form.value.version_extract_regex || null,
         });
       } else {
         if (!detail.value?.software_id) return false;
+        softwareId = detail.value.software_id;
         await invoke("update_software", {
           softwareId: detail.value.software_id,
           pkgname: detail.value.pkgname,
@@ -170,9 +165,14 @@ export function useSoftwareForm() {
           checkTestVersions: form.value.check_test_versions,
           checkBinaryFiles: form.value.check_binary_files,
           autoCheckEnabled: form.value.auto_check_enabled,
-          licenseId: form.value.license_id,
           languageId: form.value.language_id,
           versionExtractRegex: form.value.version_extract_regex || null,
+        });
+      }
+      if (softwareId != null) {
+        await invoke("set_software_license", {
+          softwareId,
+          licenseId: form.value.license_id,
         });
       }
       return true;
