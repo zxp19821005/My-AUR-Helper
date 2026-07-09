@@ -88,6 +88,9 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
         debug!("  写入 aur_info: software_id={}, license_id={:?}, depends={:?}, makedepends={:?}, optdepends={:?}, out_of_date={:?}",
             aur_info.software_id, aur_info.license_id, aur_info.depends, aur_info.makedepends, aur_info.optdepends, aur_info.out_of_date);
         let _ = db.upsert_aur_info(&aur_info);
+        if let Ok(Some(stored)) = db.get_aur_info(aur_info.software_id) {
+            debug!("  upsert后验证: license_id={:?}", stored.license_id);
+        }
     }
     info!("已从 AUR 同步 {} 个软件包", packages.len());
     Ok(packages.len() as i64)
@@ -172,6 +175,9 @@ pub async fn update_aur_info(
                     };
                     debug!("  写入 aur_info: {:?}", info);
                     let _ = db.upsert_aur_info(&info);
+                    if let Ok(Some(stored)) = db.get_aur_info(sid) {
+                        debug!("  upsert后验证: license_id={:?}", stored.license_id);
+                    }
                     count += 1;
                 }
             } else {

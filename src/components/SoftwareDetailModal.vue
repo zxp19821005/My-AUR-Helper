@@ -145,7 +145,7 @@ watch(() => props.show, (val) => { if (!val) showEditModal.value = false; });
 </script>
 
 <template>
-  <Modal :show="show" width="640px" hide-header @close="emit('close')">
+  <Modal :show="show" width="720px" hide-header @close="emit('close')">
     <template #error v-if="error">{{ error }}</template>
 
     <div class="detail-header">
@@ -257,7 +257,7 @@ watch(() => props.show, (val) => { if (!val) showEditModal.value = false; });
 .pkg-title { font-size: 0.9375rem; font-weight: 600; color: var(--text-primary); margin: 0; }
 
 .loading-text { color: var(--text-secondary); text-align: center; padding: 1.5rem 0; }
-.detail-content { max-height: 50vh; overflow-y: auto; }
+.detail-content { max-height: 75vh; overflow: visible; }
 
 .side-by-side { display: flex; gap: 1rem; }
 .side-by-side .half-section { flex: 1; min-width: 0; }

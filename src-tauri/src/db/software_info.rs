@@ -155,6 +155,9 @@ impl Database {
              WHERE s.pkgname = ?1"
         )?;
         let mut rows = stmt.query_map(rusqlite::params![pkgname], |row| {
+            let aur_spdx: Option<String> = row.get(17)?;
+            let upstream_spdx: Option<String> = row.get(20)?;
+            log::debug!("get_software_detail: pkgname={}, a.license_id from SQL, al.spdx_id={:?}, ul.spdx_id={:?}", pkgname, aur_spdx, upstream_spdx);
             Ok(SoftwareDetail {
                 software_id: Some(row.get(0)?),
                 pkgname: row.get(1)?,
@@ -173,10 +176,10 @@ impl Database {
                 depends: row.get(14)?,
                 makedepends: row.get(15)?,
                 optdepends: row.get(16)?,
-                aur_license_name: row.get(17)?,
+                aur_license_name: aur_spdx,
                 upstream_version: row.get(18)?,
                 upstream_last_checked: row.get(19)?,
-                upstream_license_name: row.get(20)?,
+                upstream_license_name: upstream_spdx,
             })
         })?;
         Ok(rows.next().transpose()?)
