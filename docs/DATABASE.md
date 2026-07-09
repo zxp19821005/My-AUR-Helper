@@ -28,13 +28,14 @@
 │ software_id (PK) │
 │ pkgname (UQ)     │
 │ upstream_url     │
-│ package_type     │
-│ checker_type     │
+│ package_type_id  │
+│ checker_type_id  │
 │ is_outdated      │
 │ check_test_ver   │
 │ check_binary     │
+│ auto_check       │
 │ language_id (FK) │
-│ created_at       │
+│ version_regex    │
 └────────┬─────────┘
          │
     ┌────┴────┐
@@ -113,15 +114,14 @@
 | software_id | INTEGER PK | 自增主键 |
 | pkgname | TEXT UNIQUE | 包名（如 gitify-bin） |
 | upstream_url | TEXT | 上游项目 URL |
-| package_type | INTEGER | 包类型 (1=编译版本, 2=二进制版本, 3=git版本, 4=AppImage版本) |
-| checker_type | INTEGER | 上游版本检查器 (1=github_release, 2=github_tag, 3=gitee, 4=gitlab, 5=redirect, 6=http, 7=manual) |
+| package_type_id | INTEGER | 包类型 (1=编译版本, 2=二进制版本, 3=git版本, 4=AppImage版本) |
+| checker_type_id | INTEGER | 上游版本检查器 (1=github_release, 2=github_tag, 3=gitee, 4=gitlab, 5=redirect, 6=http, 7=manual) |
 | is_outdated | INTEGER | 是否过期 (有可用更新) |
 | check_test_versions | INTEGER | 是否检查测试/pre-release 版本 |
 | check_binary_files | INTEGER | 是否检查二进制文件 |
 | auto_check_enabled | INTEGER | 是否启用自动检查 |
-| license_id | INTEGER FK | 关联 enum_licenses.id |
 | language_id | INTEGER FK | 关联 enum_programming_languages.id |
-| created_at | INTEGER | 创建时间 (Unix 时间戳) |
+| version_extract_regex | TEXT | 版本提取正则表达式 |
 
 <!-- aur_info：AUR 包详细信息，通过 AUR RPC 接口获取的元数据 -->
 ### aur_info

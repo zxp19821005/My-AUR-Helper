@@ -80,7 +80,7 @@ src-tauri/src/
 ├── commands/
 │   ├── mod.rs                # 命令模块导出 (42行)
 │   ├── software.rs           # 软件包 CRUD 命令 (163行)
-│   ├── software_sync.rs      # 软件包同步命令 (246行)
+│   ├── software_sync.rs      # 软件包同步命令 (261行)
 │   ├── software_check.rs     # 软件包版本检查命令 (144行)
 │   ├── files.rs              # 文件操作命令 (221行)
 │   ├── files_scan.rs         # 包文件扫描命令 (85行)
@@ -103,7 +103,7 @@ src-tauri/src/
 │   └── utils.rs              # 检查器工具函数
 ├── aur/
 │   ├── mod.rs                # AUR 模块导出
-│   ├── rpc.rs                # AUR RPC API 请求 (83行)
+│   ├── rpc.rs                # AUR RPC API 请求 (118行)
 │   └── pkgbuild.rs           # PKGBUILD 文件解析 (186行)
 ├── proxy/
 │   ├── mod.rs                # 代理模块导出
@@ -227,7 +227,8 @@ src/
 
 ### aur/ — AUR 交互
 
-- 通过 AUR RPC v12 接口获取用户维护的包列表
+- 通过 AUR RPC v5 接口获取用户维护的包列表
+- 支持批量查询 (`get_packages_info`) 和单个查询 (`get_package_info`)
 - 解析本地 PKGBUILD 文件，提取版本、URL、检查器信息
 - 自动推断合适的检查器类型
 

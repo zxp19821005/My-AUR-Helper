@@ -63,9 +63,10 @@
 ## 软件包同步 (commands/software_sync.rs)
 
 ### sync_from_aur
-从 AUR 同步软件包（按用户名）。
+从 AUR 批量同步软件包信息（使用批量查询 API）。
 - 参数: 无
 - 返回: `number` (同步数量)
+- 说明: 使用 `get_packages_info` 批量查询所有本地软件包的 AUR 信息，一次性获取后逐个更新
 
 ### sync_from_pkgbuild
 从 PKGBUILD 文件同步软件包。
@@ -77,6 +78,7 @@
 更新指定软件包的 AUR 信息。
 - 参数: `{ pkgname_list?: string[] }`
 - 返回: `number` (更新数量)
+- 说明: 支持批量更新，传入多个包名可一次性更新多个包的 AUR 信息
 
 ## 版本检查 (commands/software_check.rs)
 
