@@ -19,6 +19,7 @@ export interface SoftwareForm {
   auto_check_enabled: boolean;
   license_id: number | null;
   language_id: number | null;
+  version_extract_regex: string;
 }
 
 const defaultForm: SoftwareForm = {
@@ -32,6 +33,7 @@ const defaultForm: SoftwareForm = {
   auto_check_enabled: false,
   license_id: null,
   language_id: null,
+  version_extract_regex: "",
 };
 
 export const pkgTypes = pkgTypeOptions;
@@ -56,7 +58,8 @@ export function useSoftwareForm() {
       form.value.check_binary_files !== original.check_binary_files ||
       form.value.auto_check_enabled !== original.auto_check_enabled ||
       form.value.license_id !== original.license_id ||
-      form.value.language_id !== original.language_id
+      form.value.language_id !== original.language_id ||
+      form.value.version_extract_regex !== (original.version_extract_regex ?? "")
     );
   }
 
@@ -90,6 +93,7 @@ export function useSoftwareForm() {
           auto_check_enabled: data.auto_check_enabled,
           license_id: data.license_id,
           language_id: data.language_id,
+          version_extract_regex: data.version_extract_regex ?? "",
         };
       }
       return true;
@@ -112,6 +116,7 @@ export function useSoftwareForm() {
         auto_check_enabled: detail.value.auto_check_enabled,
         license_id: detail.value.license_id,
         language_id: detail.value.language_id,
+        version_extract_regex: detail.value.version_extract_regex ?? "",
       };
     } else {
       form.value = { ...defaultForm };
@@ -151,6 +156,7 @@ export function useSoftwareForm() {
           autoCheckEnabled: form.value.auto_check_enabled,
           licenseId: form.value.license_id,
           languageId: form.value.language_id,
+          versionExtractRegex: form.value.version_extract_regex || null,
         });
       } else {
         if (!detail.value?.software_id) return false;
@@ -166,6 +172,7 @@ export function useSoftwareForm() {
           autoCheckEnabled: form.value.auto_check_enabled,
           licenseId: form.value.license_id,
           languageId: form.value.language_id,
+          versionExtractRegex: form.value.version_extract_regex || null,
         });
       }
       return true;

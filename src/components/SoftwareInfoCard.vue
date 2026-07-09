@@ -47,6 +47,13 @@ const checkerTypeName = computed(() => {
           <td class="label">包描述</td>
           <td class="value">{{ detail.aur_pkgdesc || '—' }}</td>
         </tr>
+        <tr>
+          <td class="label">版本提取关键字</td>
+          <td class="value">
+            <code v-if="detail.version_extract_regex">{{ detail.version_extract_regex }}</code>
+            <span v-else class="empty">未设置</span>
+          </td>
+        </tr>
       </tbody>
     </table>
   </div>

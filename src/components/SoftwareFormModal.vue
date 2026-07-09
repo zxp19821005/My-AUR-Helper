@@ -34,17 +34,6 @@ const {
 const dirty = computed(() => isDirty(detail.value));
 const canSaveBtn = computed(() => canSave(props.mode, dirty.value));
 
-function formatTimestamp(ts: number | null): string {
-  if (!ts) return "—";
-  const date = new Date(ts * 1000);
-  return date.toLocaleString("zh-CN");
-}
-
-function formatDateTime(dt: string | null): string {
-  if (!dt) return "—";
-  return dt;
-}
-
 watch(
   () => props.show,
   (val) => {
@@ -119,30 +108,12 @@ async function handleSave() {
                   </label>
                 </td>
               </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- 版本信息（只读） -->
-        <div class="col-section" v-if="mode === 'edit' && detail">
-          <h4 class="col-title">版本信息</h4>
-          <table class="info-table">
-            <tbody>
               <tr>
-                <td class="label">AUR 版本</td>
-                <td class="value">{{ detail.aur_version || '—' }}</td>
-              </tr>
-              <tr>
-                <td class="label">AUR 更新时间</td>
-                <td class="value">{{ formatTimestamp(detail.aur_last_updated) }}</td>
-              </tr>
-              <tr>
-                <td class="label">上游版本</td>
-                <td class="value">{{ detail.upstream_version || '—' }}</td>
-              </tr>
-              <tr>
-                <td class="label">上次检查</td>
-                <td class="value">{{ formatDateTime(detail.upstream_last_checked) }}</td>
+                <td class="label">版本提取关键字</td>
+                <td>
+                  <input v-model="form.version_extract_regex" class="form-input" placeholder="输入正则表达式，如 v?(\d+\.\d+\.\d+)" />
+                  <span class="form-hint">用于自定义版本号提取规则，支持正则表达式语法</span>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -266,5 +237,12 @@ async function handleSave() {
 .info-table td {
   padding: 0.375rem 0.5rem;
   font-size: 0.8125rem;
+}
+
+.form-hint {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
 }
 </style>

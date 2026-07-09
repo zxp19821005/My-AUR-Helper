@@ -47,6 +47,7 @@ export interface SoftwareInfo {
   auto_check_enabled: boolean;
   license_id: number | null;
   language_id: number | null;
+  version_extract_regex: string | null;
 }
 
 /**
@@ -65,6 +66,7 @@ export interface SoftwareDetail {
   auto_check_enabled: boolean;
   license_id: number | null;
   language_id: number | null;
+  version_extract_regex: string | null;
   aur_version: string | null;
   aur_last_updated: number | null;
   aur_pkgdesc: string | null;
