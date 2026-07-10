@@ -1,6 +1,29 @@
 <script setup lang="ts">
-import { Settings, List, ScrollText } from "@lucide/vue";
+import { ref, watch } from "vue";
+import { Settings, List, ScrollText, Search, RefreshCw } from "@lucide/vue";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+
+const props = defineProps<{
+  /** 搜索关键词 */
+  modelValue?: string;
+}>();
+
+const emit = defineEmits<{
+  /** 搜索关键词变化 */
+  (e: "update:modelValue", value: string): void;
+  /** 刷新数据 */
+  (e: "refresh"): void;
+}>();
+
+const searchText = ref(props.modelValue || "");
+let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+watch(searchText, (val) => {
+  if (debounceTimer) clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    emit("update:modelValue", val);
+  }, 300);
+});
 
 async function openEnums() {
   const existing = await WebviewWindow.getByLabel("enums");
@@ -33,6 +56,16 @@ async function openSettings() {
       <slot />
     </div>
     <div class="toolbar-right">
+      <div class="toolbar-divider"></div>
+      <div class="search-box">
+        <Search :size="14" class="search-icon" />
+        <input
+          v-model="searchText"
+          type="text"
+          class="search-input"
+          placeholder="搜索..."
+        />
+      </div>
       <button class="toolbar-icon-btn" @click="openEnums" title="枚举值管理">
         <List :size="18" />
       </button>
@@ -42,6 +75,9 @@ async function openSettings() {
       <div class="toolbar-divider"></div>
       <button class="toolbar-icon-btn" @click="openSettings" title="设置">
         <Settings :size="18" />
+      </button>
+      <button class="toolbar-icon-btn" @click="emit('refresh')" title="刷新数据">
+        <RefreshCw :size="18" />
       </button>
     </div>
   </div>
@@ -88,5 +124,33 @@ async function openSettings() {
 .toolbar-icon-btn:hover {
   color: var(--text-primary);
   background-color: var(--bg-card);
+}
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background-color: var(--bg-card);
+  transition: border-color 0.15s;
+}
+.search-box:focus-within {
+  border-color: var(--accent);
+}
+.search-icon {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.search-input {
+  border: none;
+  background: none;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  outline: none;
+  width: 140px;
+}
+.search-input::placeholder {
+  color: var(--text-muted);
 }
 </style>

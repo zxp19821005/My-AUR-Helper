@@ -27,6 +27,7 @@ const pageSize = ref(50);
 const currentPage = ref(1);
 const entries = ref<SoftwareListEntry[]>([]);
 const selectedPkgnames = ref(new Set<string>());
+const searchQuery = ref("");
 
 const showModal = ref(false);
 const modalMode = ref<"add" | "edit">("add");
@@ -62,11 +63,21 @@ async function fetchView() {
   }
 }
 
-const totalRecords = computed(() => entries.value.length);
+const filteredEntries = computed(() => {
+  if (!searchQuery.value) return entries.value;
+  const q = searchQuery.value.toLowerCase();
+  return entries.value.filter((e) =>
+    e.pkgname.toLowerCase().includes(q) ||
+    (e.aur_version && e.aur_version.toLowerCase().includes(q)) ||
+    (e.upstream_version && e.upstream_version.toLowerCase().includes(q))
+  );
+});
+
+const totalRecords = computed(() => filteredEntries.value.length);
 
 const pageData = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value;
-  return entries.value.slice(start, start + pageSize.value);
+  return filteredEntries.value.slice(start, start + pageSize.value);
 });
 
 function goToPage(page: number) {
@@ -74,7 +85,7 @@ function goToPage(page: number) {
 }
 
 function syncToolbar() {
-  const s = entries.value;
+  const s = filteredEntries.value;
   const outdated = s.filter((x) => x.is_outdated).length;
   footer.infoText = `总计: ${s.length}  |  已最新: ${s.length - outdated}  |  需更新: ${outdated}`;
   footer.showPagination = s.length > pageSize.value;
@@ -85,6 +96,7 @@ function syncToolbar() {
 }
 
 watch(totalRecords, syncToolbar);
+watch(searchQuery, () => { currentPage.value = 1; });
 watch(currentPage, (p) => {
   footer.currentPage = p;
   footer.onPageChange = goToPage;
@@ -147,7 +159,7 @@ const setSelected = (v: Set<string>) => { selectedPkgnames.value = v; };
 
 <template>
   <div>
-    <PageToolbar>
+    <PageToolbar v-model="searchQuery" @refresh="fetchView">
       <button class="btn-icon btn-icon-accent" @click="syncFromAur(selectedPkgnames)" :disabled="loading" title="从AUR同步">
         <RefreshCw :size="16" />
       </button>
