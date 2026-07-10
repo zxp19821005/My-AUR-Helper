@@ -4,7 +4,7 @@
  * 功能：通过跟踪 HTTP 重定向获取最终 URL，并从中提取版本号。
  *
  * 工作流程：
- * 1. 发送 HEAD 请求到上游 URL
+ * 1. 发送 GET 请求到上游 URL（禁用自动重定向）
  * 2. 如果响应包含 Location 头，跟踪重定向
  * 3. 处理相对路径重定向（基于当前 URL 构建完整 URL）
  * 4. 从重定向 URL 中提取版本号
@@ -37,7 +37,7 @@ impl VersionChecker for RedirectChecker {
 
     async fn check(
         &self,
-        client: &Client,
+        _client: &Client,
         upstream_url: &str,
         pkgname: &str,
         version_extract_regex: Option<&str>,
@@ -56,6 +56,11 @@ impl VersionChecker for RedirectChecker {
             return Ok(CheckResult::default());
         }
 
+        // 创建不自动跟随重定向的客户端
+        let no_redirect_client = Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()?;
+
         // 手动跟踪重定向，获取最终的 URL
         let mut current_url = upstream_url.to_string();
         let mut version = None;
@@ -63,7 +68,7 @@ impl VersionChecker for RedirectChecker {
         for i in 0..MAX_REDIRECTS {
             debug!("[HTTP 重定向] 第 {} 次请求: {}", i + 1, current_url);
 
-            let resp = client.head(&current_url).send().await?;
+            let resp = no_redirect_client.get(&current_url).send().await?;
 
             if let Some(location) = resp.headers().get("location") {
                 let location_str = location.to_str().unwrap_or("");
