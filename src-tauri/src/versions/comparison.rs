@@ -10,9 +10,8 @@ pub enum VersionComparison {
 }
 
 pub fn compare_vercmp(a: &str, b: &str) -> VersionComparison {
-    // 将 _ 统一替换为 . 以便正确分割组件
-    let a = a.replace('_', ".").trim().to_string();
-    let b = b.replace('_', ".").trim().to_string();
+    let a = a.trim().to_string();
+    let b = b.trim().to_string();
 
     if a == b {
         return VersionComparison::Equal;

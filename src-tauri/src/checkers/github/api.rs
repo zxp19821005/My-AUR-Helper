@@ -153,30 +153,30 @@ pub async fn check_github_release_latest(
         // 当启用二进制检查时，version_extract_regex 用作 asset 过滤器
         check_release_assets(&data, pkgname, version_extract_regex);
 
-                // 如果有 asset 过滤器，检查最新版本是否匹配
-                if let Some(filter) = version_extract_regex {
-                    if let Some(assets) = data["assets"].as_array() {
-                        let has_match = has_linux_binary(assets, Some(filter));
-                        if !has_match {
-                            info!(
-                                "[二进制检查] {}: 最新版本无匹配的资产文件，尝试查找历史版本",
-                                pkgname
-                            );
-                            // 回退到遍历历史版本
-                            return check_github_releases(
-                                client,
-                                owner,
-                                repo,
-                                token,
-                                version_extract_regex,
-                                true, // check_test_versions = true (回退时包含 prerelease)
-                                true, // check_binary_files = true
-                                pkgname,
-                            )
-                            .await;
-                        }
-                    }
+        // 如果有 asset 过滤器，检查最新版本是否匹配
+        if let Some(filter) = version_extract_regex {
+            if let Some(assets) = data["assets"].as_array() {
+                let has_match = has_linux_binary(assets, Some(filter));
+                if !has_match {
+                    info!(
+                        "[二进制检查] {}: 最新版本无匹配的资产文件，尝试查找历史版本",
+                        pkgname
+                    );
+                    // 回退到遍历历史版本
+                    return check_github_releases(
+                        client,
+                        owner,
+                        repo,
+                        token,
+                        version_extract_regex,
+                        true, // check_test_versions = true (回退时包含 prerelease)
+                        true, // check_binary_files = true
+                        pkgname,
+                    )
+                    .await;
                 }
+            }
+        }
     }
 
     if let Some(tag) = data["tag_name"].as_str() {
@@ -272,10 +272,7 @@ pub async fn check_github_releases(
 
         // 检查是否触发限流
         if resp.status().as_u16() == 403 {
-            warn!(
-                "[二进制检查] {}: 触发 GitHub API 限流，停止搜索",
-                pkgname
-            );
+            warn!("[二进制检查] {}: 触发 GitHub API 限流，停止搜索", pkgname);
             break;
         }
 
@@ -304,9 +301,7 @@ pub async fn check_github_releases(
         for release in &releases {
             if let Some(tag) = release["tag_name"].as_str() {
                 // 跳过 prerelease（除非 check_test_versions 启用）
-                if !check_test_versions
-                    && release["prerelease"].as_bool().unwrap_or(false)
-                {
+                if !check_test_versions && release["prerelease"].as_bool().unwrap_or(false) {
                     debug!(
                         "[二进制检查] {}: Release {} 是 prerelease，跳过",
                         pkgname, tag
@@ -321,7 +316,10 @@ pub async fn check_github_releases(
                     if !re.is_match(tag) && !re.is_match(release_name) {
                         debug!(
                             "[二进制检查] {}: Release {} ({}) 不匹配正则 {}，跳过",
-                            pkgname, tag, release_name, version_extract_regex.unwrap_or("")
+                            pkgname,
+                            tag,
+                            release_name,
+                            version_extract_regex.unwrap_or("")
                         );
                         continue;
                     }
