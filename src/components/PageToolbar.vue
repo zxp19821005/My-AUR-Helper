@@ -22,7 +22,7 @@ watch(searchText, (val) => {
   if (debounceTimer) clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
     emit("update:modelValue", val);
-  }, 300);
+  }, 500);
 });
 
 async function openEnums() {
