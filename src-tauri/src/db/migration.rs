@@ -105,7 +105,7 @@ impl Database {
             return Ok(());
         }
 
-        // 需要重建表以改变列类型
+        // 需要重建表以改变列类型，移除外键约束
         self.conn.execute_batch("PRAGMA foreign_keys=OFF;")?;
         self.conn.execute_batch(
             "CREATE TABLE software_info_new (
@@ -119,8 +119,7 @@ impl Database {
                 check_binary_files      INTEGER NOT NULL DEFAULT 0,
                 auto_check_enabled      INTEGER NOT NULL DEFAULT 1,
                 language_id             TEXT DEFAULT '[]',
-                version_extract_regex   TEXT,
-                FOREIGN KEY (language_id) REFERENCES enum_programming_languages(id)
+                version_extract_regex   TEXT
             );",
         )?;
 
