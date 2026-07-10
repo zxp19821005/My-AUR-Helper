@@ -100,22 +100,7 @@ fn compare_and_update(
     );
 
     // 获取 license ID
-    let upstream_license_id = if let Some(spdx_id) = license_spdx_id {
-        let lic = db.get_license_by_spdx_id(spdx_id)?;
-        if let Some(license) = lic {
-            license.id
-        } else {
-            // 如果 license 不存在，创建新记录
-            let new_lic = crate::models::EnumLicense {
-                id: None,
-                spdx_id: spdx_id.to_string(),
-                full_name: spdx_id.to_string(),
-            };
-            Some(db.upsert_license(&new_lic)?)
-        }
-    } else {
-        None
-    };
+    let upstream_license_id = db.get_or_create_license_id(license_spdx_id)?;
 
     db.update_software_outdated(software_id, is_outdated)?;
     let upstream_info = UpstreamInfo {

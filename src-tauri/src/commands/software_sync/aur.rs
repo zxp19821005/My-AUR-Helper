@@ -144,12 +144,7 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
             }
         }
 
-        let license_id = result.license_spdx.as_deref().and_then(|lic| {
-            db.get_license_by_spdx_id(lic)
-                .ok()
-                .flatten()
-                .and_then(|e| e.id)
-        });
+        let license_id = db.get_or_create_license_id(result.license_spdx.as_deref())?;
 
         let aur_info = AurInfo {
             software_id: result.software_id,
@@ -249,12 +244,7 @@ pub async fn update_aur_info(
         let sw = db.get_software_by_name(pkgname)?;
         if let Some(existing) = sw {
             if let Some(sid) = existing.software_id {
-                let license_id = license_str.and_then(|lic| {
-                    db.get_license_by_spdx_id(lic)
-                        .ok()
-                        .flatten()
-                        .and_then(|e| e.id)
-                });
+                let license_id = db.get_or_create_license_id(license_str)?;
 
                 let depends = depends_arr.map(|a| serde_json::to_string(a).unwrap_or_default());
                 let makedepends =

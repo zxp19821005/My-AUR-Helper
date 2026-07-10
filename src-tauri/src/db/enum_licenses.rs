@@ -73,4 +73,34 @@ impl Database {
         )?;
         Ok(())
     }
+
+    /// 获取或创建 License ID
+    ///
+    /// 根据 SPDX ID 查询 enum_licenses 表，如果不存在则自动创建
+    ///
+    /// # 参数
+    /// - `spdx_id`: License 的 SPDX ID（如 "MIT", "Apache-2.0"）
+    ///
+    /// # 返回
+    /// - `Ok(Some(id))`: License 存在或创建成功，返回 ID
+    /// - `Ok(None)`: spdx_id 为 None
+    /// - `Err(e)`: 数据库操作失败
+    pub fn get_or_create_license_id(&self, spdx_id: Option<&str>) -> AppResult<Option<i64>> {
+        match spdx_id {
+            Some(spdx) => {
+                let lic = self.get_license_by_spdx_id(spdx)?;
+                if let Some(license) = lic {
+                    Ok(license.id)
+                } else {
+                    let new_lic = EnumLicense {
+                        id: None,
+                        spdx_id: spdx.to_string(),
+                        full_name: spdx.to_string(),
+                    };
+                    Ok(Some(self.upsert_license(&new_lic)?))
+                }
+            }
+            None => Ok(None),
+        }
+    }
 }

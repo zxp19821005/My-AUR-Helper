@@ -145,22 +145,8 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
                 .unwrap_or(&result.upstream_version);
 
             // 获取 license ID
-            let upstream_license_id = if let Some(spdx_id) = &result.license_spdx_id {
-                let lic = db.get_license_by_spdx_id(spdx_id)?;
-                if let Some(license) = lic {
-                    license.id
-                } else {
-                    // 如果 license 不存在，创建新记录
-                    let new_lic = crate::models::EnumLicense {
-                        id: None,
-                        spdx_id: spdx_id.to_string(),
-                        full_name: spdx_id.to_string(),
-                    };
-                    Some(db.upsert_license(&new_lic)?)
-                }
-            } else {
-                None
-            };
+            let upstream_license_id =
+                db.get_or_create_license_id(result.license_spdx_id.as_deref())?;
 
             let _ = db.update_software_outdated(result.software_id, result.is_outdated);
             let upstream_info = crate::models::UpstreamInfo {
