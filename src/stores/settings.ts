@@ -10,6 +10,16 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 
+/** Setting 类型定义 */
+interface Setting {
+  id?: number;
+  key: string;
+  value: string;
+  description?: string;
+  category: string;
+  created_at?: string;
+}
+
 export const useSettingsStore = defineStore("settings", () => {
   /** 设置缓存 - 键值对形式存储所有设置 */
   const settingsCache = ref<Record<string, string>>({});
@@ -20,9 +30,12 @@ export const useSettingsStore = defineStore("settings", () => {
       return settingsCache.value[key];
     }
     try {
-      const value = await invoke<string>("get_setting", { key });
-      settingsCache.value[key] = value;
-      return value;
+      const setting = await invoke<Setting | null>("get_setting", { key });
+      if (setting && setting.value) {
+        settingsCache.value[key] = setting.value;
+        return setting.value;
+      }
+      return defaultValue;
     } catch {
       return defaultValue;
     }
@@ -43,8 +56,10 @@ export const useSettingsStore = defineStore("settings", () => {
   /** 刷新指定设置的缓存 */
   async function refreshSetting(key: string): Promise<void> {
     try {
-      const value = await invoke<string>("get_setting", { key });
-      settingsCache.value[key] = value;
+      const setting = await invoke<Setting | null>("get_setting", { key });
+      if (setting && setting.value) {
+        settingsCache.value[key] = setting.value;
+      }
     } catch {
       // 忽略错误
     }
@@ -53,9 +68,11 @@ export const useSettingsStore = defineStore("settings", () => {
   /** 刷新所有设置缓存 */
   async function refreshAllSettings(): Promise<void> {
     try {
-      const allSettings = await invoke<Array<{ key: string; value: string }>>("get_settings");
+      const allSettings = await invoke<Setting[]>("get_settings");
       allSettings.forEach((s) => {
-        settingsCache.value[s.key] = s.value;
+        if (s.value) {
+          settingsCache.value[s.key] = s.value;
+        }
       });
     } catch {
       // 忽略错误
