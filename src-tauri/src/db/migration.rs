@@ -85,6 +85,66 @@ impl Database {
                     .execute_batch("ALTER TABLE software_info DROP COLUMN license_id;")?;
             }
         }
+
+        // 将 language_id 从 INTEGER 改为 TEXT 以存储 JSON 数组
+        self.migrate_language_id_to_json()?;
+
+        Ok(())
+    }
+
+    fn migrate_language_id_to_json(&self) -> AppResult<()> {
+        // 检查 language_id 列的类型
+        let col_type: Option<String> = self.conn.query_row(
+            "SELECT type FROM pragma_table_info('software_info') WHERE name='language_id'",
+            [],
+            |row| row.get(0),
+        ).ok();
+
+        // 如果列不存在或已经是 TEXT 类型，则不需要迁移
+        if col_type.is_none() || col_type.as_deref() == Some("TEXT") {
+            return Ok(());
+        }
+
+        // 需要重建表以改变列类型
+        self.conn.execute_batch("PRAGMA foreign_keys=OFF;")?;
+        self.conn.execute_batch(
+            "CREATE TABLE software_info_new (
+                software_id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                pkgname                 TEXT NOT NULL UNIQUE,
+                upstream_url            TEXT,
+                package_type_id         INTEGER NOT NULL DEFAULT 1,
+                checker_type_id         INTEGER NOT NULL DEFAULT 7,
+                is_outdated             INTEGER NOT NULL DEFAULT 0,
+                check_test_versions     INTEGER NOT NULL DEFAULT 0,
+                check_binary_files      INTEGER NOT NULL DEFAULT 0,
+                auto_check_enabled      INTEGER NOT NULL DEFAULT 1,
+                language_id             TEXT DEFAULT '[]',
+                version_extract_regex   TEXT,
+                FOREIGN KEY (language_id) REFERENCES enum_programming_languages(id)
+            );",
+        )?;
+
+        // 将旧的 INTEGER language_id 转换为 JSON 数组格式
+        self.conn.execute_batch(
+            "INSERT INTO software_info_new
+             SELECT software_id, pkgname, upstream_url, package_type_id, checker_type_id,
+                    is_outdated, check_test_versions, check_binary_files, auto_check_enabled,
+                    CASE WHEN language_id IS NULL THEN '[]'
+                         ELSE '[' || CAST(language_id AS TEXT) || ']'
+                    END,
+                    version_extract_regex
+             FROM software_info;",
+        )?;
+
+        self.conn.execute_batch("DROP TABLE software_info;")?;
+        self.conn
+            .execute_batch("ALTER TABLE software_info_new RENAME TO software_info;")?;
+        self.conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_software_pkgname ON software_info(pkgname);
+             CREATE INDEX IF NOT EXISTS idx_software_outdated ON software_info(is_outdated);",
+        )?;
+        self.conn.execute_batch("PRAGMA foreign_keys=ON;")?;
+
         Ok(())
     }
 
@@ -101,16 +161,18 @@ impl Database {
                 check_test_versions     INTEGER NOT NULL DEFAULT 0,
                 check_binary_files      INTEGER NOT NULL DEFAULT 0,
                 auto_check_enabled      INTEGER NOT NULL DEFAULT 1,
-                language_id             INTEGER,
-                version_extract_regex   TEXT,
-                FOREIGN KEY (language_id) REFERENCES enum_programming_languages(id)
+                language_id             TEXT DEFAULT '[]',
+                version_extract_regex   TEXT
             );",
         )?;
         self.conn.execute_batch(
             "INSERT INTO software_info_new
              SELECT software_id, pkgname, upstream_url, package_type_id, checker_type_id,
                     is_outdated, check_test_versions, check_binary_files, auto_check_enabled,
-                    language_id, version_extract_regex
+                    CASE WHEN language_id IS NULL THEN '[]'
+                         ELSE '[' || CAST(language_id AS TEXT) || ']'
+                    END,
+                    version_extract_regex
              FROM software_info;",
         )?;
         self.conn.execute_batch("DROP TABLE software_info;")?;
@@ -121,6 +183,63 @@ impl Database {
              CREATE INDEX IF NOT EXISTS idx_software_outdated ON software_info(is_outdated);",
         )?;
         self.conn.execute_batch("PRAGMA foreign_keys=ON;")?;
+        Ok(())
+    }
+
+    /// 迁移 enum_programming_languages 表，简化为 id, name, short_name
+    pub fn migrate_enum_programming_languages(&self) -> AppResult<()> {
+        let mut stmt = self.conn.prepare("PRAGMA table_info(enum_programming_languages)")?;
+        let columns: Vec<String> = stmt
+            .query_map([], |row| row.get(1))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        // 检查是否需要迁移（存在旧列）
+        let needs_migration = columns.contains(&"description".to_string())
+            || columns.contains(&"file_extensions".to_string())
+            || columns.contains(&"build_system".to_string())
+            || columns.contains(&"build_command".to_string());
+
+        if !needs_migration {
+            // 如果表结构已经是新的，确保 short_name 列存在
+            if !columns.contains(&"short_name".to_string()) {
+                self.conn.execute_batch(
+                    "ALTER TABLE enum_programming_languages ADD COLUMN short_name TEXT;",
+                )?;
+            }
+            return Ok(());
+        }
+
+        // 重建表
+        self.conn.execute_batch("PRAGMA foreign_keys=OFF;")?;
+        self.conn.execute_batch(
+            "CREATE TABLE enum_programming_languages_new (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                name        TEXT NOT NULL UNIQUE,
+                short_name  TEXT
+            );",
+        )?;
+
+        // 迁移数据（如果 short_name 不存在，用 name 的首字母作为简称）
+        let has_short_name = columns.contains(&"short_name".to_string());
+        if has_short_name {
+            self.conn.execute_batch(
+                "INSERT INTO enum_programming_languages_new (id, name, short_name)
+                 SELECT id, name, short_name FROM enum_programming_languages;",
+            )?;
+        } else {
+            self.conn.execute_batch(
+                "INSERT INTO enum_programming_languages_new (id, name, short_name)
+                 SELECT id, name, SUBSTR(name, 1, 2) FROM enum_programming_languages;",
+            )?;
+        }
+
+        self.conn.execute_batch("DROP TABLE enum_programming_languages;")?;
+        self.conn.execute_batch(
+            "ALTER TABLE enum_programming_languages_new RENAME TO enum_programming_languages;",
+        )?;
+        self.conn.execute_batch("PRAGMA foreign_keys=ON;")?;
+
         Ok(())
     }
 

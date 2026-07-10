@@ -126,64 +126,22 @@ impl Database {
             )?;
         }
 
-        let langs = vec![
-            ("Rust", "Rust 编程语言", ".rs,.toml", "cargo", "cargo build"),
-            (
-                "TypeScript",
-                "TypeScript 编程语言",
-                ".ts,.tsx,.js,.jsx,.mjs",
-                "npm/pnpm/yarn",
-                "npm run build",
-            ),
-            (
-                "Python",
-                "Python 编程语言",
-                ".py,.pyw",
-                "pip/poetry",
-                "python setup.py",
-            ),
-            ("Go", "Go 编程语言", ".go", "go", "go build"),
-            (
-                "C/C++",
-                "C/C++ 编程语言",
-                ".c,.cpp,.h,.hpp",
-                "make/cmake",
-                "make",
-            ),
-            (
-                "Java",
-                "Java 编程语言",
-                ".java,.jar",
-                "maven/gradle",
-                "mvn package",
-            ),
-            (
-                "Kotlin",
-                "Kotlin 编程语言",
-                ".kt,.kts",
-                "gradle",
-                "gradle build",
-            ),
-            ("C#", "C# 编程语言", ".cs,.csproj", "dotnet", "dotnet build"),
-            (
-                "Ruby",
-                "Ruby 编程语言",
-                ".rb",
-                "gem/bundler",
-                "bundle exec rake",
-            ),
-            (
-                "PHP",
-                "PHP 编程语言",
-                ".php",
-                "composer",
-                "composer install",
-            ),
+        let langs = [
+            ("Rust", "rs"),
+            ("TypeScript", "ts"),
+            ("Python", "py"),
+            ("Go", "go"),
+            ("C/C++", "c"),
+            ("Java", "java"),
+            ("Kotlin", "kt"),
+            ("C#", "cs"),
+            ("Ruby", "rb"),
+            ("PHP", "php"),
         ];
-        for (name, desc, exts, build_sys, build_cmd) in langs {
+        for (name, short_name) in langs {
             self.conn.execute(
-                "INSERT OR IGNORE INTO enum_programming_languages (name, description, file_extensions, build_system, build_command) VALUES (?1, ?2, ?3, ?4, ?5)",
-                rusqlite::params![name, desc, exts, build_sys, build_cmd],
+                "INSERT OR IGNORE INTO enum_programming_languages (name, short_name) VALUES (?1, ?2)",
+                rusqlite::params![name, short_name],
             )?;
         }
 

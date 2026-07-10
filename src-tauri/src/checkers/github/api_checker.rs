@@ -111,7 +111,7 @@ impl VersionChecker for GitHubAPIChecker {
 
         // -git 包使用 git describe 逻辑
         if pkgname.ends_with("-git") {
-            let version = check_github_git_describe(client, &owner, &repo, pkgname).await?;
+            let version = check_github_git_describe(client, &owner, &repo, self.token.as_deref(), pkgname).await?;
             if let Some(v) = &version {
                 info!("[版本检查] 检查完成: {} -> 上游版本={}", pkgname, v);
             } else {

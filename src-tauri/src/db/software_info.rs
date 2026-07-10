@@ -6,19 +6,21 @@ use super::Database;
 
 impl Database {
     pub fn insert_software(&self, sw: &SoftwareInfo) -> AppResult<i64> {
+        let language_ids_json = serde_json::to_string(&sw.language_ids).unwrap_or_default();
         self.conn.execute(
             "INSERT INTO software_info (pkgname, upstream_url, package_type_id, checker_type_id, is_outdated, check_test_versions, check_binary_files, auto_check_enabled, language_id, version_extract_regex)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             rusqlite::params![
                 sw.pkgname, sw.upstream_url, sw.package_type_id.as_id(), sw.checker_type_id.as_id(),
                 sw.is_outdated as i32, sw.check_test_versions as i32, sw.check_binary_files as i32,
-                sw.auto_check_enabled as i32, sw.language_id, sw.version_extract_regex
+                sw.auto_check_enabled as i32, language_ids_json, sw.version_extract_regex
             ],
         )?;
         Ok(self.conn.last_insert_rowid())
     }
 
     pub fn upsert_software(&self, sw: &SoftwareInfo) -> AppResult<()> {
+        let language_ids_json = serde_json::to_string(&sw.language_ids).unwrap_or_default();
         self.conn.execute(
             "INSERT INTO software_info (pkgname, upstream_url, package_type_id, checker_type_id, is_outdated, check_test_versions, check_binary_files, auto_check_enabled, language_id, version_extract_regex)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
@@ -32,7 +34,7 @@ impl Database {
             rusqlite::params![
                 sw.pkgname, sw.upstream_url, sw.package_type_id.as_id(), sw.checker_type_id.as_id(),
                 sw.is_outdated as i32, sw.check_test_versions as i32, sw.check_binary_files as i32,
-                sw.auto_check_enabled as i32, sw.language_id, sw.version_extract_regex
+                sw.auto_check_enabled as i32, language_ids_json, sw.version_extract_regex
             ],
         )?;
         Ok(())
@@ -46,11 +48,16 @@ impl Database {
         Ok(())
     }
 
+    fn parse_language_ids(json_str: &str) -> Vec<i64> {
+        serde_json::from_str(json_str).unwrap_or_default()
+    }
+
     pub fn get_all_software(&self) -> AppResult<Vec<SoftwareInfo>> {
         let mut stmt = self.conn.prepare(
             "SELECT software_id, pkgname, upstream_url, package_type_id, checker_type_id, is_outdated, check_test_versions, check_binary_files, auto_check_enabled, language_id, version_extract_regex FROM software_info ORDER BY pkgname"
         )?;
         let rows = stmt.query_map([], |row| {
+            let lang_json: String = row.get(9)?;
             Ok(SoftwareInfo {
                 software_id: Some(row.get(0)?),
                 pkgname: row.get(1)?,
@@ -61,7 +68,7 @@ impl Database {
                 check_test_versions: row.get::<_, i32>(6)? != 0,
                 check_binary_files: row.get::<_, i32>(7)? != 0,
                 auto_check_enabled: row.get::<_, i32>(8)? != 0,
-                language_id: row.get(9)?,
+                language_ids: Self::parse_language_ids(&lang_json),
                 version_extract_regex: row.get(10)?,
             })
         })?;
@@ -77,6 +84,7 @@ impl Database {
             "SELECT software_id, pkgname, upstream_url, package_type_id, checker_type_id, is_outdated, check_test_versions, check_binary_files, auto_check_enabled, language_id, version_extract_regex FROM software_info WHERE pkgname=?1"
         )?;
         let mut rows = stmt.query_map(rusqlite::params![pkgname], |row| {
+            let lang_json: String = row.get(9)?;
             Ok(SoftwareInfo {
                 software_id: Some(row.get(0)?),
                 pkgname: row.get(1)?,
@@ -87,7 +95,7 @@ impl Database {
                 check_test_versions: row.get::<_, i32>(6)? != 0,
                 check_binary_files: row.get::<_, i32>(7)? != 0,
                 auto_check_enabled: row.get::<_, i32>(8)? != 0,
-                language_id: row.get(9)?,
+                language_ids: Self::parse_language_ids(&lang_json),
                 version_extract_regex: row.get(10)?,
             })
         })?;
@@ -120,6 +128,7 @@ impl Database {
             "SELECT software_id, pkgname, upstream_url, package_type_id, checker_type_id, is_outdated, check_test_versions, check_binary_files, auto_check_enabled, language_id, version_extract_regex FROM software_info WHERE pkgname LIKE ?1 OR upstream_url LIKE ?1 ORDER BY pkgname"
         )?;
         let rows = stmt.query_map(rusqlite::params![pattern], |row| {
+            let lang_json: String = row.get(9)?;
             Ok(SoftwareInfo {
                 software_id: Some(row.get(0)?),
                 pkgname: row.get(1)?,
@@ -130,7 +139,7 @@ impl Database {
                 check_test_versions: row.get::<_, i32>(6)? != 0,
                 check_binary_files: row.get::<_, i32>(7)? != 0,
                 auto_check_enabled: row.get::<_, i32>(8)? != 0,
-                language_id: row.get(9)?,
+                language_ids: Self::parse_language_ids(&lang_json),
                 version_extract_regex: row.get(10)?,
             })
         })?;
@@ -161,6 +170,7 @@ impl Database {
         let mut rows = stmt.query_map(rusqlite::params![pkgname], |row| {
             let aur_spdx: Option<String> = row.get(17)?;
             let upstream_spdx: Option<String> = row.get(20)?;
+            let lang_json: String = row.get(9)?;
             log::debug!("get_software_detail: pkgname={}, a.license_id from SQL, al.spdx_id={:?}, ul.spdx_id={:?}", pkgname, aur_spdx, upstream_spdx);
             Ok(SoftwareDetail {
                 software_id: Some(row.get(0)?),
@@ -172,7 +182,7 @@ impl Database {
                 check_test_versions: row.get::<_, i32>(6)? != 0,
                 check_binary_files: row.get::<_, i32>(7)? != 0,
                 auto_check_enabled: row.get::<_, i32>(8)? != 0,
-                language_id: row.get(9)?,
+                language_ids: Self::parse_language_ids(&lang_json),
                 version_extract_regex: row.get(10)?,
                 aur_version: row.get(11)?,
                 aur_last_updated: row.get(12)?,

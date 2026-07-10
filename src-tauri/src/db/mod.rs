@@ -57,6 +57,7 @@ impl Database {
         self.migrate_software_info()?;
         self.migrate_upstream_info()?;
         self.migrate_enum_licenses()?;
+        self.migrate_enum_programming_languages()?;
         self.seed_defaults()?;
         Ok(())
     }

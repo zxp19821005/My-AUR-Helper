@@ -8,12 +8,6 @@ pub struct EnumProgrammingLanguage {
     pub id: Option<i64>,
     /// 语言名称（如 "Rust", "Python"）
     pub name: String,
-    /// 语言描述
-    pub description: Option<String>,
-    /// 关联的文件扩展名（逗号分隔，如 ".rs,.toml"）
-    pub file_extensions: Option<String>,
-    /// 使用的构建系统（如 "cargo", "npm", "make"）
-    pub build_system: Option<String>,
-    /// 构建命令（如 "cargo build", "npm run build"）
-    pub build_command: Option<String>,
+    /// 语言简称（如 "rs", "py"）
+    pub short_name: Option<String>,
 }

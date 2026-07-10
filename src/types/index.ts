@@ -45,7 +45,7 @@ export interface SoftwareInfo {
   check_test_versions: boolean;
   check_binary_files: boolean;
   auto_check_enabled: boolean;
-  language_id: number | null;
+  language_ids: number[];
   version_extract_regex: string | null;
 }
 
@@ -63,7 +63,7 @@ export interface SoftwareDetail {
   check_test_versions: boolean;
   check_binary_files: boolean;
   auto_check_enabled: boolean;
-  language_id: number | null;
+  language_ids: number[];
   version_extract_regex: string | null;
   aur_version: string | null;
   aur_last_updated: number | null;
@@ -130,14 +130,8 @@ export interface EnumProgrammingLanguage {
   id: number | null;
   /** 语言名称 - 如 "Rust"、"Python" */
   name: string;
-  /** 描述 - 语言的简要说明 */
-  description: string | null;
-  /** 文件扩展名 - 逗号分隔的字符串，如 ".rs,.toml" */
-  file_extensions: string | null;
-  /** 构建系统 - 如 "cargo"、"pip" */
-  build_system: string | null;
-  /** 构建命令 - 如 "cargo build"、"pip install" */
-  build_command: string | null;
+  /** 简称 - 如 "rs"、"py" */
+  short_name: string | null;
 }
 
 /**

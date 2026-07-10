@@ -78,7 +78,7 @@ pub async fn add_software(
     check_test_versions: bool,
     check_binary_files: bool,
     auto_check_enabled: bool,
-    language_id: Option<i64>,
+    language_ids: Vec<i64>,
     version_extract_regex: Option<String>,
 ) -> Result<i64, String> {
     info!("正在添加软件包: {}", pkgname);
@@ -92,7 +92,7 @@ pub async fn add_software(
         check_test_versions,
         check_binary_files,
         auto_check_enabled,
-        language_id,
+        language_ids,
         version_extract_regex,
     };
     let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -113,7 +113,7 @@ pub async fn update_software(
     check_test_versions: bool,
     check_binary_files: bool,
     auto_check_enabled: bool,
-    language_id: Option<i64>,
+    language_ids: Vec<i64>,
     version_extract_regex: Option<String>,
 ) -> Result<(), String> {
     info!("正在更新软件包 {}: {}", software_id, pkgname);
@@ -127,7 +127,7 @@ pub async fn update_software(
         check_test_versions,
         check_binary_files,
         auto_check_enabled,
-        language_id,
+        language_ids,
         version_extract_regex,
     };
     let db = state.db.lock().map_err(|e| e.to_string())?;

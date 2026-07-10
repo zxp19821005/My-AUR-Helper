@@ -23,9 +23,8 @@ impl Database {
                 check_test_versions     INTEGER NOT NULL DEFAULT 0,
                 check_binary_files      INTEGER NOT NULL DEFAULT 0,
                 auto_check_enabled      INTEGER NOT NULL DEFAULT 1,
-                language_id             INTEGER,
-                version_extract_regex   TEXT,
-                FOREIGN KEY (language_id) REFERENCES enum_programming_languages(id)
+                language_id             TEXT DEFAULT '[]',
+                version_extract_regex   TEXT
             );
 
             -- AUR 包详情信息表
@@ -106,12 +105,9 @@ impl Database {
 
             -- 编程语言枚举表
             CREATE TABLE IF NOT EXISTS enum_programming_languages (
-                id              INTEGER PRIMARY KEY AUTOINCREMENT,
-                name            TEXT NOT NULL UNIQUE,
-                description     TEXT,
-                file_extensions TEXT,
-                build_system    TEXT,
-                build_command   TEXT
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                name        TEXT NOT NULL UNIQUE,
+                short_name  TEXT
             );
 
             -- 日志表

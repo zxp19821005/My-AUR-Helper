@@ -92,14 +92,8 @@
 │──────────────────│  │──────────────────────│
 │ id (PK)          │  │ id (PK)              │
 │ spdx_id (UQ)     │  │ name (UQ)            │
-│ full_name        │  │ description          │
-│ url              │  │ file_extensions      │
-│ is_deprecated    │  │ build_system         │
-│ is_osi_approved  │  │ build_command        │
-│ description      │  └──────────────────────┘
-│ category         │
-│ created_at       │
-└──────────────────┘
+│ full_name        │  │ short_name           │
+└──────────────────┘  └──────────────────────┘
 ```
 
 <!-- ========== 表结构：各表的详细字段定义 ========== -->
@@ -120,7 +114,7 @@
 | check_test_versions | INTEGER | 是否检查测试/pre-release 版本 |
 | check_binary_files | INTEGER | 是否检查二进制文件 |
 | auto_check_enabled | INTEGER | 是否启用自动检查 |
-| language_id | INTEGER FK | 关联 enum_programming_languages.id |
+| language_id | TEXT | 编程语言 ID 数组 (JSON 格式，如 [1,2,3]) |
 | version_extract_regex | TEXT | 版本提取正则表达式 |
 
 <!-- aur_info：AUR 包详细信息，通过 AUR RPC 接口获取的元数据 -->
@@ -213,12 +207,6 @@ AUR 软件包详细信息，通过 AUR RPC 接口获取。
 | id | INTEGER PK | 自增主键 |
 | spdx_id | TEXT UNIQUE | SPDX 标识符 (如 MIT, Apache-2.0) |
 | full_name | TEXT | 完整名称 |
-| url | TEXT | 许可证 URL |
-| is_deprecated | INTEGER | 是否已废弃 |
-| is_osi_approved | INTEGER | 是否 OSI 认证 |
-| description | TEXT | 描述 |
-| category | TEXT | 分类 |
-| created_at | TEXT | 创建时间 |
 
 <!-- enum_programming_languages：编程语言枚举，用于关联软件包 -->
 ### enum_programming_languages
@@ -227,11 +215,8 @@ AUR 软件包详细信息，通过 AUR RPC 接口获取。
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | id | INTEGER PK | 自增主键 |
-| name | TEXT UNIQUE | 语言名称 |
-| description | TEXT | 描述 |
-| file_extensions | TEXT | 文件扩展名 (逗号分隔) |
-| build_system | TEXT | 构建系统 |
-| build_command | TEXT | 构建命令 |
+| name | TEXT UNIQUE | 语言名称 (如 "Rust", "Python") |
+| short_name | TEXT | 简称 (如 "rs", "py") |
 
 <!-- logs：应用运行时日志，用于调试和审计 -->
 ### logs

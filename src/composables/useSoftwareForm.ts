@@ -13,7 +13,7 @@ export interface SoftwareForm {
   check_binary_files: boolean;
   auto_check_enabled: boolean;
   license_id: number | null;
-  language_id: number | null;
+  language_ids: number[];
   version_extract_regex: string;
 }
 
@@ -27,7 +27,7 @@ const defaultForm: SoftwareForm = {
   check_binary_files: false,
   auto_check_enabled: false,
   license_id: null,
-  language_id: null,
+  language_ids: [],
   version_extract_regex: "",
 };
 
@@ -52,7 +52,7 @@ export function useSoftwareForm() {
       form.value.check_test_versions !== original.check_test_versions ||
       form.value.check_binary_files !== original.check_binary_files ||
       form.value.auto_check_enabled !== original.auto_check_enabled ||
-      form.value.language_id !== original.language_id ||
+      JSON.stringify(form.value.language_ids) !== JSON.stringify(original.language_ids ?? []) ||
       form.value.version_extract_regex !== (original.version_extract_regex ?? "")
     );
   }
@@ -86,7 +86,7 @@ export function useSoftwareForm() {
           check_binary_files: data.check_binary_files,
           auto_check_enabled: data.auto_check_enabled,
           license_id: null,
-          language_id: data.language_id,
+          language_ids: data.language_ids ?? [],
           version_extract_regex: data.version_extract_regex ?? "",
         };
       }
@@ -109,7 +109,7 @@ export function useSoftwareForm() {
         check_binary_files: detail.value.check_binary_files,
         auto_check_enabled: detail.value.auto_check_enabled,
         license_id: null,
-        language_id: detail.value.language_id,
+        language_ids: detail.value.language_ids ?? [],
         version_extract_regex: detail.value.version_extract_regex ?? "",
       };
     } else {
@@ -154,7 +154,7 @@ export function useSoftwareForm() {
           checkTestVersions: form.value.check_test_versions,
           checkBinaryFiles: form.value.check_binary_files,
           autoCheckEnabled: form.value.auto_check_enabled,
-          languageId: form.value.language_id,
+          languageIds: form.value.language_ids,
           versionExtractRegex: form.value.version_extract_regex || null,
         });
       } else {
@@ -170,7 +170,7 @@ export function useSoftwareForm() {
           checkTestVersions: form.value.check_test_versions,
           checkBinaryFiles: form.value.check_binary_files,
           autoCheckEnabled: form.value.auto_check_enabled,
-          languageId: form.value.language_id,
+          languageIds: form.value.language_ids,
           versionExtractRegex: form.value.version_extract_regex || null,
         });
       }

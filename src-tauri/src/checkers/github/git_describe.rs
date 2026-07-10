@@ -33,6 +33,7 @@ use crate::errors::AppResult;
 /// - `client`: HTTP 客户端
 /// - `owner`: GitHub 仓库所有者
 /// - `repo`: GitHub 仓库名称
+/// - `token`: GitHub API Token（可选）
 /// - `pkgname`: 软件包名称（用于日志）
 ///
 /// # 返回
@@ -45,6 +46,7 @@ pub async fn check_github_git_describe(
     client: &Client,
     owner: &str,
     repo: &str,
+    token: Option<&str>,
     pkgname: &str,
 ) -> AppResult<Option<String>> {
     // 1. 获取最新的 tag
@@ -52,12 +54,14 @@ pub async fn check_github_git_describe(
         "https://api.github.com/repos/{}/{}/tags?per_page=1",
         owner, repo
     );
-    let tags_resp = client
+    let mut tags_req = client
         .get(&tags_url)
         .header("User-Agent", "my-aur-helper/0.1")
-        .header("Accept", "application/vnd.github.v3+json")
-        .send()
-        .await?;
+        .header("Accept", "application/vnd.github.v3+json");
+    if let Some(t) = token {
+        tags_req = tags_req.header("Authorization", format!("Bearer {}", t));
+    }
+    let tags_resp = tags_req.send().await?;
 
     let latest_tag_name = if tags_resp.status().is_success() {
         let tags: Vec<serde_json::Value> = tags_resp.json().await?;
@@ -71,12 +75,14 @@ pub async fn check_github_git_describe(
 
     // 2. 获取默认分支的最新 commit
     let repo_url = format!("https://api.github.com/repos/{}/{}", owner, repo);
-    let repo_resp = client
+    let mut repo_req = client
         .get(&repo_url)
         .header("User-Agent", "my-aur-helper/0.1")
-        .header("Accept", "application/vnd.github.v3+json")
-        .send()
-        .await?;
+        .header("Accept", "application/vnd.github.v3+json");
+    if let Some(t) = token {
+        repo_req = repo_req.header("Authorization", format!("Bearer {}", t));
+    }
+    let repo_resp = repo_req.send().await?;
 
     let default_branch = if repo_resp.status().is_success() {
         let repo_data: serde_json::Value = repo_resp.json().await?;
@@ -92,12 +98,14 @@ pub async fn check_github_git_describe(
         "https://api.github.com/repos/{}/{}/commits?sha={}&per_page=1",
         owner, repo, default_branch
     );
-    let commits_resp = client
+    let mut commits_req = client
         .get(&commits_url)
         .header("User-Agent", "my-aur-helper/0.1")
-        .header("Accept", "application/vnd.github.v3+json")
-        .send()
-        .await?;
+        .header("Accept", "application/vnd.github.v3+json");
+    if let Some(t) = token {
+        commits_req = commits_req.header("Authorization", format!("Bearer {}", t));
+    }
+    let commits_resp = commits_req.send().await?;
 
     let latest_commit_sha = if commits_resp.status().is_success() {
         let commits: Vec<serde_json::Value> = commits_resp.json().await?;
@@ -114,7 +122,8 @@ pub async fn check_github_git_describe(
     if let Some(tag) = latest_tag_name {
         if let Some(hash) = latest_commit_sha {
             let commit_count =
-                get_commit_count_since_tag(client, owner, repo, &tag, &default_branch).await;
+                get_commit_count_since_tag(client, owner, repo, &tag, &default_branch)
+                    .await;
 
             let version = if let Some(count) = commit_count {
                 format!("{}.r{}.g{}", tag, count, hash)
@@ -129,7 +138,8 @@ pub async fn check_github_git_describe(
 
     // 如果没有 tag，使用 r{count}.{hash} 格式
     if let Some(hash) = latest_commit_sha {
-        let total_commits = get_total_commit_count(client, owner, repo, &default_branch).await;
+        let total_commits =
+            get_total_commit_count(client, owner, repo, &default_branch).await;
         let version = if let Some(count) = total_commits {
             format!("r{}.{}", count, hash)
         } else {

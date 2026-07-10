@@ -27,16 +27,12 @@ const searchQuery = ref("");
 const pageSize = ref(50);
 
 const editName = ref("");
-const editExts = ref("");
-const editBuildSys = ref("");
-const editBuildCmd = ref("");
+const editShortName = ref("");
 
 /** 表格列配置 */
 const columns: Column[] = [
   { key: "name", title: "名称", width: "150px" },
-  { key: "file_extensions", title: "文件扩展名", width: "180px" },
-  { key: "build_system", title: "构建系统", width: "120px" },
-  { key: "build_command", title: "构建命令" },
+  { key: "short_name", title: "简称", width: "100px" },
   { key: "name", title: "操作", width: "100px", align: "center" },
 ];
 
@@ -66,9 +62,7 @@ async function saveLanguage() {
       language: {
         id: null,
         name: editName.value.trim(),
-        file_extensions: editExts.value.trim() || null,
-        build_system: editBuildSys.value.trim() || null,
-        build_command: editBuildCmd.value.trim() || null,
+        short_name: editShortName.value.trim() || null,
       },
     });
     message.value = "已保存";
@@ -105,9 +99,7 @@ function startAdd() {
 /** 重置表单 - 清空所有编辑字段 */
 function resetForm() {
   editName.value = "";
-  editExts.value = "";
-  editBuildSys.value = "";
-  editBuildCmd.value = "";
+  editShortName.value = "";
 }
 </script>
 
@@ -141,20 +133,10 @@ function resetForm() {
           名称
           <input type="text" v-model="editName" class="text-input" placeholder="如: Rust" />
         </label>
-        <!-- 文件扩展名输入 -->
+        <!-- 简称输入 -->
         <label>
-          文件扩展名
-          <input type="text" v-model="editExts" class="text-input" placeholder="如: .rs,.toml" />
-        </label>
-        <!-- 构建系统输入 -->
-        <label>
-          构建系统
-          <input type="text" v-model="editBuildSys" class="text-input" placeholder="如: cargo" />
-        </label>
-        <!-- 构建命令输入 -->
-        <label>
-          构建命令
-          <input type="text" v-model="editBuildCmd" class="text-input" placeholder="如: cargo build" />
+          简称
+          <input type="text" v-model="editShortName" class="text-input" placeholder="如: rs" />
         </label>
       </div>
       <!-- 表单操作按钮 -->
@@ -170,7 +152,7 @@ function resetForm() {
       :data="languages"
       :pageSize="pageSize"
       :searchQuery="searchQuery"
-      :searchFields="['name', 'file_extensions', 'build_system', 'build_command']"
+      :searchFields="['name', 'short_name']"
       :showIndex="true"
       emptyText="暂无编程语言数据"
     >
@@ -196,32 +178,5 @@ function resetForm() {
   gap: 0.25rem;
   font-size: 0.8125rem;
   color: var(--text-secondary);
-}
-
-/* 文本输入框样式 */
-.text-input {
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: 0.875rem;
-}
-
-/* 搜索输入框 */
-.search-input {
-  width: 200px;
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: 0.875rem;
-}
-
-/* 小号按钮 */
-.btn-sm {
-  padding: 0.25rem 0.75rem;
-  font-size: 0.75rem;
 }
 </style>

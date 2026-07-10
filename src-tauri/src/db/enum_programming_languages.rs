@@ -9,16 +9,13 @@ impl Database {
     /// @returns 所有编程语言列表
     pub fn get_all_languages(&self) -> AppResult<Vec<EnumProgrammingLanguage>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, name, description, file_extensions, build_system, build_command FROM enum_programming_languages ORDER BY name"
+            "SELECT id, name, short_name FROM enum_programming_languages ORDER BY name"
         )?;
         let rows = stmt.query_map([], |row| {
             Ok(EnumProgrammingLanguage {
                 id: Some(row.get(0)?),
                 name: row.get(1)?,
-                description: row.get(2)?,
-                file_extensions: row.get(3)?,
-                build_system: row.get(4)?,
-                build_command: row.get(5)?,
+                short_name: row.get(2)?,
             })
         })?;
         let mut items = Vec::new();
@@ -33,12 +30,11 @@ impl Database {
     /// @returns 新插入或更新的记录 ID
     pub fn upsert_language(&self, lang: &EnumProgrammingLanguage) -> AppResult<i64> {
         self.conn.execute(
-            "INSERT INTO enum_programming_languages (name, description, file_extensions, build_system, build_command)
-             VALUES (?1, ?2, ?3, ?4, ?5)
+            "INSERT INTO enum_programming_languages (name, short_name)
+             VALUES (?1, ?2)
              ON CONFLICT(name) DO UPDATE SET
-                description=excluded.description, file_extensions=excluded.file_extensions,
-                build_system=excluded.build_system, build_command=excluded.build_command",
-            rusqlite::params![lang.name, lang.description, lang.file_extensions, lang.build_system, lang.build_command],
+                short_name=excluded.short_name",
+            rusqlite::params![lang.name, lang.short_name],
         )?;
         Ok(self.conn.last_insert_rowid())
     }
