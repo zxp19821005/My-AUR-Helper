@@ -128,6 +128,7 @@ impl VersionChecker for GitHubAPIChecker {
                 &repo,
                 self.token.as_deref(),
                 version_extract_regex,
+                true, // check_test_versions = true
                 options.check_binary_files,
                 pkgname,
             )

@@ -4,12 +4,17 @@
  * 功能：通过 GitHub Release API 获取最新版本号。
  * 支持两种模式：
  * 1. check_github_release_latest: 直接获取 latest release，性能最优
- * 2. check_github_releases: 遍历最近 10 个 releases，用于测试版本检查或资产过滤
+ * 2. check_github_releases: 遍历所有 releases，用于测试版本检查或资产过滤
  *
  * 二进制文件检查：
  * - 当 check_binary_files 启用时，会检查 release 的 assets 是否包含 Linux 二进制文件
  * - 如果提供了 version_extract_regex，会将其用作资产文件名过滤器
  * - 如果最新版本没有匹配的资产文件，自动回退查找历史版本
+ *
+ * 测试版本过滤：
+ * - 当 check_test_versions 启用时，包含 prerelease 版本
+ * - 当 check_test_versions 禁用时，跳过 prerelease 版本
+ * - version_extract_regex 可用于过滤 tag 名称（如 "-beta." 只匹配 beta 版本）
  *
  * 资产过滤逻辑：
  * - 默认：排除包含 darwin/macos/windows 的资产，其余视为 Linux 文件
@@ -148,29 +153,30 @@ pub async fn check_github_release_latest(
         // 当启用二进制检查时，version_extract_regex 用作 asset 过滤器
         check_release_assets(&data, pkgname, version_extract_regex);
 
-        // 如果有 asset 过滤器，检查最新版本是否匹配
-        if let Some(filter) = version_extract_regex {
-            if let Some(assets) = data["assets"].as_array() {
-                let has_match = has_linux_binary(assets, Some(filter));
-                if !has_match {
-                    info!(
-                        "[二进制检查] {}: 最新版本无匹配的资产文件，尝试查找历史版本",
-                        pkgname
-                    );
-                    // 回退到遍历历史版本
-                    return check_github_releases(
-                        client,
-                        owner,
-                        repo,
-                        token,
-                        version_extract_regex,
-                        true,
-                        pkgname,
-                    )
-                    .await;
+                // 如果有 asset 过滤器，检查最新版本是否匹配
+                if let Some(filter) = version_extract_regex {
+                    if let Some(assets) = data["assets"].as_array() {
+                        let has_match = has_linux_binary(assets, Some(filter));
+                        if !has_match {
+                            info!(
+                                "[二进制检查] {}: 最新版本无匹配的资产文件，尝试查找历史版本",
+                                pkgname
+                            );
+                            // 回退到遍历历史版本
+                            return check_github_releases(
+                                client,
+                                owner,
+                                repo,
+                                token,
+                                version_extract_regex,
+                                true, // check_test_versions = true (回退时包含 prerelease)
+                                true, // check_binary_files = true
+                                pkgname,
+                            )
+                            .await;
+                        }
+                    }
                 }
-            }
-        }
     }
 
     if let Some(tag) = data["tag_name"].as_str() {
@@ -201,6 +207,8 @@ pub async fn check_github_release_latest(
 /// - `token`: GitHub API Token（可选）
 /// - `version_extract_regex`: 版本提取正则表达式（可选）
 ///   - 当 check_binary_files 启用时，此参数用作资产文件名过滤器
+///   - 同时用于过滤 release 的 tag 名称（如 "-beta." 只匹配 beta 版本）
+/// - `check_test_versions`: 是否包含测试版本（prerelease）
 /// - `check_binary_files`: 是否检查二进制文件
 /// - `pkgname`: 软件包名称（用于日志）
 ///
@@ -214,6 +222,7 @@ pub async fn check_github_releases(
     repo: &str,
     token: Option<&str>,
     version_extract_regex: Option<&str>,
+    check_test_versions: bool,
     check_binary_files: bool,
     pkgname: &str,
 ) -> AppResult<Option<String>> {
@@ -221,6 +230,13 @@ pub async fn check_github_releases(
     let mut page = 1;
     let per_page = 100; // GitHub API 最大支持 100
     let max_pages = 5; // 最多查找 5 页（500 个 releases），避免触发限流
+
+    // 如果有 version_extract_regex，预编译用于过滤 tag
+    let tag_filter = if let Some(regex) = version_extract_regex {
+        regex::Regex::new(regex).ok()
+    } else {
+        None
+    };
 
     loop {
         if page > max_pages {
@@ -281,9 +297,26 @@ pub async fn check_github_releases(
 
         for release in &releases {
             if let Some(tag) = release["tag_name"].as_str() {
-                // 跳过 prerelease（除非调用方明确需要）
-                if release["prerelease"].as_bool().unwrap_or(false) {
+                // 跳过 prerelease（除非 check_test_versions 启用）
+                if !check_test_versions
+                    && release["prerelease"].as_bool().unwrap_or(false)
+                {
+                    debug!(
+                        "[二进制检查] {}: Release {} 是 prerelease，跳过",
+                        pkgname, tag
+                    );
                     continue;
+                }
+
+                // 使用 version_extract_regex 过滤 tag 名称
+                if let Some(ref re) = tag_filter {
+                    if !re.is_match(tag) {
+                        debug!(
+                            "[二进制检查] {}: Release {} 不匹配正则 {}，跳过",
+                            pkgname, tag, version_extract_regex.unwrap_or("")
+                        );
+                        continue;
+                    }
                 }
 
                 if check_binary_files {
