@@ -1,22 +1,22 @@
+use log::info;
 use std::path::Path;
 use std::path::PathBuf;
 use tokio::fs;
-use log::info;
 
 use crate::errors::AppResult;
 
 /// 备份配置
 pub struct BackupConfig {
-    pub cache_path: String,   // 缓存目录路径（源）
-    pub backup_path: String,  // 备份目录路径（目标）
+    pub cache_path: String,  // 缓存目录路径（源）
+    pub backup_path: String, // 备份目录路径（目标）
 }
 
 /// 备份结果
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct BackupResult {
-    pub copied: usize,        // 复制成功的文件数
-    pub removed: usize,       // 清理的旧版本文件数
-    pub errors: Vec<String>,  // 操作过程中的错误信息列表
+    pub copied: usize,       // 复制成功的文件数
+    pub removed: usize,      // 清理的旧版本文件数
+    pub errors: Vec<String>, // 操作过程中的错误信息列表
 }
 
 /// 执行备份操作
@@ -95,7 +95,7 @@ pub async fn run_backup(config: &BackupConfig) -> AppResult<BackupResult> {
         if versions.len() > 1 {
             let mut sorted = versions.clone();
             sorted.sort_by_key(|b| std::cmp::Reverse(b.0)); // 按时间降序排序
-            // 跳过第一个（最新版本），删除其余
+                                                            // 跳过第一个（最新版本），删除其余
             for (_, old_path) in sorted.iter().skip(1) {
                 fs::remove_file(old_path).await?;
                 result.removed += 1;

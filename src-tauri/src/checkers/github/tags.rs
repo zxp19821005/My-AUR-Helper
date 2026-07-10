@@ -102,7 +102,12 @@ pub async fn check_github_tags(
 
             // 使用 vercmp 算法比较版本
             best_version = match best_version.take() {
-                Some(current) if versions::compare_versions(&current, &version) == versions::VersionComparison::LessThan => Some(version),
+                Some(current)
+                    if versions::compare_versions(&current, &version)
+                        == versions::VersionComparison::LessThan =>
+                {
+                    Some(version)
+                }
                 Some(current) => Some(current),
                 None => Some(version),
             };

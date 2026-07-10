@@ -18,14 +18,14 @@ pub mod operations;
 pub mod scan;
 
 // 公开导出 Tauri 命令函数，供 lib.rs 注册使用
+pub use operations::batch_delete;
 pub use operations::copy_file;
-pub use operations::move_file;
-pub use operations::delete_file;
-pub use operations::delete_directory;
 pub use operations::create_directory;
-pub use operations::read_file;
-pub use operations::list_directory;
+pub use operations::delete_directory;
+pub use operations::delete_file;
 pub use operations::file_exists;
 pub use operations::file_metadata;
-pub use operations::batch_delete;
+pub use operations::list_directory;
+pub use operations::move_file;
+pub use operations::read_file;
 pub use scan::scan_pkg_files;

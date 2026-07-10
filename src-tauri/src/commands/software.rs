@@ -14,7 +14,9 @@ pub async fn list_software(state: State<'_, AppState>) -> Result<Vec<SoftwareInf
 }
 
 #[tauri::command]
-pub async fn list_software_view(state: State<'_, AppState>) -> Result<Vec<SoftwareListEntry>, String> {
+pub async fn list_software_view(
+    state: State<'_, AppState>,
+) -> Result<Vec<SoftwareListEntry>, String> {
     debug!("正在获取软件包视图列表");
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let result = db.get_software_list_entries().map_err(|e| e.to_string())?;
@@ -138,7 +140,10 @@ pub async fn set_software_license(
     software_id: i64,
     license_id: Option<i64>,
 ) -> Result<(), String> {
-    info!("正在设置软件包 {} 的 License 为 {:?}", software_id, license_id);
+    info!(
+        "正在设置软件包 {} 的 License 为 {:?}",
+        software_id, license_id
+    );
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.set_aur_license(software_id, license_id)
         .map_err(|e| e.to_string())
@@ -150,7 +155,10 @@ pub async fn set_software_language(
     software_id: i64,
     language_id: Option<i64>,
 ) -> Result<(), String> {
-    info!("正在设置软件包 {} 的编程语言为 {:?}", software_id, language_id);
+    info!(
+        "正在设置软件包 {} 的编程语言为 {:?}",
+        software_id, language_id
+    );
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.update_software_language(software_id, language_id)
         .map_err(|e| e.to_string())
@@ -172,7 +180,10 @@ pub async fn batch_delete_software(
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let mut count = 0i64;
     for pkgname in &pkgname_list {
-        if let Some(sw) = db.get_software_by_name(pkgname).map_err(|e| e.to_string())? {
+        if let Some(sw) = db
+            .get_software_by_name(pkgname)
+            .map_err(|e| e.to_string())?
+        {
             if let Some(id) = sw.software_id {
                 if db.delete_software(id).is_ok() {
                     count += 1;

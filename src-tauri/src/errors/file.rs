@@ -11,13 +11,9 @@ impl From<std::io::Error> for AppError {
     fn from(e: std::io::Error) -> Self {
         match e.kind() {
             // 文件或目录不存在
-            std::io::ErrorKind::NotFound => {
-                AppError::FileNotFound(e.to_string())
-            }
+            std::io::ErrorKind::NotFound => AppError::FileNotFound(e.to_string()),
             // 权限不足
-            std::io::ErrorKind::PermissionDenied => {
-                AppError::FilePermission(e.to_string())
-            }
+            std::io::ErrorKind::PermissionDenied => AppError::FilePermission(e.to_string()),
             // 文件已存在
             std::io::ErrorKind::AlreadyExists => {
                 AppError::FileOperation(format!("文件已存在: {}", e))

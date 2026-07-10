@@ -18,10 +18,10 @@ use async_trait::async_trait;
 use log::{debug, info};
 use reqwest::Client;
 
-use crate::checkers::trait_def::{CheckOptions, VersionChecker};
-use crate::checkers::utils::extract_owner_repo;
 use crate::checkers::github::git_describe::check_github_git_describe;
 use crate::checkers::github::tags::check_github_tags;
+use crate::checkers::trait_def::{CheckOptions, CheckResult, VersionChecker};
+use crate::checkers::utils::extract_owner_repo;
 use crate::errors::AppResult;
 
 /// GitHub Tags 检查器
@@ -58,8 +58,7 @@ impl VersionChecker for GitHubTagsChecker {
     /// - `options`: 检查选项（是否检查测试版本、二进制文件等）
     ///
     /// # 返回
-    /// - `Ok(Some(version))`: 找到的最新版本
-    /// - `Ok(None)`: 未找到版本
+    /// - `Ok(CheckResult)`: 包含版本号和 license 信息
     /// - `Err(e)`: 检查过程中发生错误
     async fn check(
         &self,
@@ -68,45 +67,58 @@ impl VersionChecker for GitHubTagsChecker {
         pkgname: &str,
         version_extract_regex: Option<&str>,
         options: &CheckOptions,
-    ) -> AppResult<Option<String>> {
-        info!("[版本检查] 开始检查软件包: {} (检查器: {})", pkgname, self.name());
+    ) -> AppResult<CheckResult> {
+        info!(
+            "[版本检查] 开始检查软件包: {} (检查器: {})",
+            pkgname,
+            self.name()
+        );
         debug!("[版本检查] 上游URL: {}", upstream_url);
         debug!("[版本检查] 版本提取正则: {:?}", version_extract_regex);
 
         if upstream_url.is_empty() {
             debug!("[版本检查] 上游URL为空，跳过检查");
-            return Ok(None);
+            return Ok(CheckResult::default());
         }
         let (owner, repo) = match extract_owner_repo(upstream_url) {
             Some(pair) => pair,
             None => {
                 debug!("[版本检查] 无法解析 GitHub URL: {}", upstream_url);
-                return Ok(None);
+                return Ok(CheckResult::default());
             }
         };
 
         // -git 包使用 git describe 逻辑
         if pkgname.ends_with("-git") {
-            let result = check_github_git_describe(
-                client, &owner, &repo, pkgname,
-            ).await;
-            if let Ok(Some(version)) = &result {
-                info!("[版本检查] 检查完成: {} -> 上游版本={}", pkgname, version);
+            let version = check_github_git_describe(client, &owner, &repo, pkgname).await?;
+            if let Some(v) = &version {
+                info!("[版本检查] 检查完成: {} -> 上游版本={}", pkgname, v);
             } else {
                 debug!("[版本检查] 检查完成: {} -> 未找到上游版本", pkgname);
             }
-            return result;
+            return Ok(CheckResult {
+                version,
+                ..Default::default()
+            });
         }
 
-        let result = check_github_tags(
-            client, &owner, &repo, self.token.as_deref(),
-            version_extract_regex, options.check_test_versions,
-        ).await;
-        if let Ok(Some(version)) = &result {
-            info!("[版本检查] 检查完成: {} -> 上游版本={}", pkgname, version);
+        let version = check_github_tags(
+            client,
+            &owner,
+            &repo,
+            self.token.as_deref(),
+            version_extract_regex,
+            options.check_test_versions,
+        )
+        .await?;
+        if let Some(v) = &version {
+            info!("[版本检查] 检查完成: {} -> 上游版本={}", pkgname, v);
         } else {
             debug!("[版本检查] 检查完成: {} -> 未找到上游版本", pkgname);
         }
-        result
+        Ok(CheckResult {
+            version,
+            ..Default::default()
+        })
     }
 }

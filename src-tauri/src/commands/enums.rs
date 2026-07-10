@@ -40,7 +40,10 @@ pub async fn sync_licenses_from_spdx(state: State<'_, AppState>) -> AppResult<us
     info!("正在从 SPDX 同步 License 数据");
     let (timeout, proxy_url) = {
         let db = state.db.lock()?;
-        let timeout = parse_u64(&get_setting_opt(&db, "http_timeout").unwrap_or_default(), 30);
+        let timeout = parse_u64(
+            &get_setting_opt(&db, "http_timeout").unwrap_or_default(),
+            30,
+        );
         let proxy_url = get_active_proxy(&db);
         (timeout, proxy_url)
     };

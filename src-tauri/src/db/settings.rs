@@ -2,7 +2,7 @@ use crate::errors::AppResult; // 通用错误处理
 
 use crate::models::*; // 数据模型
 
-use super::Database;  // 数据库结构体
+use super::Database; // 数据库结构体
 
 impl Database {
     /// 获取所有设置项（按分类和键名排序）
@@ -33,7 +33,7 @@ impl Database {
     /// @returns 可选的设置项
     pub fn get_setting(&self, key: &str) -> AppResult<Option<Setting>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, key, value, description, category, created_at FROM settings WHERE key=?1"
+            "SELECT id, key, value, description, category, created_at FROM settings WHERE key=?1",
         )?;
         let mut rows = stmt.query_map(rusqlite::params![key], |row| {
             Ok(Setting {

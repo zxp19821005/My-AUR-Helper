@@ -84,7 +84,13 @@ async fn scan_recursive_inner(
             is_dir,
         });
         if is_dir {
-            Box::pin(scan_recursive_inner(&entry.path(), acc, depth + 1, max_depth)).await?;
+            Box::pin(scan_recursive_inner(
+                &entry.path(),
+                acc,
+                depth + 1,
+                max_depth,
+            ))
+            .await?;
         }
     }
     Ok(())
@@ -132,7 +138,10 @@ fn parse_pkg_filename(filename: &str) -> Option<PkgFileInfo> {
     let ver_part = name_ver[dash_pos + 1..].to_string();
 
     let (epoch, version) = if let Some(pos) = ver_part.find(':') {
-        (Some(ver_part[..pos].to_string()), ver_part[pos + 1..].to_string())
+        (
+            Some(ver_part[..pos].to_string()),
+            ver_part[pos + 1..].to_string(),
+        )
     } else {
         (None, ver_part)
     };

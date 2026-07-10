@@ -2,7 +2,7 @@ use crate::errors::AppResult; // 通用错误处理
 
 use crate::models::*; // 数据模型
 
-use super::Database;  // 数据库结构体
+use super::Database; // 数据库结构体
 
 impl Database {
     /// 插入或更新 AUR 包信息

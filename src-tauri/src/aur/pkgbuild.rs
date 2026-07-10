@@ -1,8 +1,8 @@
-use crate::errors::AppResult;           // 通用错误处理
-use regex::Regex;              // 正则表达式，用于解析 PKGBUILD 变量
-use std::path::Path;           // 文件路径操作
-use tokio::fs;                 // 异步文件系统操作
-use log::info;                 // 日志记录
+use crate::errors::AppResult; // 通用错误处理
+use log::info;
+use regex::Regex; // 正则表达式，用于解析 PKGBUILD 变量
+use std::path::Path; // 文件路径操作
+use tokio::fs; // 异步文件系统操作 // 日志记录
 
 use crate::models::{CheckerType, PackageType, SoftwareInfo}; // 项目数据模型
 
@@ -132,7 +132,9 @@ fn parse_pkgbuild(content: &str, path: &Path) -> AppResult<(SoftwareInfo, Option
     // 根据包名后缀和类型重写检查器类型
     let checker_type = match package_type_id {
         PackageType::Git => CheckerType::GitHubAPI,
-        PackageType::Compiled if matches!(checker_type, CheckerType::GitHubAPI) => CheckerType::GitHubTags,
+        PackageType::Compiled if matches!(checker_type, CheckerType::GitHubAPI) => {
+            CheckerType::GitHubTags
+        }
         _ => checker_type,
     };
 
@@ -145,7 +147,8 @@ fn parse_pkgbuild(content: &str, path: &Path) -> AppResult<(SoftwareInfo, Option
         || version_lower.contains("pre");
 
     // -bin 和 -appimage 包默认检查二进制文件存在
-    let check_binary_files = pkgname_final.ends_with("-bin") || pkgname_final.ends_with("-appimage");
+    let check_binary_files =
+        pkgname_final.ends_with("-bin") || pkgname_final.ends_with("-appimage");
 
     // 构建 SoftwareInfo 结构体
     let sw = SoftwareInfo {
@@ -170,12 +173,16 @@ fn parse_pkgbuild(content: &str, path: &Path) -> AppResult<(SoftwareInfo, Option
 /// @param pkgs_dir - 存放 AUR 包目录的父目录路径
 /// @param pkgname - 可选，指定包名时只同步该包
 /// @returns 解析得到的所有软件包信息列表
-pub async fn sync_from_local_files(pkgs_dir: &Path, pkgname: Option<&str>) -> AppResult<Vec<SoftwareInfo>> {
+pub async fn sync_from_local_files(
+    pkgs_dir: &Path,
+    pkgname: Option<&str>,
+) -> AppResult<Vec<SoftwareInfo>> {
     let mut packages = Vec::new();
     let mut entries = fs::read_dir(pkgs_dir).await?; // 读取目录内容
-    // 遍历每个子目录
+                                                     // 遍历每个子目录
     while let Some(entry) = entries.next_entry().await? {
-        if entry.file_type().await?.is_dir() {           // 只处理目录
+        if entry.file_type().await?.is_dir() {
+            // 只处理目录
             // 如果指定了包名，只处理匹配的目录
             if let Some(filter_name) = pkgname {
                 let dir_name = entry.file_name().to_string_lossy().to_string();
@@ -184,7 +191,7 @@ pub async fn sync_from_local_files(pkgs_dir: &Path, pkgname: Option<&str>) -> Ap
                 }
             }
             if let Some((sw, _)) = read_pkgbuild(&entry.path()).await? {
-                packages.push(sw);                       // 收集解析结果
+                packages.push(sw); // 收集解析结果
             }
         }
     }

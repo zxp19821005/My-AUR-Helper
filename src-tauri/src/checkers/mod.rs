@@ -1,5 +1,5 @@
-mod github;
 mod gitee;
+mod github;
 mod gitlab;
 mod http;
 mod manual;
@@ -7,7 +7,7 @@ mod redirect;
 mod trait_def;
 mod utils;
 
-pub use trait_def::{CheckOptions, VersionChecker};
+pub use trait_def::{CheckOptions, CheckResult, VersionChecker};
 
 use crate::models::CheckerType;
 
@@ -18,7 +18,10 @@ pub struct CheckerSettings {
     pub gitlab_token: Option<String>,
 }
 
-pub fn get_checker(checker_type: &CheckerType, settings: CheckerSettings) -> Box<dyn VersionChecker> {
+pub fn get_checker(
+    checker_type: &CheckerType,
+    settings: CheckerSettings,
+) -> Box<dyn VersionChecker> {
     match checker_type {
         CheckerType::GitHubTags => Box::new(github::GitHubTagsChecker::new(settings.github_token)),
         CheckerType::GitHubAPI => Box::new(github::GitHubAPIChecker::new(settings.github_token)),

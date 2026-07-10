@@ -12,13 +12,13 @@
  * 4. 收集所有结果到内存
  * 5. 批量更新数据库中的 upstream_info 和 is_outdated 字段
  */
-use log::{info, error};
+use log::{error, info};
 use tauri::State;
 
-use crate::commands::proxy_utils::{build_client, get_active_proxy};
 use super::utils::{
-    get_setting_opt, parse_u64, parse_u32, build_checker_settings, UpstreamCheckResult,
+    build_checker_settings, get_setting_opt, parse_u32, parse_u64, UpstreamCheckResult,
 };
+use crate::commands::proxy_utils::{build_client, get_active_proxy};
 use crate::errors::AppResult;
 use crate::AppState;
 
@@ -30,8 +30,14 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
         let db = state.db.lock()?;
         let packages = db.get_all_software()?;
         let settings = build_checker_settings(&db);
-        let timeout = parse_u64(&get_setting_opt(&db, "http_timeout").unwrap_or_default(), 30);
-        let retry = parse_u32(&get_setting_opt(&db, "http_retry_count").unwrap_or_default(), 2);
+        let timeout = parse_u64(
+            &get_setting_opt(&db, "http_timeout").unwrap_or_default(),
+            30,
+        );
+        let retry = parse_u32(
+            &get_setting_opt(&db, "http_retry_count").unwrap_or_default(),
+            2,
+        );
         let proxy_url = get_active_proxy(&db);
         (packages, settings, timeout, retry, proxy_url)
     };
@@ -59,8 +65,15 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
             };
 
             let result = check_with_retry(
-                &*checker, &client, &upstream_url, &pkgname, version_extract_regex.as_deref(), &options, retry,
-            ).await;
+                &*checker,
+                &client,
+                &upstream_url,
+                &pkgname,
+                version_extract_regex.as_deref(),
+                &options,
+                retry,
+            )
+            .await;
 
             (pkgname, software_id, result)
         });
@@ -72,25 +85,41 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
     for handle in handles {
         if let Ok((pkgname, software_id, result)) = handle.await {
             match result {
-                Ok(Some(version)) => {
-                    let aur_ver = {
-                        let db = state.db.lock()?;
-                        db.get_aur_info(software_id).ok().flatten()
-                            .and_then(|a| a.aur_version)
-                            .filter(|v| !v.is_empty())
-                    };
+                Ok(check_result) => {
+                    if let Some(version) = check_result.version {
+                        let aur_ver = {
+                            let db = state.db.lock()?;
+                            db.get_aur_info(software_id)
+                                .ok()
+                                .flatten()
+                                .and_then(|a| a.aur_version)
+                                .filter(|v| !v.is_empty())
+                        };
 
-                    let is_outdated = match aur_ver.as_deref() {
-                        Some(aur) => crate::versions::compare_versions(aur, &version) == crate::versions::VersionComparison::LessThan,
-                        None => true,
-                    };
+                        let is_outdated = match aur_ver.as_deref() {
+                            Some(aur) => {
+                                crate::versions::compare_versions(aur, &version)
+                                    == crate::versions::VersionComparison::LessThan
+                            }
+                            None => true,
+                        };
 
-                    check_results.push(UpstreamCheckResult {
-                        pkgname,
-                        software_id,
-                        upstream_version: version,
-                        is_outdated,
-                    });
+                        check_results.push(UpstreamCheckResult {
+                            pkgname,
+                            software_id,
+                            upstream_version: version,
+                            is_outdated,
+                            license_spdx_id: check_result.license,
+                        });
+                    } else {
+                        check_results.push(UpstreamCheckResult {
+                            pkgname,
+                            software_id,
+                            upstream_version: String::new(),
+                            is_outdated: false,
+                            license_spdx_id: None,
+                        });
+                    }
                 }
                 _ => {
                     check_results.push(UpstreamCheckResult {
@@ -98,6 +127,7 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
                         software_id,
                         upstream_version: String::new(),
                         is_outdated: false,
+                        license_spdx_id: None,
                     });
                 }
             }
@@ -109,17 +139,38 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
     let mut success_results = Vec::new();
     for result in &check_results {
         if !result.upstream_version.is_empty() {
-            let cleaned_version = result.upstream_version.strip_prefix('v').unwrap_or(&result.upstream_version);
-            
+            let cleaned_version = result
+                .upstream_version
+                .strip_prefix('v')
+                .unwrap_or(&result.upstream_version);
+
+            // 获取 license ID
+            let upstream_license_id = if let Some(spdx_id) = &result.license_spdx_id {
+                let lic = db.get_license_by_spdx_id(spdx_id)?;
+                if let Some(license) = lic {
+                    license.id
+                } else {
+                    // 如果 license 不存在，创建新记录
+                    let new_lic = crate::models::EnumLicense {
+                        id: None,
+                        spdx_id: spdx_id.to_string(),
+                        full_name: spdx_id.to_string(),
+                    };
+                    Some(db.upsert_license(&new_lic)?)
+                }
+            } else {
+                None
+            };
+
             let _ = db.update_software_outdated(result.software_id, result.is_outdated);
             let upstream_info = crate::models::UpstreamInfo {
                 software_id: result.software_id,
                 upstream_version: Some(cleaned_version.to_string()),
-                upstream_license_id: None,
+                upstream_license_id,
                 last_checked: Some(chrono::Utc::now().timestamp()),
             };
             let _ = db.upsert_upstream_info(&upstream_info);
-            
+
             success_results.push((result.pkgname.clone(), result.upstream_version.clone()));
         } else {
             let _ = db.update_software_outdated(result.software_id, false);
@@ -142,8 +193,7 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
 /// - `retry_count`: 最大重试次数
 ///
 /// # 返回
-/// - `Ok(Some(version))`: 检查成功，返回版本号
-/// - `Ok(None)`: 检查成功，但未找到版本
+/// - `Ok(CheckResult)`: 检查成功，包含版本号和 license 信息
 /// - `Err(e)`: 所有重试均失败
 async fn check_with_retry(
     checker: &dyn crate::checkers::VersionChecker,
@@ -153,22 +203,38 @@ async fn check_with_retry(
     version_extract_regex: Option<&str>,
     options: &crate::checkers::CheckOptions,
     retry_count: u32,
-) -> AppResult<Option<String>> {
+) -> AppResult<crate::checkers::CheckResult> {
     let mut last_error = None;
     for attempt in 0..=retry_count {
         if attempt > 0 {
             info!("[重试] 第 {} 次重试 {}", attempt, pkgname);
         }
         match checker
-            .check(client, upstream_url, pkgname, version_extract_regex, options)
+            .check(
+                client,
+                upstream_url,
+                pkgname,
+                version_extract_regex,
+                options,
+            )
             .await
         {
             Ok(result) => return Ok(result),
             Err(e) => {
-                error!("检查 {} 失败 (尝试 {}/{}): {}", pkgname, attempt + 1, retry_count + 1, e);
+                error!(
+                    "检查 {} 失败 (尝试 {}/{}): {}",
+                    pkgname,
+                    attempt + 1,
+                    retry_count + 1,
+                    e
+                );
                 last_error = Some(e);
             }
         }
     }
-    Err(last_error.unwrap_or(crate::errors::AppError::VersionCheckError("检查失败".to_string())))
+    Err(
+        last_error.unwrap_or(crate::errors::AppError::VersionCheckError(
+            "检查失败".to_string(),
+        )),
+    )
 }

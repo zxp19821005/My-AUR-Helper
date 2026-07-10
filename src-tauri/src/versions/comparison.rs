@@ -1,5 +1,5 @@
-use log::debug;
 use super::git_version::{extract_commit_count, is_r_format};
+use log::debug;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VersionComparison {
@@ -22,10 +22,13 @@ pub fn compare_vercmp(a: &str, b: &str) -> VersionComparison {
     if is_r_format(&a) && is_r_format(&b) {
         let a_count = extract_commit_count(&a);
         let b_count = extract_commit_count(&b);
-        
+
         match (a_count, b_count) {
             (Some(a_count), Some(b_count)) => {
-                debug!("[版本比较] r格式比较: AUR commit_count={} vs 上游 commit_count={}", a_count, b_count);
+                debug!(
+                    "[版本比较] r格式比较: AUR commit_count={} vs 上游 commit_count={}",
+                    a_count, b_count
+                );
                 return match a_count.cmp(&b_count) {
                     std::cmp::Ordering::Less => VersionComparison::LessThan,
                     std::cmp::Ordering::Greater => VersionComparison::GreaterThan,
@@ -72,14 +75,20 @@ pub fn compare_vercmp(a: &str, b: &str) -> VersionComparison {
 
     if a_components.len() > b_components.len() {
         let extra = &a_components[b_components.len()..];
-        if extra.iter().any(|c| c.starts_with('~') || is_prerelease_component(c)) {
+        if extra
+            .iter()
+            .any(|c| c.starts_with('~') || is_prerelease_component(c))
+        {
             return VersionComparison::LessThan;
         }
         return VersionComparison::GreaterThan;
     }
 
     let extra = &b_components[a_components.len()..];
-    if extra.iter().any(|c| c.starts_with('~') || is_prerelease_component(c)) {
+    if extra
+        .iter()
+        .any(|c| c.starts_with('~') || is_prerelease_component(c))
+    {
         return VersionComparison::GreaterThan;
     }
     VersionComparison::LessThan
@@ -195,13 +204,21 @@ fn compare_component(a: &str, b: &str) -> std::cmp::Ordering {
 }
 
 fn is_prerelease_component(s: &str) -> bool {
-    s.starts_with("alpha") || s.starts_with("beta") || s.starts_with("rc") || s.starts_with("pre") || s.starts_with("dev")
+    s.starts_with("alpha")
+        || s.starts_with("beta")
+        || s.starts_with("rc")
+        || s.starts_with("pre")
+        || s.starts_with("dev")
 }
 
 pub fn is_prerelease(version: &str) -> bool {
     let lower = version.to_lowercase();
-    lower.contains("alpha") || lower.contains("beta") || lower.contains("rc") 
-        || lower.contains("pre") || lower.contains("dev") || lower.contains("snapshot")
+    lower.contains("alpha")
+        || lower.contains("beta")
+        || lower.contains("rc")
+        || lower.contains("pre")
+        || lower.contains("dev")
+        || lower.contains("snapshot")
 }
 
 #[cfg(test)]
@@ -211,72 +228,162 @@ mod tests {
     #[test]
     fn test_equal() {
         assert_eq!(compare_vercmp("1.2.3", "1.2.3"), VersionComparison::Equal);
-        assert_eq!(compare_vercmp("2:1.2.3", "2:1.2.3"), VersionComparison::Equal);
-        assert_eq!(compare_vercmp("1.2.3-1", "1.2.3-1"), VersionComparison::Equal);
+        assert_eq!(
+            compare_vercmp("2:1.2.3", "2:1.2.3"),
+            VersionComparison::Equal
+        );
+        assert_eq!(
+            compare_vercmp("1.2.3-1", "1.2.3-1"),
+            VersionComparison::Equal
+        );
     }
 
     #[test]
     fn test_simple_comparison() {
-        assert_eq!(compare_vercmp("1.2.3", "1.2.4"), VersionComparison::LessThan);
-        assert_eq!(compare_vercmp("1.2.4", "1.2.3"), VersionComparison::GreaterThan);
-        assert_eq!(compare_vercmp("1.3.0", "1.2.9"), VersionComparison::GreaterThan);
-        assert_eq!(compare_vercmp("2.0.0", "1.9.9"), VersionComparison::GreaterThan);
+        assert_eq!(
+            compare_vercmp("1.2.3", "1.2.4"),
+            VersionComparison::LessThan
+        );
+        assert_eq!(
+            compare_vercmp("1.2.4", "1.2.3"),
+            VersionComparison::GreaterThan
+        );
+        assert_eq!(
+            compare_vercmp("1.3.0", "1.2.9"),
+            VersionComparison::GreaterThan
+        );
+        assert_eq!(
+            compare_vercmp("2.0.0", "1.9.9"),
+            VersionComparison::GreaterThan
+        );
     }
 
     #[test]
     fn test_epoch() {
-        assert_eq!(compare_vercmp("2:1.0.0", "1:1.0.0"), VersionComparison::GreaterThan);
-        assert_eq!(compare_vercmp("1:1.0.0", "2:1.0.0"), VersionComparison::LessThan);
-        assert_eq!(compare_vercmp("1:1.0.0", "1:1.0.0"), VersionComparison::Equal);
-        assert_eq!(compare_vercmp("1:1.0.0", "1.0.0"), VersionComparison::GreaterThan);
-        assert_eq!(compare_vercmp("1.0.0", "1:1.0.0"), VersionComparison::LessThan);
+        assert_eq!(
+            compare_vercmp("2:1.0.0", "1:1.0.0"),
+            VersionComparison::GreaterThan
+        );
+        assert_eq!(
+            compare_vercmp("1:1.0.0", "2:1.0.0"),
+            VersionComparison::LessThan
+        );
+        assert_eq!(
+            compare_vercmp("1:1.0.0", "1:1.0.0"),
+            VersionComparison::Equal
+        );
+        assert_eq!(
+            compare_vercmp("1:1.0.0", "1.0.0"),
+            VersionComparison::GreaterThan
+        );
+        assert_eq!(
+            compare_vercmp("1.0.0", "1:1.0.0"),
+            VersionComparison::LessThan
+        );
     }
 
     #[test]
     fn test_tilde() {
-        assert_eq!(compare_vercmp("1.2.3~beta", "1.2.3"), VersionComparison::LessThan);
-        assert_eq!(compare_vercmp("1.2.3", "1.2.3~beta"), VersionComparison::GreaterThan);
-        assert_eq!(compare_vercmp("1.2.3~alpha", "1.2.3~beta"), VersionComparison::LessThan);
+        assert_eq!(
+            compare_vercmp("1.2.3~beta", "1.2.3"),
+            VersionComparison::LessThan
+        );
+        assert_eq!(
+            compare_vercmp("1.2.3", "1.2.3~beta"),
+            VersionComparison::GreaterThan
+        );
+        assert_eq!(
+            compare_vercmp("1.2.3~alpha", "1.2.3~beta"),
+            VersionComparison::LessThan
+        );
     }
 
     #[test]
     fn test_alpha_numeric() {
-        assert_eq!(compare_vercmp("1.2.3a", "1.2.3"), VersionComparison::GreaterThan);
-        assert_eq!(compare_vercmp("1.2.3", "1.2.3a"), VersionComparison::LessThan);
-        assert_eq!(compare_vercmp("1.2.3a", "1.2.3b"), VersionComparison::LessThan);
-        assert_eq!(compare_vercmp("1.2.3b", "1.2.3a"), VersionComparison::GreaterThan);
+        assert_eq!(
+            compare_vercmp("1.2.3a", "1.2.3"),
+            VersionComparison::GreaterThan
+        );
+        assert_eq!(
+            compare_vercmp("1.2.3", "1.2.3a"),
+            VersionComparison::LessThan
+        );
+        assert_eq!(
+            compare_vercmp("1.2.3a", "1.2.3b"),
+            VersionComparison::LessThan
+        );
+        assert_eq!(
+            compare_vercmp("1.2.3b", "1.2.3a"),
+            VersionComparison::GreaterThan
+        );
     }
 
     #[test]
     fn test_release_candidate() {
-        assert_eq!(compare_vercmp("1.2.3rc1", "1.2.3"), VersionComparison::LessThan);
-        assert_eq!(compare_vercmp("1.2.3", "1.2.3rc1"), VersionComparison::GreaterThan);
-        assert_eq!(compare_vercmp("1.2.3rc2", "1.2.3rc1"), VersionComparison::GreaterThan);
+        assert_eq!(
+            compare_vercmp("1.2.3rc1", "1.2.3"),
+            VersionComparison::LessThan
+        );
+        assert_eq!(
+            compare_vercmp("1.2.3", "1.2.3rc1"),
+            VersionComparison::GreaterThan
+        );
+        assert_eq!(
+            compare_vercmp("1.2.3rc2", "1.2.3rc1"),
+            VersionComparison::GreaterThan
+        );
     }
 
     #[test]
     fn test_build_metadata() {
-        assert_eq!(compare_vercmp("1.2.3+build1", "1.2.3"), VersionComparison::GreaterThan);
-        assert_eq!(compare_vercmp("1.2.3", "1.2.3+build1"), VersionComparison::LessThan);
+        assert_eq!(
+            compare_vercmp("1.2.3+build1", "1.2.3"),
+            VersionComparison::GreaterThan
+        );
+        assert_eq!(
+            compare_vercmp("1.2.3", "1.2.3+build1"),
+            VersionComparison::LessThan
+        );
     }
 
     #[test]
     fn test_underscore() {
-        assert_eq!(compare_vercmp("1.2.3_beta", "1.2.3"), VersionComparison::GreaterThan);
-        assert_eq!(compare_vercmp("1.2.3_beta1", "1.2.3_beta2"), VersionComparison::LessThan);
+        assert_eq!(
+            compare_vercmp("1.2.3_beta", "1.2.3"),
+            VersionComparison::GreaterThan
+        );
+        assert_eq!(
+            compare_vercmp("1.2.3_beta1", "1.2.3_beta2"),
+            VersionComparison::LessThan
+        );
     }
 
     #[test]
     fn test_different_lengths() {
         assert_eq!(compare_vercmp("1.2", "1.2.3"), VersionComparison::LessThan);
-        assert_eq!(compare_vercmp("1.2.3", "1.2"), VersionComparison::GreaterThan);
-        assert_eq!(compare_vercmp("1.2.0", "1.2"), VersionComparison::GreaterThan);
+        assert_eq!(
+            compare_vercmp("1.2.3", "1.2"),
+            VersionComparison::GreaterThan
+        );
+        assert_eq!(
+            compare_vercmp("1.2.0", "1.2"),
+            VersionComparison::GreaterThan
+        );
     }
 
     #[test]
     fn test_complex() {
-        assert_eq!(compare_vercmp("2:1.2.3~alpha-1", "2:1.2.3"), VersionComparison::LessThan);
-        assert_eq!(compare_vercmp("2:1.2.3_beta", "1:1.2.3"), VersionComparison::GreaterThan);
-        assert_eq!(compare_vercmp("1.2.3-1", "1.2.3-2"), VersionComparison::LessThan);
+        assert_eq!(
+            compare_vercmp("2:1.2.3~alpha-1", "2:1.2.3"),
+            VersionComparison::LessThan
+        );
+        assert_eq!(
+            compare_vercmp("2:1.2.3_beta", "1:1.2.3"),
+            VersionComparison::GreaterThan
+        );
+        assert_eq!(
+            compare_vercmp("1.2.3-1", "1.2.3-2"),
+            VersionComparison::LessThan
+        );
     }
 }

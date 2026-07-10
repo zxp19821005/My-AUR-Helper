@@ -28,5 +28,5 @@ mod utils;
 // 公开导出 Tauri 命令函数，供 lib.rs 注册使用
 pub use aur::sync_from_aur;
 pub use aur::update_aur_info;
-pub use upstream::check_all_upstream;
 pub use pkgbuild::sync_from_pkgbuild;
+pub use upstream::check_all_upstream;

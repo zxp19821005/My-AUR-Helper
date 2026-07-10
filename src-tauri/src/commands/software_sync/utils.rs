@@ -67,6 +67,8 @@ pub struct UpstreamCheckResult {
     pub upstream_version: String,
     /// 是否已过期（AUR 版本 < 上游版本）
     pub is_outdated: bool,
+    /// License SPDX ID
+    pub license_spdx_id: Option<String>,
 }
 
 /// 安全获取数据库设置项

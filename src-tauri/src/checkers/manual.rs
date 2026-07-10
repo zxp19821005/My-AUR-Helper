@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use log::info;
 use reqwest::Client;
 
-use super::trait_def::{CheckOptions, VersionChecker};
+use super::trait_def::{CheckOptions, CheckResult, VersionChecker};
 
 pub struct ManualChecker;
 
@@ -20,10 +20,14 @@ impl VersionChecker for ManualChecker {
         pkgname: &str,
         _version_extract_regex: Option<&str>,
         _options: &CheckOptions,
-    ) -> AppResult<Option<String>> {
-        info!("[版本检查] 开始检查软件包: {} (检查器: {})", pkgname, self.name());
+    ) -> AppResult<CheckResult> {
+        info!(
+            "[版本检查] 开始检查软件包: {} (检查器: {})",
+            pkgname,
+            self.name()
+        );
         info!("[版本检查] 手动检查器不执行网络请求，请用户手动更新版本号");
         info!("[版本检查] 上游URL: {}", upstream_url);
-        Ok(None)
+        Ok(CheckResult::default())
     }
 }

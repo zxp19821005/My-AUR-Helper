@@ -12,16 +12,61 @@ impl Database {
     pub fn seed_defaults(&self) -> AppResult<()> {
         let defaults = vec![
             ("aur_username", "zxp19821005", "AUR 维护者用户名", "aur"),
-            ("aur_packages_dir", "/run/media/zxp/LocalBak/git/My_AUR_Files", "本地 AUR 包文件目录", "aur"),
-            ("backup_dir", "/run/media/zxp/Backup/Linux/ZST", "默认备份目录", "backup"),
-            ("github_backup_repo", "https://github.com/zxp19821005/My_AUR_Files", "GitHub 备份仓库地址", "backup"),
+            (
+                "aur_packages_dir",
+                "/run/media/zxp/LocalBak/git/My_AUR_Files",
+                "本地 AUR 包文件目录",
+                "aur",
+            ),
+            (
+                "backup_dir",
+                "/run/media/zxp/Backup/Linux/ZST",
+                "默认备份目录",
+                "backup",
+            ),
+            (
+                "github_backup_repo",
+                "https://github.com/zxp19821005/My_AUR_Files",
+                "GitHub 备份仓库地址",
+                "backup",
+            ),
             ("show_tray_icon", "true", "是否显示系统托盘图标", "general"),
-            ("close_action", "minimize_to_tray", "关闭窗口动作 (minimize_to_tray/exit)", "general"),
-            ("log_max_size", "10485760", "单个日志文件大小上限（字节），默认 10MB", "log"),
-            ("log_max_files", "7", "保留的日志文件最大数量，默认 7", "log"),
-            ("github_token", "", "GitHub Personal Access Token（用于提高 API 速率限制）", "checker"),
-            ("gitee_token", "", "Gitee 私人令牌（access_token，用于提高 API 速率限制）", "checker"),
-            ("gitlab_token", "", "GitLab Personal Access Token（用于提高 API 速率限制）", "checker"),
+            (
+                "close_action",
+                "minimize_to_tray",
+                "关闭窗口动作 (minimize_to_tray/exit)",
+                "general",
+            ),
+            (
+                "log_max_size",
+                "10485760",
+                "单个日志文件大小上限（字节），默认 10MB",
+                "log",
+            ),
+            (
+                "log_max_files",
+                "7",
+                "保留的日志文件最大数量，默认 7",
+                "log",
+            ),
+            (
+                "github_token",
+                "",
+                "GitHub Personal Access Token（用于提高 API 速率限制）",
+                "checker",
+            ),
+            (
+                "gitee_token",
+                "",
+                "Gitee 私人令牌（access_token，用于提高 API 速率限制）",
+                "checker",
+            ),
+            (
+                "gitlab_token",
+                "",
+                "GitLab Personal Access Token（用于提高 API 速率限制）",
+                "checker",
+            ),
             ("http_timeout", "30", "HTTP 请求超时时间（秒）", "checker"),
             ("http_retry_count", "2", "HTTP 请求失败重试次数", "checker"),
         ];
@@ -34,15 +79,57 @@ impl Database {
 
         let langs = vec![
             ("Rust", "Rust 编程语言", ".rs,.toml", "cargo", "cargo build"),
-            ("TypeScript", "TypeScript 编程语言", ".ts,.tsx,.js,.jsx,.mjs", "npm/pnpm/yarn", "npm run build"),
-            ("Python", "Python 编程语言", ".py,.pyw", "pip/poetry", "python setup.py"),
+            (
+                "TypeScript",
+                "TypeScript 编程语言",
+                ".ts,.tsx,.js,.jsx,.mjs",
+                "npm/pnpm/yarn",
+                "npm run build",
+            ),
+            (
+                "Python",
+                "Python 编程语言",
+                ".py,.pyw",
+                "pip/poetry",
+                "python setup.py",
+            ),
             ("Go", "Go 编程语言", ".go", "go", "go build"),
-            ("C/C++", "C/C++ 编程语言", ".c,.cpp,.h,.hpp", "make/cmake", "make"),
-            ("Java", "Java 编程语言", ".java,.jar", "maven/gradle", "mvn package"),
-            ("Kotlin", "Kotlin 编程语言", ".kt,.kts", "gradle", "gradle build"),
+            (
+                "C/C++",
+                "C/C++ 编程语言",
+                ".c,.cpp,.h,.hpp",
+                "make/cmake",
+                "make",
+            ),
+            (
+                "Java",
+                "Java 编程语言",
+                ".java,.jar",
+                "maven/gradle",
+                "mvn package",
+            ),
+            (
+                "Kotlin",
+                "Kotlin 编程语言",
+                ".kt,.kts",
+                "gradle",
+                "gradle build",
+            ),
             ("C#", "C# 编程语言", ".cs,.csproj", "dotnet", "dotnet build"),
-            ("Ruby", "Ruby 编程语言", ".rb", "gem/bundler", "bundle exec rake"),
-            ("PHP", "PHP 编程语言", ".php", "composer", "composer install"),
+            (
+                "Ruby",
+                "Ruby 编程语言",
+                ".rb",
+                "gem/bundler",
+                "bundle exec rake",
+            ),
+            (
+                "PHP",
+                "PHP 编程语言",
+                ".php",
+                "composer",
+                "composer install",
+            ),
         ];
         for (name, desc, exts, build_sys, build_cmd) in langs {
             self.conn.execute(
@@ -59,10 +146,16 @@ impl Database {
             ("ISC", "ISC License"),
             ("Unlicense", "The Unlicense"),
             ("MPL-2.0", "Mozilla Public License 2.0"),
-            ("LGPL-3.0-only", "GNU Lesser General Public License v3.0 only"),
+            (
+                "LGPL-3.0-only",
+                "GNU Lesser General Public License v3.0 only",
+            ),
             ("GPL-3.0-only", "GNU General Public License v3.0 only"),
             ("GPL-2.0-only", "GNU General Public License v2.0 only"),
-            ("AGPL-3.0-only", "GNU Affero General Public License v3.0 only"),
+            (
+                "AGPL-3.0-only",
+                "GNU Affero General Public License v3.0 only",
+            ),
             ("CC0-1.0", "Creative Commons Zero v1.0 Universal"),
         ];
         for (spdx_id, full_name) in licenses {

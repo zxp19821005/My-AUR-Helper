@@ -40,7 +40,10 @@ pub fn extract_owner_repo(repo_url: &str) -> Option<(String, String)> {
         .collect();
     if parts.len() >= 2 {
         // 倒数第二部分是 owner，最后一部分是 repo
-        Some((parts[parts.len() - 2].to_string(), parts[parts.len() - 1].to_string()))
+        Some((
+            parts[parts.len() - 2].to_string(),
+            parts[parts.len() - 1].to_string(),
+        ))
     } else {
         None
     }
@@ -50,7 +53,9 @@ pub fn extract_owner_repo(repo_url: &str) -> Option<(String, String)> {
 /// @param ver - 原始版本字符串（如 "v1.2.3"）
 /// @returns 清理后的版本号（如 "1.2.3"）
 pub fn clean_version(ver: &str) -> String {
-    ver.trim_start_matches('v').trim_start_matches('V').to_string()
+    ver.trim_start_matches('v')
+        .trim_start_matches('V')
+        .to_string()
 }
 
 /// 从 URL 中提取版本号
@@ -77,12 +82,17 @@ pub fn extract_version_from_url(url: &str) -> Option<String> {
 /// @returns 提取到的版本号
 pub fn extract_version_from_html(body: &str) -> Option<String> {
     // 模式1：匹配 "version" / "release" 等关键词后的版本号
-    let re = regex::Regex::new(r"(?i)(?:version|release|ver\.?)[:\s]+v?(\d+\.\d+\.\d+[a-zA-Z0-9._-]*)").ok()?;
+    let re =
+        regex::Regex::new(r"(?i)(?:version|release|ver\.?)[:\s]+v?(\d+\.\d+\.\d+[a-zA-Z0-9._-]*)")
+            .ok()?;
     if let Some(cap) = re.captures(body) {
         return Some(cap[1].to_string());
     }
     // 模式2：匹配 HTML 表格中 <td> 标签内的版本号
-    let re2 = regex::Regex::new(r"(?i)(?:v)?(\d+\.\d+\.\d+[a-zA-Z0-9._-]*)(?:\s*</[aA]>)?\s*</[tT][dD]>\s*<[tT][dD]").ok()?;
+    let re2 = regex::Regex::new(
+        r"(?i)(?:v)?(\d+\.\d+\.\d+[a-zA-Z0-9._-]*)(?:\s*</[aA]>)?\s*</[tT][dD]>\s*<[tT][dD]",
+    )
+    .ok()?;
     if let Some(cap) = re2.captures(body) {
         return Some(cap[1].to_string());
     }

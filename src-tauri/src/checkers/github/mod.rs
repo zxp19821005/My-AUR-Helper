@@ -30,5 +30,5 @@ mod tags_checker;
 mod api_checker;
 
 // 公开导出检查器结构体，供 checkers/mod.rs 中的工厂函数使用
-pub use tags_checker::GitHubTagsChecker;
 pub use api_checker::GitHubAPIChecker;
+pub use tags_checker::GitHubTagsChecker;

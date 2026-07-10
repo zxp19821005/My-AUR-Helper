@@ -38,7 +38,7 @@ fn has_linux_binary(assets: &[serde_json::Value], asset_filter: Option<&str>) ->
         let lower = name.to_lowercase();
         lower.contains("darwin") || lower.contains("macos") || lower.contains("windows")
     };
-    
+
     if let Some(filter) = asset_filter {
         // 使用自定义正则过滤 assets
         if let Ok(re) = regex::Regex::new(filter) {
@@ -51,11 +51,11 @@ fn has_linux_binary(assets: &[serde_json::Value], asset_filter: Option<&str>) ->
             });
         }
     }
-    
+
     // 默认：只要不是 darwin/macos/windows 就算 Linux
-    assets.iter().any(|a| {
-        a["name"].as_str().is_some_and(|n| !not_linux(n))
-    })
+    assets
+        .iter()
+        .any(|a| a["name"].as_str().is_some_and(|n| !not_linux(n)))
 }
 
 /// 检查并打印 release 资产的详细信息
@@ -71,18 +71,30 @@ fn check_release_assets(data: &serde_json::Value, pkgname: &str, asset_filter: O
             warn!("[二进制检查] {}: Release 无任何附件", pkgname);
         } else if !has_linux_binary(list, asset_filter) {
             let names: Vec<&str> = list.iter().filter_map(|a| a["name"].as_str()).collect();
-            warn!("[二进制检查] {}: Release 附件中未找到 Linux 二进制文件: {:?}", pkgname, names);
+            warn!(
+                "[二进制检查] {}: Release 附件中未找到 Linux 二进制文件: {:?}",
+                pkgname, names
+            );
         } else {
-            let linux_assets: Vec<&str> = list.iter().filter_map(|a| {
-                let name = a["name"].as_str()?;
-                let lower = name.to_lowercase();
-                if !lower.contains("darwin") && !lower.contains("macos") && !lower.contains("windows") {
-                    Some(name)
-                } else {
-                    None
-                }
-            }).collect();
-            info!("[二进制检查] {}: 找到 Linux 二进制文件: {:?}", pkgname, linux_assets);
+            let linux_assets: Vec<&str> = list
+                .iter()
+                .filter_map(|a| {
+                    let name = a["name"].as_str()?;
+                    let lower = name.to_lowercase();
+                    if !lower.contains("darwin")
+                        && !lower.contains("macos")
+                        && !lower.contains("windows")
+                    {
+                        Some(name)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            info!(
+                "[二进制检查] {}: 找到 Linux 二进制文件: {:?}",
+                pkgname, linux_assets
+            );
         }
     }
 }
@@ -112,7 +124,10 @@ pub async fn check_github_release_latest(
     check_binary_files: bool,
     pkgname: &str,
 ) -> AppResult<Option<String>> {
-    let api_url = format!("https://api.github.com/repos/{}/{}/releases/latest", owner, repo);
+    let api_url = format!(
+        "https://api.github.com/repos/{}/{}/releases/latest",
+        owner, repo
+    );
 
     let mut req = client
         .get(&api_url)
@@ -132,15 +147,27 @@ pub async fn check_github_release_latest(
     if check_binary_files {
         // 当启用二进制检查时，version_extract_regex 用作 asset 过滤器
         check_release_assets(&data, pkgname, version_extract_regex);
-        
+
         // 如果有 asset 过滤器，检查最新版本是否匹配
         if let Some(filter) = version_extract_regex {
             if let Some(assets) = data["assets"].as_array() {
                 let has_match = has_linux_binary(assets, Some(filter));
                 if !has_match {
-                    info!("[二进制检查] {}: 最新版本无匹配的资产文件，尝试查找历史版本", pkgname);
+                    info!(
+                        "[二进制检查] {}: 最新版本无匹配的资产文件，尝试查找历史版本",
+                        pkgname
+                    );
                     // 回退到遍历历史版本
-                    return check_github_releases(client, owner, repo, token, version_extract_regex, true, pkgname).await;
+                    return check_github_releases(
+                        client,
+                        owner,
+                        repo,
+                        token,
+                        version_extract_regex,
+                        true,
+                        pkgname,
+                    )
+                    .await;
                 }
             }
         }
@@ -190,7 +217,10 @@ pub async fn check_github_releases(
     check_binary_files: bool,
     pkgname: &str,
 ) -> AppResult<Option<String>> {
-    let api_url = format!("https://api.github.com/repos/{}/{}/releases?per_page=10", owner, repo);
+    let api_url = format!(
+        "https://api.github.com/repos/{}/{}/releases?per_page=10",
+        owner, repo
+    );
 
     let mut req = client
         .get(&api_url)
@@ -220,7 +250,10 @@ pub async fn check_github_releases(
                 if let Some(list) = assets {
                     // 当启用二进制检查时，version_extract_regex 用作 asset 过滤器
                     if !has_linux_binary(list, version_extract_regex) {
-                        debug!("[二进制检查] {}: Release {} 无匹配的资产文件，跳过", pkgname, tag);
+                        debug!(
+                            "[二进制检查] {}: Release {} 无匹配的资产文件，跳过",
+                            pkgname, tag
+                        );
                         continue;
                     }
                 }
@@ -234,7 +267,12 @@ pub async fn check_github_releases(
 
             // 使用 vercmp 算法比较版本
             best_version = match best_version.take() {
-                Some(current) if versions::compare_versions(&current, &version) == versions::VersionComparison::LessThan => Some(version),
+                Some(current)
+                    if versions::compare_versions(&current, &version)
+                        == versions::VersionComparison::LessThan =>
+                {
+                    Some(version)
+                }
                 Some(current) => Some(current),
                 None => Some(version),
             };
@@ -242,4 +280,53 @@ pub async fn check_github_releases(
     }
 
     Ok(best_version)
+}
+
+/// 获取 GitHub 仓库的 License 信息
+///
+/// # 参数
+/// - `client`: HTTP 客户端
+/// - `owner`: GitHub 仓库所有者
+/// - `repo`: GitHub 仓库名称
+/// - `token`: GitHub API Token（可选）
+///
+/// # 返回
+/// - `Ok(Some(spdx_id))`: License 的 SPDX ID（如 "MIT", "Apache-2.0"）
+/// - `Ok(None)`: 未找到 License
+/// - `Err(e)`: 请求失败
+pub async fn fetch_github_repo_license(
+    client: &Client,
+    owner: &str,
+    repo: &str,
+    token: Option<&str>,
+) -> AppResult<Option<String>> {
+    let api_url = format!("https://api.github.com/repos/{}/{}/license", owner, repo);
+
+    let mut req = client
+        .get(&api_url)
+        .header("User-Agent", "my-aur-helper/0.1")
+        .header("Accept", "application/vnd.github.v3+json");
+    if let Some(t) = token {
+        req = req.header("Authorization", format!("Bearer {}", t));
+    }
+
+    let resp = req.send().await?;
+    if !resp.status().is_success() {
+        debug!("[GitHub License] 获取 license 失败: {} {}", owner, repo);
+        return Ok(None);
+    }
+
+    let data: serde_json::Value = resp.json().await?;
+
+    // GitHub License API 返回格式: { "license": { "spdx_id": "MIT", ... } }
+    if let Some(spdx_id) = data["license"]["spdx_id"].as_str() {
+        // 过滤掉 "NOASSERTION" 等特殊值
+        if spdx_id != "NOASSERTION" && !spdx_id.is_empty() {
+            info!("[GitHub License] {} {}: license={}", owner, repo, spdx_id);
+            return Ok(Some(spdx_id.to_string()));
+        }
+    }
+
+    debug!("[GitHub License] {} {}: 未找到 license", owner, repo);
+    Ok(None)
 }

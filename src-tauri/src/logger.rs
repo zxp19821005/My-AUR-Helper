@@ -95,7 +95,9 @@ impl RotatingLogger {
     }
 
     fn cleanup(log_dir: &Path, prefix: &str, max_files: usize) {
-        let Ok(entries) = fs::read_dir(log_dir) else { return };
+        let Ok(entries) = fs::read_dir(log_dir) else {
+            return;
+        };
         let mut files: Vec<_> = entries
             .filter_map(|e| e.ok())
             .filter(|e| {

@@ -1,6 +1,6 @@
+use super::Database;
 use crate::errors::AppResult;
 use crate::models::*;
-use super::Database;
 
 impl Database {
     pub fn upsert_license(&self, lic: &EnumLicense) -> AppResult<i64> {
@@ -13,9 +13,9 @@ impl Database {
     }
 
     pub fn get_all_licenses(&self) -> AppResult<Vec<EnumLicense>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id, spdx_id, full_name FROM enum_licenses ORDER BY spdx_id"
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id, spdx_id, full_name FROM enum_licenses ORDER BY spdx_id")?;
         let rows = stmt.query_map([], |row| {
             Ok(EnumLicense {
                 id: Some(row.get(0)?),
@@ -24,14 +24,16 @@ impl Database {
             })
         })?;
         let mut items = Vec::new();
-        for row in rows { items.push(row?); }
+        for row in rows {
+            items.push(row?);
+        }
         Ok(items)
     }
 
     pub fn get_license_by_spdx_id(&self, spdx_id: &str) -> AppResult<Option<EnumLicense>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id, spdx_id, full_name FROM enum_licenses WHERE spdx_id=?1"
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id, spdx_id, full_name FROM enum_licenses WHERE spdx_id=?1")?;
         let mut rows = stmt.query_map(rusqlite::params![spdx_id], |row| {
             Ok(EnumLicense {
                 id: Some(row.get(0)?),
@@ -43,9 +45,9 @@ impl Database {
     }
 
     pub fn get_license_by_id(&self, id: i64) -> AppResult<Option<EnumLicense>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id, spdx_id, full_name FROM enum_licenses WHERE id=?1"
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id, spdx_id, full_name FROM enum_licenses WHERE id=?1")?;
         let mut rows = stmt.query_map(rusqlite::params![id], |row| {
             Ok(EnumLicense {
                 id: Some(row.get(0)?),
@@ -65,7 +67,10 @@ impl Database {
     }
 
     pub fn delete_license_by_id(&self, id: i64) -> AppResult<()> {
-        self.conn.execute("DELETE FROM enum_licenses WHERE id=?1", rusqlite::params![id])?;
+        self.conn.execute(
+            "DELETE FROM enum_licenses WHERE id=?1",
+            rusqlite::params![id],
+        )?;
         Ok(())
     }
 }

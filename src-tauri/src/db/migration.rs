@@ -5,14 +5,24 @@ use super::Database;
 impl Database {
     pub fn migrate_aur_info(&self) -> AppResult<()> {
         let mut stmt = self.conn.prepare("PRAGMA table_info(aur_info)")?;
-        let columns: Vec<String> = stmt.query_map([], |row| row.get(1))?
+        let columns: Vec<String> = stmt
+            .query_map([], |row| row.get(1))?
             .filter_map(|r| r.ok())
             .collect();
 
-        let old_cols = ["provides", "conflicts", "replaces", "votes", "popularity", "submitted_by", "maintainers"];
+        let old_cols = [
+            "provides",
+            "conflicts",
+            "replaces",
+            "votes",
+            "popularity",
+            "submitted_by",
+            "maintainers",
+        ];
         for col in &old_cols {
             if columns.contains(&col.to_string()) {
-                self.conn.execute_batch(&format!("ALTER TABLE aur_info DROP COLUMN {col};"))?;
+                self.conn
+                    .execute_batch(&format!("ALTER TABLE aur_info DROP COLUMN {col};"))?;
             }
         }
 
@@ -20,12 +30,12 @@ impl Database {
             self.conn.execute_batch(
                 "UPDATE aur_info SET last_updated = CAST(last_updated AS INTEGER)
                  WHERE typeof(last_updated) = 'text' AND last_updated IS NOT NULL
-                 AND last_updated NOT LIKE '%-%';"
+                 AND last_updated NOT LIKE '%-%';",
             )?;
             self.conn.execute_batch(
                 "UPDATE aur_info SET last_updated = CAST(strftime('%s', last_updated) AS INTEGER)
                  WHERE typeof(last_updated) = 'text' AND last_updated IS NOT NULL
-                 AND last_updated LIKE '%-%';"
+                 AND last_updated LIKE '%-%';",
             )?;
         }
         Ok(())
@@ -33,21 +43,33 @@ impl Database {
 
     pub fn migrate_software_info(&self) -> AppResult<()> {
         let mut stmt = self.conn.prepare("PRAGMA table_info(software_info)")?;
-        let columns: Vec<String> = stmt.query_map([], |row| row.get(1))?
+        let columns: Vec<String> = stmt
+            .query_map([], |row| row.get(1))?
             .filter_map(|r| r.ok())
             .collect();
 
-        if columns.contains(&"package_type".to_string()) && !columns.contains(&"package_type_id".to_string()) {
-            self.conn.execute_batch("ALTER TABLE software_info RENAME COLUMN package_type TO package_type_id;")?;
+        if columns.contains(&"package_type".to_string())
+            && !columns.contains(&"package_type_id".to_string())
+        {
+            self.conn.execute_batch(
+                "ALTER TABLE software_info RENAME COLUMN package_type TO package_type_id;",
+            )?;
         }
-        if columns.contains(&"checker_type".to_string()) && !columns.contains(&"checker_type_id".to_string()) {
-            self.conn.execute_batch("ALTER TABLE software_info RENAME COLUMN checker_type TO checker_type_id;")?;
+        if columns.contains(&"checker_type".to_string())
+            && !columns.contains(&"checker_type_id".to_string())
+        {
+            self.conn.execute_batch(
+                "ALTER TABLE software_info RENAME COLUMN checker_type TO checker_type_id;",
+            )?;
         }
         if columns.contains(&"created_at".to_string()) {
-            self.conn.execute_batch("ALTER TABLE software_info DROP COLUMN created_at;")?;
+            self.conn
+                .execute_batch("ALTER TABLE software_info DROP COLUMN created_at;")?;
         }
         if !columns.contains(&"version_extract_regex".to_string()) {
-            self.conn.execute_batch("ALTER TABLE software_info ADD COLUMN version_extract_regex TEXT;")?;
+            self.conn.execute_batch(
+                "ALTER TABLE software_info ADD COLUMN version_extract_regex TEXT;",
+            )?;
         }
 
         if columns.contains(&"license_id".to_string()) {
@@ -59,7 +81,8 @@ impl Database {
             if fk_has_license {
                 self.rebuild_software_info_without_license_fk()?;
             } else {
-                self.conn.execute_batch("ALTER TABLE software_info DROP COLUMN license_id;")?;
+                self.conn
+                    .execute_batch("ALTER TABLE software_info DROP COLUMN license_id;")?;
             }
         }
         Ok(())
@@ -81,20 +104,21 @@ impl Database {
                 language_id             INTEGER,
                 version_extract_regex   TEXT,
                 FOREIGN KEY (language_id) REFERENCES enum_programming_languages(id)
-            );"
+            );",
         )?;
         self.conn.execute_batch(
             "INSERT INTO software_info_new
              SELECT software_id, pkgname, upstream_url, package_type_id, checker_type_id,
                     is_outdated, check_test_versions, check_binary_files, auto_check_enabled,
                     language_id, version_extract_regex
-             FROM software_info;"
+             FROM software_info;",
         )?;
         self.conn.execute_batch("DROP TABLE software_info;")?;
-        self.conn.execute_batch("ALTER TABLE software_info_new RENAME TO software_info;")?;
+        self.conn
+            .execute_batch("ALTER TABLE software_info_new RENAME TO software_info;")?;
         self.conn.execute_batch(
             "CREATE INDEX IF NOT EXISTS idx_software_pkgname ON software_info(pkgname);
-             CREATE INDEX IF NOT EXISTS idx_software_outdated ON software_info(is_outdated);"
+             CREATE INDEX IF NOT EXISTS idx_software_outdated ON software_info(is_outdated);",
         )?;
         self.conn.execute_batch("PRAGMA foreign_keys=ON;")?;
         Ok(())
@@ -102,7 +126,8 @@ impl Database {
 
     pub fn migrate_upstream_info(&self) -> AppResult<()> {
         let mut stmt = self.conn.prepare("PRAGMA table_info(upstream_info)")?;
-        let columns: Vec<String> = stmt.query_map([], |row| row.get(1))?
+        let columns: Vec<String> = stmt
+            .query_map([], |row| row.get(1))?
             .filter_map(|r| r.ok())
             .collect();
 
@@ -184,7 +209,8 @@ impl Database {
             }
 
             self.conn.execute_batch("DROP TABLE upstream_info;")?;
-            self.conn.execute_batch("ALTER TABLE upstream_info_new RENAME TO upstream_info;")?;
+            self.conn
+                .execute_batch("ALTER TABLE upstream_info_new RENAME TO upstream_info;")?;
             self.conn.execute_batch("PRAGMA foreign_keys=ON;")?;
         }
 
@@ -193,7 +219,8 @@ impl Database {
 
     pub fn migrate_enum_licenses(&self) -> AppResult<()> {
         let mut stmt = self.conn.prepare("PRAGMA table_info(enum_licenses)")?;
-        let columns: Vec<String> = stmt.query_map([], |row| row.get(1))?
+        let columns: Vec<String> = stmt
+            .query_map([], |row| row.get(1))?
             .filter_map(|r| r.ok())
             .collect();
 
@@ -204,14 +231,15 @@ impl Database {
                     id        INTEGER PRIMARY KEY AUTOINCREMENT,
                     spdx_id   TEXT NOT NULL UNIQUE,
                     full_name TEXT NOT NULL
-                );"
+                );",
             )?;
             self.conn.execute_batch(
                 "INSERT INTO enum_licenses_new (id, spdx_id, full_name)
-                 SELECT id, spdx_id, full_name FROM enum_licenses;"
+                 SELECT id, spdx_id, full_name FROM enum_licenses;",
             )?;
             self.conn.execute_batch("DROP TABLE enum_licenses;")?;
-            self.conn.execute_batch("ALTER TABLE enum_licenses_new RENAME TO enum_licenses;")?;
+            self.conn
+                .execute_batch("ALTER TABLE enum_licenses_new RENAME TO enum_licenses;")?;
             self.conn.execute_batch("PRAGMA foreign_keys=ON;")?;
         }
         Ok(())

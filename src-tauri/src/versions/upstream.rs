@@ -1,6 +1,6 @@
+use super::remove_git_describe_metadata;
 use log::debug;
 use regex::Regex;
-use super::remove_git_describe_metadata;
 
 use super::rules::CleanupRules;
 
@@ -14,9 +14,9 @@ impl UpstreamVersion {
     pub fn parse(raw: &str) -> Self {
         let raw = raw.trim().to_string();
         let normalized_version = Self::cleanup(&raw);
-        
+
         debug!("解析上游版本 '{}': 标准化后='{}'", raw, normalized_version);
-        
+
         UpstreamVersion {
             raw,
             normalized_version,
@@ -26,9 +26,12 @@ impl UpstreamVersion {
     pub fn parse_with_rules(raw: &str, rules: &CleanupRules) -> Self {
         let raw = raw.trim().to_string();
         let normalized_version = Self::cleanup_with_rules(&raw, rules);
-        
-        debug!("使用规则解析上游版本 '{}': 标准化后='{}'", raw, normalized_version);
-        
+
+        debug!(
+            "使用规则解析上游版本 '{}': 标准化后='{}'",
+            raw, normalized_version
+        );
+
         UpstreamVersion {
             raw,
             normalized_version,
@@ -42,20 +45,20 @@ impl UpstreamVersion {
 
     fn cleanup_with_rules(version: &str, rules: &CleanupRules) -> String {
         let mut result = version.to_string();
-        
+
         result = Self::remove_prefixes(&result, &rules.prefixes);
-        
+
         result = Self::remove_suffixes(&result, &rules.suffixes);
-        
+
         // 使用公共函数清理 git describe 格式
         result = remove_git_describe_metadata(&result);
-        
+
         result = Self::remove_build_metadata(&result);
-        
+
         result = result.replace('-', "_");
-        
+
         result = result.trim().to_string();
-        
+
         if result.is_empty() {
             version.to_string()
         } else {
@@ -84,10 +87,13 @@ impl UpstreamVersion {
                 break;
             }
         }
-        
-        let re = Regex::new(r"-(release|uos|arch|linux|debian|ubuntu|fedora|centos|el\d+|fc\d+|srpm|rpm|deb)$").unwrap();
+
+        let re = Regex::new(
+            r"-(release|uos|arch|linux|debian|ubuntu|fedora|centos|el\d+|fc\d+|srpm|rpm|deb)$",
+        )
+        .unwrap();
         result = re.replace(&result, "").to_string();
-        
+
         result
     }
 
@@ -176,7 +182,7 @@ mod tests {
         let mut rules = CleanupRules::default();
         rules.add_prefix("myapp-");
         rules.add_suffix("-custom");
-        
+
         let v = UpstreamVersion::parse_with_rules("myapp-1.2.3-custom", &rules);
         assert_eq!(v.raw, "myapp-1.2.3-custom");
         assert_eq!(v.normalized_version, "1.2.3");
@@ -188,11 +194,11 @@ mod tests {
         let v = UpstreamVersion::parse("v2.0.1.r0.g30a6260");
         assert_eq!(v.raw, "v2.0.1.r0.g30a6260");
         assert_eq!(v.normalized_version, "2.0.1");
-        
+
         let v = UpstreamVersion::parse("1.7.0.r0.gb9a08cc");
         assert_eq!(v.raw, "1.7.0.r0.gb9a08cc");
         assert_eq!(v.normalized_version, "1.7.0");
-        
+
         let v = UpstreamVersion::parse("2.0.1.r5.g9a27946");
         assert_eq!(v.raw, "2.0.1.r5.g9a27946");
         assert_eq!(v.normalized_version, "2.0.1");

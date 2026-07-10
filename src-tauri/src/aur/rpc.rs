@@ -1,6 +1,6 @@
 use crate::errors::AppResult;
-use reqwest::Client;
 use log::{debug, info};
+use reqwest::Client;
 
 const AUR_RPC_URL: &str = "https://aur.archlinux.org/rpc/v5";
 
@@ -18,7 +18,10 @@ pub struct AurPackageData {
     pub last_modified: Option<i64>,
 }
 
-pub async fn fetch_packages_by_user(client: &Client, username: &str) -> AppResult<Vec<AurPackageData>> {
+pub async fn fetch_packages_by_user(
+    client: &Client,
+    username: &str,
+) -> AppResult<Vec<AurPackageData>> {
     let mut all = Vec::new();
     let mut seen = std::collections::HashSet::new();
 
@@ -34,7 +37,10 @@ pub async fn fetch_packages_by_user(client: &Client, username: &str) -> AppResul
                         if pkgname.is_empty() || !seen.insert(pkgname.clone()) {
                             continue;
                         }
-                        debug!("  解析包: {} (仅search基础字段, info字段需二次请求)", pkgname);
+                        debug!(
+                            "  解析包: {} (仅search基础字段, info字段需二次请求)",
+                            pkgname
+                        );
                         all.push(AurPackageData {
                             pkgname,
                             pkgdesc: item["Description"].as_str().map(|s| s.to_string()),
@@ -53,25 +59,41 @@ pub async fn fetch_packages_by_user(client: &Client, username: &str) -> AppResul
         }
     }
 
-    info!("search阶段: 共获取 {} 个基础包名, 开始请求每个包的完整 info", all.len());
+    info!(
+        "search阶段: 共获取 {} 个基础包名, 开始请求每个包的完整 info",
+        all.len()
+    );
 
     for pkg in &mut all {
         debug!("请求完整信息: {}", pkg.pkgname);
         if let Ok(Some(data)) = get_package_info(client, &pkg.pkgname).await {
-            debug!("info API 返回: {}", serde_json::to_string(&data).unwrap_or_default());
+            debug!(
+                "info API 返回: {}",
+                serde_json::to_string(&data).unwrap_or_default()
+            );
             pkg.pkgdesc = data["Description"].as_str().map(|s| s.to_string());
             pkg.version = data["Version"].as_str().map(|s| s.to_string());
             pkg.url = data["URL"].as_str().map(|s| s.to_string());
-            pkg.license = data["License"].as_array()
+            pkg.license = data["License"]
+                .as_array()
                 .and_then(|a| a.first())
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string());
-            pkg.depends = data["Depends"].as_array()
-                .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect());
-            pkg.makedepends = data["MakeDepends"].as_array()
-                .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect());
-            pkg.optdepends = data["OptDepends"].as_array()
-                .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect());
+            pkg.depends = data["Depends"].as_array().map(|a| {
+                a.iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect()
+            });
+            pkg.makedepends = data["MakeDepends"].as_array().map(|a| {
+                a.iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect()
+            });
+            pkg.optdepends = data["OptDepends"].as_array().map(|a| {
+                a.iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect()
+            });
             pkg.out_of_date = data["OutOfDate"].as_i64().map(|v| v != 0);
             pkg.last_modified = data["LastModified"].as_i64();
         }
@@ -81,7 +103,10 @@ pub async fn fetch_packages_by_user(client: &Client, username: &str) -> AppResul
     Ok(all)
 }
 
-pub async fn get_package_info(client: &Client, pkgname: &str) -> AppResult<Option<serde_json::Value>> {
+pub async fn get_package_info(
+    client: &Client,
+    pkgname: &str,
+) -> AppResult<Option<serde_json::Value>> {
     let url = format!("{}/info/{}", AUR_RPC_URL, pkgname);
     debug!("请求 AUR info API: {}", url);
     let resp = client.get(&url).send().await?;
@@ -98,7 +123,10 @@ pub async fn get_package_info(client: &Client, pkgname: &str) -> AppResult<Optio
     }
 }
 
-pub async fn get_packages_info(client: &Client, pkgnames: &[String]) -> AppResult<Vec<serde_json::Value>> {
+pub async fn get_packages_info(
+    client: &Client,
+    pkgnames: &[String],
+) -> AppResult<Vec<serde_json::Value>> {
     if pkgnames.is_empty() {
         return Ok(Vec::new());
     }
@@ -112,7 +140,8 @@ pub async fn get_packages_info(client: &Client, pkgnames: &[String]) -> AppResul
     let data: serde_json::Value = resp.json().await?;
     let resultcount = data["resultcount"].as_i64().unwrap_or(0);
     debug!("批量查询返回 {} 个结果", resultcount);
-    let results = data["results"].as_array()
+    let results = data["results"]
+        .as_array()
         .map(|arr| arr.iter().cloned().collect())
         .unwrap_or_default();
     Ok(results)

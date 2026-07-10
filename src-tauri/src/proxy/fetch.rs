@@ -1,13 +1,13 @@
-use reqwest::Client;
 use log::info;
+use reqwest::Client;
 
 use crate::errors::AppResult;
 
 /// 从 userscript 获取的代理信息
 #[derive(Debug, Clone)]
 pub struct FetchedProxy {
-    pub url: String,               // 代理 URL
-    pub region: Option<String>,    // 代理所在区域
+    pub url: String,                 // 代理 URL
+    pub region: Option<String>,      // 代理所在区域
     pub description: Option<String>, // 代理描述
 }
 
@@ -123,7 +123,11 @@ fn extract_array_entries(text: &str, array_name: &str) -> Option<Vec<String>> {
         i += 1;
     }
 
-    if entries.is_empty() { None } else { Some(entries) }
+    if entries.is_empty() {
+        None
+    } else {
+        Some(entries)
+    }
 }
 
 /// 解析单个代理条目字符串
@@ -138,10 +142,18 @@ fn parse_proxy_entry(entry: &str) -> Option<FetchedProxy> {
     }
     // 去除引号和空白
     let url = parts[0].trim().trim_matches('\'').to_string();
-    let region = parts.get(1).map(|s| s.trim().trim_matches('\'').to_string());
-    let description = parts.get(2).map(|s| s.trim().trim_matches('\'').to_string());
+    let region = parts
+        .get(1)
+        .map(|s| s.trim().trim_matches('\'').to_string());
+    let description = parts
+        .get(2)
+        .map(|s| s.trim().trim_matches('\'').to_string());
     if url.is_empty() {
         return None;
     }
-    Some(FetchedProxy { url, region, description })
+    Some(FetchedProxy {
+        url,
+        region,
+        description,
+    })
 }

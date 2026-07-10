@@ -12,10 +12,7 @@ use crate::AppState;
 
 /// 获取日志列表
 #[tauri::command]
-pub async fn get_logs(
-    state: State<'_, AppState>,
-    limit: Option<i64>,
-) -> AppResult<Vec<LogEntry>> {
+pub async fn get_logs(state: State<'_, AppState>, limit: Option<i64>) -> AppResult<Vec<LogEntry>> {
     debug!("正在获取日志 (limit={:?})", limit);
     let db = state.db.lock()?;
     db.get_logs(limit.unwrap_or(100))

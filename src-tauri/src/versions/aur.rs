@@ -1,5 +1,5 @@
-use log::debug;
 use super::remove_git_describe_metadata;
+use log::debug;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AurVersion {
@@ -35,8 +35,10 @@ impl AurVersion {
 
         let normalized_version = Self::normalize(&version_part);
 
-        debug!("解析AUR版本 '{}': epoch={:?}, version={}, pkgrel={:?}, normalized={}",
-               raw, epoch_part, version_part, pkgrel_part, normalized_version);
+        debug!(
+            "解析AUR版本 '{}': epoch={:?}, version={}, pkgrel={:?}, normalized={}",
+            raw, epoch_part, version_part, pkgrel_part, normalized_version
+        );
 
         AurVersion {
             epoch: epoch_part,
@@ -48,7 +50,7 @@ impl AurVersion {
 
     pub fn normalize(version: &str) -> String {
         let result = version.replace('-', "_");
-        
+
         // 使用公共函数清理 git describe 格式
         remove_git_describe_metadata(&result)
     }
@@ -80,7 +82,13 @@ impl AurVersion {
             return false;
         }
         for c in self.version.chars() {
-            if !c.is_ascii_alphanumeric() && c != '.' && c != '_' && c != '+' && c != ':' && c != '~' {
+            if !c.is_ascii_alphanumeric()
+                && c != '.'
+                && c != '_'
+                && c != '+'
+                && c != ':'
+                && c != '~'
+            {
                 return false;
             }
         }

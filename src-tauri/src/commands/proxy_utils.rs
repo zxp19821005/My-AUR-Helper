@@ -25,7 +25,10 @@ fn get_gnome_system_proxy() -> Option<String> {
         .ok()
         .and_then(|o| {
             if o.status.success() {
-                let s = String::from_utf8_lossy(&o.stdout).trim().trim_matches('\'').to_string();
+                let s = String::from_utf8_lossy(&o.stdout)
+                    .trim()
+                    .trim_matches('\'')
+                    .to_string();
                 (!s.is_empty()).then_some(s)
             } else {
                 None
@@ -47,7 +50,8 @@ fn get_gnome_system_proxy() -> Option<String> {
 }
 
 pub fn get_active_proxy(db: &crate::db::Database) -> Option<String> {
-    let db_proxy = db.get_active_proxies(&ProxyType::Download)
+    let db_proxy = db
+        .get_active_proxies(&ProxyType::Download)
         .ok()
         .and_then(|list| list.into_iter().next())
         .map(|p| p.url);
@@ -59,15 +63,15 @@ pub fn get_active_proxy(db: &crate::db::Database) -> Option<String> {
         return Some(proxy);
     }
 
-    std::env::var("http_proxy").ok()
+    std::env::var("http_proxy")
+        .ok()
         .or_else(|| std::env::var("https_proxy").ok())
         .or_else(|| std::env::var("all_proxy").ok())
         .filter(|v| !v.is_empty())
 }
 
 pub fn build_client(timeout_secs: u64, proxy_url: Option<&str>) -> reqwest::Client {
-    let mut builder = reqwest::Client::builder()
-        .timeout(Duration::from_secs(timeout_secs));
+    let mut builder = reqwest::Client::builder().timeout(Duration::from_secs(timeout_secs));
     if let Some(url) = proxy_url {
         if url.starts_with("http://") || url.starts_with("https://") {
             info!("[HTTP代理] 使用代理: {}", url);
@@ -75,7 +79,10 @@ pub fn build_client(timeout_secs: u64, proxy_url: Option<&str>) -> reqwest::Clie
                 builder = builder.proxy(proxy);
             }
         } else if url.starts_with("socks5://") {
-            info!("[HTTP代理] SOCKS5代理不支持（需要启用 socks 特性），跳过: {}", url);
+            info!(
+                "[HTTP代理] SOCKS5代理不支持（需要启用 socks 特性），跳过: {}",
+                url
+            );
         }
     }
     builder.build().unwrap_or_default()

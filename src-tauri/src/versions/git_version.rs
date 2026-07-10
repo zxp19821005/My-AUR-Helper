@@ -2,7 +2,7 @@ use regex::Regex;
 
 /// 清理 git describe 格式的版本元数据
 /// 将 tag.rN.gHASH 格式转换为纯 tag 格式
-/// 
+///
 /// # 示例
 /// - `1.0.0.beta.118.r0.gc044c59` -> `1.0.0.beta.118`
 /// - `v2.0.1.r0.g30a6260` -> `v2.0.1`
@@ -16,7 +16,7 @@ pub fn remove_git_describe_metadata(version: &str) -> String {
 
 /// 从 rN.HASH 格式中提取 commit count
 /// 用于没有 tag 的 -git 包版本比较
-/// 
+///
 /// # 示例
 /// - `r1234.abcdef0` -> Some(1234)
 /// - `r0.abcdef0` -> Some(0)
@@ -46,27 +46,12 @@ mod tests {
             remove_git_describe_metadata("1.0.0.beta.118.r0.gc044c59"),
             "1.0.0.beta.118"
         );
-        assert_eq!(
-            remove_git_describe_metadata("v2.0.1.r0.g30a6260"),
-            "v2.0.1"
-        );
-        assert_eq!(
-            remove_git_describe_metadata("1.7.0.r0.gb9a08cc"),
-            "1.7.0"
-        );
-        assert_eq!(
-            remove_git_describe_metadata("2.0.1.r5.g9a27946"),
-            "2.0.1"
-        );
+        assert_eq!(remove_git_describe_metadata("v2.0.1.r0.g30a6260"), "v2.0.1");
+        assert_eq!(remove_git_describe_metadata("1.7.0.r0.gb9a08cc"), "1.7.0");
+        assert_eq!(remove_git_describe_metadata("2.0.1.r5.g9a27946"), "2.0.1");
         // 非 git describe 格式应该保持不变
-        assert_eq!(
-            remove_git_describe_metadata("1.2.3"),
-            "1.2.3"
-        );
-        assert_eq!(
-            remove_git_describe_metadata("1.2.3-beta1"),
-            "1.2.3-beta1"
-        );
+        assert_eq!(remove_git_describe_metadata("1.2.3"), "1.2.3");
+        assert_eq!(remove_git_describe_metadata("1.2.3-beta1"), "1.2.3-beta1");
     }
 
     #[test]

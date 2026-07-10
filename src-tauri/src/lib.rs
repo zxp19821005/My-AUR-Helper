@@ -9,23 +9,23 @@
  * - 注册所有 Tauri 命令
  * - 处理窗口关闭事件
  */
-pub mod aur;        // AUR RPC API 交互模块
-pub mod backup;     // 备份管理模块
-pub mod checkers;   // 版本检查器模块
-pub mod commands;   // Tauri IPC 命令模块
-pub mod db;         // 数据库操作模块
-pub mod errors;     // 统一错误处理模块
-pub mod logger;     // 日志轮转与输出模块
-pub mod models;     // 数据模型模块
-pub mod proxy;      // 代理管理模块
-pub mod versions;   // 版本处理模块
+pub mod aur; // AUR RPC API 交互模块
+pub mod backup; // 备份管理模块
+pub mod checkers; // 版本检查器模块
+pub mod commands; // Tauri IPC 命令模块
+pub mod db; // 数据库操作模块
+pub mod errors; // 统一错误处理模块
+pub mod logger; // 日志轮转与输出模块
+pub mod models; // 数据模型模块
+pub mod proxy; // 代理管理模块
+pub mod versions; // 版本处理模块
 
-use std::path::PathBuf;       // 路径缓冲区，用于构建文件路径
-use std::sync::Mutex;         // 互斥锁，保证数据库连接的线程安全访问
+use std::path::PathBuf; // 路径缓冲区，用于构建文件路径
+use std::sync::Mutex; // 互斥锁，保证数据库连接的线程安全访问
 use tauri::{
-    menu::{Menu, MenuItem},   // Tauri 菜单组件
+    menu::{Menu, MenuItem}, // Tauri 菜单组件
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}, // 系统托盘相关
-    Manager,                  // Tauri 应用管理器 trait
+    Manager,                // Tauri 应用管理器 trait
 };
 
 /// 应用状态，包含数据库连接
@@ -52,10 +52,10 @@ fn get_config_dir() -> PathBuf {
 /// @param default - 默认值，当数据库中不存在该键时返回
 /// @returns 设置值的字符串
 fn get_setting_string(db: &db::Database, key: &str, default: &str) -> String {
-    db.get_setting(key)       // 从数据库查询设置
-        .ok()                 // 将 Result 转为 Option
-        .flatten()            // 展开 Option<Option<Setting>>
-        .map(|s| s.value)     // 提取 Setting 的值字段
+    db.get_setting(key) // 从数据库查询设置
+        .ok() // 将 Result 转为 Option
+        .flatten() // 展开 Option<Option<Setting>>
+        .map(|s| s.value) // 提取 Setting 的值字段
         .unwrap_or_else(|| default.to_string()) // 不存在则返回默认值
 }
 
@@ -70,20 +70,17 @@ pub fn run() {
         .setup(move |app| {
             // 初始化数据库
             let app_dir = app.path().app_config_dir()?;
-            std::fs::create_dir_all(&app_dir).map_err(|e| {
-                errors::AppError::FileOperation(format!("创建配置目录失败: {}", e))
-            })?;
+            std::fs::create_dir_all(&app_dir)
+                .map_err(|e| errors::AppError::FileOperation(format!("创建配置目录失败: {}", e)))?;
             let db_path = app_dir.join("my_aur_helper.db"); // 数据库文件路径
-            let database = db::Database::new(&db_path)
-                .map_err(|e| {
-                    eprintln!("数据库初始化失败: {}", e);
-                    errors::AppError::DatabaseError(format!("数据库初始化失败: {}", e))
-                })?;
-            database.initialize()
-                .map_err(|e| {
-                    eprintln!("数据库表结构初始化失败: {}", e);
-                    errors::AppError::DatabaseError(format!("数据库表结构初始化失败: {}", e))
-                })?;
+            let database = db::Database::new(&db_path).map_err(|e| {
+                eprintln!("数据库初始化失败: {}", e);
+                errors::AppError::DatabaseError(format!("数据库初始化失败: {}", e))
+            })?;
+            database.initialize().map_err(|e| {
+                eprintln!("数据库表结构初始化失败: {}", e);
+                errors::AppError::DatabaseError(format!("数据库表结构初始化失败: {}", e))
+            })?;
 
             // 读取日志设置并初始化日志轮转系统
             let logs_dir = config_dir.join("logs");
@@ -96,12 +93,20 @@ pub fn run() {
             logger::update_log_settings(log_max_size, log_max_files);
             let rotating_logger = logger::RotatingLogger::new(logs_dir, "applog".to_string());
             rotating_logger.init().expect("初始化日志记录器失败");
-            log::info!("日志系统已初始化，最大大小: {}KB, 最大文件数: {}", log_max_size / 1024, log_max_files);
+            log::info!(
+                "日志系统已初始化，最大大小: {}KB, 最大文件数: {}",
+                log_max_size / 1024,
+                log_max_files
+            );
 
             // 读取系统托盘设置
             let show_tray = get_setting_string(&database, "show_tray_icon", "true") == "true";
             let close_action = get_setting_string(&database, "close_action", "minimize_to_tray");
-            log::info!("配置: show_tray_icon={}, close_action={}", show_tray, close_action);
+            log::info!(
+                "配置: show_tray_icon={}, close_action={}",
+                show_tray,
+                close_action
+            );
 
             // 存储窗口关闭动作配置
             app.manage(CloseAction(close_action));
@@ -116,8 +121,8 @@ pub fn run() {
                 // 创建托盘图标
                 let _tray = TrayIconBuilder::new()
                     .icon(app.default_window_icon().unwrap().clone()) // 使用应用默认图标
-                    .menu(&menu)                                      // 绑定菜单
-                    .tooltip("My AUR Helper")                         // 鼠标悬停提示
+                    .menu(&menu) // 绑定菜单
+                    .tooltip("My AUR Helper") // 鼠标悬停提示
                     // 菜单事件处理
                     .on_menu_event(move |app, event| {
                         match event.id.as_ref() {
@@ -184,71 +189,71 @@ pub fn run() {
         // 注册所有 Tauri 命令
         .invoke_handler(tauri::generate_handler![
             // 软件包管理
-            commands::software::list_software,           // 获取所有软件包列表
-            commands::software::list_software_view,      // 获取软件包列表展示数据
-            commands::software::get_software,            // 根据包名获取单个软件包
-            commands::software::get_software_detail,     // 获取软件包完整详情
-            commands::software::get_prev_next_software,  // 获取上一个/下一个软件包（导航用）
-            commands::software::search_software,         // 搜索软件包
-            commands::software::add_software,            // 添加新的软件包
-            commands::software::update_software,         // 更新软件包信息
-            commands::software::delete_software,         // 删除软件包
-            commands::software::batch_delete_software,   // 批量删除软件包
-            commands::software::set_software_license,    // 设置软件包的 License
-            commands::software::set_software_language,   // 设置软件包的编程语言
-            commands::software_sync::aur::sync_from_aur,           // 从 AUR 同步软件包
-            commands::software_sync::aur::update_aur_info,         // 更新 AUR 信息
-            commands::software_sync::pkgbuild::sync_from_pkgbuild,      // 从 PKGBUILD 文件同步
-            commands::software_sync::upstream::check_all_upstream,      // 并行检查所有软件包的上游版本
-            commands::software_check::check_upstream_version,  // 检查单个软件包的上游版本
+            commands::software::list_software, // 获取所有软件包列表
+            commands::software::list_software_view, // 获取软件包列表展示数据
+            commands::software::get_software,  // 根据包名获取单个软件包
+            commands::software::get_software_detail, // 获取软件包完整详情
+            commands::software::get_prev_next_software, // 获取上一个/下一个软件包（导航用）
+            commands::software::search_software, // 搜索软件包
+            commands::software::add_software,  // 添加新的软件包
+            commands::software::update_software, // 更新软件包信息
+            commands::software::delete_software, // 删除软件包
+            commands::software::batch_delete_software, // 批量删除软件包
+            commands::software::set_software_license, // 设置软件包的 License
+            commands::software::set_software_language, // 设置软件包的编程语言
+            commands::software_sync::aur::sync_from_aur, // 从 AUR 同步软件包
+            commands::software_sync::aur::update_aur_info, // 更新 AUR 信息
+            commands::software_sync::pkgbuild::sync_from_pkgbuild, // 从 PKGBUILD 文件同步
+            commands::software_sync::upstream::check_all_upstream, // 并行检查所有软件包的上游版本
+            commands::software_check::check_upstream_version, // 检查单个软件包的上游版本
             commands::software_check::check_selected_upstream, // 检查选中的软件包上游版本
             // 扫描
-            commands::scan::scan_directory,              // 扫描指定目录（单层）
-            commands::scan::scan_directory_recursive,    // 递归扫描目录树
-            commands::scan::scan_pkg_files_cmd,          // 扫描 .pkg.tar.zst 包文件
+            commands::scan::scan_directory, // 扫描指定目录（单层）
+            commands::scan::scan_directory_recursive, // 递归扫描目录树
+            commands::scan::scan_pkg_files_cmd, // 扫描 .pkg.tar.zst 包文件
             // 备份管理
-            commands::backup::run_backup,                // 执行备份操作
+            commands::backup::run_backup, // 执行备份操作
             // 代理管理
-            commands::proxy::get_proxies,                // 获取所有代理列表
-            commands::proxy::fetch_proxy_sources,        // 从 Greasyfork 获取代理源
-            commands::proxy::test_proxy,                 // 测试代理延迟
-            commands::proxy::set_proxy_active,           // 设置代理启用状态
+            commands::proxy::get_proxies,         // 获取所有代理列表
+            commands::proxy::fetch_proxy_sources, // 从 Greasyfork 获取代理源
+            commands::proxy::test_proxy,          // 测试代理延迟
+            commands::proxy::set_proxy_active,    // 设置代理启用状态
             // 文件操作
-            commands::files::operations::copy_file,                  // 复制文件或目录
-            commands::files::operations::move_file,                  // 移动文件或目录
-            commands::files::operations::delete_file,                // 删除文件或目录
-            commands::files::operations::delete_directory,           // 删除目录
-            commands::files::operations::create_directory,           // 创建目录
-            commands::files::operations::read_file,                  // 读取文件内容
-            commands::files::operations::list_directory,             // 列出目录内容
-            commands::files::operations::file_exists,                // 检查文件是否存在
-            commands::files::operations::file_metadata,              // 获取文件元信息
-            commands::files::scan::scan_pkg_files,                   // 扫描 .pkg.tar 文件
-            commands::files::operations::batch_delete,               // 批量删除文件
+            commands::files::operations::copy_file, // 复制文件或目录
+            commands::files::operations::move_file, // 移动文件或目录
+            commands::files::operations::delete_file, // 删除文件或目录
+            commands::files::operations::delete_directory, // 删除目录
+            commands::files::operations::create_directory, // 创建目录
+            commands::files::operations::read_file, // 读取文件内容
+            commands::files::operations::list_directory, // 列出目录内容
+            commands::files::operations::file_exists, // 检查文件是否存在
+            commands::files::operations::file_metadata, // 获取文件元信息
+            commands::files::scan::scan_pkg_files,  // 扫描 .pkg.tar 文件
+            commands::files::operations::batch_delete, // 批量删除文件
             // 系统命令
-            commands::sys_command::run_command,          // 执行任意系统命令
-            commands::sys_command::install_package,      // 安装软件包
-            commands::sys_command::remove_package,       // 卸载软件包
-            commands::sys_command::clean_cache,          // 清理 pacman 缓存
-            commands::sys_command::get_package_version,  // 获取已安装包的版本
+            commands::sys_command::run_command, // 执行任意系统命令
+            commands::sys_command::install_package, // 安装软件包
+            commands::sys_command::remove_package, // 卸载软件包
+            commands::sys_command::clean_cache, // 清理 pacman 缓存
+            commands::sys_command::get_package_version, // 获取已安装包的版本
             commands::sys_command::list_installed_packages, // 列出所有已安装包
-            commands::sys_command::sync_database,        // 同步 pacman 数据库
-            commands::sys_command::makepkg,              // 运行 makepkg 构建
+            commands::sys_command::sync_database, // 同步 pacman 数据库
+            commands::sys_command::makepkg,     // 运行 makepkg 构建
             // 日志管理
-            commands::logs::get_logs,                    // 获取日志列表
-            commands::logs::clear_logs,                  // 清空日志
+            commands::logs::get_logs,   // 获取日志列表
+            commands::logs::clear_logs, // 清空日志
             // 设置管理
-            commands::settings::get_settings,            // 获取所有设置
-            commands::settings::get_setting,             // 获取单个设置
-            commands::settings::set_setting,             // 设置配置值
-            commands::settings::apply_log_settings,      // 应用日志轮转设置
+            commands::settings::get_settings,       // 获取所有设置
+            commands::settings::get_setting,        // 获取单个设置
+            commands::settings::set_setting,        // 设置配置值
+            commands::settings::apply_log_settings, // 应用日志轮转设置
             // 枚举值管理
-            commands::enums::get_licenses,               // 获取所有 License
-            commands::enums::sync_licenses_from_spdx,    // 从 SPDX 同步 License
-            commands::enums::add_license,                // 添加 License
-            commands::enums::get_languages,              // 获取所有编程语言
-            commands::enums::upsert_language,            // 添加或更新编程语言
-            commands::enums::delete_language,            // 删除编程语言
+            commands::enums::get_licenses, // 获取所有 License
+            commands::enums::sync_licenses_from_spdx, // 从 SPDX 同步 License
+            commands::enums::add_license,  // 添加 License
+            commands::enums::get_languages, // 获取所有编程语言
+            commands::enums::upsert_language, // 添加或更新编程语言
+            commands::enums::delete_language, // 删除编程语言
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

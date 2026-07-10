@@ -63,24 +63,30 @@ pub async fn sync_from_pkgbuild(
     let total = dir_entries.len();
     info!("找到 {} 个软件包目录待同步", total);
 
-    let _ = app.emit("sync-progress", serde_json::json!({
-        "current": 0,
-        "total": total,
-        "pkgname": "",
-        "message": format!("开始同步，共 {} 个包", total),
-    }));
+    let _ = app.emit(
+        "sync-progress",
+        serde_json::json!({
+            "current": 0,
+            "total": total,
+            "pkgname": "",
+            "message": format!("开始同步，共 {} 个包", total),
+        }),
+    );
 
     let mut count = 0i64;
     for (i, entry) in dir_entries.iter().enumerate() {
         let dir_name = entry.file_name().to_string_lossy().to_string();
         let pkg_path = entry.path();
 
-        let _ = app.emit("sync-progress", serde_json::json!({
-            "current": i,
-            "total": total,
-            "pkgname": dir_name,
-            "message": format!("[{}/{}] 正在处理: {}", i + 1, total, dir_name),
-        }));
+        let _ = app.emit(
+            "sync-progress",
+            serde_json::json!({
+                "current": i,
+                "total": total,
+                "pkgname": dir_name,
+                "message": format!("[{}/{}] 正在处理: {}", i + 1, total, dir_name),
+            }),
+        );
 
         match aur::read_pkgbuild(&pkg_path).await {
             Ok(Some((sw, _))) => {
@@ -105,15 +111,23 @@ pub async fn sync_from_pkgbuild(
                 let _ = db.upsert_software(&sw);
                 count += 1;
 
-                let _ = app.emit("sync-progress", serde_json::json!({
-                    "current": i + 1,
-                    "total": total,
-                    "pkgname": sw.pkgname,
-                    "message": format!("[{}/{}] 已完成: {}", i + 1, total, dir_name),
-                }));
+                let _ = app.emit(
+                    "sync-progress",
+                    serde_json::json!({
+                        "current": i + 1,
+                        "total": total,
+                        "pkgname": sw.pkgname,
+                        "message": format!("[{}/{}] 已完成: {}", i + 1, total, dir_name),
+                    }),
+                );
             }
             Ok(None) => {
-                info!("[{}/{}] {} - 跳过（无 PKGBUILD 文件）", i + 1, total, dir_name);
+                info!(
+                    "[{}/{}] {} - 跳过（无 PKGBUILD 文件）",
+                    i + 1,
+                    total,
+                    dir_name
+                );
                 let _ = app.emit("sync-progress", serde_json::json!({
                     "current": i + 1,
                     "total": total,
@@ -123,22 +137,28 @@ pub async fn sync_from_pkgbuild(
             }
             Err(e) => {
                 error!("[{}/{}] {} - 解析失败: {}", i + 1, total, dir_name, e);
-                let _ = app.emit("sync-progress", serde_json::json!({
-                    "current": i + 1,
-                    "total": total,
-                    "pkgname": dir_name,
-                    "message": format!("[{}/{}] 失败: {} ({})", i + 1, total, dir_name, e),
-                }));
+                let _ = app.emit(
+                    "sync-progress",
+                    serde_json::json!({
+                        "current": i + 1,
+                        "total": total,
+                        "pkgname": dir_name,
+                        "message": format!("[{}/{}] 失败: {} ({})", i + 1, total, dir_name, e),
+                    }),
+                );
             }
         }
     }
 
-    let _ = app.emit("sync-progress", serde_json::json!({
-        "current": total,
-        "total": total,
-        "pkgname": "",
-        "message": format!("同步完成，成功 {} 个", count),
-    }));
+    let _ = app.emit(
+        "sync-progress",
+        serde_json::json!({
+            "current": total,
+            "total": total,
+            "pkgname": "",
+            "message": format!("同步完成，成功 {} 个", count),
+        }),
+    );
 
     info!("已从 PKGBUILD 文件同步 {} 个软件包", count);
     Ok(count)

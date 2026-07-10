@@ -94,7 +94,11 @@ impl Database {
         Ok(rows.next().transpose()?)
     }
 
-    pub fn update_software_language(&self, software_id: i64, language_id: Option<i64>) -> AppResult<()> {
+    pub fn update_software_language(
+        &self,
+        software_id: i64,
+        language_id: Option<i64>,
+    ) -> AppResult<()> {
         self.conn.execute(
             "UPDATE software_info SET language_id=?1 WHERE software_id=?2",
             rusqlite::params![language_id, software_id],
@@ -185,18 +189,25 @@ impl Database {
         Ok(rows.next().transpose()?)
     }
 
-    pub fn get_prev_next_software(&self, pkgname: &str) -> AppResult<(Option<String>, Option<String>)> {
+    pub fn get_prev_next_software(
+        &self,
+        pkgname: &str,
+    ) -> AppResult<(Option<String>, Option<String>)> {
         let mut stmt = self.conn.prepare(
-            "SELECT pkgname FROM software_info WHERE pkgname < ?1 ORDER BY pkgname DESC LIMIT 1"
+            "SELECT pkgname FROM software_info WHERE pkgname < ?1 ORDER BY pkgname DESC LIMIT 1",
         )?;
-        let prev = stmt.query_map(rusqlite::params![pkgname], |row| row.get(0))?
-            .next().transpose()?;
+        let prev = stmt
+            .query_map(rusqlite::params![pkgname], |row| row.get(0))?
+            .next()
+            .transpose()?;
 
         let mut stmt = self.conn.prepare(
-            "SELECT pkgname FROM software_info WHERE pkgname > ?1 ORDER BY pkgname ASC LIMIT 1"
+            "SELECT pkgname FROM software_info WHERE pkgname > ?1 ORDER BY pkgname ASC LIMIT 1",
         )?;
-        let next = stmt.query_map(rusqlite::params![pkgname], |row| row.get(0))?
-            .next().transpose()?;
+        let next = stmt
+            .query_map(rusqlite::params![pkgname], |row| row.get(0))?
+            .next()
+            .transpose()?;
 
         Ok((prev, next))
     }
@@ -209,7 +220,7 @@ impl Database {
              FROM software_info s
              LEFT JOIN aur_info a ON s.software_id = a.software_id
              LEFT JOIN upstream_info u ON s.software_id = u.software_id
-             ORDER BY s.pkgname"
+             ORDER BY s.pkgname",
         )?;
         let rows = stmt.query_map([], |row| {
             Ok(SoftwareListEntry {

@@ -13,9 +13,9 @@
 use log::{debug, info};
 use tauri::State;
 
+use super::utils::{detect_package_defaults, get_setting_opt, parse_u64, AurSyncResult};
 use crate::aur;
 use crate::commands::proxy_utils::{build_client, get_active_proxy};
-use super::utils::{get_setting_opt, parse_u64, detect_package_defaults, AurSyncResult};
 use crate::errors::{AppError, AppResult};
 use crate::models::*;
 use crate::AppState;
@@ -36,10 +36,14 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
     info!("正在从 AUR 同步软件包");
     let (username, timeout, proxy_url) = {
         let db = state.db.lock()?;
-        let username = db.get_setting("aur_username")?
+        let username = db
+            .get_setting("aur_username")?
             .map(|s| s.value)
             .unwrap_or_default();
-        let timeout = parse_u64(&get_setting_opt(&db, "http_timeout").unwrap_or_default(), 30);
+        let timeout = parse_u64(
+            &get_setting_opt(&db, "http_timeout").unwrap_or_default(),
+            30,
+        );
         let proxy_url = get_active_proxy(&db);
         (username, timeout, proxy_url)
     };
@@ -69,7 +73,7 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
 
     // 收集所有同步结果到内存
     let mut sync_results: Vec<AurSyncResult> = Vec::new();
-    
+
     for pkgname in &pkgnames {
         if let Some(data) = pkgname_to_data.get(pkgname) {
             debug!("处理软件包: {}", pkgname);
@@ -89,7 +93,8 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
             let sw = db.get_software_by_name(pkgname)?;
             if let Some(existing) = sw {
                 if let Some(sid) = existing.software_id {
-                    let (package_type, checker_type, check_test_versions, check_binary_files) = detect_package_defaults(&existing.pkgname);
+                    let (package_type, checker_type, check_test_versions, check_binary_files) =
+                        detect_package_defaults(&existing.pkgname);
                     let need_update = existing.checker_type_id != checker_type
                         || existing.package_type_id != package_type
                         || existing.check_test_versions != check_test_versions
@@ -97,8 +102,10 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
 
                     let license_spdx = license_str.map(|s| s.to_string());
                     let depends = depends_arr.map(|a| serde_json::to_string(a).unwrap_or_default());
-                    let makedepends = makedepends_arr.map(|a| serde_json::to_string(a).unwrap_or_default());
-                    let optdepends = optdepends_arr.map(|a| serde_json::to_string(a).unwrap_or_default());
+                    let makedepends =
+                        makedepends_arr.map(|a| serde_json::to_string(a).unwrap_or_default());
+                    let optdepends =
+                        optdepends_arr.map(|a| serde_json::to_string(a).unwrap_or_default());
 
                     sync_results.push(AurSyncResult {
                         pkgname: pkgname.clone(),
@@ -137,11 +144,12 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
             }
         }
 
-        let license_id = result.license_spdx.as_deref()
-            .and_then(|lic| {
-                db.get_license_by_spdx_id(lic).ok().flatten()
-                    .and_then(|e| e.id)
-            });
+        let license_id = result.license_spdx.as_deref().and_then(|lic| {
+            db.get_license_by_spdx_id(lic)
+                .ok()
+                .flatten()
+                .and_then(|e| e.id)
+        });
 
         let aur_info = AurInfo {
             software_id: result.software_id,
@@ -190,12 +198,15 @@ pub async fn update_aur_info(
     };
     let (timeout, proxy_url) = {
         let db = state.db.lock()?;
-        let timeout = parse_u64(&get_setting_opt(&db, "http_timeout").unwrap_or_default(), 30);
+        let timeout = parse_u64(
+            &get_setting_opt(&db, "http_timeout").unwrap_or_default(),
+            30,
+        );
         let proxy_url = get_active_proxy(&db);
         (timeout, proxy_url)
     };
     let client = build_client(timeout, proxy_url.as_deref());
-    
+
     // 并行获取所有 AUR 信息
     let mut handles = Vec::new();
     for pkgname in &pkgnames {
@@ -204,7 +215,10 @@ pub async fn update_aur_info(
         let pkgname_for_handle = pkgname.clone();
         let handle = tokio::spawn(async move {
             debug!("请求 AUR 信息: {}", pkgname_clone);
-            aur::get_package_info(&client, &pkgname_clone).await.ok().flatten()
+            aur::get_package_info(&client, &pkgname_clone)
+                .await
+                .ok()
+                .flatten()
         });
         handles.push((pkgname_for_handle, handle));
     }
@@ -235,15 +249,18 @@ pub async fn update_aur_info(
         let sw = db.get_software_by_name(pkgname)?;
         if let Some(existing) = sw {
             if let Some(sid) = existing.software_id {
-                let license_id = license_str
-                    .and_then(|lic| {
-                        db.get_license_by_spdx_id(lic).ok().flatten()
-                            .and_then(|e| e.id)
-                    });
+                let license_id = license_str.and_then(|lic| {
+                    db.get_license_by_spdx_id(lic)
+                        .ok()
+                        .flatten()
+                        .and_then(|e| e.id)
+                });
 
                 let depends = depends_arr.map(|a| serde_json::to_string(a).unwrap_or_default());
-                let makedepends = makedepends_arr.map(|a| serde_json::to_string(a).unwrap_or_default());
-                let optdepends = optdepends_arr.map(|a| serde_json::to_string(a).unwrap_or_default());
+                let makedepends =
+                    makedepends_arr.map(|a| serde_json::to_string(a).unwrap_or_default());
+                let optdepends =
+                    optdepends_arr.map(|a| serde_json::to_string(a).unwrap_or_default());
 
                 let info = AurInfo {
                     software_id: sid,
