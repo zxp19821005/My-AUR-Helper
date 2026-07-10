@@ -206,8 +206,7 @@ const setSelected = (v: Set<string>) => { selectedPkgnames.value = v; };
                 @change="toggleSelect(pkg.pkgname)" />
             </td>
             <td>
-              <strong>{{ pkg.pkgname }}</strong>
-              <span v-if="pkg.is_outdated" class="status-badge status-update_available" style="margin-left: 0.5rem">需更新</span>
+              <strong :class="{ 'pkg-outdated': pkg.is_outdated }">{{ pkg.pkgname }}</strong>
             </td>
             <td>{{ pkg.aur_version || "-" }}</td>
             <td>{{ fmtTimestamp(pkg.aur_last_updated) }}</td>
@@ -295,6 +294,10 @@ const setSelected = (v: Set<string>) => { selectedPkgnames.value = v; };
   gap: 0.25rem;
   flex-wrap: nowrap;
   align-items: center;
+}
+
+.pkg-outdated {
+  color: var(--warning);
 }
 
 </style>
