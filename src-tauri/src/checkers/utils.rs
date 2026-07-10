@@ -49,10 +49,33 @@ pub fn extract_owner_repo(repo_url: &str) -> Option<(String, String)> {
     }
 }
 
-/// 清理版本号：去除开头的 v 或 V 前缀
-/// @param ver - 原始版本字符串（如 "v1.2.3"）
-/// @returns 清理后的版本号（如 "1.2.3"）
+/// 清理版本号：提取纯版本号部分
+///
+/// 支持以下格式：
+/// - `v1.2.3` / `V1.2.3` -> `1.2.3`
+/// - `appname-v1.2.3` -> `1.2.3`
+/// - `appname-1.2.3` -> `1.2.3`
+/// - `1.2.3` -> `1.2.3`
+/// - `continuous` / `latest` -> 保持原样（无数字的 tag）
+///
+/// @param ver - 原始版本字符串
+/// @returns 清理后的版本号，如果无法提取版本则返回原始字符串
 pub fn clean_version(ver: &str) -> String {
+    // 尝试匹配 appname-vX.Y.Z 或 appname-X.Y.Z 模式
+    // 使用正则表达式提取 v 或数字开头的版本部分
+    if let Ok(re) = regex::Regex::new(r"[^0-9]*?(v?\d[\d.]*)") {
+        if let Some(cap) = re.captures(ver) {
+            if let Some(version) = cap.get(1) {
+                let version_str = version.as_str();
+                // 去除开头的 v/V 前缀
+                return version_str
+                    .trim_start_matches('v')
+                    .trim_start_matches('V')
+                    .to_string();
+            }
+        }
+    }
+    // 回退：只去除开头的 v/V 前缀
     ver.trim_start_matches('v')
         .trim_start_matches('V')
         .to_string()
