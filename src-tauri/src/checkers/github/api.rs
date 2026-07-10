@@ -182,20 +182,38 @@ pub async fn check_github_release_latest(
     if let Some(tag) = data["tag_name"].as_str() {
         // 当启用二进制检查且有 asset 过滤器时，version_extract_regex 已用于过滤 assets
         // 此时从 tag 提取版本应该使用 clean_version，而不是用 regex 匹配 tag
-        let version = if check_binary_files && version_extract_regex.is_some() {
-            clean_version(tag)
-        } else if let Some(regex) = version_extract_regex {
+        if check_binary_files && version_extract_regex.is_some() {
+            return Ok(Some(clean_version(tag)));
+        }
+
+        if let Some(regex) = version_extract_regex {
             // 尝试从 tag_name 匹配，如果失败则尝试从 name 字段匹配
-            extract_version_with_regex(tag, regex)
-                .or_else(|| {
-                    let name = data["name"].as_str().unwrap_or("");
-                    extract_version_with_regex(name, regex)
-                })
-                .unwrap_or_else(|| clean_version(tag))
-        } else {
-            clean_version(tag)
-        };
-        return Ok(Some(version));
+            if let Some(version) = extract_version_with_regex(tag, regex).or_else(|| {
+                let name = data["name"].as_str().unwrap_or("");
+                extract_version_with_regex(name, regex)
+            }) {
+                return Ok(Some(version));
+            }
+
+            // 正则未匹配 latest release，回退到遍历所有 release（包含 prerelease）
+            info!(
+                "[二进制检查] {}: latest release tag '{}' 不匹配正则 '{}'，尝试查找 prerelease",
+                pkgname, tag, regex
+            );
+            return check_github_releases(
+                client,
+                owner,
+                repo,
+                token,
+                version_extract_regex,
+                true,  // check_test_versions = true (回退时包含 prerelease)
+                false, // check_binary_files = false (非二进制检查场景)
+                pkgname,
+            )
+            .await;
+        }
+
+        return Ok(Some(clean_version(tag)));
     }
     Ok(None)
 }
