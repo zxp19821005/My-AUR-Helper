@@ -36,10 +36,10 @@ watch(() => footer.currentPage, (p) => {
     </div>
     <div class="btf-center">
       <template v-if="footer.showPagination">
-        <button class="btn-icon btn-icon-default" :disabled="footer.currentPage <= 1" @click="goTo(1)" title="首页">
+        <button class="btn-icon btn-icon-info" :disabled="footer.currentPage <= 1" @click="goTo(1)" title="首页">
           <Home :size="16" />
         </button>
-        <button class="btn-icon btn-icon-default" :disabled="footer.currentPage <= 1" @click="goTo(footer.currentPage - 1)" title="上一页">
+        <button class="btn-icon btn-icon-info" :disabled="footer.currentPage <= 1" @click="goTo(footer.currentPage - 1)" title="上一页">
           <ChevronLeft :size="16" />
         </button>
 
@@ -48,10 +48,10 @@ watch(() => footer.currentPage, (p) => {
           <span class="btf-text">/ {{ totalPages }} 页</span>
         </span>
 
-        <button class="btn-icon btn-icon-default" :disabled="footer.currentPage >= totalPages" @click="goTo(footer.currentPage + 1)" title="下一页">
+        <button class="btn-icon btn-icon-info" :disabled="footer.currentPage >= totalPages" @click="goTo(footer.currentPage + 1)" title="下一页">
           <ChevronRight :size="16" />
         </button>
-        <button class="btn-icon btn-icon-default" :disabled="footer.currentPage >= totalPages" @click="goTo(totalPages)" title="末页">
+        <button class="btn-icon btn-icon-info" :disabled="footer.currentPage >= totalPages" @click="goTo(totalPages)" title="末页">
           <SkipForward :size="16" />
         </button>
 
