@@ -5,6 +5,7 @@ pub mod rules;
 pub mod upstream;
 
 pub use aur::AurVersion;
+pub use comparison::compare_versions as compare_vercmp;
 pub use comparison::is_prerelease;
 pub use comparison::VersionComparison;
 pub use git_version::extract_commit_count;
@@ -42,7 +43,7 @@ pub fn compare_versions(aur_version: &str, upstream_version: &str) -> VersionCom
         aur.normalized_version, upstream.normalized_version
     );
 
-    let result = comparison::compare_vercmp(&aur.normalized_version, &upstream.normalized_version);
+    let result = comparison::compare_versions(&aur.normalized_version, &upstream.normalized_version);
 
     debug!("[版本比较] 比较结果: {:?}", result);
     result
@@ -54,7 +55,7 @@ pub fn is_outdated(aur_version: &str, upstream_version: &str) -> bool {
 
 pub fn sort_versions<T: AsRef<str>>(versions: &mut [T]) {
     versions.sort_by(|a, b| {
-        let cmp = comparison::compare_vercmp(a.as_ref(), b.as_ref());
+        let cmp = comparison::compare_versions(a.as_ref(), b.as_ref());
         match cmp {
             VersionComparison::LessThan => std::cmp::Ordering::Less,
             VersionComparison::GreaterThan => std::cmp::Ordering::Greater,
@@ -66,7 +67,7 @@ pub fn sort_versions<T: AsRef<str>>(versions: &mut [T]) {
 
 pub fn find_latest_version<T: AsRef<str>>(versions: &[T]) -> Option<&T> {
     versions.iter().max_by(|a, b| {
-        let cmp = comparison::compare_vercmp(a.as_ref(), b.as_ref());
+        let cmp = comparison::compare_versions(a.as_ref(), b.as_ref());
         match cmp {
             VersionComparison::LessThan => std::cmp::Ordering::Less,
             VersionComparison::GreaterThan => std::cmp::Ordering::Greater,

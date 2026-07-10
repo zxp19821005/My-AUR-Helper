@@ -18,7 +18,7 @@ use async_trait::async_trait;
 use log::{debug, info};
 use reqwest::Client;
 
-use crate::checkers::github::api::fetch_github_repo_languages;
+use crate::checkers::github::repo_info::fetch_github_repo_languages;
 use crate::checkers::github::git_describe::check_github_git_describe;
 use crate::checkers::github::tags::check_github_tags;
 use crate::checkers::trait_def::{CheckOptions, CheckResult, VersionChecker};

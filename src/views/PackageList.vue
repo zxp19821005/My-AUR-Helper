@@ -1,14 +1,20 @@
+<!--
+  PackageList.vue - 软件包列表页面
+
+  功能：
+  - 显示软件包列表（含 AUR 版本和上游版本）
+  - 支持搜索、分页、多选
+  - 提供批量操作：同步AUR、同步PKGBUILD、检查上游、删除
+  - 支持单行操作：查看详情、编辑、同步、检查、删除
+-->
 <script setup lang="ts">
-import { computed, onMounted, ref, watch, inject } from "vue";
-import { invoke } from "@tauri-apps/api/core";
+import { onMounted } from "vue";
 import { usePackageStore } from "../stores/packages";
-import { FOOTER_KEY } from "../composables/footer";
 import { usePackageActions } from "../composables/packageActions";
-import { useSettingsStore } from "../stores/settings";
+import { usePackageList, fmtTimestamp } from "../composables/usePackageList";
 import PageToolbar from "../components/PageToolbar.vue";
 import SoftwareFormModal from "../components/SoftwareFormModal.vue";
 import SoftwareDetailModal from "../components/SoftwareDetailModal.vue";
-import type { SoftwareListEntry } from "../types";
 import {
   RefreshCw,
   Plus,
@@ -20,20 +26,26 @@ import {
 } from "@lucide/vue";
 
 const pkgStore = usePackageStore();
-const footer = inject(FOOTER_KEY)!;
-const settingsStore = useSettingsStore();
 
-const pageSize = ref(50);
-const currentPage = ref(1);
-const entries = ref<SoftwareListEntry[]>([]);
-const selectedPkgnames = ref(new Set<string>());
-const searchQuery = ref("");
-
-const showModal = ref(false);
-const modalMode = ref<"add" | "edit">("add");
-const modalPkgname = ref("");
-const showDetailModal = ref(false);
-const detailPkgname = ref("");
+const {
+  searchQuery,
+  selectedPkgnames,
+  showModal,
+  modalMode,
+  modalPkgname,
+  showDetailModal,
+  detailPkgname,
+  pageData,
+  fetchView,
+  toggleSelect,
+  toggleSelectAll,
+  openAddModal,
+  openEditModal,
+  openDetailModal,
+  onModalSaved,
+  setSelected,
+  syncToolbar,
+} = usePackageList();
 
 const {
   loading,
@@ -47,114 +59,11 @@ const {
   rowSyncFromPkgbuild,
   rowCheckUpstream,
   rowDelete,
-} = usePackageActions(fetchView, footer);
+} = usePackageActions(fetchView, syncToolbar);
 
 onMounted(async () => {
-  pageSize.value = await settingsStore.getSettingNumber("list_page_size_software", 50);
   await Promise.all([fetchView(), pkgStore.fetchPackages()]);
-  syncToolbar();
 });
-
-async function fetchView() {
-  try {
-    entries.value = await invoke<SoftwareListEntry[]>("list_software_view");
-  } finally {
-    syncToolbar();
-  }
-}
-
-const filteredEntries = computed(() => {
-  if (!searchQuery.value) return entries.value;
-  const q = searchQuery.value.toLowerCase();
-  return entries.value.filter((e) =>
-    e.pkgname.toLowerCase().includes(q) ||
-    (e.aur_version && e.aur_version.toLowerCase().includes(q)) ||
-    (e.upstream_version && e.upstream_version.toLowerCase().includes(q))
-  );
-});
-
-const totalRecords = computed(() => filteredEntries.value.length);
-
-const pageData = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value;
-  return filteredEntries.value.slice(start, start + pageSize.value);
-});
-
-function goToPage(page: number) {
-  currentPage.value = page;
-}
-
-function syncToolbar() {
-  const s = filteredEntries.value;
-  const outdated = s.filter((x) => x.is_outdated).length;
-  footer.infoText = `总计: ${s.length}  |  已最新: ${s.length - outdated}  |  需更新: ${outdated}`;
-  footer.showPagination = s.length > pageSize.value;
-  footer.totalRecords = s.length;
-  footer.currentPage = currentPage.value;
-  footer.pageSize = pageSize.value;
-  footer.onPageChange = goToPage;
-}
-
-watch(totalRecords, syncToolbar);
-watch(searchQuery, () => { currentPage.value = 1; });
-watch(currentPage, (p) => {
-  footer.currentPage = p;
-  footer.onPageChange = goToPage;
-});
-
-function toggleSelect(pkgname: string) {
-  const s = new Set(selectedPkgnames.value);
-  if (s.has(pkgname)) s.delete(pkgname);
-  else s.add(pkgname);
-  selectedPkgnames.value = s;
-}
-
-function toggleSelectAll() {
-  if (pageData.value.every((p) => selectedPkgnames.value.has(p.pkgname))) {
-    selectedPkgnames.value = new Set();
-  } else {
-    selectedPkgnames.value = new Set(pageData.value.map((p) => p.pkgname));
-  }
-}
-
-function fmtTimestamp(ts: number | null): string {
-  if (ts == null) return "-";
-  const d = new Date(ts * 1000);
-  return d.toLocaleDateString("zh-CN", {
-    year: "numeric", month: "2-digit", day: "2-digit",
-  });
-}
-
-function fmtDate(ts: number | null): string {
-  if (ts == null) return "-";
-  const d = new Date(ts * 1000);
-  return d.toLocaleDateString("zh-CN", {
-    year: "numeric", month: "2-digit", day: "2-digit",
-  });
-}
-
-function openAddModal() {
-  modalMode.value = "add";
-  modalPkgname.value = "";
-  showModal.value = true;
-}
-
-function openEditModal(pkgname: string) {
-  modalMode.value = "edit";
-  modalPkgname.value = pkgname;
-  showModal.value = true;
-}
-
-function openDetailModal(pkgname: string) {
-  detailPkgname.value = pkgname;
-  showDetailModal.value = true;
-}
-
-function onModalSaved() {
-  Promise.all([fetchView(), pkgStore.fetchPackages()]);
-}
-
-const setSelected = (v: Set<string>) => { selectedPkgnames.value = v; };
 </script>
 
 <template>
@@ -211,7 +120,7 @@ const setSelected = (v: Set<string>) => { selectedPkgnames.value = v; };
             <td>{{ pkg.aur_version || "-" }}</td>
             <td>{{ fmtTimestamp(pkg.aur_last_updated) }}</td>
             <td>{{ pkg.upstream_version || "-" }}</td>
-            <td>{{ fmtDate(pkg.upstream_last_checked) }}</td>
+            <td>{{ fmtTimestamp(pkg.upstream_last_checked) }}</td>
             <td>
               <div class="row-actions">
                 <button class="btn-icon btn-icon-default" @click.stop="openDetailModal(pkg.pkgname)" title="查看详情">
@@ -299,5 +208,4 @@ const setSelected = (v: Set<string>) => { selectedPkgnames.value = v; };
 .pkg-outdated {
   color: var(--warning);
 }
-
 </style>

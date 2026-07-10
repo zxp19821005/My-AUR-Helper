@@ -1,17 +1,27 @@
 /**
- * usePackageActions.ts - 软件包操作逻辑
+ * packageActions.ts - 软件包操作逻辑
  *
- * 提供包管理的同步、检查、删除等操作
+ * 功能：
+ * - 提供包管理的同步、检查、删除等操作
+ * - 支持批量操作和单行操作
+ * - 管理加载状态和进度反馈
  */
-import { ref } from "vue";
+import { ref, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { FooterState } from "../types";
+import { FOOTER_KEY } from "./footer";
 
+/**
+ * 软件包操作钩子
+ * @param fetchView - 刷新列表的回调函数
+ * @param syncToolbar - 同步工具栏状态的回调函数
+ */
 export function usePackageActions(
   fetchView: () => Promise<void>,
-  footer: FooterState
+  syncToolbar: () => void
 ) {
+  const footer = inject(FOOTER_KEY)!;
+
   // 全局加载状态（用于工具栏批量操作）
   const loading = ref(false);
   // 按包名+操作类型追踪加载状态（用于行操作）
@@ -22,7 +32,6 @@ export function usePackageActions(
     if (action) {
       return loadingKeys.value.has(`${pkgname}:${action}`);
     }
-    // 检查该包是否有任何操作在进行
     return Array.from(loadingKeys.value).some(k => k.startsWith(`${pkgname}:`));
   }
 
@@ -46,6 +55,7 @@ export function usePackageActions(
       await fetchView();
     } finally {
       loading.value = false;
+      syncToolbar();
     }
   }
 
@@ -77,6 +87,7 @@ export function usePackageActions(
       unlistenProgress = null;
       footer.progress = null;
       loading.value = false;
+      syncToolbar();
     }
   }
 
@@ -88,6 +99,7 @@ export function usePackageActions(
       await fetchView();
     } finally {
       loading.value = false;
+      syncToolbar();
     }
   }
 
@@ -103,6 +115,7 @@ export function usePackageActions(
       await fetchView();
     } finally {
       loading.value = false;
+      syncToolbar();
     }
   }
 
@@ -120,6 +133,7 @@ export function usePackageActions(
       await fetchView();
     } finally {
       loading.value = false;
+      syncToolbar();
     }
   }
 
@@ -132,6 +146,7 @@ export function usePackageActions(
     } finally {
       loading.value = false;
       footer.progress = null;
+      syncToolbar();
     }
   }
 
@@ -142,6 +157,7 @@ export function usePackageActions(
       await fetchView();
     } finally {
       clearRowLoading(pkgname, "sync-aur");
+      syncToolbar();
     }
   }
 
@@ -152,6 +168,7 @@ export function usePackageActions(
       await fetchView();
     } finally {
       clearRowLoading(pkgname, "sync-pkgbuild");
+      syncToolbar();
     }
   }
 
@@ -162,6 +179,7 @@ export function usePackageActions(
       await fetchView();
     } finally {
       clearRowLoading(pkgname, "check-upstream");
+      syncToolbar();
     }
   }
 
@@ -180,6 +198,7 @@ export function usePackageActions(
       await fetchView();
     } finally {
       clearRowLoading(pkgname, "delete");
+      syncToolbar();
     }
   }
 

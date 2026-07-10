@@ -20,10 +20,8 @@ use async_trait::async_trait;
 use log::{debug, info};
 use reqwest::Client;
 
-use crate::checkers::github::api::{
-    check_github_release_latest, check_github_releases, fetch_github_repo_languages,
-    fetch_github_repo_license,
-};
+use crate::checkers::github::release::{check_github_release_latest, check_github_releases};
+use crate::checkers::github::repo_info::{fetch_github_repo_languages, fetch_github_repo_license};
 use crate::checkers::github::git_describe::check_github_git_describe;
 use crate::checkers::trait_def::{CheckOptions, CheckResult, VersionChecker};
 use crate::checkers::utils::extract_owner_repo;

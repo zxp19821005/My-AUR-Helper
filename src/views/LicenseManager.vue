@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { License } from "../types";
 import LicenseFormModal from "../components/LicenseFormModal.vue";
@@ -102,15 +102,6 @@ async function handleDelete(lic: License) {
   }
 }
 
-const filtered = computed(() => {
-  if (!searchQuery.value) return licenses.value;
-  const q = searchQuery.value.toLowerCase();
-  return licenses.value.filter(
-    (l) =>
-      l.spdx_id.toLowerCase().includes(q) ||
-      l.full_name.toLowerCase().includes(q)
-  );
-});
 </script>
 
 <template>

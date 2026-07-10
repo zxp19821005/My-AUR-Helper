@@ -23,7 +23,10 @@ mod cache_software;
 mod enum_licenses;
 mod enum_programming_languages;
 mod logs;
-mod migration;
+mod migration_aur;
+mod migration_software;
+mod migration_upstream;
+mod migration_enum;
 mod proxies_info;
 mod proxies_test;
 mod schema;
@@ -60,5 +63,15 @@ impl Database {
         self.migrate_enum_programming_languages()?;
         self.seed_defaults()?;
         Ok(())
+    }
+
+    /// 获取指定表的所有列名
+    fn get_table_columns(&self, table_name: &str) -> AppResult<Vec<String>> {
+        let mut stmt = self.conn.prepare(&format!("PRAGMA table_info({table_name})"))?;
+        let columns: Vec<String> = stmt
+            .query_map([], |row| row.get(1))?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(columns)
     }
 }
