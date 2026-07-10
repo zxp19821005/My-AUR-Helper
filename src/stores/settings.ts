@@ -24,11 +24,8 @@ export const useSettingsStore = defineStore("settings", () => {
   /** 设置缓存 - 键值对形式存储所有设置 */
   const settingsCache = ref<Record<string, string>>({});
 
-  /** 获取设置值（带缓存） */
+  /** 获取设置值（始终从数据库读取，避免跨窗口缓存不一致） */
   async function getSetting(key: string, defaultValue: string = ""): Promise<string> {
-    if (settingsCache.value[key] !== undefined) {
-      return settingsCache.value[key];
-    }
     try {
       const setting = await invoke<Setting | null>("get_setting", { key });
       if (setting && setting.value) {

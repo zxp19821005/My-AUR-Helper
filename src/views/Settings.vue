@@ -159,8 +159,8 @@ function inputType(s: Setting): string {
     <div v-else-if="filteredSettings.length > 0" class="card">
       <div v-for="s in filteredSettings" :key="s.key" class="setting-row">
         <div class="setting-label">
-          <strong>{{ s.key }}</strong>
-          <span v-if="s.description" class="setting-desc">{{ s.description }}</span>
+          <strong>{{ s.description || s.key }}</strong>
+          <span class="setting-desc">{{ s.key }}</span>
         </div>
         <div class="setting-input password-wrapper" v-if="isTokenKey(s.key)">
           <input
