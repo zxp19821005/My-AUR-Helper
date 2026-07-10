@@ -13,7 +13,7 @@
 use log::{debug, info};
 use tauri::State;
 
-use super::utils::{detect_package_defaults, get_setting_opt, parse_u64, AurSyncResult};
+use super::utils::{detect_package_defaults, get_setting_opt, parse_u32, parse_u64, AurSyncResult};
 use crate::aur;
 use crate::commands::proxy_utils::{build_client, get_active_proxy};
 use crate::errors::{AppError, AppResult};
@@ -34,7 +34,7 @@ use crate::AppState;
 #[tauri::command]
 pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
     info!("正在从 AUR 同步软件包");
-    let (username, timeout, proxy_url) = {
+    let (username, timeout, proxy_url, batch_size, batch_interval) = {
         let db = state.db.lock()?;
         let username = db
             .get_setting("aur_username")?
@@ -45,7 +45,15 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
             30,
         );
         let proxy_url = get_active_proxy(&db);
-        (username, timeout, proxy_url)
+        let batch_size = parse_u32(
+            &get_setting_opt(&db, "aur_batch_size").unwrap_or_default(),
+            50,
+        ) as usize;
+        let batch_interval = parse_u64(
+            &get_setting_opt(&db, "aur_batch_interval").unwrap_or_default(),
+            5,
+        );
+        (username, timeout, proxy_url, batch_size, batch_interval)
     };
     if username.is_empty() {
         return Err(AppError::ConfigError("AUR 用户名未配置".to_string()));
@@ -61,7 +69,8 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
     };
     info!("准备同步 {} 个软件包的 AUR 信息", pkgnames.len());
 
-    let aur_results = aur::get_packages_info(&client, &pkgnames).await?;
+    let aur_results =
+        aur::get_packages_info(&client, &pkgnames, batch_size.min(100), batch_interval).await?;
     debug!("批量查询返回 {} 条结果", aur_results.len());
 
     let mut pkgname_to_data = std::collections::HashMap::new();

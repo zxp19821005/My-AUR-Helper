@@ -263,6 +263,17 @@ pub struct CheckResult {
 | `settings` | 应用设置项 |
 | `enum_licenses` | License 枚举表（SPDX ID、全名） |
 
+### AUR 批量查询设置
+| 设置键 | 默认值 | 说明 |
+|--------|--------|------|
+| `aur_batch_size` | 50 | AUR 批量查询每批数量上限（最大100） |
+| `aur_batch_interval` | 5 | AUR 批量查询间隔时间（秒） |
+
+**AUR RPC API 限制**：
+- URI 最大长度 4443 字节，Info 请求超过约 200 个包时需要分批处理
+- 每天每个 IP 最多 4000 次请求
+- 搜索结果超过 5000 个时会失败
+
 ### software_info 表字段说明
 | 字段 | 类型 | 说明 |
 |------|------|------|

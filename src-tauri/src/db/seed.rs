@@ -19,6 +19,18 @@ impl Database {
                 "aur",
             ),
             (
+                "aur_batch_size",
+                "50",
+                "AUR 批量查询每批数量上限（最大100）",
+                "aur",
+            ),
+            (
+                "aur_batch_interval",
+                "5",
+                "AUR 批量查询间隔时间（秒）",
+                "aur",
+            ),
+            (
                 "backup_dir",
                 "/run/media/zxp/Backup/Linux/ZST",
                 "默认备份目录",

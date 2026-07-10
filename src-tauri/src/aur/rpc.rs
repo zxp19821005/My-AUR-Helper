@@ -126,23 +126,52 @@ pub async fn get_package_info(
 pub async fn get_packages_info(
     client: &Client,
     pkgnames: &[String],
+    batch_size: usize,
+    batch_interval: u64,
 ) -> AppResult<Vec<serde_json::Value>> {
     if pkgnames.is_empty() {
         return Ok(Vec::new());
     }
-    let mut url = format!("{}/info/", AUR_RPC_URL);
-    for name in pkgnames {
-        url.push_str(&format!("arg[]={}&", name));
+
+    let mut all_results = Vec::new();
+    let chunks: Vec<&[String]> = pkgnames.chunks(batch_size).collect();
+    let total_chunks = chunks.len();
+
+    for (i, chunk) in chunks.iter().enumerate() {
+        if i > 0 {
+            info!(
+                "[AUR 批量查询] 等待 {} 秒后继续下一批 ({}/{})",
+                batch_interval,
+                i + 1,
+                total_chunks
+            );
+            tokio::time::sleep(std::time::Duration::from_secs(batch_interval)).await;
+        }
+
+        let mut url = format!("{}/info/", AUR_RPC_URL);
+        for name in *chunk {
+            url.push_str(&format!("arg[]={}&", name));
+        }
+        url.pop();
+
+        info!(
+            "[AUR 批量查询] 第 {}/{} 批：查询 {} 个包",
+            i + 1,
+            total_chunks,
+            chunk.len()
+        );
+        debug!("请求 URL: {}", url);
+
+        let resp = client.get(&url).send().await?;
+        let data: serde_json::Value = resp.json().await?;
+        let resultcount = data["resultcount"].as_i64().unwrap_or(0);
+        debug!("批量查询返回 {} 个结果", resultcount);
+
+        if let Some(results) = data["results"].as_array() {
+            all_results.extend(results.iter().cloned());
+        }
     }
-    url.pop();
-    debug!("批量请求 AUR info API: {} 个包", pkgnames.len());
-    let resp = client.get(&url).send().await?;
-    let data: serde_json::Value = resp.json().await?;
-    let resultcount = data["resultcount"].as_i64().unwrap_or(0);
-    debug!("批量查询返回 {} 个结果", resultcount);
-    let results = data["results"]
-        .as_array()
-        .map(|arr| arr.iter().cloned().collect())
-        .unwrap_or_default();
-    Ok(results)
+
+    info!("[AUR 批量查询] 完成，共获取 {} 个结果", all_results.len());
+    Ok(all_results)
 }
