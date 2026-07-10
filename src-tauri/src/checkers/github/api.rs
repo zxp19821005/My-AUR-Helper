@@ -185,7 +185,13 @@ pub async fn check_github_release_latest(
         let version = if check_binary_files && version_extract_regex.is_some() {
             clean_version(tag)
         } else if let Some(regex) = version_extract_regex {
-            extract_version_with_regex(tag, regex).unwrap_or_else(|| clean_version(tag))
+            // 尝试从 tag_name 匹配，如果失败则尝试从 name 字段匹配
+            extract_version_with_regex(tag, regex)
+                .or_else(|| {
+                    let name = data["name"].as_str().unwrap_or("");
+                    extract_version_with_regex(name, regex)
+                })
+                .unwrap_or_else(|| clean_version(tag))
         } else {
             clean_version(tag)
         };
@@ -308,12 +314,14 @@ pub async fn check_github_releases(
                     continue;
                 }
 
-                // 使用 version_extract_regex 过滤 tag 名称
+                // 使用 version_extract_regex 过滤 release 名称
+                // 检查 tag_name 和 name 字段
                 if let Some(ref re) = tag_filter {
-                    if !re.is_match(tag) {
+                    let release_name = release["name"].as_str().unwrap_or(tag);
+                    if !re.is_match(tag) && !re.is_match(release_name) {
                         debug!(
-                            "[二进制检查] {}: Release {} 不匹配正则 {}，跳过",
-                            pkgname, tag, version_extract_regex.unwrap_or("")
+                            "[二进制检查] {}: Release {} ({}) 不匹配正则 {}，跳过",
+                            pkgname, tag, release_name, version_extract_regex.unwrap_or("")
                         );
                         continue;
                     }
