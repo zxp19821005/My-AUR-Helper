@@ -168,7 +168,7 @@ const setSelected = (v: Set<string>) => { selectedPkgnames.value = v; };
       </button>
     </PageToolbar>
 
-    <div class="card" style="overflow-x: auto">
+    <div class="card" style="overflow-x: auto; padding: 0">
       <table class="pkg-table">
         <thead>
           <tr>
