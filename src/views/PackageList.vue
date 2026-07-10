@@ -252,7 +252,7 @@ const setSelected = (v: Set<string>) => { selectedPkgnames.value = v; };
   table-layout: auto;
 }
 .pkg-table th {
-  text-align: left;
+  text-align: center;
   padding: 0.75rem;
   color: var(--text-secondary);
   font-weight: 600;
@@ -260,6 +260,7 @@ const setSelected = (v: Set<string>) => { selectedPkgnames.value = v; };
   text-transform: uppercase;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
+  background-color: var(--bg-secondary);
 }
 .pkg-table td {
   padding: 0.75rem;
