@@ -148,11 +148,12 @@ pub async fn get_packages_info(
             tokio::time::sleep(std::time::Duration::from_secs(batch_interval)).await;
         }
 
-        let mut url = format!("{}/info/", AUR_RPC_URL);
+        let url = format!("{}/info/", AUR_RPC_URL);
+        let mut body = String::new();
         for name in *chunk {
-            url.push_str(&format!("arg[]={}&", name));
+            body.push_str(&format!("arg[]={}&", name));
         }
-        url.pop();
+        body.pop();
 
         info!(
             "[AUR 批量查询] 第 {}/{} 批：查询 {} 个包",
@@ -160,10 +161,15 @@ pub async fn get_packages_info(
             total_chunks,
             chunk.len()
         );
-        debug!("[AUR 批量查询] URL 长度: {} 字节", url.len());
-        debug!("[AUR 批量查询] 请求 URL: {}", &url[..url.len().min(500)]);
+        debug!("[AUR 批量查询] 请求体长度: {} 字节", body.len());
 
-        match client.get(&url).send().await {
+        match client
+            .post(&url)
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(body)
+            .send()
+            .await
+        {
             Ok(resp) => {
                 let status = resp.status();
                 debug!("[AUR 批量查询] 响应状态码: {}", status);
