@@ -4,19 +4,33 @@
  * 功能：通过 GitHub Tags API 分页获取仓库的所有 tags，并提取最新版本号。
  * 支持版本提取正则表达式，可以过滤特定格式的 tag。
  * 支持跳过测试版本（prerelease），只返回稳定版本。
+ * 自动跳过不包含数字的 tag（如 "continuous"、"latest"、"stable"）。
  *
  * 工作流程：
- * 1. 分页请求 GitHub Tags API（每页 100 条）
+ * 1. 分页请求 GitHub Tags API（每页 100 条，最多 2 页/200 个 tags）
  * 2. 收集所有 tags 到列表
- * 3. 对每个 tag 应用版本提取正则或默认清理逻辑
- * 4. 使用 vercmp 算法比较版本，保留最新版本
- * 5. 返回找到的最新版本
+ * 3. 对每个 tag 检查是否包含数字，跳过非版本 tag
+ * 4. 应用版本提取正则或默认清理逻辑
+ * 5. 使用 vercmp 算法比较版本，保留最新版本
+ * 6. 返回找到的最新版本
  */
 use reqwest::Client;
 
 use crate::checkers::utils::{clean_version, extract_version_with_regex};
 use crate::errors::AppResult;
 use crate::versions;
+
+/// 检查字符串是否看起来像版本号（至少包含一个数字）
+///
+/// # 参数
+/// - `s`: 要检查的字符串
+///
+/// # 返回
+/// - `true`: 如果字符串包含数字，可能是版本号
+/// - `false`: 如果字符串不包含任何数字（如 "continuous"、"latest"、"stable"）
+fn looks_like_version(s: &str) -> bool {
+    s.chars().any(|c| c.is_ascii_digit())
+}
 
 /// 通过 GitHub Tags API 获取最新版本
 ///
@@ -40,11 +54,10 @@ pub async fn check_github_tags(
     version_extract_regex: Option<&str>,
     check_test_versions: bool,
 ) -> AppResult<Option<String>> {
-    let mut page = 1;
     let mut all_tags = Vec::new();
 
-    // 分页获取所有 tags
-    loop {
+    // 只获取前 2 页 tags（最多 200 个），大多数情况第 1 页就足够
+    for page in 1..=2 {
         let tags_url = format!(
             "https://api.github.com/repos/{}/{}/tags?per_page=100&page={}",
             owner, repo, page
@@ -64,9 +77,7 @@ pub async fn check_github_tags(
         }
 
         let tags: Vec<serde_json::Value> = resp.json().await?;
-        if tags.is_empty() {
-            break;
-        }
+        let tag_count = tags.len();
 
         for tag in &tags {
             if let Some(name) = tag["name"].as_str() {
@@ -74,28 +85,30 @@ pub async fn check_github_tags(
             }
         }
 
-        if tags.len() < 100 {
+        if tag_count < 100 {
             break;
         }
-        page += 1;
     }
 
     if all_tags.is_empty() {
         return Ok(None);
     }
 
-    // 遍历所有 tags，提取并比较版本
+    // 遍历 tags，提取并比较版本
     let mut best_version: Option<String> = None;
 
     for tag in &all_tags {
         let version = if let Some(regex) = version_extract_regex {
             extract_version_with_regex(tag, regex)
         } else {
+            // 跳过不包含数字的 tag（如 "continuous"、"latest"、"stable"）
+            if !looks_like_version(tag) {
+                continue;
+            }
             Some(clean_version(tag))
         };
 
         if let Some(version) = version {
-            // 如果不检查测试版本，跳过 prerelease
             if !check_test_versions && versions::is_prerelease(&version) {
                 continue;
             }
