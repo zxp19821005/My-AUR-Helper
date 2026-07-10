@@ -84,19 +84,53 @@ pub fn clean_version(ver: &str) -> String {
 /// 从 URL 中提取版本号
 /// 匹配模式如 /v1.2.3 或 /1.2.3
 /// @param url - 包含版本号的 URL 字符串
-/// @returns 提取到的版本号
+/// @returns 提取到的版本号（已去除常见文件扩展名）
 pub fn extract_version_from_url(url: &str) -> Option<String> {
     // 尝试匹配带 v 前缀的版本号
     let re = regex::Regex::new(r"[/-]v?(\d+\.\d+\.\d+[a-zA-Z0-9._+-]*)").ok()?;
     if let Some(cap) = re.captures(url) {
-        return Some(cap[1].to_string());
+        return Some(strip_file_extensions(&cap[1]));
     }
     // 尝试匹配不带 v 前缀的版本号
     let re2 = regex::Regex::new(r"[/-](\d+\.\d+\.\d+[a-zA-Z0-9._+-]*)").ok()?;
     if let Some(cap) = re2.captures(url) {
-        return Some(cap[1].to_string());
+        return Some(strip_file_extensions(&cap[1]));
     }
     None
+}
+
+/// 去除常见的文件扩展名
+/// @param version - 包含可能扩展名的版本字符串
+/// @returns 去除扩展名后的版本字符串
+fn strip_file_extensions(version: &str) -> String {
+    let extensions = [
+        ".AppImage",
+        ".appimage",
+        ".flatpak",
+        ".deb",
+        ".rpm",
+        ".exe",
+        ".msi",
+        ".dmg",
+        ".pkg",
+        ".tar.gz",
+        ".tar.xz",
+        ".zip",
+        ".tar.bz2",
+        ".tar.zst",
+        ".7z",
+        ".snap",
+        ".AppImage.zsync",
+    ];
+
+    let mut result = version.to_string();
+    for ext in &extensions {
+        if result.ends_with(ext) {
+            result = result[..result.len() - ext.len()].to_string();
+            break;
+        }
+    }
+    result
 }
 
 /// 从 HTML 内容中提取版本号
