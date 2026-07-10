@@ -219,14 +219,16 @@ pub async fn check_github_releases(
 ) -> AppResult<Option<String>> {
     let mut best_version: Option<String> = None;
     let mut page = 1;
-    let per_page = 30;
-    let max_pages = 10; // 最多查找 10 页（300 个 releases）
+    let per_page = 100; // GitHub API 最大支持 100
+    let max_pages = 5; // 最多查找 5 页（500 个 releases），避免触发限流
 
     loop {
         if page > max_pages {
             debug!(
-                "[二进制检查] {}: 已达到最大页数限制 ({} 页)，停止搜索",
-                pkgname, max_pages
+                "[二进制检查] {}: 已达到最大页数限制 ({} 页，{} 个 releases)，停止搜索",
+                pkgname,
+                max_pages,
+                max_pages * per_page
             );
             break;
         }
@@ -245,6 +247,16 @@ pub async fn check_github_releases(
         }
 
         let resp = req.send().await?;
+
+        // 检查是否触发限流
+        if resp.status().as_u16() == 403 {
+            warn!(
+                "[二进制检查] {}: 触发 GitHub API 限流，停止搜索",
+                pkgname
+            );
+            break;
+        }
+
         if !resp.status().is_success() {
             return Ok(None);
         }
