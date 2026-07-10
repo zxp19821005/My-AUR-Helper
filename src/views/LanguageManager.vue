@@ -12,33 +12,24 @@
   - delete_language: 删除编程语言
 -->
 <script setup lang="ts">
-import { ref, onMounted, inject } from "vue";            // Vue 核心 API
-import { invoke } from "@tauri-apps/api/core";        // Tauri IPC 调用
-import type { Language } from "../types";             // 编程语言类型定义
-import DataTable from "../components/DataTable.vue";   // 通用数据表格组件
+import { ref, onMounted } from "vue";
+import { invoke } from "@tauri-apps/api/core";
+import type { Language } from "../types";
+import DataTable from "../components/DataTable.vue";
 import type { Column } from "../components/DataTable.vue";
+import { useSettingsStore } from "../stores/settings";
 
-/** 编程语言列表 - 存储所有已配置的编程语言 */
+const settingsStore = useSettingsStore();
 const languages = ref<Language[]>([]);
-
-/** 消息提示 - 操作结果反馈信息 */
 const message = ref("");
-
-/** 编辑模式状态 - 标识是否正在显示添加表单 */
 const editing = ref(false);
-
-/** 搜索关键词 */
 const searchQuery = ref("");
-
-/** 从设置中获取每页行数 */
-const getListPageSize = inject<(key?: string) => Promise<number>>("getListPageSize", () => Promise.resolve(50));
 const pageSize = ref(50);
 
-/** 表单数据 - 添加编程语言时使用的各字段输入值 */
-const editName = ref("");          // 语言名称
-const editExts = ref("");          // 文件扩展名（逗号分隔）
-const editBuildSys = ref("");      // 构建系统
-const editBuildCmd = ref("");      // 构建命令
+const editName = ref("");
+const editExts = ref("");
+const editBuildSys = ref("");
+const editBuildCmd = ref("");
 
 /** 表格列配置 */
 const columns: Column[] = [
@@ -49,9 +40,8 @@ const columns: Column[] = [
   { key: "name", title: "操作", width: "100px", align: "center" },
 ];
 
-/** 组件挂载时加载编程语言列表 */
 onMounted(async () => {
-  pageSize.value = await getListPageSize("list_page_size_language");
+  pageSize.value = await settingsStore.getSettingNumber("list_page_size_language", 50);
   await loadLanguages();
 });
 

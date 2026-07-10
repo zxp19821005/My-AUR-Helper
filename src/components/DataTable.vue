@@ -26,20 +26,10 @@
 -->
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import type { Column } from "./DataTableTypes";
+import DataTablePagination from "./DataTablePagination.vue";
 
-/** 列配置接口 */
-export interface Column {
-  /** 字段名（对应数据对象的 key） */
-  key: string;
-  /** 列标题 */
-  title: string;
-  /** 列宽度（可选，支持 'auto' 或具体像素值如 '120px'） */
-  width?: string;
-  /** 格式化函数（可选，用于自定义显示内容） */
-  formatter?: (value: any, row: any) => string;
-  /** 是否左对齐（默认左对齐） */
-  align?: "left" | "center" | "right";
-}
+export type { Column };
 
 /** Props 接口 */
 interface Props {
@@ -133,29 +123,6 @@ const isPartialSelected = computed(() => {
   return selectedCount > 0 && selectedCount < pageData.value.length;
 });
 
-/** 页码列表（用于分页控件） */
-const pageNumbers = computed(() => {
-  const total = totalPages.value;
-  const current = currentPage.value;
-  const pages: (number | string)[] = [];
-
-  if (total <= 7) {
-    // 页数少，全部显示
-    for (let i = 1; i <= total; i++) pages.push(i);
-  } else {
-    // 页数多，显示：1 2 3 ... 最后3页
-    pages.push(1, 2, 3);
-    if (current > 5) pages.push("...");
-    for (let i = Math.max(4, current - 1); i <= Math.min(total - 2, current + 1); i++) {
-      pages.push(i);
-    }
-    if (current < total - 4) pages.push("...");
-    pages.push(total - 2, total - 1, total);
-  }
-
-  return pages;
-});
-
 /** 格式化单元格内容 */
 function formatCell(value: any, column: Column, row: any): string {
   if (column.formatter) {
@@ -180,12 +147,10 @@ function toggleSelect(rowKey: any) {
 /** 切换全选/取消全选 */
 function toggleSelectAll() {
   if (isAllSelected.value) {
-    // 取消全选当前页
     const newSet = new Set(selectedRows.value);
     pageData.value.forEach((row) => newSet.delete(row[props.rowKey]));
     selectedRows.value = newSet;
   } else {
-    // 全选当前页
     const newSet = new Set(selectedRows.value);
     pageData.value.forEach((row) => newSet.add(row[props.rowKey]));
     selectedRows.value = newSet;
@@ -221,25 +186,17 @@ function clearSelection() {
 /** 搜索关键词变化时重置页码 */
 watch(
   () => props.searchQuery,
-  () => {
-    currentPage.value = 1;
-  }
+  () => { currentPage.value = 1; }
 );
 
 /** 每页行数变化时重置页码 */
 watch(
   () => props.pageSize,
-  () => {
-    currentPage.value = 1;
-  }
+  () => { currentPage.value = 1; }
 );
 
 /** 暴露方法给父组件 */
-defineExpose({
-  clearSelection,
-  goToPage,
-  selectedRows,
-});
+defineExpose({ clearSelection, goToPage, selectedRows });
 </script>
 
 <template>
@@ -248,54 +205,22 @@ defineExpose({
       <table class="data-table">
         <thead>
           <tr>
-            <!-- 复选框列 -->
             <th v-if="showCheckbox" style="width: 2.5rem">
-              <input
-                type="checkbox"
-                :checked="isAllSelected"
-                :indeterminate="isPartialSelected"
-                @change="toggleSelectAll"
-              />
+              <input type="checkbox" :checked="isAllSelected" :indeterminate="isPartialSelected" @change="toggleSelectAll" />
             </th>
-            <!-- 序号列 -->
             <th v-if="showIndex" style="width: 3rem">#</th>
-            <!-- 数据列 -->
-            <th
-              v-for="col in columns"
-              :key="col.key"
-              :style="{
-                width: col.width || 'auto',
-                textAlign: col.align || 'left',
-              }"
-            >
+            <th v-for="col in columns" :key="col.key" :style="{ width: col.width || 'auto', textAlign: col.align || 'left' }">
               {{ col.title }}
             </th>
           </tr>
         </thead>
         <tbody>
-          <tr
-            v-for="(row, index) in pageData"
-            :key="row[rowKey]"
-            @click="handleRowClick(row)"
-          >
-            <!-- 复选框列 -->
+          <tr v-for="(row, index) in pageData" :key="row[rowKey]" @click="handleRowClick(row)">
             <td v-if="showCheckbox" @click.stop>
-              <input
-                type="checkbox"
-                :checked="selectedRows.has(row[rowKey])"
-                @change="toggleSelect(row[rowKey])"
-              />
+              <input type="checkbox" :checked="selectedRows.has(row[rowKey])" @change="toggleSelect(row[rowKey])" />
             </td>
-            <!-- 序号列 -->
-            <td v-if="showIndex" class="index-cell">
-              {{ (currentPage - 1) * pageSize + index + 1 }}
-            </td>
-            <!-- 数据列 -->
-            <td
-              v-for="col in columns"
-              :key="col.key"
-              :style="{ textAlign: col.align || 'left' }"
-            >
+            <td v-if="showIndex" class="index-cell">{{ (currentPage - 1) * pageSize + index + 1 }}</td>
+            <td v-for="col in columns" :key="col.key" :style="{ textAlign: col.align || 'left' }">
               <slot :name="`cell-${col.key}`" :row="row" :value="row[col.key]">
                 {{ formatCell(row[col.key], col, row) }}
               </slot>
@@ -303,144 +228,19 @@ defineExpose({
           </tr>
         </tbody>
       </table>
-
-      <!-- 空状态 -->
-      <div v-if="pageData.length === 0" class="empty-state">
-        <p>{{ emptyText }}</p>
-      </div>
+      <div v-if="pageData.length === 0" class="empty-state"><p>{{ emptyText }}</p></div>
     </div>
-
-    <!-- 分页控件 -->
-    <div v-if="totalRecords > 0" class="pagination-bar">
-      <span class="pagination-info">
-        共 {{ totalRecords }} 条记录，第 {{ currentPage }}/{{ totalPages }} 页
-      </span>
-      <div class="pagination-controls">
-        <button
-          class="page-btn"
-          :disabled="currentPage <= 1"
-          @click="goToPage(currentPage - 1)"
-        >
-          &laquo;
-        </button>
-        <template v-for="page in pageNumbers" :key="page">
-          <button
-            v-if="typeof page === 'number'"
-            class="page-btn"
-            :class="{ active: page === currentPage }"
-            @click="goToPage(page)"
-          >
-            {{ page }}
-          </button>
-          <span v-else class="page-ellipsis">{{ page }}</span>
-        </template>
-        <button
-          class="page-btn"
-          :disabled="currentPage >= totalPages"
-          @click="goToPage(currentPage + 1)"
-        >
-          &raquo;
-        </button>
-      </div>
-    </div>
+    <DataTablePagination :currentPage="currentPage" :totalRecords="totalRecords" :totalPages="totalPages" @goToPage="goToPage" />
   </div>
 </template>
 
 <style scoped>
-.data-table-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: auto;
-}
-
-.data-table th {
-  text-align: left;
-  padding: 0.75rem;
-  color: var(--text-secondary);
-  font-weight: 600;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-}
-
-.data-table td {
-  padding: 0.75rem;
-  border-bottom: 1px solid var(--border);
-  font-size: 0.875rem;
-}
-
-.data-table tbody tr {
-  cursor: pointer;
-  transition: background-color 0.15s;
-}
-
-.data-table tbody tr:hover {
-  background-color: rgba(108, 99, 255, 0.05);
-}
-
-.index-cell {
-  color: var(--text-secondary);
-  font-size: 0.75rem;
-}
-
-.empty-state {
-  padding: 2rem;
-  text-align: center;
-  color: var(--text-secondary);
-}
-
-.pagination-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.5rem 0;
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-}
-
-.pagination-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.page-btn {
-  min-width: 2rem;
-  height: 2rem;
-  padding: 0 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.page-btn:hover:not(:disabled):not(.active) {
-  background: var(--hover-bg, rgba(128, 128, 128, 0.1));
-}
-
-.page-btn.active {
-  background: var(--accent, #6c63ff);
-  color: white;
-  border-color: var(--accent, #6c63ff);
-}
-
-.page-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.page-ellipsis {
-  padding: 0 0.25rem;
-  color: var(--text-secondary);
-}
+.data-table-wrapper { display: flex; flex-direction: column; gap: 0.5rem; }
+.data-table { width: 100%; border-collapse: collapse; table-layout: auto; }
+.data-table th { text-align: left; padding: 0.75rem; color: var(--text-secondary); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.data-table td { padding: 0.75rem; border-bottom: 1px solid var(--border); font-size: 0.875rem; }
+.data-table tbody tr { cursor: pointer; transition: background-color 0.15s; }
+.data-table tbody tr:hover { background-color: rgba(108, 99, 255, 0.05); }
+.index-cell { color: var(--text-secondary); font-size: 0.75rem; }
+.empty-state { padding: 2rem; text-align: center; color: var(--text-secondary); }
 </style>

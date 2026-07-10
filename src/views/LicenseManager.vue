@@ -1,18 +1,18 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, inject } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { License } from "../types";
 import LicenseFormModal from "../components/LicenseFormModal.vue";
 import DataTable from "../components/DataTable.vue";
 import type { Column } from "../components/DataTable.vue";
+import { useSettingsStore } from "../stores/settings";
 
+const settingsStore = useSettingsStore();
 const licenses = ref<License[]>([]);
 const syncing = ref(false);
 const message = ref("");
 const searchQuery = ref("");
 
-/** 从设置中获取每页行数 */
-const getListPageSize = inject<(key?: string) => Promise<number>>("getListPageSize", () => Promise.resolve(50));
 const pageSize = ref(50);
 
 const showModal = ref(false);
@@ -31,7 +31,7 @@ const columns: Column[] = [
 ];
 
 onMounted(async () => {
-  pageSize.value = await getListPageSize("list_page_size_license");
+  pageSize.value = await settingsStore.getSettingNumber("list_page_size_license", 50);
   await loadLicenses();
 });
 

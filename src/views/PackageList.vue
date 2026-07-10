@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { usePackageStore } from "../stores/packages";
 import { FOOTER_KEY } from "../composables/footer";
 import { usePackageActions } from "../composables/packageActions";
+import { useSettingsStore } from "../stores/settings";
 import PageToolbar from "../components/PageToolbar.vue";
 import SoftwareFormModal from "../components/SoftwareFormModal.vue";
 import SoftwareDetailModal from "../components/SoftwareDetailModal.vue";
@@ -20,13 +21,13 @@ import {
 
 const pkgStore = usePackageStore();
 const footer = inject(FOOTER_KEY)!;
+const settingsStore = useSettingsStore();
 
-const pageSize = 50;
+const pageSize = ref(50);
 const currentPage = ref(1);
 const entries = ref<SoftwareListEntry[]>([]);
 const selectedPkgnames = ref(new Set<string>());
 
-// 弹窗状态
 const showModal = ref(false);
 const modalMode = ref<"add" | "edit">("add");
 const modalPkgname = ref("");
@@ -48,6 +49,7 @@ const {
 } = usePackageActions(fetchView, footer);
 
 onMounted(async () => {
+  pageSize.value = await settingsStore.getSettingNumber("list_page_size_software", 50);
   await Promise.all([fetchView(), pkgStore.fetchPackages()]);
   syncToolbar();
 });
@@ -63,8 +65,8 @@ async function fetchView() {
 const totalRecords = computed(() => entries.value.length);
 
 const pageData = computed(() => {
-  const start = (currentPage.value - 1) * pageSize;
-  return entries.value.slice(start, start + pageSize);
+  const start = (currentPage.value - 1) * pageSize.value;
+  return entries.value.slice(start, start + pageSize.value);
 });
 
 function goToPage(page: number) {
@@ -75,10 +77,10 @@ function syncToolbar() {
   const s = entries.value;
   const outdated = s.filter((x) => x.is_outdated).length;
   footer.infoText = `总计: ${s.length}  |  已最新: ${s.length - outdated}  |  需更新: ${outdated}`;
-  footer.showPagination = s.length > pageSize;
+  footer.showPagination = s.length > pageSize.value;
   footer.totalRecords = s.length;
   footer.currentPage = currentPage.value;
-  footer.pageSize = pageSize;
+  footer.pageSize = pageSize.value;
   footer.onPageChange = goToPage;
 }
 
