@@ -148,7 +148,7 @@ pub async fn get_packages_info(
             tokio::time::sleep(std::time::Duration::from_secs(batch_interval)).await;
         }
 
-        let url = format!("{}/info/", AUR_RPC_URL);
+        let url = format!("{}/info", AUR_RPC_URL);
         let mut body = String::new();
         for name in *chunk {
             body.push_str(&format!("arg[]={}&", name));
@@ -161,6 +161,7 @@ pub async fn get_packages_info(
             total_chunks,
             chunk.len()
         );
+        debug!("[AUR 批量查询] 请求 URL: {}", url);
         debug!("[AUR 批量查询] 请求体长度: {} 字节", body.len());
 
         match client
@@ -172,33 +173,40 @@ pub async fn get_packages_info(
         {
             Ok(resp) => {
                 let status = resp.status();
-                debug!("[AUR 批量查询] 响应状态码: {}", status);
+                info!("[AUR 批量查询] 响应状态码: {}", status);
 
                 if !status.is_success() {
                     warn!("[AUR 批量查询] 请求失败: HTTP {}", status);
+                    // 记录响应内容以便诊断
+                    if let Ok(text) = resp.text().await {
+                        warn!("[AUR 批量查询] 错误响应: {}", &text[..text.len().min(500)]);
+                    }
                     continue;
                 }
 
                 match resp.text().await {
-                    Ok(text) => match serde_json::from_str::<serde_json::Value>(&text) {
-                        Ok(data) => {
-                            let resultcount = data["resultcount"].as_i64().unwrap_or(0);
-                            debug!("[AUR 批量查询] 返回 {} 个结果", resultcount);
+                    Ok(text) => {
+                        debug!("[AUR 批量查询] 响应长度: {} 字节", text.len());
+                        match serde_json::from_str::<serde_json::Value>(&text) {
+                            Ok(data) => {
+                                let resultcount = data["resultcount"].as_i64().unwrap_or(0);
+                                info!("[AUR 批量查询] 返回 {} 个结果", resultcount);
 
-                            if let Some(error) = data["error"].as_str() {
-                                warn!("[AUR 批量查询] AUR 返回错误: {}", error);
-                                continue;
+                                if let Some(error) = data["error"].as_str() {
+                                    warn!("[AUR 批量查询] AUR 返回错误: {}", error);
+                                    continue;
+                                }
+
+                                if let Some(results) = data["results"].as_array() {
+                                    all_results.extend(results.iter().cloned());
+                                }
                             }
-
-                            if let Some(results) = data["results"].as_array() {
-                                all_results.extend(results.iter().cloned());
+                            Err(e) => {
+                                warn!("[AUR 批量查询] JSON 解析失败: {}", e);
+                                warn!("[AUR 批量查询] 响应内容: {}", &text[..text.len().min(500)]);
                             }
                         }
-                        Err(e) => {
-                            warn!("[AUR 批量查询] JSON 解析失败: {}", e);
-                            debug!("[AUR 批量查询] 响应内容: {}", &text[..text.len().min(500)]);
-                        }
-                    },
+                    }
                     Err(e) => {
                         warn!("[AUR 批量查询] 读取响应体失败: {}", e);
                     }
