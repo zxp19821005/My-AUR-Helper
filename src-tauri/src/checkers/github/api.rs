@@ -300,11 +300,7 @@ pub async fn check_github_releases(
                     }
                 }
 
-                let version = if let Some(regex) = version_extract_regex {
-                    extract_version_with_regex(tag, regex).unwrap_or_else(|| clean_version(tag))
-                } else {
-                    clean_version(tag)
-                };
+                let version = clean_version(tag);
 
                 // 使用 vercmp 算法比较版本
                 best_version = match best_version.take() {
