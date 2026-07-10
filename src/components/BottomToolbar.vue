@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, inject, watch } from "vue";
 import { FOOTER_KEY } from "../composables/footer";
-import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from "@lucide/vue";
+import { Home, ChevronLeft, ChevronRight, SkipForward } from "@lucide/vue";
 
 const footer = inject(FOOTER_KEY)!;
 
@@ -36,10 +36,10 @@ watch(() => footer.currentPage, (p) => {
     </div>
     <div class="btf-center">
       <template v-if="footer.showPagination">
-        <button class="btn-icon btn-icon-accent" :disabled="footer.currentPage <= 1" @click="goTo(1)" title="首页">
-          <ChevronsLeft :size="16" />
+        <button class="btn-icon btn-icon-default" :disabled="footer.currentPage <= 1" @click="goTo(1)" title="首页">
+          <Home :size="16" />
         </button>
-        <button class="btn-icon btn-icon-accent" :disabled="footer.currentPage <= 1" @click="goTo(footer.currentPage - 1)" title="上一页">
+        <button class="btn-icon btn-icon-default" :disabled="footer.currentPage <= 1" @click="goTo(footer.currentPage - 1)" title="上一页">
           <ChevronLeft :size="16" />
         </button>
 
@@ -48,11 +48,11 @@ watch(() => footer.currentPage, (p) => {
           <span class="btf-text">/ {{ totalPages }} 页</span>
         </span>
 
-        <button class="btn-icon btn-icon-accent" :disabled="footer.currentPage >= totalPages" @click="goTo(footer.currentPage + 1)" title="下一页">
+        <button class="btn-icon btn-icon-default" :disabled="footer.currentPage >= totalPages" @click="goTo(footer.currentPage + 1)" title="下一页">
           <ChevronRight :size="16" />
         </button>
-        <button class="btn-icon btn-icon-accent" :disabled="footer.currentPage >= totalPages" @click="goTo(totalPages)" title="末页">
-          <ChevronsRight :size="16" />
+        <button class="btn-icon btn-icon-default" :disabled="footer.currentPage >= totalPages" @click="goTo(totalPages)" title="末页">
+          <SkipForward :size="16" />
         </button>
 
         <span class="btf-text">共 {{ footer.totalRecords }} 条</span>
