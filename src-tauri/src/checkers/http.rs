@@ -45,7 +45,6 @@ impl VersionChecker for HttpChecker {
         }
 
         let body = resp.text().await?;
-        debug!("[版本检查] 响应内容: {}", &body[..body.len().min(500)]);
 
         let version = if let Some(regex) = version_extract_regex {
             match extract_version_with_regex(&body, regex) {

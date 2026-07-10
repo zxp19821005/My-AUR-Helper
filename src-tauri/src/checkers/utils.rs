@@ -6,7 +6,6 @@ use log::debug;
 /// @returns 提取到的版本号，如果匹配失败或正则无效则返回 None
 pub fn extract_version_with_regex(text: &str, regex_pattern: &str) -> Option<String> {
     debug!("[正则提取] 使用正则表达式: {}", regex_pattern);
-    debug!("[正则提取] 正则原始字节: {:?}", regex_pattern.as_bytes());
     match regex::Regex::new(regex_pattern) {
         Ok(re) => {
             if let Some(caps) = re.captures(text) {

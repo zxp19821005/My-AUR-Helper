@@ -188,7 +188,7 @@ pub async fn check_github_release_latest(
     Ok(None)
 }
 
-/// 遍历最近 10 个 releases，提取并比较版本号
+/// 遍历 releases，提取并比较版本号（支持分页）
 ///
 /// 用于以下场景：
 /// - 需要检查测试版本（prerelease）
@@ -217,66 +217,98 @@ pub async fn check_github_releases(
     check_binary_files: bool,
     pkgname: &str,
 ) -> AppResult<Option<String>> {
-    let api_url = format!(
-        "https://api.github.com/repos/{}/{}/releases?per_page=10",
-        owner, repo
-    );
-
-    let mut req = client
-        .get(&api_url)
-        .header("User-Agent", "my-aur-helper/0.1")
-        .header("Accept", "application/vnd.github.v3+json");
-    if let Some(t) = token {
-        req = req.header("Authorization", format!("Bearer {}", t));
-    }
-
-    let resp = req.send().await?;
-    if !resp.status().is_success() {
-        return Ok(None);
-    }
-
-    let releases: Vec<serde_json::Value> = resp.json().await?;
     let mut best_version: Option<String> = None;
+    let mut page = 1;
+    let per_page = 30;
+    let max_pages = 10; // 最多查找 10 页（300 个 releases）
 
-    for release in &releases {
-        if let Some(tag) = release["tag_name"].as_str() {
-            // 跳过 prerelease（除非调用方明确需要）
-            if release["prerelease"].as_bool().unwrap_or(false) {
-                continue;
-            }
+    loop {
+        if page > max_pages {
+            debug!(
+                "[二进制检查] {}: 已达到最大页数限制 ({} 页)，停止搜索",
+                pkgname, max_pages
+            );
+            break;
+        }
 
-            if check_binary_files {
-                let assets = release["assets"].as_array();
-                if let Some(list) = assets {
-                    // 当启用二进制检查时，version_extract_regex 用作 asset 过滤器
-                    if !has_linux_binary(list, version_extract_regex) {
-                        debug!(
-                            "[二进制检查] {}: Release {} 无匹配的资产文件，跳过",
-                            pkgname, tag
-                        );
-                        continue;
+        let api_url = format!(
+            "https://api.github.com/repos/{}/{}/releases?per_page={}&page={}",
+            owner, repo, per_page, page
+        );
+
+        let mut req = client
+            .get(&api_url)
+            .header("User-Agent", "my-aur-helper/0.1")
+            .header("Accept", "application/vnd.github.v3+json");
+        if let Some(t) = token {
+            req = req.header("Authorization", format!("Bearer {}", t));
+        }
+
+        let resp = req.send().await?;
+        if !resp.status().is_success() {
+            return Ok(None);
+        }
+
+        let releases: Vec<serde_json::Value> = resp.json().await?;
+
+        // 如果返回空数组，说明没有更多 releases
+        if releases.is_empty() {
+            debug!(
+                "[二进制检查] {}: 第 {} 页无更多 releases，停止搜索",
+                pkgname, page
+            );
+            break;
+        }
+
+        debug!(
+            "[二进制检查] {}: 正在检查第 {} 页 ({} 个 releases)",
+            pkgname,
+            page,
+            releases.len()
+        );
+
+        for release in &releases {
+            if let Some(tag) = release["tag_name"].as_str() {
+                // 跳过 prerelease（除非调用方明确需要）
+                if release["prerelease"].as_bool().unwrap_or(false) {
+                    continue;
+                }
+
+                if check_binary_files {
+                    let assets = release["assets"].as_array();
+                    if let Some(list) = assets {
+                        // 当启用二进制检查时，version_extract_regex 用作 asset 过滤器
+                        if !has_linux_binary(list, version_extract_regex) {
+                            debug!(
+                                "[二进制检查] {}: Release {} 无匹配的资产文件，跳过",
+                                pkgname, tag
+                            );
+                            continue;
+                        }
                     }
                 }
+
+                let version = if let Some(regex) = version_extract_regex {
+                    extract_version_with_regex(tag, regex).unwrap_or_else(|| clean_version(tag))
+                } else {
+                    clean_version(tag)
+                };
+
+                // 使用 vercmp 算法比较版本
+                best_version = match best_version.take() {
+                    Some(current)
+                        if versions::compare_versions(&current, &version)
+                            == versions::VersionComparison::LessThan =>
+                    {
+                        Some(version)
+                    }
+                    Some(current) => Some(current),
+                    None => Some(version),
+                };
             }
-
-            let version = if let Some(regex) = version_extract_regex {
-                extract_version_with_regex(tag, regex).unwrap_or_else(|| clean_version(tag))
-            } else {
-                clean_version(tag)
-            };
-
-            // 使用 vercmp 算法比较版本
-            best_version = match best_version.take() {
-                Some(current)
-                    if versions::compare_versions(&current, &version)
-                        == versions::VersionComparison::LessThan =>
-                {
-                    Some(version)
-                }
-                Some(current) => Some(current),
-                None => Some(version),
-            };
         }
+
+        page += 1;
     }
 
     Ok(best_version)
