@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, inject } from "vue";
+import { ref, computed, inject, watch } from "vue";
 import { FOOTER_KEY } from "../composables/footer";
+import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from "@lucide/vue";
 
 const footer = inject(FOOTER_KEY)!;
 
@@ -23,7 +24,6 @@ function onJumpInput() {
   }, 500);
 }
 
-import { watch } from "vue";
 watch(() => footer.currentPage, (p) => {
   jumpInput.value = String(p);
 });
@@ -36,11 +36,11 @@ watch(() => footer.currentPage, (p) => {
     </div>
     <div class="btf-center">
       <template v-if="footer.showPagination">
-        <button class="btf-btn" :disabled="footer.currentPage <= 1" @click="goTo(1)" title="首页">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
+        <button class="btn-icon btn-icon-accent" :disabled="footer.currentPage <= 1" @click="goTo(1)" title="首页">
+          <ChevronsLeft :size="16" />
         </button>
-        <button class="btf-btn" :disabled="footer.currentPage <= 1" @click="goTo(footer.currentPage - 1)" title="上一页">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        <button class="btn-icon btn-icon-accent" :disabled="footer.currentPage <= 1" @click="goTo(footer.currentPage - 1)" title="上一页">
+          <ChevronLeft :size="16" />
         </button>
 
         <span class="btf-page-info">
@@ -48,11 +48,11 @@ watch(() => footer.currentPage, (p) => {
           <span class="btf-text">/ {{ totalPages }} 页</span>
         </span>
 
-        <button class="btf-btn" :disabled="footer.currentPage >= totalPages" @click="goTo(footer.currentPage + 1)" title="下一页">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        <button class="btn-icon btn-icon-accent" :disabled="footer.currentPage >= totalPages" @click="goTo(footer.currentPage + 1)" title="下一页">
+          <ChevronRight :size="16" />
         </button>
-        <button class="btf-btn" :disabled="footer.currentPage >= totalPages" @click="goTo(totalPages)" title="末页">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+        <button class="btn-icon btn-icon-accent" :disabled="footer.currentPage >= totalPages" @click="goTo(totalPages)" title="末页">
+          <ChevronsRight :size="16" />
         </button>
 
         <span class="btf-text">共 {{ footer.totalRecords }} 条</span>
@@ -96,28 +96,6 @@ watch(() => footer.currentPage, (p) => {
   flex: 1;
   display: flex;
   justify-content: flex-end;
-}
-.btf-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 0.25rem;
-  border-radius: 4px;
-  transition: all 0.15s;
-  min-width: 26px;
-  height: 26px;
-}
-.btf-btn:hover:not(:disabled) {
-  color: var(--text-primary);
-  border-color: var(--accent);
-}
-.btf-btn:disabled {
-  opacity: 0.35;
-  cursor: default;
 }
 .btf-page-info {
   display: flex;
