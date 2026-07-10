@@ -1,5 +1,5 @@
 use crate::errors::AppResult;
-use log::{debug, info};
+use log::{debug, info, warn};
 use reqwest::Client;
 
 const AUR_RPC_URL: &str = "https://aur.archlinux.org/rpc/v5";
@@ -160,15 +160,47 @@ pub async fn get_packages_info(
             total_chunks,
             chunk.len()
         );
-        debug!("请求 URL: {}", url);
+        debug!("[AUR 批量查询] URL 长度: {} 字节", url.len());
+        debug!("[AUR 批量查询] 请求 URL: {}", &url[..url.len().min(500)]);
 
-        let resp = client.get(&url).send().await?;
-        let data: serde_json::Value = resp.json().await?;
-        let resultcount = data["resultcount"].as_i64().unwrap_or(0);
-        debug!("批量查询返回 {} 个结果", resultcount);
+        match client.get(&url).send().await {
+            Ok(resp) => {
+                let status = resp.status();
+                debug!("[AUR 批量查询] 响应状态码: {}", status);
 
-        if let Some(results) = data["results"].as_array() {
-            all_results.extend(results.iter().cloned());
+                if !status.is_success() {
+                    warn!("[AUR 批量查询] 请求失败: HTTP {}", status);
+                    continue;
+                }
+
+                match resp.text().await {
+                    Ok(text) => match serde_json::from_str::<serde_json::Value>(&text) {
+                        Ok(data) => {
+                            let resultcount = data["resultcount"].as_i64().unwrap_or(0);
+                            debug!("[AUR 批量查询] 返回 {} 个结果", resultcount);
+
+                            if let Some(error) = data["error"].as_str() {
+                                warn!("[AUR 批量查询] AUR 返回错误: {}", error);
+                                continue;
+                            }
+
+                            if let Some(results) = data["results"].as_array() {
+                                all_results.extend(results.iter().cloned());
+                            }
+                        }
+                        Err(e) => {
+                            warn!("[AUR 批量查询] JSON 解析失败: {}", e);
+                            debug!("[AUR 批量查询] 响应内容: {}", &text[..text.len().min(500)]);
+                        }
+                    },
+                    Err(e) => {
+                        warn!("[AUR 批量查询] 读取响应体失败: {}", e);
+                    }
+                }
+            }
+            Err(e) => {
+                warn!("[AUR 批量查询] 请求失败: {}", e);
+            }
         }
     }
 
