@@ -17,6 +17,7 @@ const fontSize = ref(localStorage.getItem("app-font-size") || "14");
 
 const categoryMap: Record<string, string> = {
   "/settings": "general",
+  "/settings/list": "list",
   "/settings/aur": "aur",
   "/settings/checker": "checker",
   "/settings/backup": "backup",
@@ -29,6 +30,7 @@ const category = computed(() => categoryMap[route.path] || "general");
 
 const categoryLabels: Record<string, string> = {
   general: "通用设置",
+  list: "列表设置",
   aur: "AUR 设置",
   checker: "上游检查器设置",
   backup: "备份管理设置",

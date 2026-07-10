@@ -81,6 +81,43 @@ impl Database {
             ),
             ("http_timeout", "30", "HTTP 请求超时时间（秒）", "checker"),
             ("http_retry_count", "2", "HTTP 请求失败重试次数", "checker"),
+            // 列表设置
+            (
+                "list_page_size_software",
+                "50",
+                "软件管理列表每页显示行数",
+                "list",
+            ),
+            (
+                "list_page_size_backup",
+                "50",
+                "备份管理列表每页显示行数",
+                "list",
+            ),
+            (
+                "list_page_size_cache",
+                "50",
+                "缓存管理列表每页显示行数",
+                "list",
+            ),
+            (
+                "list_page_size_proxy",
+                "50",
+                "代理管理列表每页显示行数",
+                "list",
+            ),
+            (
+                "list_page_size_license",
+                "50",
+                "License管理列表每页显示行数",
+                "list",
+            ),
+            (
+                "list_page_size_language",
+                "50",
+                "编程语言管理列表每页显示行数",
+                "list",
+            ),
         ];
         for (key, value, description, category) in defaults {
             self.conn.execute(

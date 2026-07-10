@@ -144,6 +144,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/App.vue` | 根组件，布局容器 |
 | `src/router/index.ts` | Vue Router 路由配置 |
 | `src/views/` | 页面组件（每个页面一个文件） |
+| `src/components/DataTable.vue` | 通用数据表格组件（支持分页、搜索、选择） |
 | `src/components/` | 通用组件（跨页面复用） |
 | `src/composables/` | 组合式函数（hooks） |
 | `src/stores/` | Pinia 状态管理 |
@@ -273,6 +274,23 @@ pub struct CheckResult {
 - URI 最大长度 4443 字节，Info 请求超过约 200 个包时需要分批处理
 - 每天每个 IP 最多 4000 次请求
 - 搜索结果超过 5000 个时会失败
+
+### 列表每页行数设置
+| 设置键 | 默认值 | 说明 |
+|--------|--------|------|
+| `list_page_size_software` | 50 | 软件管理页面每页行数 |
+| `list_page_size_backup` | 50 | 备份管理页面每页行数 |
+| `list_page_size_cache` | 50 | 缓存管理页面每页行数 |
+| `list_page_size_proxy` | 50 | 代理管理页面每页行数 |
+| `list_page_size_license` | 50 | License 管理页面每页行数 |
+| `list_page_size_language` | 50 | 编程语言管理页面每页行数 |
+
+**DataTable 组件**：通用数据表格组件（`src/components/DataTable.vue`），支持：
+- 列配置（字段名、标题、宽度、格式化函数）
+- 前端分页（通过 props 传入每页行数）
+- 搜索过滤
+- 行选择（单选/全选）
+- 自定义单元格插槽（`#cell-{key}`）
 
 ### software_info 表字段说明
 | 字段 | 类型 | 说明 |

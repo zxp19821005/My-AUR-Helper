@@ -2,7 +2,7 @@
   LanguageManager.vue - 编程语言管理页面
 
   功能：
-  - 显示编程语言列表
+  - 显示编程语言列表（使用通用 DataTable 组件）
   - 支持添加编程语言
   - 支持删除编程语言
 
@@ -12,9 +12,11 @@
   - delete_language: 删除编程语言
 -->
 <script setup lang="ts">
-import { ref, onMounted } from "vue";                // Vue 核心 API
+import { ref, onMounted, inject } from "vue";            // Vue 核心 API
 import { invoke } from "@tauri-apps/api/core";        // Tauri IPC 调用
 import type { Language } from "../types";             // 编程语言类型定义
+import DataTable from "../components/DataTable.vue";   // 通用数据表格组件
+import type { Column } from "../components/DataTable.vue";
 
 /** 编程语言列表 - 存储所有已配置的编程语言 */
 const languages = ref<Language[]>([]);
@@ -25,14 +27,33 @@ const message = ref("");
 /** 编辑模式状态 - 标识是否正在显示添加表单 */
 const editing = ref(false);
 
+/** 搜索关键词 */
+const searchQuery = ref("");
+
+/** 从设置中获取每页行数 */
+const getListPageSize = inject<(key?: string) => Promise<number>>("getListPageSize", () => Promise.resolve(50));
+const pageSize = ref(50);
+
 /** 表单数据 - 添加编程语言时使用的各字段输入值 */
 const editName = ref("");          // 语言名称
 const editExts = ref("");          // 文件扩展名（逗号分隔）
 const editBuildSys = ref("");      // 构建系统
 const editBuildCmd = ref("");      // 构建命令
 
+/** 表格列配置 */
+const columns: Column[] = [
+  { key: "name", title: "名称", width: "150px" },
+  { key: "file_extensions", title: "文件扩展名", width: "180px" },
+  { key: "build_system", title: "构建系统", width: "120px" },
+  { key: "build_command", title: "构建命令" },
+  { key: "name", title: "操作", width: "100px", align: "center" },
+];
+
 /** 组件挂载时加载编程语言列表 */
-onMounted(() => loadLanguages());
+onMounted(async () => {
+  pageSize.value = await getListPageSize("list_page_size_language");
+  await loadLanguages();
+});
 
 /** 加载编程语言列表 - 调用后端获取所有编程语言 */
 async function loadLanguages() {
@@ -108,13 +129,17 @@ function resetForm() {
     </div>
 
     <!-- 操作按钮和统计区域 -->
-    <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; align-items: center">
-      <!-- 总数统计 -->
+    <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; align-items: center; flex-wrap: wrap">
       <span style="color: var(--text-secondary); font-size: 0.875rem">
         总计: {{ languages.length }}
       </span>
-      <!-- 添加语言按钮 -->
       <button class="btn btn-primary" @click="startAdd">添加语言</button>
+      <input
+        type="text"
+        v-model="searchQuery"
+        placeholder="搜索语言..."
+        class="search-input"
+      />
     </div>
 
     <!-- 添加/编辑表单 - 显示在表格上方 -->
@@ -149,32 +174,20 @@ function resetForm() {
       </div>
     </div>
 
-    <!-- 编程语言表格 - 显示所有编程语言的详细信息 -->
-    <div class="card">
-      <table class="lang-table">
-        <thead>
-          <tr>
-            <th>名称</th>
-            <th>文件扩展名</th>
-            <th>构建系统</th>
-            <th>构建命令</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(lang, i) in languages" :key="i">
-            <td><strong>{{ lang.name }}</strong></td>
-            <td>{{ lang.file_extensions || "-" }}</td>
-            <td>{{ lang.build_system || "-" }}</td>
-            <td><code>{{ lang.build_command || "-" }}</code></td>
-            <td>
-              <!-- 删除按钮 -->
-              <button class="btn btn-danger btn-sm" @click="deleteLanguage(lang.name)">删除</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <!-- 编程语言表格 - 使用 DataTable 组件 -->
+    <DataTable
+      :columns="columns"
+      :data="languages"
+      :pageSize="pageSize"
+      :searchQuery="searchQuery"
+      :searchFields="['name', 'file_extensions', 'build_system', 'build_command']"
+      :showIndex="true"
+      emptyText="暂无编程语言数据"
+    >
+      <template #cell-name="{ row }">
+        <button class="btn btn-danger btn-sm" @click="deleteLanguage(row.name)">删除</button>
+      </template>
+    </DataTable>
   </div>
 </template>
 
@@ -205,32 +218,15 @@ function resetForm() {
   font-size: 0.875rem;
 }
 
-/* 编程语言表格 */
-.lang-table {
-  width: 100%;
-  border-collapse: collapse;
+/* 搜索输入框 */
+.search-input {
+  width: 200px;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   font-size: 0.875rem;
-}
-
-.lang-table th {
-  text-align: left;
-  padding: 0.75rem;
-  color: var(--text-secondary);
-  font-weight: 600;
-  border-bottom: 1px solid var(--border);
-}
-
-.lang-table td {
-  padding: 0.75rem;
-  border-bottom: 1px solid var(--border);
-}
-
-/* 内联代码样式 - 用于显示构建命令 */
-.lang-table code {
-  background-color: rgba(108, 99, 255, 0.1);
-  padding: 0.125rem 0.375rem;
-  border-radius: 4px;
-  font-size: 0.8125rem;
 }
 
 /* 小号按钮 */

@@ -1,13 +1,19 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { License } from "../types";
 import LicenseFormModal from "../components/LicenseFormModal.vue";
+import DataTable from "../components/DataTable.vue";
+import type { Column } from "../components/DataTable.vue";
 
 const licenses = ref<License[]>([]);
 const syncing = ref(false);
 const message = ref("");
 const searchQuery = ref("");
+
+/** 从设置中获取每页行数 */
+const getListPageSize = inject<(key?: string) => Promise<number>>("getListPageSize", () => Promise.resolve(50));
+const pageSize = ref(50);
 
 const showModal = ref(false);
 const modalMode = ref<"add" | "edit">("add");
@@ -17,7 +23,17 @@ const modalForm = ref({
   full_name: "",
 });
 
-onMounted(() => loadLicenses());
+/** 表格列配置 */
+const columns: Column[] = [
+  { key: "spdx_id", title: "SPDX ID", width: "180px" },
+  { key: "full_name", title: "全名" },
+  { key: "id", title: "操作", width: "120px", align: "center" },
+];
+
+onMounted(async () => {
+  pageSize.value = await getListPageSize("list_page_size_license");
+  await loadLicenses();
+});
 
 async function loadLicenses() {
   try {
@@ -109,33 +125,30 @@ const filtered = computed(() => {
       <button class="btn btn-outline" @click="syncFromSPDX" :disabled="syncing">
         {{ syncing ? "同步中..." : "从 SPDX 同步" }}
       </button>
+      <input
+        type="text"
+        v-model="searchQuery"
+        placeholder="搜索 License (SPDX ID / 名称)..."
+        class="search-input"
+      />
     </div>
 
-    <div class="card">
-      <div style="margin-bottom: 1rem">
-        <input
-          type="text"
-          v-model="searchQuery"
-          placeholder="搜索 License (SPDX ID / 名称)..."
-          class="search-input"
-        />
-      </div>
-
-      <div v-if="licenses.length === 0" style="color: var(--text-secondary)">
-        暂无 License 数据，请从 SPDX 同步或手动添加。
-      </div>
-
-      <div v-else class="license-grid">
-        <div v-for="(lic, idx) in filtered" :key="lic.id ?? idx" class="license-card">
-          <div class="license-id">{{ lic.spdx_id }}</div>
-          <div class="license-name">{{ lic.full_name }}</div>
-          <div class="license-actions">
-            <button class="btn-sm" @click="openEdit(lic)">编辑</button>
-            <button class="btn-sm btn-sm-danger" @click="handleDelete(lic)">删除</button>
-          </div>
+    <DataTable
+      :columns="columns"
+      :data="licenses"
+      :pageSize="pageSize"
+      :searchQuery="searchQuery"
+      :searchFields="['spdx_id', 'full_name']"
+      :showIndex="true"
+      emptyText="暂无 License 数据，请从 SPDX 同步或手动添加。"
+    >
+      <template #cell-id="{ row }">
+        <div class="license-actions">
+          <button class="btn-sm" @click="openEdit(row)">编辑</button>
+          <button class="btn-sm btn-sm-danger" @click="handleDelete(row)">删除</button>
         </div>
-      </div>
-    </div>
+      </template>
+    </DataTable>
 
     <LicenseFormModal
       :show="showModal"
@@ -149,7 +162,7 @@ const filtered = computed(() => {
 
 <style scoped>
 .search-input {
-  width: 100%;
+  width: 240px;
   padding: 0.5rem 0.75rem;
   border-radius: 8px;
   border: 1px solid var(--border);
@@ -157,27 +170,13 @@ const filtered = computed(() => {
   color: var(--text-primary);
   font-size: 0.875rem;
 }
-.license-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 0.75rem;
+
+.license-actions {
+  display: flex;
+  gap: 0.375rem;
+  justify-content: center;
 }
-.license-card {
-  padding: 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-.license-id {
-  font-weight: 600;
-  font-size: 0.875rem;
-  margin-bottom: 0.25rem;
-}
-.license-name {
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  margin-bottom: 0.5rem;
-}
-.license-actions { display: flex; gap: 0.375rem; }
+
 .btn-sm {
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
@@ -187,5 +186,9 @@ const filtered = computed(() => {
   font-size: 0.75rem;
   cursor: pointer;
 }
-.btn-sm-danger { color: var(--error); border-color: var(--error); }
+
+.btn-sm-danger {
+  color: var(--error);
+  border-color: var(--error);
+}
 </style>

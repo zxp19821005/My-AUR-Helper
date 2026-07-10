@@ -16,6 +16,7 @@
 import { ref, watch, onMounted, reactive, provide } from "vue";
 import { useRoute } from "vue-router";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { invoke } from "@tauri-apps/api/core";
 import Sidebar from "./components/Sidebar.vue";
 import TabBar from "./components/TabBar.vue";
 import BottomToolbar from "./components/BottomToolbar.vue";
@@ -32,6 +33,23 @@ const isPopupWindow = ref(false);
 /** 底部工具栏状态 - 通过 provide/inject 共享 */
 const footerState = reactive<FooterState>(defaultFooterState());
 provide(FOOTER_KEY, footerState);
+
+/**
+ * 获取列表每页行数设置
+ * @param settingKey - 设置键名
+ * @returns 每页行数
+ */
+async function getListPageSize(settingKey: string = "list_page_size_software"): Promise<number> {
+  try {
+    const value = await invoke<string>("get_setting", { key: settingKey });
+    return parseInt(value, 10) || 50;
+  } catch {
+    return 50;
+  }
+}
+
+/** 提供列表每页行数获取函数给子组件 */
+provide("getListPageSize", getListPageSize);
 
 onMounted(async () => {
   const win = getCurrentWebviewWindow();

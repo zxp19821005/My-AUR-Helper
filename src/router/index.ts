@@ -65,6 +65,7 @@ const routes = [
     component: SettingsPopup,
     children: [
       { path: "", name: "SettingsGeneral", component: Settings },    // 通用设置
+      { path: "list", name: "SettingsList", component: Settings },    // 列表设置
       { path: "aur", name: "SettingsAur", component: Settings },     // AUR 设置
       { path: "checker", name: "SettingsChecker", component: Settings },  // 检查器设置
       { path: "backup", name: "SettingsBackup", component: Settings },    // 备份设置
