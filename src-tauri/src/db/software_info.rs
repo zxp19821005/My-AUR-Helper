@@ -251,4 +251,16 @@ impl Database {
         }
         Ok(items)
     }
+
+    /// 更新软件的语言 ID 列表
+    /// @param software_id - 软件 ID
+    /// @param language_ids - 语言 ID 列表
+    pub fn update_software_languages(&self, software_id: i64, language_ids: &[i64]) -> AppResult<()> {
+        let language_ids_json = serde_json::to_string(language_ids).unwrap_or_default();
+        self.conn.execute(
+            "UPDATE software_info SET language_id = ?1 WHERE software_id = ?2",
+            rusqlite::params![language_ids_json, software_id],
+        )?;
+        Ok(())
+    }
 }

@@ -21,7 +21,8 @@ use log::{debug, info};
 use reqwest::Client;
 
 use crate::checkers::github::api::{
-    check_github_release_latest, check_github_releases, fetch_github_repo_license,
+    check_github_release_latest, check_github_releases, fetch_github_repo_languages,
+    fetch_github_repo_license,
 };
 use crate::checkers::github::git_describe::check_github_git_describe;
 use crate::checkers::trait_def::{CheckOptions, CheckResult, VersionChecker};
@@ -109,6 +110,14 @@ impl VersionChecker for GitHubAPIChecker {
                 None
             });
 
+        // 获取编程语言列表
+        let language_names = fetch_github_repo_languages(client, &owner, &repo, self.token.as_deref())
+            .await
+            .unwrap_or_else(|e| {
+                debug!("[版本检查] 获取 languages 失败: {}", e);
+                vec![]
+            });
+
         // -git 包使用 git describe 逻辑
         if pkgname.ends_with("-git") {
             let version = check_github_git_describe(client, &owner, &repo, self.token.as_deref(), pkgname).await?;
@@ -117,7 +126,7 @@ impl VersionChecker for GitHubAPIChecker {
             } else {
                 debug!("[版本检查] 检查完成: {} -> 未找到上游版本", pkgname);
             }
-            return Ok(CheckResult { version, license });
+            return Ok(CheckResult { version, license, language_names });
         }
 
         // 如果启用测试版本检查，遍历所有 releases
@@ -136,7 +145,7 @@ impl VersionChecker for GitHubAPIChecker {
             if let Some(v) = &version {
                 info!("[版本检查] 检查完成: {} -> 上游版本={}", pkgname, v);
             }
-            return Ok(CheckResult { version, license });
+            return Ok(CheckResult { version, license, language_names });
         }
 
         // 默认：只获取 latest release
@@ -155,6 +164,6 @@ impl VersionChecker for GitHubAPIChecker {
         } else {
             debug!("[版本检查] 检查完成: {} -> 未找到上游版本", pkgname);
         }
-        Ok(CheckResult { version, license })
+        Ok(CheckResult { version, license, language_names })
     }
 }

@@ -69,6 +69,8 @@ pub struct UpstreamCheckResult {
     pub is_outdated: bool,
     /// License SPDX ID
     pub license_spdx_id: Option<String>,
+    /// 编程语言名称列表
+    pub language_names: Vec<String>,
 }
 
 /// 安全获取数据库设置项

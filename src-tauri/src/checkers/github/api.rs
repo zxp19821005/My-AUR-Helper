@@ -427,3 +427,73 @@ pub async fn fetch_github_repo_license(
     debug!("[GitHub License] {} {}: 未找到 license", owner, repo);
     Ok(None)
 }
+
+/// 获取 GitHub 仓库的编程语言列表
+///
+/// GitHub 提供两种接口获取仓库编程语言：
+/// 1. GET /repos/{owner}/{repo}/languages - 返回语言及其字节数
+/// 2. GET /repos/{owner}/{repo} - 仓库信息中的 language 字段（主要语言）
+///
+/// 这里使用第一种接口，获取所有语言
+///
+/// # 参数
+/// - `client`: HTTP 客户端
+/// - `owner`: GitHub 仓库所有者
+/// - `repo`: GitHub 仓库名称
+/// - `token`: GitHub API Token（可选）
+///
+/// # 返回
+/// - `Ok(Vec<String>)`: 编程语言名称列表（按字节数降序排列）
+/// - `Ok(vec![])`: 未找到语言信息
+/// - `Err(e)`: 请求失败
+pub async fn fetch_github_repo_languages(
+    client: &Client,
+    owner: &str,
+    repo: &str,
+    token: Option<&str>,
+) -> AppResult<Vec<String>> {
+    let api_url = format!(
+        "https://api.github.com/repos/{}/{}/languages",
+        owner, repo
+    );
+
+    let mut req = client
+        .get(&api_url)
+        .header("User-Agent", "my-aur-helper/0.1")
+        .header("Accept", "application/vnd.github.v3+json");
+    if let Some(t) = token {
+        req = req.header("Authorization", format!("Bearer {}", t));
+    }
+
+    let resp = req.send().await?;
+    if !resp.status().is_success() {
+        debug!("[GitHub Languages] 获取 languages 失败: {} {}", owner, repo);
+        return Ok(vec![]);
+    }
+
+    // GitHub Languages API 返回格式: { "Rust": 123456, "Python": 78901, ... }
+    let data: serde_json::Value = resp.json().await?;
+
+    if let Some(languages) = data.as_object() {
+        // 按字节数降序排列，返回语言名称列表
+        let mut lang_list: Vec<(String, u64)> = languages
+            .iter()
+            .filter_map(|(name, bytes)| {
+                bytes.as_u64().map(|b| (name.clone(), b))
+            })
+            .collect();
+
+        // 按字节数降序排序
+        lang_list.sort_by(|a, b| b.1.cmp(&a.1));
+
+        let lang_names: Vec<String> = lang_list.into_iter().map(|(name, _)| name).collect();
+        info!(
+            "[GitHub Languages] {} {}: languages={:?}",
+            owner, repo, lang_names
+        );
+        Ok(lang_names)
+    } else {
+        debug!("[GitHub Languages] {} {}: 未找到 language 信息", owner, repo);
+        Ok(vec![])
+    }
+}

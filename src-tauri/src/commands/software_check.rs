@@ -79,6 +79,7 @@ fn compare_and_update(
     pkgname: &str,
     version: &str,
     license_spdx_id: Option<&str>,
+    language_names: &[String],
 ) -> AppResult<()> {
     let aur_ver = db
         .get_aur_info(software_id)?
@@ -102,7 +103,18 @@ fn compare_and_update(
     // 获取 license ID
     let upstream_license_id = db.get_or_create_license_id(license_spdx_id)?;
 
+    // 解析语言 ID 列表（如果语言不存在则自动创建）
+    let language_ids = db.resolve_language_ids(language_names)?;
+    info!(
+        "[版本检查结果] {}: languages={:?} -> ids={:?}",
+        pkgname, language_names, language_ids
+    );
+
     db.update_software_outdated(software_id, is_outdated)?;
+    
+    // 更新软件的语言 ID 列表
+    db.update_software_languages(software_id, &language_ids)?;
+    
     let upstream_info = UpstreamInfo {
         software_id,
         upstream_version: Some(cleaned_version.to_string()),
@@ -188,6 +200,7 @@ pub async fn check_upstream_version(
         &sw.pkgname,
         &version,
         check_result.license.as_deref(),
+        &check_result.language_names,
     )?;
     Ok(version)
 }
@@ -249,6 +262,7 @@ pub async fn check_selected_upstream(
                     &sw.pkgname,
                     &version,
                     check_result.license.as_deref(),
+                    &check_result.language_names,
                 );
                 results.push((sw.pkgname.clone(), version));
             }

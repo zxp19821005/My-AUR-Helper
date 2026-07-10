@@ -48,4 +48,48 @@ impl Database {
         )?;
         Ok(())
     }
+
+    /// 根据语言名称获取或创建语言记录
+    /// 如果语言不存在，则自动创建（简称取名称的前两个字符）
+    /// @param name - 编程语言名称
+    /// @returns 语言 ID
+    pub fn get_or_create_language_id(&self, name: &str) -> AppResult<i64> {
+        // 先尝试查询
+        let mut stmt = self.conn.prepare(
+            "SELECT id FROM enum_programming_languages WHERE name=?1"
+        )?;
+        let existing: Option<i64> = stmt
+            .query_map(rusqlite::params![name], |row| row.get(0))?
+            .next()
+            .transpose()?;
+
+        if let Some(id) = existing {
+            return Ok(id);
+        }
+
+        // 不存在则创建
+        let short_name: String = name.chars().take(2).collect();
+        self.conn.execute(
+            "INSERT INTO enum_programming_languages (name, short_name) VALUES (?1, ?2)",
+            rusqlite::params![name, short_name],
+        )?;
+        Ok(self.conn.last_insert_rowid())
+    }
+
+    /// 批量处理语言名称列表，返回对应的语言 ID 列表
+    /// 对于不存在的语言，会自动创建
+    /// @param names - 编程语言名称列表
+    /// @returns 语言 ID 列表
+    pub fn resolve_language_ids(&self, names: &[String]) -> AppResult<Vec<i64>> {
+        let mut ids = Vec::new();
+        for name in names {
+            match self.get_or_create_language_id(name) {
+                Ok(id) => ids.push(id),
+                Err(e) => {
+                    log::warn!("[语言ID解析] 无法为 '{}' 创建语言记录: {}", name, e);
+                }
+            }
+        }
+        Ok(ids)
+    }
 }

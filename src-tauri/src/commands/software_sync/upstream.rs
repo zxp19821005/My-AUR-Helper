@@ -110,6 +110,7 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
                             upstream_version: version,
                             is_outdated,
                             license_spdx_id: check_result.license,
+                            language_names: check_result.language_names,
                         });
                     } else {
                         check_results.push(UpstreamCheckResult {
@@ -118,6 +119,7 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
                             upstream_version: String::new(),
                             is_outdated: false,
                             license_spdx_id: None,
+                            language_names: vec![],
                         });
                     }
                 }
@@ -128,6 +130,7 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
                         upstream_version: String::new(),
                         is_outdated: false,
                         license_spdx_id: None,
+                        language_names: vec![],
                     });
                 }
             }
@@ -148,7 +151,18 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
             let upstream_license_id =
                 db.get_or_create_license_id(result.license_spdx_id.as_deref())?;
 
+            // 解析语言 ID 列表（如果语言不存在则自动创建）
+            let language_ids = db.resolve_language_ids(&result.language_names)?;
+            info!(
+                "[版本检查结果] {}: languages={:?} -> ids={:?}",
+                result.pkgname, result.language_names, language_ids
+            );
+
             let _ = db.update_software_outdated(result.software_id, result.is_outdated);
+            
+            // 更新软件的语言 ID 列表
+            let _ = db.update_software_languages(result.software_id, &language_ids);
+            
             let upstream_info = crate::models::UpstreamInfo {
                 software_id: result.software_id,
                 upstream_version: Some(cleaned_version.to_string()),

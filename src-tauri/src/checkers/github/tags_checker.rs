@@ -18,6 +18,7 @@ use async_trait::async_trait;
 use log::{debug, info};
 use reqwest::Client;
 
+use crate::checkers::github::api::fetch_github_repo_languages;
 use crate::checkers::github::git_describe::check_github_git_describe;
 use crate::checkers::github::tags::check_github_tags;
 use crate::checkers::trait_def::{CheckOptions, CheckResult, VersionChecker};
@@ -88,6 +89,14 @@ impl VersionChecker for GitHubTagsChecker {
             }
         };
 
+        // 获取编程语言列表
+        let language_names = fetch_github_repo_languages(client, &owner, &repo, self.token.as_deref())
+            .await
+            .unwrap_or_else(|e| {
+                debug!("[版本检查] 获取 languages 失败: {}", e);
+                vec![]
+            });
+
         // -git 包使用 git describe 逻辑
         if pkgname.ends_with("-git") {
             let version = check_github_git_describe(client, &owner, &repo, self.token.as_deref(), pkgname).await?;
@@ -96,10 +105,7 @@ impl VersionChecker for GitHubTagsChecker {
             } else {
                 debug!("[版本检查] 检查完成: {} -> 未找到上游版本", pkgname);
             }
-            return Ok(CheckResult {
-                version,
-                ..Default::default()
-            });
+            return Ok(CheckResult { version, license: None, language_names });
         }
 
         let version = check_github_tags(
@@ -116,9 +122,6 @@ impl VersionChecker for GitHubTagsChecker {
         } else {
             debug!("[版本检查] 检查完成: {} -> 未找到上游版本", pkgname);
         }
-        Ok(CheckResult {
-            version,
-            ..Default::default()
-        })
+        Ok(CheckResult { version, license: None, language_names })
     }
 }
