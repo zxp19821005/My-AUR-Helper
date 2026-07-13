@@ -138,14 +138,14 @@ pub async fn update_software(
 pub async fn set_software_license(
     state: State<'_, AppState>,
     software_id: i64,
-    license_id: Option<i64>,
+    license_id: Option<String>,
 ) -> Result<(), String> {
     info!(
         "正在设置软件包 {} 的 License 为 {:?}",
         software_id, license_id
     );
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.set_aur_license(software_id, license_id)
+    db.set_aur_license(software_id, license_id.as_deref())
         .map_err(|e| e.to_string())
 }
 

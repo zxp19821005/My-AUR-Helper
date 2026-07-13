@@ -52,7 +52,7 @@
 
 ### set_software_license
 设置软件包的 License。
-- 参数: `{ software_id: number, license_id: number | null }`
+- 参数: `{ software_id: number, license_id: string | null }` (license_id 为 JSON 数组字符串，如 `["MIT", "GPL-3.0"]`)
 - 返回: `void`
 
 ### set_software_language

@@ -27,7 +27,9 @@ watch(searchText, (val) => {
 
 async function openEnums() {
   const existing = await WebviewWindow.getByLabel("enums");
-  if (existing) { existing.setFocus(); return; }
+  if (existing) {
+    try { if (await existing.isVisible()) { existing.setFocus(); return; } } catch {}
+  }
   new WebviewWindow("enums", {
     url: "/enums", title: "枚举值管理", width: 900, height: 600, resizable: true, center: true,
   });
@@ -35,7 +37,9 @@ async function openEnums() {
 
 async function openLogs() {
   const existing = await WebviewWindow.getByLabel("logs");
-  if (existing) { existing.setFocus(); return; }
+  if (existing) {
+    try { if (await existing.isVisible()) { existing.setFocus(); return; } } catch {}
+  }
   new WebviewWindow("logs", {
     url: "/logs", title: "日志", width: 900, height: 600, resizable: true, center: true,
   });
@@ -43,7 +47,9 @@ async function openLogs() {
 
 async function openSettings() {
   const existing = await WebviewWindow.getByLabel("settings");
-  if (existing) { existing.setFocus(); return; }
+  if (existing) {
+    try { if (await existing.isVisible()) { existing.setFocus(); return; } } catch {}
+  }
   new WebviewWindow("settings", {
     url: "/settings", title: "设置", width: 900, height: 600, resizable: true, center: true,
   });

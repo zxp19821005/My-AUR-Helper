@@ -58,7 +58,7 @@ const {
   filteredLicenses,
   selectLicense,
   getSelectedLicenseLabel,
-} = useLicenseSelect(licenses, computed(() => form.value.license_id), searchableSelectRef);
+} = useLicenseSelect(licenses, computed(() => form.value.license_ids), searchableSelectRef);
 
 watch(
   () => props.show,
@@ -170,7 +170,7 @@ async function handleSave() {
             <input v-model="licenseSearch" class="select-search-input" placeholder="搜索 License..." @click.stop />
             <div class="select-options">
               <div class="select-option" @click.stop="selectLicense(null)">未设置</div>
-              <div v-for="lic in filteredLicenses" :key="lic.id ?? `lic-${lic.spdx_id}`" class="select-option" :class="{ selected: form.license_id === lic.id }" @click.stop="lic.id !== null && selectLicense(lic.id)">
+              <div v-for="lic in filteredLicenses" :key="lic.id ?? `lic-${lic.spdx_id}`" class="select-option" @click.stop="selectLicense(lic.spdx_id)">
                 {{ lic.spdx_id }} — {{ lic.full_name }}
               </div>
             </div>

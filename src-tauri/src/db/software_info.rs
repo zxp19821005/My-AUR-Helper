@@ -7,6 +7,21 @@ use super::Database;
 impl Database {
     pub fn insert_software(&self, sw: &SoftwareInfo) -> AppResult<i64> {
         let language_ids_json = serde_json::to_string(&sw.language_ids).unwrap_or_default();
+
+        // 检查 software_info 表是否存在意外的 FK 约束
+        let fk_count: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM pragma_foreign_key_list('software_info')",
+            [],
+            |row| row.get(0),
+        ).unwrap_or(0);
+        if fk_count > 0 {
+            log::warn!(
+                "[insert_software] software_info 表有 {} 个外键约束，正在移除...",
+                fk_count
+            );
+            self.rebuild_software_info_remove_fk()?;
+        }
+
         self.conn.execute(
             "INSERT INTO software_info (pkgname, upstream_url, package_type_id, checker_type_id, is_outdated, check_test_versions, check_binary_files, auto_check_enabled, language_id, version_extract_regex)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
@@ -21,6 +36,36 @@ impl Database {
 
     pub fn upsert_software(&self, sw: &SoftwareInfo) -> AppResult<()> {
         let language_ids_json = serde_json::to_string(&sw.language_ids).unwrap_or_default();
+
+        // 检查 software_info 表是否存在意外的 FK 约束
+        let fk_count: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM pragma_foreign_key_list('software_info')",
+            [],
+            |row| row.get(0),
+        ).unwrap_or(0);
+        if fk_count > 0 {
+            log::warn!(
+                "[upsert_software] software_info 表有 {} 个外键约束，正在移除...",
+                fk_count
+            );
+            // 列出所有 FK 约束
+            let mut stmt = self.conn.prepare(
+                "SELECT \"id\", \"from\", \"table\", \"to\" FROM pragma_foreign_key_list('software_info')"
+            )?;
+            let fks: Vec<String> = stmt.query_map([], |row| {
+                let id: i64 = row.get(0)?;
+                let from: String = row.get(1)?;
+                let table: String = row.get(2)?;
+                let to: String = row.get(3)?;
+                Ok(format!("FK#{}: {}.{} -> {}.{}", id, "software_info", from, table, to))
+            })?.filter_map(|r| r.ok()).collect();
+            for fk in &fks {
+                log::warn!("[upsert_software]   {}", fk);
+            }
+            // 重建表以移除 FK 约束
+            self.rebuild_software_info_remove_fk()?;
+        }
+
         self.conn.execute(
             "INSERT INTO software_info (pkgname, upstream_url, package_type_id, checker_type_id, is_outdated, check_test_versions, check_binary_files, auto_check_enabled, language_id, version_extract_regex)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
@@ -37,6 +82,43 @@ impl Database {
                 sw.auto_check_enabled as i32, language_ids_json, sw.version_extract_regex
             ],
         )?;
+        Ok(())
+    }
+
+    /// 重建 software_info 表以移除所有外键约束
+    fn rebuild_software_info_remove_fk(&self) -> AppResult<()> {
+        self.conn.execute_batch("PRAGMA foreign_keys=OFF;")?;
+        self.conn.execute_batch("DROP TABLE IF EXISTS software_info_new;")?;
+        self.conn.execute_batch(
+            "CREATE TABLE software_info_new (
+                software_id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                pkgname                 TEXT NOT NULL UNIQUE,
+                upstream_url            TEXT,
+                package_type_id         INTEGER NOT NULL DEFAULT 1,
+                checker_type_id         INTEGER NOT NULL DEFAULT 7,
+                is_outdated             INTEGER NOT NULL DEFAULT 0,
+                check_test_versions     INTEGER NOT NULL DEFAULT 0,
+                check_binary_files      INTEGER NOT NULL DEFAULT 0,
+                auto_check_enabled      INTEGER NOT NULL DEFAULT 1,
+                language_id             TEXT DEFAULT '[]',
+                version_extract_regex   TEXT
+            );",
+        )?;
+        self.conn.execute_batch(
+            "INSERT INTO software_info_new
+             SELECT software_id, pkgname, upstream_url, package_type_id, checker_type_id,
+                    is_outdated, check_test_versions, check_binary_files, auto_check_enabled,
+                    language_id, version_extract_regex
+             FROM software_info;",
+        )?;
+        self.conn.execute_batch("DROP TABLE software_info;")?;
+        self.conn.execute_batch("ALTER TABLE software_info_new RENAME TO software_info;")?;
+        self.conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_software_pkgname ON software_info(pkgname);
+             CREATE INDEX IF NOT EXISTS idx_software_outdated ON software_info(is_outdated);",
+        )?;
+        self.conn.execute_batch("PRAGMA foreign_keys=ON;")?;
+        log::info!("[upsert_software] software_info 表已重建，FK 约束已移除");
         Ok(())
     }
 
@@ -157,21 +239,19 @@ impl Database {
                     s.language_id, s.version_extract_regex,
                     a.aur_version, CAST(a.last_updated AS INTEGER), a.pkgdesc,
                     a.depends, a.makedepends, a.optdepends,
-                    al.spdx_id,
+                    a.license_id,
                     u.upstream_version, CAST(u.last_checked AS INTEGER),
-                    ul.spdx_id
+                    u.upstream_license_id
              FROM software_info s
              LEFT JOIN aur_info a ON s.software_id = a.software_id
              LEFT JOIN upstream_info u ON s.software_id = u.software_id
-             LEFT JOIN enum_licenses al ON a.license_id = al.id
-             LEFT JOIN enum_licenses ul ON u.upstream_license_id = ul.id
              WHERE s.pkgname = ?1"
         )?;
         let mut rows = stmt.query_map(rusqlite::params![pkgname], |row| {
-            let aur_spdx: Option<String> = row.get(17)?;
-            let upstream_spdx: Option<String> = row.get(20)?;
+            let aur_license_json: Option<String> = row.get(17)?;
+            let upstream_license_json: Option<String> = row.get(20)?;
             let lang_json: String = row.get(9)?;
-            log::debug!("get_software_detail: pkgname={}, a.license_id from SQL, al.spdx_id={:?}, ul.spdx_id={:?}", pkgname, aur_spdx, upstream_spdx);
+            log::debug!("get_software_detail: pkgname={}, aur_license_json={:?}, upstream_license_json={:?}", pkgname, aur_license_json, upstream_license_json);
             Ok(SoftwareDetail {
                 software_id: Some(row.get(0)?),
                 pkgname: row.get(1)?,
@@ -190,10 +270,10 @@ impl Database {
                 depends: row.get(14)?,
                 makedepends: row.get(15)?,
                 optdepends: row.get(16)?,
-                aur_license_name: aur_spdx,
+                aur_license_name: aur_license_json,
                 upstream_version: row.get(18)?,
                 upstream_last_checked: row.get(19)?,
-                upstream_license_name: upstream_spdx,
+                upstream_license_name: upstream_license_json,
             })
         })?;
         Ok(rows.next().transpose()?)

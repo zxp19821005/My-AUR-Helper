@@ -67,7 +67,7 @@ pub struct UpstreamCheckResult {
     pub upstream_version: String,
     /// 是否已过期（AUR 版本 < 上游版本）
     pub is_outdated: bool,
-    /// License SPDX ID
+    /// License 列表（JSON 数组字符串）
     pub license_spdx_id: Option<String>,
     /// 编程语言名称列表
     pub language_names: Vec<String>,

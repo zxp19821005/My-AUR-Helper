@@ -92,7 +92,7 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
             let url = data["URL"].as_str().map(|s| s.to_string());
             let last_modified = data["LastModified"].as_i64();
             let license_arr = data["License"].as_array();
-            let license_str = license_arr.and_then(|a| a.first()).and_then(|v| v.as_str());
+            let license_json = license_arr.map(|a| serde_json::to_string(a).unwrap_or_default());
             let depends_arr = data["Depends"].as_array();
             let makedepends_arr = data["MakeDepends"].as_array();
             let optdepends_arr = data["OptDepends"].as_array();
@@ -109,7 +109,7 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
                         || existing.check_test_versions != check_test_versions
                         || existing.check_binary_files != check_binary_files;
 
-                    let license_spdx = license_str.map(|s| s.to_string());
+                    let license_spdx = license_json;
                     let depends = depends_arr.map(|a| serde_json::to_string(a).unwrap_or_default());
                     let makedepends =
                         makedepends_arr.map(|a| serde_json::to_string(a).unwrap_or_default());
@@ -153,7 +153,7 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
             }
         }
 
-        let license_id = db.get_or_create_license_id(result.license_spdx.as_deref())?;
+        let license_id = result.license_spdx.clone();
 
         let aur_info = AurInfo {
             software_id: result.software_id,
@@ -244,7 +244,7 @@ pub async fn update_aur_info(
         let _url = data["URL"].as_str().map(|s| s.to_string());
         let last_modified = data["LastModified"].as_i64();
         let license_arr = data["License"].as_array();
-        let license_str = license_arr.and_then(|a| a.first()).and_then(|v| v.as_str());
+        let license_json = license_arr.map(|a| serde_json::to_string(a).unwrap_or_default());
         let depends_arr = data["Depends"].as_array();
         let makedepends_arr = data["MakeDepends"].as_array();
         let optdepends_arr = data["OptDepends"].as_array();
@@ -253,7 +253,7 @@ pub async fn update_aur_info(
         let sw = db.get_software_by_name(pkgname)?;
         if let Some(existing) = sw {
             if let Some(sid) = existing.software_id {
-                let license_id = db.get_or_create_license_id(license_str)?;
+                let license_id = license_json;
 
                 let depends = depends_arr.map(|a| serde_json::to_string(a).unwrap_or_default());
                 let makedepends =

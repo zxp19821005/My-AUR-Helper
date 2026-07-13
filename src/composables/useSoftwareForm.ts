@@ -12,7 +12,7 @@ export interface SoftwareForm {
   check_test_versions: boolean;
   check_binary_files: boolean;
   auto_check_enabled: boolean;
-  license_id: number | null;
+  license_ids: string | null;
   language_ids: number[];
   version_extract_regex: string;
 }
@@ -26,7 +26,7 @@ const defaultForm: SoftwareForm = {
   check_test_versions: false,
   check_binary_files: false,
   auto_check_enabled: false,
-  license_id: null,
+  license_ids: null,
   language_ids: [],
   version_extract_regex: "",
 };
@@ -85,7 +85,7 @@ export function useSoftwareForm() {
           check_test_versions: data.check_test_versions,
           check_binary_files: data.check_binary_files,
           auto_check_enabled: data.auto_check_enabled,
-          license_id: null,
+          license_ids: data.aur_license_name ?? null,
           language_ids: data.language_ids ?? [],
           version_extract_regex: data.version_extract_regex ?? "",
         };
@@ -108,7 +108,7 @@ export function useSoftwareForm() {
         check_test_versions: detail.value.check_test_versions,
         check_binary_files: detail.value.check_binary_files,
         auto_check_enabled: detail.value.auto_check_enabled,
-        license_id: null,
+        license_ids: detail.value.aur_license_name ?? null,
         language_ids: detail.value.language_ids ?? [],
         version_extract_regex: detail.value.version_extract_regex ?? "",
       };
@@ -177,7 +177,7 @@ export function useSoftwareForm() {
       if (softwareId != null) {
         await invoke("set_software_license", {
           softwareId,
-          licenseId: form.value.license_id,
+          licenseId: form.value.license_ids,
         });
       }
       return true;

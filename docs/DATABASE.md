@@ -126,7 +126,7 @@ AUR 软件包详细信息，通过 AUR RPC 接口获取。
 | software_id | INTEGER PK FK | 关联 software_info.software_id |
 | pkgdesc | TEXT | 软件包描述 |
 | aur_version | TEXT | AUR 中的版本号 |
-| license_id | INTEGER FK | 关联 enum_licenses.id |
+| license_id | TEXT | License 列表 (JSON 数组格式，如 `["MIT", "GPL-3.0"]`) |
 | last_updated | INTEGER | AUR 最后更新时间 (Unix 时间戳) |
 | depends | TEXT | 运行依赖 (JSON 数组) |
 | makedepends | TEXT | 编译依赖 (JSON 数组) |
@@ -140,10 +140,9 @@ AUR 软件包详细信息，通过 AUR RPC 接口获取。
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | software_id | INTEGER PK FK | 关联 software_info.software_id |
-| upstream_url | TEXT | 上游检查 URL |
 | upstream_version | TEXT | 上游最新版本 |
-| upstream_license | TEXT | 上游许可证 |
-| last_checked | TEXT | 最后检查时间 |
+| upstream_license_id | TEXT | 上游 License 列表 (JSON 数组格式，如 `["MIT", "GPL-3.0"]`) |
+| last_checked | INTEGER | 最后检查时间 (Unix 时间戳) |
 
 <!-- backup_software：备份文件记录，从 pacman 缓存复制到备份目录 -->
 ### backup_software

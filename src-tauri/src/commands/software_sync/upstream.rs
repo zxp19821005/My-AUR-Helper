@@ -147,9 +147,8 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
                 .strip_prefix('v')
                 .unwrap_or(&result.upstream_version);
 
-            // 获取 license ID
-            let upstream_license_id =
-                db.get_or_create_license_id(result.license_spdx_id.as_deref())?;
+            // 获取 license JSON（直接存储数组）
+            let upstream_license_id = result.license_spdx_id.clone();
 
             // 解析语言 ID 列表（如果语言不存在则自动创建）
             let language_ids = db.resolve_language_ids(&result.language_names)?;

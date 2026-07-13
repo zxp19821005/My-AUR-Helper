@@ -100,22 +100,31 @@ fn compare_and_update(
         pkgname, aur_ver, version, is_outdated
     );
 
-    // 获取 license ID
-    let upstream_license_id = db.get_or_create_license_id(license_spdx_id)?;
+    // 获取 license JSON（直接存储数组）
+    let upstream_license_id = license_spdx_id.map(|s| s.to_string());
+    debug!(
+        "[版本检查] {} license_spdx_id={:?} -> upstream_license_id={:?}",
+        pkgname, license_spdx_id, upstream_license_id
+    );
 
     // 解析语言 ID 列表（如果语言不存在则自动创建）
     let language_ids = db.resolve_language_ids(language_names)?;
-    info!(
-        "[版本检查结果] {}: languages={:?} -> ids={:?}",
+    debug!(
+        "[版本检查] {} languages={:?} -> ids={:?}",
         pkgname, language_names, language_ids
     );
 
+    debug!(
+        "[版本检查] {} 准备写入: software_id={}, is_outdated={}, version={}, license_id={:?}",
+        pkgname, software_id, is_outdated, cleaned_version, upstream_license_id
+    );
+
     db.update_software_outdated(software_id, is_outdated)?;
-    debug!("[版本检查] {} is_outdated={} 更新成功", pkgname, is_outdated);
+    debug!("[版本检查] {} step1: update_software_outdated 成功", pkgname);
     
     // 更新软件的语言 ID 列表
     db.update_software_languages(software_id, &language_ids)?;
-    debug!("[版本检查] {} languages={:?} 更新成功", pkgname, language_ids);
+    debug!("[版本检查] {} step2: update_software_languages 成功", pkgname);
     
     let upstream_info = UpstreamInfo {
         software_id,
@@ -124,8 +133,7 @@ fn compare_and_update(
         last_checked: Some(Utc::now().timestamp()),
     };
     db.upsert_upstream_info(&upstream_info)?;
-    info!("[版本检查] {} upstream_info 更新完成: version={}, license_id={:?}", 
-        pkgname, cleaned_version, upstream_license_id);
+    debug!("[版本检查] {} step3: upsert_upstream_info 成功", pkgname);
     Ok(())
 }
 

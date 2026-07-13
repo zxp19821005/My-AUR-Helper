@@ -49,12 +49,33 @@ impl Database {
     }
 
     /// 设置或更新 AUR 信息的 License（upsert，不存在则创建）
-    pub fn set_aur_license(&self, software_id: i64, license_id: Option<i64>) -> AppResult<()> {
+    pub fn set_aur_license(&self, software_id: i64, license_id: Option<&str>) -> AppResult<()> {
+        log::debug!(
+            "[set_aur_license] software_id={}, license_id={:?}",
+            software_id, license_id
+        );
+        // 检查 software_id 是否存在于 software_info
+        let sw_exists: bool = self.conn.query_row(
+            "SELECT COUNT(*) > 0 FROM software_info WHERE software_id=?1",
+            rusqlite::params![software_id],
+            |row| row.get(0),
+        )?;
+        log::debug!("[set_aur_license] software_info exists: {}", sw_exists);
+
+        // 检查 aur_info 是否已有该 software_id 的行
+        let aur_exists: bool = self.conn.query_row(
+            "SELECT COUNT(*) > 0 FROM aur_info WHERE software_id=?1",
+            rusqlite::params![software_id],
+            |row| row.get(0),
+        )?;
+        log::debug!("[set_aur_license] aur_info exists for software_id={}: {}", software_id, aur_exists);
+
         self.conn.execute(
             "INSERT INTO aur_info (software_id, license_id) VALUES (?1, ?2)
              ON CONFLICT(software_id) DO UPDATE SET license_id=excluded.license_id",
             rusqlite::params![software_id, license_id],
         )?;
+        log::debug!("[set_aur_license] 执行成功");
         Ok(())
     }
 

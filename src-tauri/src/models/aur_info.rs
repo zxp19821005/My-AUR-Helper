@@ -10,8 +10,8 @@ pub struct AurInfo {
     pub pkgdesc: Option<String>,
     /// AUR 中的当前版本号
     pub aur_version: Option<String>,
-    /// 关联的 License 枚举 ID
-    pub license_id: Option<i64>,
+    /// 关联的 License 列表（JSON 数组字符串，如 `["MIT", "GPL-3.0"]`）
+    pub license_id: Option<String>,
     /// AUR 数据最后更新时间（Unix 时间戳）
     pub last_updated: Option<i64>,
     /// 运行时依赖列表（JSON 数组字符串）

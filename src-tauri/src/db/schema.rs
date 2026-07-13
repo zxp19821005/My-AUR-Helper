@@ -32,24 +32,22 @@ impl Database {
                 software_id     INTEGER PRIMARY KEY,
                 pkgdesc         TEXT,
                 aur_version     TEXT,
-                license_id      INTEGER,
+                license_id      TEXT,
                 last_updated    INTEGER,
                 depends         TEXT,
                 makedepends     TEXT,
                 optdepends      TEXT,
                 out_of_date     INTEGER,
-                FOREIGN KEY (software_id) REFERENCES software_info(software_id) ON DELETE CASCADE,
-                FOREIGN KEY (license_id) REFERENCES enum_licenses(id)
+                FOREIGN KEY (software_id) REFERENCES software_info(software_id) ON DELETE CASCADE
             );
 
             -- 上游版本信息表
             CREATE TABLE IF NOT EXISTS upstream_info (
                 software_id        INTEGER PRIMARY KEY,
                 upstream_version   TEXT,
-                upstream_license_id INTEGER,
+                upstream_license_id TEXT,
                 last_checked       INTEGER,
-                FOREIGN KEY (software_id) REFERENCES software_info(software_id) ON DELETE CASCADE,
-                FOREIGN KEY (upstream_license_id) REFERENCES enum_licenses(id)
+                FOREIGN KEY (software_id) REFERENCES software_info(software_id) ON DELETE CASCADE
             );
 
             -- 备份软件包记录表

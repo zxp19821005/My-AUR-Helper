@@ -11,7 +11,7 @@ import type { License } from "../types";
 
 export function useLicenseSelect(
   licenses: Ref<License[]>,
-  formLicenseId: Ref<number | null>,
+  formLicenseIds: Ref<string | null>,
   searchableSelectRef: Ref<HTMLElement | null>
 ) {
   const licenseSearch = ref("");
@@ -27,16 +27,52 @@ export function useLicenseSelect(
     );
   });
 
-  function selectLicense(licId: number | null) {
-    formLicenseId.value = licId;
+  function selectLicense(licSpdxId: string | null) {
+    if (licSpdxId === null) {
+      // 清空所有 license
+      formLicenseIds.value = null;
+    } else {
+      // 切换单个 license 的选中状态
+      let currentList: string[] = [];
+      if (formLicenseIds.value) {
+        try {
+          const parsed = JSON.parse(formLicenseIds.value);
+          if (Array.isArray(parsed)) {
+            currentList = parsed;
+          }
+        } catch {
+          // Not valid JSON, ignore
+        }
+      }
+      
+      const idx = currentList.indexOf(licSpdxId);
+      if (idx >= 0) {
+        currentList.splice(idx, 1);
+      } else {
+        currentList.push(licSpdxId);
+      }
+      
+      formLicenseIds.value = currentList.length > 0 ? JSON.stringify(currentList) : null;
+    }
+    
     licenseDropdownOpen.value = false;
     licenseSearch.value = "";
   }
 
   function getSelectedLicenseLabel(): string {
-    if (formLicenseId.value === null) return "未设置";
-    const lic = licenses.value.find((l: License) => l.id === formLicenseId.value);
-    return lic ? `${lic.spdx_id} — ${lic.full_name}` : "未设置";
+    if (!formLicenseIds.value) return "未设置";
+    // Try to parse JSON array and display
+    try {
+      const parsed = JSON.parse(formLicenseIds.value);
+      if (Array.isArray(parsed)) {
+        if (parsed.length === 0) return "未设置";
+        return parsed.join(", ");
+      }
+    } catch {
+      // Not JSON, return as is
+      return formLicenseIds.value;
+    }
+    return "未设置";
   }
 
   function handleClickOutside(event: MouseEvent) {

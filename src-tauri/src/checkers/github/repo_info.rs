@@ -20,7 +20,7 @@ use crate::errors::AppResult;
 /// - `token`: GitHub API Token（可选）
 ///
 /// # 返回
-/// - `Ok(Some(spdx_id))`: License 的 SPDX ID（如 "MIT", "Apache-2.0"）
+/// - `Ok(Some(json_array))`: License 列表的 JSON 数组字符串（如 `["MIT", "Apache-2.0"]`）
 /// - `Ok(None)`: 未找到 License
 /// - `Err(e)`: 请求失败
 pub async fn fetch_github_repo_license(
@@ -39,10 +39,13 @@ pub async fn fetch_github_repo_license(
 
     let data: serde_json::Value = resp.json().await?;
 
+    // GitHub API 返回单个 license 对象，我们将其包装为数组
     if let Some(spdx_id) = data["license"]["spdx_id"].as_str() {
         if spdx_id != "NOASSERTION" && !spdx_id.is_empty() {
+            let licenses = vec![spdx_id.to_string()];
+            let json_array = serde_json::to_string(&licenses).unwrap_or_default();
             info!("[GitHub License] {} {}: license={}", owner, repo, spdx_id);
-            return Ok(Some(spdx_id.to_string()));
+            return Ok(Some(json_array));
         }
     }
 

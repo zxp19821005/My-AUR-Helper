@@ -47,6 +47,19 @@ function getLanguageNames(ids: number[] | null | undefined): string {
     .join(', ') || '—';
 }
 
+function formatLicense(licenseJson: string | null | undefined): string {
+  if (!licenseJson) return '—';
+  try {
+    const parsed = JSON.parse(licenseJson);
+    if (Array.isArray(parsed)) {
+      return parsed.length > 0 ? parsed.join(', ') : '—';
+    }
+  } catch {
+    // Not JSON, return as is
+  }
+  return licenseJson;
+}
+
 onMounted(() => {
   loadLanguages();
 });
@@ -230,7 +243,7 @@ watch(() => props.show, (val) => { if (!val) showEditModal.value = false; });
           <table class="info-table">
             <tbody>
               <tr><td class="label">AUR 版本</td><td class="value version-cell">{{ detail.aur_version || '—' }}</td></tr>
-              <tr><td class="label">AUR License</td><td class="value">{{ detail.aur_license_name || '—' }}</td></tr>
+              <tr><td class="label">AUR License</td><td class="value">{{ formatLicense(detail.aur_license_name) }}</td></tr>
               <tr><td class="label">更新时间</td><td class="value">{{ formatTimestamp(detail.aur_last_updated) }}</td></tr>
             </tbody>
           </table>
@@ -241,7 +254,7 @@ watch(() => props.show, (val) => { if (!val) showEditModal.value = false; });
           <table class="info-table">
             <tbody>
               <tr><td class="label">上游版本</td><td class="value version-cell">{{ detail.upstream_version || '—' }}</td></tr>
-              <tr><td class="label">上游 License</td><td class="value">{{ detail.upstream_license_name || '—' }}</td></tr>
+              <tr><td class="label">上游 License</td><td class="value">{{ formatLicense(detail.upstream_license_name) }}</td></tr>
               <tr><td class="label">上次检查</td><td class="value">{{ formatTimestamp(detail.upstream_last_checked) }}</td></tr>
             </tbody>
           </table>

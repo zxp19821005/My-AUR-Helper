@@ -14,7 +14,7 @@ pub struct CheckOptions {
 pub struct CheckResult {
     /// 版本号
     pub version: Option<String>,
-    /// License SPDX ID（如 "MIT", "Apache-2.0"）
+    /// License 列表（JSON 数组字符串，如 `["MIT", "GPL-3.0"]`）
     pub license: Option<String>,
     /// 编程语言名称列表（由检查器从上游获取）
     pub language_names: Vec<String>,

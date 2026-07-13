@@ -86,8 +86,8 @@ export interface UpstreamInfo {
   software_id: number;
   /** 上游版本号 - 从上游检查到的版本字符串 */
   upstream_version: string | null;
-  /** 上游 License ID - 关联 enum_licenses 表 */
-  upstream_license_id: number | null;
+  /** 上游 License 列表 - JSON 数组字符串，如 `["MIT", "GPL-3.0"]` */
+  upstream_license_id: string | null;
   /** 上次检查时间 - Unix 时间戳（秒） */
   last_checked: number | null;
 }
