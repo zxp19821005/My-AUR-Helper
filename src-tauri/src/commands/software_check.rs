@@ -111,9 +111,11 @@ fn compare_and_update(
     );
 
     db.update_software_outdated(software_id, is_outdated)?;
+    debug!("[版本检查] {} is_outdated={} 更新成功", pkgname, is_outdated);
     
     // 更新软件的语言 ID 列表
     db.update_software_languages(software_id, &language_ids)?;
+    debug!("[版本检查] {} languages={:?} 更新成功", pkgname, language_ids);
     
     let upstream_info = UpstreamInfo {
         software_id,
@@ -122,6 +124,8 @@ fn compare_and_update(
         last_checked: Some(Utc::now().timestamp()),
     };
     db.upsert_upstream_info(&upstream_info)?;
+    info!("[版本检查] {} upstream_info 更新完成: version={}, license_id={:?}", 
+        pkgname, cleaned_version, upstream_license_id);
     Ok(())
 }
 
@@ -256,14 +260,16 @@ pub async fn check_selected_upstream(
         {
             if let Some(version) = check_result.version {
                 let db = state.db.lock()?;
-                let _ = compare_and_update(
+                if let Err(e) = compare_and_update(
                     &db,
                     sw.software_id.unwrap_or(0),
                     &sw.pkgname,
                     &version,
                     check_result.license.as_deref(),
                     &check_result.language_names,
-                );
+                ) {
+                    error!("[版本检查] 更新 {} 的数据库失败: {}", sw.pkgname, e);
+                }
                 results.push((sw.pkgname.clone(), version));
             }
         }
