@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import type { SoftwareDetail } from "../types";
+import type { SoftwareDetail, Language } from "../types";
 import { pkgTypeOptions, checkerTypeOptions } from "../utils/enums";
-import { computed } from "vue";
+import { computed, ref, onMounted } from "vue";
+import { invoke } from "@tauri-apps/api/core";
 
 const props = defineProps<{
   detail: SoftwareDetail;
@@ -14,6 +15,24 @@ const pkgTypeName = computed(() => {
 const checkerTypeName = computed(() => {
   return checkerTypeOptions.find(c => c.id === props.detail.checker_type_id)?.label || '未知';
 });
+
+const languages = ref<Language[]>([]);
+
+onMounted(async () => {
+  try {
+    languages.value = await invoke<Language[]>("get_languages");
+  } catch {
+    // ignore
+  }
+});
+
+function getLanguageNames(ids: number[] | null | undefined): string {
+  if (!ids || ids.length === 0) return '—';
+  return ids
+    .map(id => languages.value.find(l => l.id === id)?.name)
+    .filter(Boolean)
+    .join(', ') || '—';
+}
 </script>
 
 <template>
@@ -53,6 +72,10 @@ const checkerTypeName = computed(() => {
             <code v-if="detail.version_extract_regex">{{ detail.version_extract_regex }}</code>
             <span v-else class="empty">未设置</span>
           </td>
+        </tr>
+        <tr>
+          <td class="label">编程语言</td>
+          <td class="value">{{ getLanguageNames(detail.language_ids) }}</td>
         </tr>
       </tbody>
     </table>

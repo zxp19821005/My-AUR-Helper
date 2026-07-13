@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { ref, watch, onMounted } from "vue";
 import { invoke } from "@tauri-apps/api/core";
-import type { SoftwareDetail } from "../types";
+import type { SoftwareDetail, Language } from "../types";
 import { pkgTypeOptions, checkerTypeOptions } from "../utils/enums";
 import Modal from "./common/Modal.vue";
 import SoftwareFormModal from "./SoftwareFormModal.vue";
@@ -29,6 +29,27 @@ const updatingAur = ref(false);
 const updatingPkgbuild = ref(false);
 const checking = ref(false);
 const deleting = ref(false);
+const languages = ref<Language[]>([]);
+
+async function loadLanguages() {
+  try {
+    languages.value = await invoke<Language[]>("get_languages");
+  } catch {
+    // ignore
+  }
+}
+
+function getLanguageNames(ids: number[] | null | undefined): string {
+  if (!ids || ids.length === 0) return '—';
+  return ids
+    .map(id => languages.value.find(l => l.id === id)?.name)
+    .filter(Boolean)
+    .join(', ') || '—';
+}
+
+onMounted(() => {
+  loadLanguages();
+});
 
 async function loadSoftware() {
   if (!props.pkgname) return;
@@ -178,6 +199,7 @@ watch(() => props.show, (val) => { if (!val) showEditModal.value = false; });
             <tr><td class="label">运行时依赖</td><td class="value">{{ parseJsonList(detail.depends) }}</td></tr>
             <tr><td class="label">构建依赖</td><td class="value">{{ parseJsonList(detail.makedepends) }}</td></tr>
             <tr><td class="label">可选依赖</td><td class="value">{{ parseJsonList(detail.optdepends) }}</td></tr>
+            <tr><td class="label">编程语言</td><td class="value">{{ getLanguageNames(detail.language_ids) }}</td></tr>
           </tbody>
         </table>
         <div class="status-row">

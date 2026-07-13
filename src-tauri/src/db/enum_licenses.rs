@@ -9,7 +9,14 @@ impl Database {
              ON CONFLICT(spdx_id) DO UPDATE SET full_name=excluded.full_name",
             rusqlite::params![lic.spdx_id, lic.full_name],
         )?;
-        Ok(self.conn.last_insert_rowid())
+        // 不依赖 last_insert_rowid()，因为 ON CONFLICT DO UPDATE 触发时它不会被更新，
+        // 可能返回其他表 INSERT 的 rowid，导致外键约束失败
+        let id: i64 = self.conn.query_row(
+            "SELECT id FROM enum_licenses WHERE spdx_id=?1",
+            rusqlite::params![lic.spdx_id],
+            |row| row.get(0),
+        )?;
+        Ok(id)
     }
 
     pub fn get_all_licenses(&self) -> AppResult<Vec<EnumLicense>> {
