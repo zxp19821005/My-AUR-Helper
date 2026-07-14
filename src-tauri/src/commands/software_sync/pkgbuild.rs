@@ -108,7 +108,9 @@ pub async fn sync_from_pkgbuild(
                 );
 
                 let db = state.db.lock()?;
-                let _ = db.upsert_software(&sw);
+                if let Err(e) = db.upsert_software(&sw) {
+                    error!("[{}/{}] {} - 写入数据库失败: {}", i + 1, total, sw.pkgname, e);
+                }
                 count += 1;
 
                 let _ = app.emit(

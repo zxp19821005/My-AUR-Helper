@@ -142,6 +142,7 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
     // 批量写入数据库
     let db = state.db.lock()?;
     let mut count = 0i64;
+    let mut errors = Vec::new();
     for result in &sync_results {
         if result.need_update_software {
             if let Ok(Some(mut sw)) = db.get_software_by_name(&result.pkgname) {
@@ -149,7 +150,9 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
                 sw.package_type_id = result.package_type.clone();
                 sw.check_test_versions = result.check_test_versions;
                 sw.check_binary_files = result.check_binary_files;
-                let _ = db.upsert_software(&sw);
+                if let Err(e) = db.upsert_software(&sw) {
+                    errors.push(format!("更新 {} 的软件信息失败: {}", result.pkgname, e));
+                }
             }
         }
 
@@ -166,10 +169,15 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
             optdepends: result.optdepends.clone(),
             out_of_date: result.out_of_date,
         };
-        let _ = db.upsert_aur_info(&aur_info);
+        if let Err(e) = db.upsert_aur_info(&aur_info) {
+            errors.push(format!("更新 {} 的 AUR 信息失败: {}", result.pkgname, e));
+        }
         count += 1;
     }
 
+    if !errors.is_empty() {
+        log::warn!("[sync_from_aur] 部分写入失败 ({} 个): {:?}", errors.len(), errors);
+    }
     info!("已从 AUR 同步 {} 个软件包", count);
     Ok(count)
 }
@@ -238,6 +246,7 @@ pub async fn update_aur_info(
     // 批量写入数据库
     let db = state.db.lock()?;
     let mut count = 0i64;
+    let mut errors = Vec::new();
     for (pkgname, data) in &results {
         let desc = data["Description"].as_str().map(|s| s.to_string());
         let version = data["Version"].as_str().map(|s| s.to_string());
@@ -272,12 +281,17 @@ pub async fn update_aur_info(
                     optdepends,
                     out_of_date: out_of_date_val.map(|v| v != 0),
                 };
-                let _ = db.upsert_aur_info(&info);
+                if let Err(e) = db.upsert_aur_info(&info) {
+                    errors.push(format!("更新 {} 的 AUR 信息失败: {}", pkgname, e));
+                }
                 count += 1;
             }
         }
     }
 
+    if !errors.is_empty() {
+        log::warn!("[update_aur_info] 部分写入失败 ({} 个): {:?}", errors.len(), errors);
+    }
     info!("已更新 {} 个软件包的 AUR 信息", count);
     Ok(count)
 }

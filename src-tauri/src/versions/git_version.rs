@@ -1,4 +1,24 @@
+use std::sync::OnceLock;
+
 use regex::Regex;
+
+/// 预编译正则：匹配 git describe 格式 tag.rN.gHASH
+fn re_git_describe() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"\.r\d+\.g[a-f0-9]+$").unwrap())
+}
+
+/// 预编译正则：匹配 rN.HASH 格式提取 commit count
+fn re_r_format_capture() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"^r(\d+)\.[a-f0-9]+$").unwrap())
+}
+
+/// 预编译正则：匹配 rN.HASH 格式（hash >= 7 字符）
+fn re_r_format_match() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"^r\d+\.[a-f0-9]{7,}$").unwrap())
+}
 
 /// 清理 git describe 格式的版本元数据
 /// 将 tag.rN.gHASH 格式转换为纯 tag 格式
@@ -8,10 +28,7 @@ use regex::Regex;
 /// - `v2.0.1.r0.g30a6260` -> `v2.0.1`
 /// - `1.7.0.r0.gb9a08cc` -> `1.7.0`
 pub fn remove_git_describe_metadata(version: &str) -> String {
-    // 匹配 git describe 格式：tag.rN.gHASH
-    // 例如：2.0.1.r0.g30a6260 或 1.7.0.r0.gb9a08cc
-    let re = Regex::new(r"\.r\d+\.g[a-f0-9]+$").unwrap();
-    re.replace(version, "").to_string()
+    re_git_describe().replace(version, "").to_string()
 }
 
 /// 从 rN.HASH 格式中提取 commit count
@@ -22,9 +39,8 @@ pub fn remove_git_describe_metadata(version: &str) -> String {
 /// - `r0.abcdef0` -> Some(0)
 /// - `1.2.3` -> None
 pub fn extract_commit_count(version: &str) -> Option<u64> {
-    // 匹配 rN.HASH 格式
-    let re = Regex::new(r"^r(\d+)\.[a-f0-9]+$").unwrap();
-    re.captures(version)
+    re_r_format_capture()
+        .captures(version)
         .and_then(|caps| caps.get(1))
         .and_then(|m| m.as_str().parse::<u64>().ok())
 }
@@ -32,8 +48,7 @@ pub fn extract_commit_count(version: &str) -> Option<u64> {
 /// 判断是否为 rN.HASH 格式（没有 tag 的 git 版本）
 pub fn is_r_format(version: &str) -> bool {
     // 要求 hash 至少 7 个字符（git short hash 标准长度）
-    let re = Regex::new(r"^r\d+\.[a-f0-9]{7,}$").unwrap();
-    re.is_match(version)
+    re_r_format_match().is_match(version)
 }
 
 #[cfg(test)]

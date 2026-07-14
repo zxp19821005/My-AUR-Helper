@@ -2,28 +2,15 @@ use chrono::Utc;
 use log::{debug, error, info};
 use tauri::State;
 
-use crate::checkers::{self, CheckOptions, CheckResult, CheckerSettings};
+use crate::checkers::{self, CheckOptions, CheckResult};
 use crate::commands::proxy_utils::{build_client, get_active_proxy};
+use crate::commands::software_sync::utils::{
+    build_checker_settings, get_setting_opt, parse_u32, parse_u64,
+};
 use crate::errors::{AppError, AppResult};
 use crate::models::*;
 use crate::versions;
 use crate::AppState;
-
-fn get_setting_opt(db: &crate::db::Database, key: &str) -> Option<String> {
-    db.get_setting(key)
-        .ok()
-        .flatten()
-        .map(|s| s.value)
-        .filter(|v| !v.is_empty())
-}
-
-fn build_checker_settings(db: &crate::db::Database) -> CheckerSettings {
-    CheckerSettings {
-        github_token: get_setting_opt(db, "github_token"),
-        gitee_token: get_setting_opt(db, "gitee_token"),
-        gitlab_token: get_setting_opt(db, "gitlab_token"),
-    }
-}
 
 async fn check_with_retry(
     checker: &dyn checkers::VersionChecker,
@@ -63,14 +50,6 @@ async fn check_with_retry(
         }
     }
     Err(last_error.unwrap_or(AppError::VersionCheckError("检查失败".to_string())))
-}
-
-fn parse_u64(val: &str, default: u64) -> u64 {
-    val.parse().unwrap_or(default)
-}
-
-fn parse_u32(val: &str, default: u32) -> u32 {
-    val.parse().unwrap_or(default)
 }
 
 fn compare_and_update(
@@ -181,6 +160,7 @@ pub async fn check_upstream_version(
     let options = CheckOptions {
         check_test_versions: sw.check_test_versions,
         check_binary_files: sw.check_binary_files,
+        proxy_url: proxy_url.clone(),
     };
 
     debug!("使用检查器: {} 检查 {}", checker.name(), pkgname);
@@ -253,6 +233,7 @@ pub async fn check_selected_upstream(
         let options = CheckOptions {
             check_test_versions: sw.check_test_versions,
             check_binary_files: sw.check_binary_files,
+            proxy_url: proxy_url.clone(),
         };
 
         if let Ok(check_result) = check_with_retry(

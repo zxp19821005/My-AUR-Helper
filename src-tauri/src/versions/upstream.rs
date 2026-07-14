@@ -1,3 +1,5 @@
+use std::sync::OnceLock;
+
 use super::remove_git_describe_metadata;
 use log::debug;
 use regex::Regex;
@@ -8,6 +10,29 @@ use super::rules::CleanupRules;
 pub struct UpstreamVersion {
     pub raw: String,
     pub normalized_version: String,
+}
+
+/// 预编译正则：匹配版本前缀 v/V
+fn re_v_prefix() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"^[vV]").unwrap())
+}
+
+/// 预编译正则：匹配发行版后缀
+fn re_release_suffix() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        Regex::new(
+            r"-(release|uos|arch|linux|debian|ubuntu|fedora|centos|el\d+|fc\d+|srpm|rpm|deb)$",
+        )
+        .unwrap()
+    })
+}
+
+/// 预编译正则：匹配构建元数据
+fn re_build_metadata() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"\+[a-zA-Z0-9.-]+$").unwrap())
 }
 
 impl UpstreamVersion {
@@ -74,8 +99,7 @@ impl UpstreamVersion {
                 break;
             }
         }
-        let re = Regex::new(r"^[vV]").unwrap();
-        result = re.replace(&result, "").to_string();
+        result = re_v_prefix().replace(&result, "").to_string();
         result
     }
 
@@ -88,18 +112,13 @@ impl UpstreamVersion {
             }
         }
 
-        let re = Regex::new(
-            r"-(release|uos|arch|linux|debian|ubuntu|fedora|centos|el\d+|fc\d+|srpm|rpm|deb)$",
-        )
-        .unwrap();
-        result = re.replace(&result, "").to_string();
+        result = re_release_suffix().replace(&result, "").to_string();
 
         result
     }
 
     fn remove_build_metadata(version: &str) -> String {
-        let re = Regex::new(r"\+[a-zA-Z0-9.-]+$").unwrap();
-        re.replace(version, "").to_string()
+        re_build_metadata().replace(version, "").to_string()
     }
 }
 

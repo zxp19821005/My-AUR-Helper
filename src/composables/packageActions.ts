@@ -137,19 +137,6 @@ export function usePackageActions(
     }
   }
 
-  async function checkAll() {
-    loading.value = true;
-    footer.progress = { current: 0, total: 1 };
-    try {
-      await invoke("check_all_upstream");
-      await fetchView();
-    } finally {
-      loading.value = false;
-      footer.progress = null;
-      syncToolbar();
-    }
-  }
-
   async function rowSyncFromAur(pkgname: string) {
     setRowLoading(pkgname, "sync-aur");
     try {
@@ -213,7 +200,6 @@ export function usePackageActions(
     updateAurInfo,
     checkSelectedUpstream,
     deleteSelected,
-    checkAll,
     rowSyncFromAur,
     rowSyncFromPkgbuild,
     rowCheckUpstream,

@@ -49,7 +49,12 @@ pub async fn run_backup(config: &BackupConfig) -> AppResult<BackupResult> {
             if let Some(ext) = path.extension() {
                 // 只处理 archlinux 包文件 (.pkg.tar.zst)
                 if ext == "pkg.tar.zst" {
-                    let filename = path.file_name().unwrap().to_str().unwrap().to_string();
+                    let filename = path.file_name()
+                        .map(|n| n.to_string_lossy().to_string())
+                        .unwrap_or_default();
+                    if filename.is_empty() {
+                        continue;
+                    }
                     let backup_file = backup_path.join(&filename);
                     // 仅在备份文件不存在或源文件更新时复制
                     if !backup_file.exists() || is_newer(&path, &backup_file).await {
@@ -73,7 +78,12 @@ pub async fn run_backup(config: &BackupConfig) -> AppResult<BackupResult> {
         if path.is_file() {
             if let Some(ext) = path.extension() {
                 if ext == "pkg.tar.zst" {
-                    let filename = path.file_name().unwrap().to_str().unwrap().to_string();
+                    let filename = path.file_name()
+                        .map(|n| n.to_string_lossy().to_string())
+                        .unwrap_or_default();
+                    if filename.is_empty() {
+                        continue;
+                    }
                     // 从文件名提取包名（版本号前的部分）
                     let pkg_name = filename
                         .split('-')

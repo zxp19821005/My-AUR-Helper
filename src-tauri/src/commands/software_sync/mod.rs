@@ -23,7 +23,7 @@ pub mod upstream;
 pub mod pkgbuild;
 
 /// 同步工具函数和类型定义
-mod utils;
+pub mod utils;
 
 // 公开导出 Tauri 命令函数，供 lib.rs 注册使用
 pub use aur::sync_from_aur;

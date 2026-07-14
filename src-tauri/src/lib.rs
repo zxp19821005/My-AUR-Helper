@@ -180,7 +180,7 @@ pub fn run() {
 
                 if close_action == "minimize_to_tray" {
                     // 隐藏窗口到系统托盘，而不是关闭应用
-                    window.hide().unwrap();
+                    let _ = window.hide();
                     api.prevent_close(); // 阻止窗口关闭
                 }
                 // 否则：默认行为，关闭窗口并退出应用
