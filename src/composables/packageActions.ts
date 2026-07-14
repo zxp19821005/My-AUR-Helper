@@ -5,6 +5,7 @@
  * - 提供包管理的同步、检查、删除等操作
  * - 支持批量操作和单行操作
  * - 管理加载状态和进度反馈
+ * - 操作失败时在底部状态栏显示错误信息
  */
 import { ref, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
@@ -43,6 +44,16 @@ export function usePackageActions(
     loadingKeys.value.delete(`${pkgname}:${action}`);
   }
 
+  /** 显示错误信息（3秒后自动清除） */
+  function showError(msg: string) {
+    footer.infoText = `错误: ${msg}`;
+    setTimeout(() => {
+      if (footer.infoText.startsWith("错误:")) {
+        footer.infoText = "";
+      }
+    }, 5000);
+  }
+
   async function syncFromAur(selectedPkgnames: Set<string>) {
     loading.value = true;
     try {
@@ -53,6 +64,8 @@ export function usePackageActions(
         await invoke("sync_from_aur");
       }
       await fetchView();
+    } catch (e) {
+      showError(String(e));
     } finally {
       loading.value = false;
       syncToolbar();
@@ -82,6 +95,8 @@ export function usePackageActions(
         await invoke("sync_from_pkgbuild", { pkgname: null });
       }
       await fetchView();
+    } catch (e) {
+      showError(String(e));
     } finally {
       unlistenProgress?.();
       unlistenProgress = null;
@@ -97,6 +112,8 @@ export function usePackageActions(
       const list = Array.from(selectedPkgnames);
       await invoke("update_aur_info", { pkgnameList: list.length ? list : null });
       await fetchView();
+    } catch (e) {
+      showError(String(e));
     } finally {
       loading.value = false;
       syncToolbar();
@@ -113,6 +130,8 @@ export function usePackageActions(
         await invoke("check_all_upstream");
       }
       await fetchView();
+    } catch (e) {
+      showError(String(e));
     } finally {
       loading.value = false;
       syncToolbar();
@@ -131,6 +150,8 @@ export function usePackageActions(
       await invoke("batch_delete_software", { pkgnameList: list });
       setSelectedPkgnames(new Set());
       await fetchView();
+    } catch (e) {
+      showError(String(e));
     } finally {
       loading.value = false;
       syncToolbar();
@@ -142,6 +163,8 @@ export function usePackageActions(
     try {
       await invoke("update_aur_info", { pkgnameList: [pkgname] });
       await fetchView();
+    } catch (e) {
+      showError(`${pkgname}: ${e}`);
     } finally {
       clearRowLoading(pkgname, "sync-aur");
       syncToolbar();
@@ -153,6 +176,8 @@ export function usePackageActions(
     try {
       await invoke("sync_from_pkgbuild", { pkgname });
       await fetchView();
+    } catch (e) {
+      showError(`${pkgname}: ${e}`);
     } finally {
       clearRowLoading(pkgname, "sync-pkgbuild");
       syncToolbar();
@@ -164,6 +189,8 @@ export function usePackageActions(
     try {
       await invoke("check_selected_upstream", { pkgnameList: [pkgname] });
       await fetchView();
+    } catch (e) {
+      showError(`${pkgname}: ${e}`);
     } finally {
       clearRowLoading(pkgname, "check-upstream");
       syncToolbar();
@@ -183,6 +210,8 @@ export function usePackageActions(
         new Set(Array.from(selectedPkgnames).filter((n) => n !== pkgname))
       );
       await fetchView();
+    } catch (e) {
+      showError(`${pkgname}: ${e}`);
     } finally {
       clearRowLoading(pkgname, "delete");
       syncToolbar();
