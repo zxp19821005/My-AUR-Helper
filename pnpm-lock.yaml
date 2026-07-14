@@ -34,14 +34,14 @@ importers:
         specifier: ^2.11.4
         version: 2.11.4
       '@vitejs/plugin-vue':
-        specifier: ^5.0.0
-        version: 5.0.0(vite@5.4.0)(vue@3.5.39(typescript@5.7.2))
+        specifier: ^5.2.4
+        version: 5.2.4(vite@5.4.21)(vue@3.5.39(typescript@5.7.2))
       typescript:
         specifier: ^5.7.2
         version: 5.7.2
       vite:
-        specifier: ^5.4.0
-        version: 5.4.0
+        specifier: ^5.4.21
+        version: 5.4.21
       vue-tsc:
         specifier: ^2.2.0
         version: 2.2.0(typescript@5.7.2)
@@ -437,11 +437,11 @@ packages:
   '@types/estree@1.0.9':
     resolution: {integrity: sha512-GhdPgy1el4/ImP05X05Uw4cw2/M93BCUmnEvWZNStlCzEKME4Fkk+YpoA5OiHNQmoS7Cafb8Xa3Pya8m1Qrzeg==}
 
-  '@vitejs/plugin-vue@5.0.0':
-    resolution: {integrity: sha512-7x5e8X4J1Wi4NxudGjJBd2OFerAi/0nzF80ojCzvfj347WVr0YSn82C8BSsgwSHzlk9Kw5xnZfj0/7RLnNwP5w==}
+  '@vitejs/plugin-vue@5.2.4':
+    resolution: {integrity: sha512-7Yx/SXSOcQq5HiiV3orevHUFn+pmMB4cgbEkDYgnkUWb0WfeQ/wa2yFv6D5ICiCQOVpjA7vYDXrC7AGO8yjDHA==}
     engines: {node: ^18.0.0 || >=20.0.0}
     peerDependencies:
-      vite: ^5.0.0
+      vite: ^5.0.0 || ^6.0.0
       vue: ^3.2.25
 
   '@volar/language-core@2.4.28':
@@ -583,8 +583,8 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  vite@5.4.0:
-    resolution: {integrity: sha512-5xokfMX0PIiwCMCMb9ZJcMyh5wbBun0zUzKib+L65vAZ8GY9ePZMXxFrHbr/Kyll2+LSCY7xtERPpxkBDKngwg==}
+  vite@5.4.21:
+    resolution: {integrity: sha512-o5a9xKjbtuhY6Bi5S3+HvbRERmouabWbyUcpXXUA1u+GNUKoROi9byOJ8M0nHbHYHkYICiMlqxkg1KkYmm25Sw==}
     engines: {node: ^18.0.0 || >=20.0.0}
     hasBin: true
     peerDependencies:
@@ -871,9 +871,9 @@ snapshots:
 
   '@types/estree@1.0.9': {}
 
-  '@vitejs/plugin-vue@5.0.0(vite@5.4.0)(vue@3.5.39(typescript@5.7.2))':
+  '@vitejs/plugin-vue@5.2.4(vite@5.4.21)(vue@3.5.39(typescript@5.7.2))':
     dependencies:
-      vite: 5.4.0
+      vite: 5.4.21
       vue: 3.5.39(typescript@5.7.2)
 
   '@volar/language-core@2.4.28':
@@ -1078,7 +1078,7 @@ snapshots:
 
   typescript@5.7.2: {}
 
-  vite@5.4.0:
+  vite@5.4.21:
     dependencies:
       esbuild: 0.21.3
       postcss: 8.5.16
