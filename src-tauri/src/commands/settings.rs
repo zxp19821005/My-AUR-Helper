@@ -29,11 +29,14 @@ pub async fn get_setting(state: State<'_, AppState>, key: String) -> AppResult<O
 }
 
 /// 设置配置值（如果 key 不存在则创建，存在则更新）
+/// 注意：不记录 value 内容，防止敏感信息（如代理凭据）泄露到日志
 #[tauri::command]
 pub async fn set_setting(state: State<'_, AppState>, key: String, value: String) -> AppResult<()> {
-    info!("正在设置 {} = {}", key, value);
+    debug!("正在设置配置: key={}", key);
     let db = state.db.lock()?;
-    db.set_setting(&key, &value)
+    db.set_setting(&key, &value)?;
+    info!("已设置配置: key={}", key);
+    Ok(())
 }
 
 /// 应用日志轮转设置（运行时更新）

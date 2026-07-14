@@ -15,8 +15,7 @@
  */
 #[cfg(test)]
 mod tests {
-    use super::super::comparison::VersionComparison;
-    use super::super::comparison::compare_versions as compare_vercmp;
+    use crate::versions::comparison::{VersionComparison, compare_versions as compare_vercmp};
 
     #[test]
     fn test_equal() {

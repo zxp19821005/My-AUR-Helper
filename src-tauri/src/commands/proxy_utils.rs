@@ -71,17 +71,30 @@ pub fn get_active_proxy(db: &crate::db::Database) -> Option<String> {
 }
 
 pub fn build_client(timeout_secs: u64, proxy_url: Option<&str>) -> reqwest::Client {
-    let mut builder = reqwest::Client::builder().timeout(Duration::from_secs(timeout_secs));
+    build_client_with_redirect(timeout_secs, proxy_url, true)
+}
+
+pub fn build_client_with_redirect(
+    timeout_secs: u64,
+    proxy_url: Option<&str>,
+    follow_redirects: bool,
+) -> reqwest::Client {
+    let mut builder = reqwest::Client::builder()
+        .timeout(Duration::from_secs(timeout_secs));
+    
+    if !follow_redirects {
+        builder = builder.redirect(reqwest::redirect::Policy::none());
+    }
+    
     if let Some(url) = proxy_url {
         if url.starts_with("http://") || url.starts_with("https://") {
-            info!("[HTTP代理] 使用代理: {}", url);
+            info!("[HTTP代理] 使用代理");
             if let Ok(proxy) = reqwest::Proxy::all(url) {
                 builder = builder.proxy(proxy);
             }
         } else if url.starts_with("socks5://") {
             info!(
-                "[HTTP代理] SOCKS5代理不支持（需要启用 socks 特性），跳过: {}",
-                url
+                "[HTTP代理] SOCKS5代理不支持（需要启用 socks 特性），跳过"
             );
         }
     }

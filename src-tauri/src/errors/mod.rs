@@ -113,6 +113,11 @@ pub enum AppError {
     #[serde(rename = "PARSE_ERROR")]
     ParseError(String),
 
+    /// 输入验证失败（非法包名、无效路径等）
+    #[error("输入无效: {0}")]
+    #[serde(rename = "INVALID_INPUT")]
+    InvalidInput(String),
+
     /// 其他未分类错误
     #[error("{0}")]
     #[serde(rename = "UNKNOWN")]

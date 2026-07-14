@@ -66,7 +66,19 @@ impl Database {
     }
 
     /// 获取指定表的所有列名
+    /// 通过白名单验证表名，防止 SQL 注入
     fn get_table_columns(&self, table_name: &str) -> AppResult<Vec<String>> {
+        // 白名单：仅允许已知的表名
+        const ALLOWED_TABLES: &[&str] = &[
+            "software_info", "aur_info", "upstream_info", "proxies_info",
+            "backup_software", "cache_software", "logs", "settings",
+            "enum_licenses", "enum_programming_languages", "proxies_test",
+        ];
+        if !ALLOWED_TABLES.contains(&table_name) {
+            return Err(crate::errors::AppError::DatabaseError(
+                format!("不允许查询表 '{}' 的列信息", table_name)
+            ));
+        }
         let mut stmt = self.conn.prepare(&format!("PRAGMA table_info({table_name})"))?;
         let columns: Vec<String> = stmt
             .query_map([], |row| row.get(1))?

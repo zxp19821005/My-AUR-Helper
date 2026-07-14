@@ -208,8 +208,6 @@ pub fn run() {
             commands::software_check::check_upstream_version, // 检查单个软件包的上游版本
             commands::software_check::check_selected_upstream, // 检查选中的软件包上游版本
             // 扫描
-            commands::scan::scan_directory, // 扫描指定目录（单层）
-            commands::scan::scan_directory_recursive, // 递归扫描目录树
             commands::scan::scan_pkg_files_cmd, // 扫描 .pkg.tar.zst 包文件
             // 备份管理
             commands::backup::run_backup, // 执行备份操作
@@ -218,27 +216,9 @@ pub fn run() {
             commands::proxy::fetch_proxy_sources, // 从 Greasyfork 获取代理源
             commands::proxy::test_proxy,          // 测试代理延迟
             commands::proxy::set_proxy_active,    // 设置代理启用状态
-            // 文件操作
-            commands::files::operations::copy_file, // 复制文件或目录
-            commands::files::operations::move_file, // 移动文件或目录
-            commands::files::operations::delete_file, // 删除文件或目录
-            commands::files::operations::delete_directory, // 删除目录
-            commands::files::operations::create_directory, // 创建目录
-            commands::files::operations::read_file, // 读取文件内容
-            commands::files::operations::list_directory, // 列出目录内容
-            commands::files::operations::file_exists, // 检查文件是否存在
-            commands::files::operations::file_metadata, // 获取文件元信息
-            commands::files::scan::scan_pkg_files,  // 扫描 .pkg.tar 文件
-            commands::files::operations::batch_delete, // 批量删除文件
             // 系统命令
-            commands::sys_command::run_command, // 执行任意系统命令
-            commands::sys_command::install_package, // 安装软件包
-            commands::sys_command::remove_package, // 卸载软件包
-            commands::sys_command::clean_cache, // 清理 pacman 缓存
             commands::sys_command::get_package_version, // 获取已安装包的版本
             commands::sys_command::list_installed_packages, // 列出所有已安装包
-            commands::sys_command::sync_database, // 同步 pacman 数据库
-            commands::sys_command::makepkg,     // 运行 makepkg 构建
             // 日志管理
             commands::logs::get_logs,   // 获取日志列表
             commands::logs::clear_logs, // 清空日志

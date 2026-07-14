@@ -3,6 +3,13 @@
  *
  * 定义所有前端可调用的 Tauri 命令
  * 每个子模块对应一个功能领域
+ *
+ * 安全审计说明（2026-07-14）：
+ * - 已移除 files 模块：文件操作命令（read_file/delete_file/copy_file 等）
+ *   未被前端使用，且存在路径遍历风险
+ * - 已移除 sys_command 中的危险命令：run_command（任意命令执行）、
+ *   install_package/remove_package（无验证的 sudo 调用）、
+ *   makepkg（未使用的 makepkg 执行）、clean_cache/sync_database
  */
 
 /// 备份管理命令
@@ -13,9 +20,6 @@ pub mod scan;
 
 /// 枚举值管理命令（License、编程语言）
 pub mod enums;
-
-/// 文件操作命令模块（包含 operations 和 scan 子模块）
-pub mod files;
 
 /// 日志管理命令
 pub mod logs;
@@ -38,5 +42,5 @@ pub mod software_sync;
 /// 软件包上游版本检查相关命令
 pub mod software_check;
 
-/// 系统命令执行
+/// 系统命令执行（仅保留安全命令：get_package_version、list_installed_packages）
 pub mod sys_command;

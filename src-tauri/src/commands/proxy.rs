@@ -45,12 +45,13 @@ pub async fn fetch_proxy_sources(state: State<'_, AppState>) -> AppResult<usize>
 }
 
 /// 测试代理延迟
+/// 注意：不记录代理 URL，防止凭据泄露
 #[tauri::command]
 pub async fn test_proxy(_state: State<'_, AppState>, proxy_url: String) -> AppResult<i64> {
-    info!("正在测试代理: {}", proxy_url);
+    debug!("正在测试代理延迟");
     let client = reqwest::Client::new();
     let latency = proxy::test_proxy_latency(&client, &proxy_url).await?;
-    info!("代理 {} 延迟: {}ms", proxy_url, latency);
+    debug!("代理延迟: {}ms", latency);
     Ok(latency)
 }
 

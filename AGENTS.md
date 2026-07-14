@@ -68,6 +68,13 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
   - 所有结构体/枚举必须添加注释说明用途
   - 复杂逻辑必须添加行内注释（`//`）解释实现思路
   - 注释语言：中文（与项目文档保持一致）
+- **安全规范（强制）**：
+  - 禁止注册任意命令执行函数（如 `run_command`）
+  - 文件操作必须有路径验证和沙箱限制
+  - SQL 查询禁止使用 `format!` 拼接用户输入，必须使用参数化查询
+  - 前端 IPC 命令仅暴露必要功能，未使用的危险命令必须移除
+  - 敏感信息（凭据、密钥、代理 URL）禁止写入日志
+  - Tauri 配置必须设置 CSP 内容安全策略
 
 ### Vue/TypeScript 编码规范
 - 组件命名：PascalCase（文件名和组件名一致）
@@ -102,17 +109,13 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/db/cache_software.rs` | 缓存软件表 |
 | `src-tauri/src/db/logs.rs` | 日志表 |
 | `src-tauri/src/db/settings.rs` | 设置表 |
-| `src-tauri/src/commands/` | Tauri IPC 命令（software/files/sys_command/enums 等） |
+| `src-tauri/src/commands/` | Tauri IPC 命令（software/sys_command/enums 等） |
 | `src-tauri/src/commands/software_sync/` | 软件包同步命令模块（目录结构） |
 | `src-tauri/src/commands/software_sync/mod.rs` | 模块声明和导出（不含具体实现） |
 | `src-tauri/src/commands/software_sync/aur.rs` | AUR 信息同步和更新命令 |
 | `src-tauri/src/commands/software_sync/upstream.rs` | 上游版本并行检查命令 |
 | `src-tauri/src/commands/software_sync/pkgbuild.rs` | PKGBUILD 文件同步命令 |
 | `src-tauri/src/commands/software_sync/utils.rs` | 同步工具函数和类型定义 |
-| `src-tauri/src/commands/files/` | 文件操作命令模块（目录结构） |
-| `src-tauri/src/commands/files/mod.rs` | 模块声明和导出（不含具体实现） |
-| `src-tauri/src/commands/files/operations.rs` | 文件和目录的增删改查操作 |
-| `src-tauri/src/commands/files/scan.rs` | 包文件扫描功能 |
 | `src-tauri/src/checkers/` | 版本检查器模块 |
 | `src-tauri/src/checkers/mod.rs` | 检查器工厂函数 |
 | `src-tauri/src/checkers/trait_def.rs` | VersionChecker trait 定义 |
