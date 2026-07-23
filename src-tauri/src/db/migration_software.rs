@@ -89,21 +89,34 @@ impl Database {
     }
 
     fn migrate_language_id_to_json(&self) -> AppResult<()> {
-        let col_type: Option<String> = self.conn.query_row(
-            "SELECT type FROM pragma_table_info('software_info') WHERE name='language_id'",
-            [],
-            |row| row.get(0),
-        ).ok();
+        let col_type: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT type FROM pragma_table_info('software_info') WHERE name='language_id'",
+                [],
+                |row| row.get(0),
+            )
+            .ok();
 
         if col_type.is_none() || col_type.as_deref() == Some("TEXT") {
             return Ok(());
         }
 
-        self.rebuild_table("software_info", SOFTWARE_NEW_SCHEMA, SOFTWARE_INSERT_SQL, SOFTWARE_INDEX_SQL)
+        self.rebuild_table(
+            "software_info",
+            SOFTWARE_NEW_SCHEMA,
+            SOFTWARE_INSERT_SQL,
+            SOFTWARE_INDEX_SQL,
+        )
     }
 
     fn rebuild_software_info_without_license_fk(&self) -> AppResult<()> {
-        self.rebuild_table("software_info", SOFTWARE_NEW_SCHEMA, SOFTWARE_INSERT_SQL, SOFTWARE_INDEX_SQL)
+        self.rebuild_table(
+            "software_info",
+            SOFTWARE_NEW_SCHEMA,
+            SOFTWARE_INSERT_SQL,
+            SOFTWARE_INDEX_SQL,
+        )
     }
 
     /// 通用表重建工具方法
@@ -116,11 +129,14 @@ impl Database {
     ) -> AppResult<()> {
         let new_table = format!("{table_name}_new");
         self.conn.execute_batch("PRAGMA foreign_keys=OFF;")?;
-        self.conn.execute_batch(&format!("DROP TABLE IF EXISTS {new_table};"))?;
+        self.conn
+            .execute_batch(&format!("DROP TABLE IF EXISTS {new_table};"))?;
         self.conn.execute_batch(create_sql)?;
         self.conn.execute_batch(insert_sql)?;
-        self.conn.execute_batch(&format!("DROP TABLE {table_name};"))?;
-        self.conn.execute_batch(&format!("ALTER TABLE {new_table} RENAME TO {table_name};"))?;
+        self.conn
+            .execute_batch(&format!("DROP TABLE {table_name};"))?;
+        self.conn
+            .execute_batch(&format!("ALTER TABLE {new_table} RENAME TO {table_name};"))?;
         self.conn.execute_batch(index_sql)?;
         self.conn.execute_batch("PRAGMA foreign_keys=ON;")?;
         Ok(())

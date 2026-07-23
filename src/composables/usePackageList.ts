@@ -4,6 +4,7 @@
  * 功能：
  * - 管理列表分页、搜索、选择状态
  * - 提供格式化函数和弹窗控制逻辑
+ * - 支持筛选器功能（快速筛选 + 条件筛选）
  */
 import { computed, ref, watch, inject, onMounted } from "vue";
 import { invoke } from "@tauri-apps/api/core";
@@ -11,6 +12,47 @@ import { usePackageStore } from "../stores/packages";
 import { useSettingsStore } from "../stores/settings";
 import { FOOTER_KEY } from "./footer";
 import type { SoftwareListEntry } from "../types";
+
+/** 筛选条件类型 */
+export interface FilterState {
+  /** 快速筛选条件（OR 逻辑） */
+  quickFilters: {
+    /** 上游 URL 为空 */
+    upstreamUrlEmpty: boolean;
+    /** AUR 更新失败（aur_version 为空） */
+    aurUpdateFailed: boolean;
+    /** 上游更新失败（upstream_version 为空） */
+    upstreamUpdateFailed: boolean;
+    /** 上游地址异常（upstream_url_status != "ok" 且非空） */
+    upstreamUrlAbnormal: boolean;
+    /** License 缺失（upstream_license_id 为空） */
+    licenseMissing: boolean;
+  };
+  /** 条件筛选（AND 逻辑） */
+  conditionFilters: {
+    /** 软件包类型 */
+    packageType: number | null;
+    /** 检查器类型 */
+    checkerType: number | null;
+  };
+}
+
+/** 默认筛选状态 */
+function createDefaultFilterState(): FilterState {
+  return {
+    quickFilters: {
+      upstreamUrlEmpty: false,
+      aurUpdateFailed: false,
+      upstreamUpdateFailed: false,
+      upstreamUrlAbnormal: false,
+      licenseMissing: false,
+    },
+    conditionFilters: {
+      packageType: null,
+      checkerType: null,
+    },
+  };
+}
 
 export function usePackageList() {
   const pkgStore = usePackageStore();
@@ -22,6 +64,8 @@ export function usePackageList() {
   const entries = ref<SoftwareListEntry[]>([]);
   const selectedPkgnames = ref(new Set<string>());
   const searchQuery = ref("");
+  const filterState = ref<FilterState>(createDefaultFilterState());
+  const showFilterBar = ref(false);
 
   const showModal = ref(false);
   const modalMode = ref<"add" | "edit">("add");
@@ -33,14 +77,67 @@ export function usePackageList() {
     pageSize.value = await settingsStore.getSettingNumber("list_page_size_software", 50);
   });
 
+  /** 检查是否满足快速筛选条件（OR 逻辑） */
+  function matchesQuickFilters(entry: SoftwareListEntry): boolean {
+    const qf = filterState.value.quickFilters;
+    // 如果没有任何快速筛选条件激活，则通过
+    const hasActiveQuickFilter =
+      qf.upstreamUrlEmpty || qf.aurUpdateFailed || qf.upstreamUpdateFailed ||
+      qf.upstreamUrlAbnormal || qf.licenseMissing;
+    if (!hasActiveQuickFilter) return true;
+
+    // OR 逻辑：满足任一条件即通过
+    if (qf.upstreamUrlEmpty && !entry.upstream_url) return true;
+    if (qf.aurUpdateFailed && !entry.aur_version) return true;
+    if (qf.upstreamUpdateFailed && !entry.upstream_version) return true;
+    if (qf.upstreamUrlAbnormal && entry.upstream_url_status && entry.upstream_url_status !== "ok") return true;
+    if (qf.licenseMissing && !entry.upstream_license_id) return true;
+
+    return false;
+  }
+
+  /** 检查是否满足条件筛选（AND 逻辑） */
+  function matchesConditionFilters(entry: SoftwareListEntry): boolean {
+    const cf = filterState.value.conditionFilters;
+    if (cf.packageType !== null && entry.package_type_id !== cf.packageType) return false;
+    if (cf.checkerType !== null && entry.checker_type_id !== cf.checkerType) return false;
+    return true;
+  }
+
+  /** 计算活跃筛选条件数量 */
+  const activeFilterCount = computed(() => {
+    let count = 0;
+    const qf = filterState.value.quickFilters;
+    if (qf.upstreamUrlEmpty) count++;
+    if (qf.aurUpdateFailed) count++;
+    if (qf.upstreamUpdateFailed) count++;
+    if (qf.upstreamUrlAbnormal) count++;
+    if (qf.licenseMissing) count++;
+    if (filterState.value.conditionFilters.packageType !== null) count++;
+    if (filterState.value.conditionFilters.checkerType !== null) count++;
+    return count;
+  });
+
   const filteredEntries = computed(() => {
-    if (!searchQuery.value) return entries.value;
-    const q = searchQuery.value.toLowerCase();
-    return entries.value.filter((e) =>
-      e.pkgname.toLowerCase().includes(q) ||
-      (e.aur_version && e.aur_version.toLowerCase().includes(q)) ||
-      (e.upstream_version && e.upstream_version.toLowerCase().includes(q))
-    );
+    let result = entries.value;
+
+    // 搜索过滤
+    if (searchQuery.value) {
+      const q = searchQuery.value.toLowerCase();
+      result = result.filter((e) =>
+        e.pkgname.toLowerCase().includes(q) ||
+        (e.aur_version && e.aur_version.toLowerCase().includes(q)) ||
+        (e.upstream_version && e.upstream_version.toLowerCase().includes(q))
+      );
+    }
+
+    // 快速筛选（OR 逻辑）
+    result = result.filter(matchesQuickFilters);
+
+    // 条件筛选（AND 逻辑）
+    result = result.filter(matchesConditionFilters);
+
+    return result;
   });
 
   const totalRecords = computed(() => filteredEntries.value.length);
@@ -118,12 +215,18 @@ export function usePackageList() {
 
   const setSelected = (v: Set<string>) => { selectedPkgnames.value = v; };
 
+  function resetFilters() {
+    filterState.value = createDefaultFilterState();
+  }
+
   return {
     pageSize,
     currentPage,
     entries,
     selectedPkgnames,
     searchQuery,
+    filterState,
+    showFilterBar,
     showModal,
     modalMode,
     modalPkgname,
@@ -132,6 +235,7 @@ export function usePackageList() {
     filteredEntries,
     totalRecords,
     pageData,
+    activeFilterCount,
     fetchView,
     toggleSelect,
     toggleSelectAll,
@@ -141,6 +245,7 @@ export function usePackageList() {
     onModalSaved,
     setSelected,
     syncToolbar,
+    resetFilters,
   };
 }
 

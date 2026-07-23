@@ -176,7 +176,11 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
     }
 
     if !errors.is_empty() {
-        log::warn!("[sync_from_aur] 部分写入失败 ({} 个): {:?}", errors.len(), errors);
+        log::warn!(
+            "[sync_from_aur] 部分写入失败 ({} 个): {:?}",
+            errors.len(),
+            errors
+        );
     }
     info!("已从 AUR 同步 {} 个软件包", count);
     Ok(count)
@@ -290,7 +294,11 @@ pub async fn update_aur_info(
     }
 
     if !errors.is_empty() {
-        log::warn!("[update_aur_info] 部分写入失败 ({} 个): {:?}", errors.len(), errors);
+        log::warn!(
+            "[update_aur_info] 部分写入失败 ({} 个): {:?}",
+            errors.len(),
+            errors
+        );
     }
     info!("已更新 {} 个软件包的 AUR 信息", count);
     Ok(count)

@@ -20,10 +20,10 @@ use async_trait::async_trait;
 use log::{debug, info};
 use reqwest::Client;
 
-use crate::checkers::github::release::{check_github_release_latest, check_github_releases};
-use crate::checkers::github::tags::check_github_tags;
-use crate::checkers::github::repo_info::{fetch_github_repo_languages, fetch_github_repo_license};
 use crate::checkers::github::git_describe::check_github_git_describe;
+use crate::checkers::github::release::{check_github_release_latest, check_github_releases};
+use crate::checkers::github::repo_info::{fetch_github_repo_languages, fetch_github_repo_license};
+use crate::checkers::github::tags::check_github_tags;
 use crate::checkers::trait_def::{CheckOptions, CheckResult, VersionChecker};
 use crate::checkers::utils::extract_owner_repo;
 use crate::errors::AppResult;
@@ -110,22 +110,29 @@ impl VersionChecker for GitHubAPIChecker {
             });
 
         // 获取编程语言列表
-        let language_names = fetch_github_repo_languages(client, &owner, &repo, self.token.as_deref())
-            .await
-            .unwrap_or_else(|e| {
-                debug!("[版本检查] 获取 languages 失败: {}", e);
-                vec![]
-            });
+        let language_names =
+            fetch_github_repo_languages(client, &owner, &repo, self.token.as_deref())
+                .await
+                .unwrap_or_else(|e| {
+                    debug!("[版本检查] 获取 languages 失败: {}", e);
+                    vec![]
+                });
 
         // -git 包使用 git describe 逻辑
         if pkgname.ends_with("-git") {
-            let version = check_github_git_describe(client, &owner, &repo, self.token.as_deref(), pkgname).await?;
+            let version =
+                check_github_git_describe(client, &owner, &repo, self.token.as_deref(), pkgname)
+                    .await?;
             if let Some(v) = &version {
                 info!("[版本检查] 检查完成: {} -> 上游版本={}", pkgname, v);
             } else {
                 debug!("[版本检查] 检查完成: {} -> 未找到上游版本", pkgname);
             }
-            return Ok(CheckResult { version, license, language_names });
+            return Ok(CheckResult {
+                version,
+                license,
+                language_names,
+            });
         }
 
         // 如果启用测试版本检查，遍历所有 releases
@@ -144,7 +151,11 @@ impl VersionChecker for GitHubAPIChecker {
             if let Some(v) = &version {
                 info!("[版本检查] 检查完成: {} -> 上游版本={}", pkgname, v);
             }
-            return Ok(CheckResult { version, license, language_names });
+            return Ok(CheckResult {
+                version,
+                license,
+                language_names,
+            });
         }
 
         // 默认：先获取 latest release
@@ -156,8 +167,9 @@ impl VersionChecker for GitHubAPIChecker {
             version_extract_regex,
             options.check_binary_files,
             pkgname,
-        ).await?;
-        
+        )
+        .await?;
+
         // 如果 releases 为空，且未启用二进制文件检查，则 fallback 到 tags API
         // 如果启用了二进制文件检查，则不应该 fallback 到 tags（因为 tags 没有资产信息）
         if version.is_none() && !options.check_binary_files {
@@ -174,18 +186,29 @@ impl VersionChecker for GitHubAPIChecker {
                 options.check_test_versions,
             )
             .await?;
-            
+
             if let Some(v) = &tags_version {
-                info!("[版本检查] 检查完成: {} -> 上游版本={} (来自 tags)", pkgname, v);
+                info!(
+                    "[版本检查] 检查完成: {} -> 上游版本={} (来自 tags)",
+                    pkgname, v
+                );
             }
-            return Ok(CheckResult { version: tags_version, license, language_names });
+            return Ok(CheckResult {
+                version: tags_version,
+                license,
+                language_names,
+            });
         }
-        
+
         if let Some(v) = &version {
             info!("[版本检查] 检查完成: {} -> 上游版本={}", pkgname, v);
         } else {
             debug!("[版本检查] 检查完成: {} -> 未找到上游版本", pkgname);
         }
-        Ok(CheckResult { version, license, language_names })
+        Ok(CheckResult {
+            version,
+            license,
+            language_names,
+        })
     }
 }

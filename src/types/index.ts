@@ -205,6 +205,28 @@ export interface SoftwareListEntry {
   aur_last_updated: number | null;
   upstream_version: string | null;
   upstream_last_checked: number | null;
+  upstream_url: string | null;
+  upstream_url_status: UpstreamUrlStatus | null;
+  upstream_license_id: string | null;
+}
+
+/** 上游 URL 验证状态枚举 */
+export type UpstreamUrlStatus =
+  | "ok"
+  | "not_found"
+  | "forbidden"
+  | "redirected"
+  | "server_error"
+  | "timeout"
+  | "connection_error"
+  | "other_error";
+
+/** 上游 URL 验证结果 */
+export interface ValidateResult {
+  software_id: number;
+  pkgname: string;
+  upstream_url: string | null;
+  status: UpstreamUrlStatus;
 }
 
 /** Footer 状态接口 - 管理底部工具栏状态 */

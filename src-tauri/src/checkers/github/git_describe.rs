@@ -122,8 +122,7 @@ pub async fn check_github_git_describe(
     if let Some(tag) = latest_tag_name {
         if let Some(hash) = latest_commit_sha {
             let commit_count =
-                get_commit_count_since_tag(client, owner, repo, &tag, &default_branch)
-                    .await;
+                get_commit_count_since_tag(client, owner, repo, &tag, &default_branch).await;
 
             let version = if let Some(count) = commit_count {
                 format!("{}.r{}.g{}", tag, count, hash)
@@ -138,8 +137,7 @@ pub async fn check_github_git_describe(
 
     // 如果没有 tag，使用 r{count}.{hash} 格式
     if let Some(hash) = latest_commit_sha {
-        let total_commits =
-            get_total_commit_count(client, owner, repo, &default_branch).await;
+        let total_commits = get_total_commit_count(client, owner, repo, &default_branch).await;
         let version = if let Some(count) = total_commits {
             format!("r{}.{}", count, hash)
         } else {

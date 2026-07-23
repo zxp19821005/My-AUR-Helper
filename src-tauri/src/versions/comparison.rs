@@ -131,14 +131,20 @@ fn compare_components_list(a: &[String], b: &[String]) -> VersionComparison {
 
     if a.len() > b.len() {
         let extra = &a[b.len()..];
-        if extra.iter().any(|c| c.starts_with('~') || is_prerelease_component(c)) {
+        if extra
+            .iter()
+            .any(|c| c.starts_with('~') || is_prerelease_component(c))
+        {
             return VersionComparison::LessThan;
         }
         return VersionComparison::GreaterThan;
     }
 
     let extra = &b[a.len()..];
-    if extra.iter().any(|c| c.starts_with('~') || is_prerelease_component(c)) {
+    if extra
+        .iter()
+        .any(|c| c.starts_with('~') || is_prerelease_component(c))
+    {
         return VersionComparison::GreaterThan;
     }
     VersionComparison::LessThan

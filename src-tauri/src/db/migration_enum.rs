@@ -50,7 +50,8 @@ impl Database {
             )?;
         }
 
-        self.conn.execute_batch("DROP TABLE enum_programming_languages;")?;
+        self.conn
+            .execute_batch("DROP TABLE enum_programming_languages;")?;
         self.conn.execute_batch(
             "ALTER TABLE enum_programming_languages_new RENAME TO enum_programming_languages;",
         )?;

@@ -49,7 +49,8 @@ pub async fn run_backup(config: &BackupConfig) -> AppResult<BackupResult> {
             if let Some(ext) = path.extension() {
                 // 只处理 archlinux 包文件 (.pkg.tar.zst)
                 if ext == "pkg.tar.zst" {
-                    let filename = path.file_name()
+                    let filename = path
+                        .file_name()
                         .map(|n| n.to_string_lossy().to_string())
                         .unwrap_or_default();
                     if filename.is_empty() {
@@ -78,7 +79,8 @@ pub async fn run_backup(config: &BackupConfig) -> AppResult<BackupResult> {
         if path.is_file() {
             if let Some(ext) = path.extension() {
                 if ext == "pkg.tar.zst" {
-                    let filename = path.file_name()
+                    let filename = path
+                        .file_name()
                         .map(|n| n.to_string_lossy().to_string())
                         .unwrap_or_default();
                     if filename.is_empty() {

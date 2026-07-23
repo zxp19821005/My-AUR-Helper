@@ -39,9 +39,11 @@ pub fn has_linux_binary(assets: &[serde_json::Value], asset_filter: Option<&str>
         }
     }
 
-    assets
-        .iter()
-        .any(|a| a["name"].as_str().is_some_and(|n| !is_not_linux_platform(n)))
+    assets.iter().any(|a| {
+        a["name"]
+            .as_str()
+            .is_some_and(|n| !is_not_linux_platform(n))
+    })
 }
 
 /// 检查并打印 release 资产的详细信息

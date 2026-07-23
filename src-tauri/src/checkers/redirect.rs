@@ -58,23 +58,25 @@ impl VersionChecker for RedirectChecker {
 
         // 创建不自动跟随重定向的客户端（继承代理配置）
         let client = {
-            let proxy_url = options.proxy_url.clone()
+            let proxy_url = options
+                .proxy_url
+                .clone()
                 .or_else(|| std::env::var("http_proxy").ok())
                 .or_else(|| std::env::var("https_proxy").ok())
                 .or_else(|| std::env::var("all_proxy").ok())
                 .filter(|v| !v.is_empty());
-            
+
             let mut builder = Client::builder()
                 .redirect(reqwest::redirect::Policy::none())
                 .user_agent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-            
+
             if let Some(url) = proxy_url {
                 debug!("[HTTP 重定向] 使用代理: {}", url);
                 if let Ok(proxy) = reqwest::Proxy::all(&url) {
                     builder = builder.proxy(proxy);
                 }
             }
-            
+
             builder.build()?
         };
 
@@ -86,7 +88,7 @@ impl VersionChecker for RedirectChecker {
             debug!("[HTTP 重定向] 第 {} 次请求: {}", i + 1, current_url);
 
             let resp = client.get(&current_url).send().await?;
-            
+
             // 调试：打印响应状态码和所有 headers
             debug!("[HTTP 重定向] 响应状态码: {}", resp.status());
             debug!("[HTTP 重定向] 响应 Headers: {:?}", resp.headers());
@@ -115,7 +117,7 @@ impl VersionChecker for RedirectChecker {
                 }
             } else {
                 debug!("[HTTP 重定向] 未找到 Location 头，重定向结束");
-                
+
                 // 尝试从 Content-Disposition header 提取版本（适用于直接返回文件的场景）
                 if version.is_none() {
                     if let Some(content_disp) = resp.headers().get("content-disposition") {
@@ -125,7 +127,7 @@ impl VersionChecker for RedirectChecker {
                         }
                     }
                 }
-                
+
                 // 最终响应没有 Location 头，尝试从最终 URL 提取版本
                 if version.is_none() {
                     version = self.extract_version(&current_url, version_extract_regex);

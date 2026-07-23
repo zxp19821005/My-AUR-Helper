@@ -54,6 +54,13 @@ Tauri 桌面应用，用于管理 AUR 软件包更新、本地备份和代理。
 - [x] 拆分超限 Vue 文件
   - [x] SoftwareFormModal.vue (353→179行) — 提取表单逻辑到 useSoftwareForm.ts (218行)
   - [x] PackageDetail.vue (320→237行) — 复用 useSoftwareForm.ts composable
+- [x] 实现筛选器和上游 URL 验证功能
+  - [x] 创建 upstream_validate.rs 命令 (130行)
+  - [x] 创建 FilterBar.vue 组件 (220行)
+  - [x] 更新 models (UpstreamUrlStatus 枚举, SoftwareListEntry 扩展字段)
+  - [x] 更新 database schema (upstream_url_status 列)
+  - [x] 更新 frontend types 和 composables (usePackageList 筛选逻辑)
+  - [x] 更新 PageToolbar 支持 right slot
 - [ ] 重构数据库 schema
   - [x] 更新 DATABASE.md 设计文档
   - [ ] 重写 models/mod.rs

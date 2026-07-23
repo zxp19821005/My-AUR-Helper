@@ -226,13 +226,15 @@ impl Database {
         let mut stmt = self.conn.prepare(
             "SELECT s.software_id, s.pkgname, s.package_type_id, s.checker_type_id, s.is_outdated,
                     a.aur_version, CAST(a.last_updated AS INTEGER),
-                    u.upstream_version, CAST(u.last_checked AS INTEGER)
+                    u.upstream_version, CAST(u.last_checked AS INTEGER),
+                    s.upstream_url, u.upstream_url_status, u.upstream_license_id
              FROM software_info s
              LEFT JOIN aur_info a ON s.software_id = a.software_id
              LEFT JOIN upstream_info u ON s.software_id = u.software_id
              ORDER BY s.pkgname",
         )?;
         let rows = stmt.query_map([], |row| {
+            let status_str: Option<String> = row.get(10)?;
             Ok(SoftwareListEntry {
                 software_id: row.get(0)?,
                 pkgname: row.get(1)?,
@@ -243,6 +245,9 @@ impl Database {
                 aur_last_updated: row.get(6)?,
                 upstream_version: row.get(7)?,
                 upstream_last_checked: row.get(8)?,
+                upstream_url: row.get(9)?,
+                upstream_url_status: status_str.map(|s| UpstreamUrlStatus::from_str(&s)),
+                upstream_license_id: row.get(11)?,
             })
         })?;
         let mut items = Vec::new();
@@ -255,7 +260,11 @@ impl Database {
     /// 更新软件的语言 ID 列表
     /// @param software_id - 软件 ID
     /// @param language_ids - 语言 ID 列表
-    pub fn update_software_languages(&self, software_id: i64, language_ids: &[i64]) -> AppResult<()> {
+    pub fn update_software_languages(
+        &self,
+        software_id: i64,
+        language_ids: &[i64],
+    ) -> AppResult<()> {
         let language_ids_json = serde_json::to_string(language_ids).unwrap_or_default();
         self.conn.execute(
             "UPDATE software_info SET language_id = ?1 WHERE software_id = ?2",

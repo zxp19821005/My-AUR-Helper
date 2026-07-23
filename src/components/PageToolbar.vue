@@ -62,6 +62,7 @@ async function openSettings() {
       <slot />
     </div>
     <div class="toolbar-right">
+      <slot name="right" />
       <div class="toolbar-divider"></div>
       <div class="search-box">
         <Search :size="14" class="search-icon" />

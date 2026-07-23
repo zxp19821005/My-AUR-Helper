@@ -15,8 +15,13 @@ impl Database {
         let columns = self.get_table_columns("aur_info")?;
 
         let old_cols = [
-            "provides", "conflicts", "replaces", "votes",
-            "popularity", "submitted_by", "maintainers",
+            "provides",
+            "conflicts",
+            "replaces",
+            "votes",
+            "popularity",
+            "submitted_by",
+            "maintainers",
         ];
         for col in &old_cols {
             if columns.contains(&col.to_string()) {
@@ -39,17 +44,21 @@ impl Database {
         }
 
         // 检查 license_id 是否为 INTEGER 类型（需要迁移）
-        let license_col_type: String = self.conn.query_row(
-            "SELECT COALESCE((SELECT typeof(license_id) FROM aur_info LIMIT 1), 'null')",
-            [],
-            |row| row.get(0),
-        ).unwrap_or_default();
-        
+        let license_col_type: String = self
+            .conn
+            .query_row(
+                "SELECT COALESCE((SELECT typeof(license_id) FROM aur_info LIMIT 1), 'null')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or_default();
+
         if license_col_type == "integer" || license_col_type == "null" {
             // 需要迁移 license_id 从 INTEGER 到 TEXT
             self.conn.execute_batch("PRAGMA foreign_keys=OFF;")?;
-            self.conn.execute_batch("DROP TABLE IF EXISTS aur_info_new;")?;
-            
+            self.conn
+                .execute_batch("DROP TABLE IF EXISTS aur_info_new;")?;
+
             self.conn.execute_batch(
                 "CREATE TABLE aur_info_new (
                     software_id     INTEGER PRIMARY KEY,
@@ -64,7 +73,7 @@ impl Database {
                     FOREIGN KEY (software_id) REFERENCES software_info(software_id) ON DELETE CASCADE
                 );"
             )?;
-            
+
             // 将旧的整数 license_id 转换为 JSON 数组
             self.conn.execute_batch(
                 "INSERT INTO aur_info_new (software_id, pkgdesc, aur_version, license_id, last_updated, depends, makedepends, optdepends, out_of_date)
@@ -75,9 +84,10 @@ impl Database {
                         last_updated, depends, makedepends, optdepends, out_of_date
                  FROM aur_info;"
             )?;
-            
+
             self.conn.execute_batch("DROP TABLE aur_info;")?;
-            self.conn.execute_batch("ALTER TABLE aur_info_new RENAME TO aur_info;")?;
+            self.conn
+                .execute_batch("ALTER TABLE aur_info_new RENAME TO aur_info;")?;
             self.conn.execute_batch("PRAGMA foreign_keys=ON;")?;
         }
 

@@ -207,6 +207,7 @@ pub fn run() {
             commands::software_sync::upstream::check_all_upstream, // 并行检查所有软件包的上游版本
             commands::software_check::check_upstream_version, // 检查单个软件包的上游版本
             commands::software_check::check_selected_upstream, // 检查选中的软件包上游版本
+            commands::upstream_validate::validate_upstream_urls, // 批量验证上游 URL
             // 扫描
             commands::scan::scan_pkg_files_cmd, // 扫描 .pkg.tar.zst 包文件
             // 备份管理

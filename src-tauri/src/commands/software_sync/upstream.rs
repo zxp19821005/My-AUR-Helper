@@ -160,31 +160,46 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
             );
 
             if let Err(e) = db.update_software_outdated(result.software_id, result.is_outdated) {
-                error!("[版本检查] 更新 {} 的 is_outdated 失败: {}", result.pkgname, e);
+                error!(
+                    "[版本检查] 更新 {} 的 is_outdated 失败: {}",
+                    result.pkgname, e
+                );
             }
-            
+
             // 更新软件的语言 ID 列表
             if let Err(e) = db.update_software_languages(result.software_id, &language_ids) {
-                error!("[版本检查] 更新 {} 的 languages 失败: {}", result.pkgname, e);
+                error!(
+                    "[版本检查] 更新 {} 的 languages 失败: {}",
+                    result.pkgname, e
+                );
             }
-            
+
             let upstream_info = crate::models::UpstreamInfo {
                 software_id: result.software_id,
                 upstream_version: Some(cleaned_version.to_string()),
                 upstream_license_id,
                 last_checked: Some(chrono::Utc::now().timestamp()),
+                upstream_url_status: None,
             };
             if let Err(e) = db.upsert_upstream_info(&upstream_info) {
-                error!("[版本检查] 更新 {} 的 upstream_info 失败: {}", result.pkgname, e);
+                error!(
+                    "[版本检查] 更新 {} 的 upstream_info 失败: {}",
+                    result.pkgname, e
+                );
             } else {
-                info!("[版本检查] {} 数据库更新完成: version={}, license={:?}", 
-                    result.pkgname, cleaned_version, result.license_spdx_id);
+                info!(
+                    "[版本检查] {} 数据库更新完成: version={}, license={:?}",
+                    result.pkgname, cleaned_version, result.license_spdx_id
+                );
             }
 
             success_results.push((result.pkgname.clone(), result.upstream_version.clone()));
         } else {
             if let Err(e) = db.update_software_outdated(result.software_id, false) {
-                error!("[版本检查] 更新 {} 的 is_outdated 失败: {}", result.pkgname, e);
+                error!(
+                    "[版本检查] 更新 {} 的 is_outdated 失败: {}",
+                    result.pkgname, e
+                );
             }
         }
     }

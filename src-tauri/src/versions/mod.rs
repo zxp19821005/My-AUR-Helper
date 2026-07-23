@@ -43,7 +43,8 @@ pub fn compare_versions(aur_version: &str, upstream_version: &str) -> VersionCom
         aur.normalized_version, upstream.normalized_version
     );
 
-    let result = comparison::compare_versions(&aur.normalized_version, &upstream.normalized_version);
+    let result =
+        comparison::compare_versions(&aur.normalized_version, &upstream.normalized_version);
 
     debug!("[版本比较] 比较结果: {:?}", result);
     result

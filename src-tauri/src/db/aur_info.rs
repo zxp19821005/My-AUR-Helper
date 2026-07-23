@@ -52,7 +52,8 @@ impl Database {
     pub fn set_aur_license(&self, software_id: i64, license_id: Option<&str>) -> AppResult<()> {
         log::debug!(
             "[set_aur_license] software_id={}, license_id={:?}",
-            software_id, license_id
+            software_id,
+            license_id
         );
         // 检查 software_id 是否存在于 software_info
         let sw_exists: bool = self.conn.query_row(
@@ -68,7 +69,11 @@ impl Database {
             rusqlite::params![software_id],
             |row| row.get(0),
         )?;
-        log::debug!("[set_aur_license] aur_info exists for software_id={}: {}", software_id, aur_exists);
+        log::debug!(
+            "[set_aur_license] aur_info exists for software_id={}: {}",
+            software_id,
+            aur_exists
+        );
 
         self.conn.execute(
             "INSERT INTO aur_info (software_id, license_id) VALUES (?1, ?2)

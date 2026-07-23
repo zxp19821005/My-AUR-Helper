@@ -49,7 +49,7 @@ src-tauri/src/
 │   ├── software_info.rs      # 软件包信息模型
 │   ├── software_list_entry.rs # 软件包列表展示模型
 │   ├── aur_info.rs           # AUR 信息模型
-│   ├── upstream_info.rs      # 上游版本信息模型
+│   ├── upstream_info.rs      # 上游版本信息模型（含 UpstreamUrlStatus 枚举）
 │   ├── proxy_info.rs         # 代理信息模型
 │   ├── proxy_type.rs         # 代理类型枚举
 │   ├── proxy_test.rs         # 代理测试结果模型
@@ -85,6 +85,7 @@ src-tauri/src/
 │   ├── software_sync_utils.rs # 同步工具函数和类型 (68行)
 │   ├── software_sync_pkgbuild.rs # PKGBUILD 同步命令 (122行)
 │   ├── software_check.rs     # 软件包版本检查命令 (195行)
+│   ├── upstream_validate.rs  # 上游 URL 验证命令 (130行)
 │   ├── files.rs              # 文件操作命令 (221行)
 │   ├── files_scan.rs         # 包文件扫描命令 (85行)
 │   ├── backup.rs             # 备份命令
@@ -145,6 +146,7 @@ src/
 │   └── LanguageManager.vue   # 编程语言管理 (241行)
 ├── components/               # 通用组件
 │   ├── PageToolbar.vue       # 页面工具栏 (92行)
+│   ├── FilterBar.vue         # 筛选器组件 (220行)
 │   ├── Sidebar.vue           # 侧边栏 (198行)
 │   ├── BottomToolbar.vue     # 底部工具栏 (167行)
 │   ├── TabBar.vue            # 标签栏 (158行)

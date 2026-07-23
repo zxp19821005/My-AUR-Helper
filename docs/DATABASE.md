@@ -49,11 +49,11 @@
 │ pkgdesc      │  │upstream_ver  │
 │ aur_version  │  │last_checked  │
 │ license_id   │  │upstream_license│
-│ last_updated │  └──────────────┘
-│ depends      │
-│ makedepends  │  ┌──────────────┐
-│ optdepends   │  │backup_software│
-└──────────────┘  │──────────────│
+│ last_updated │  │url_status    │
+│ depends      │  └──────────────┘
+│ makedepends  │
+│ optdepends   │  ┌──────────────┐
+└──────────────┘  │backup_software│
                   │ id (PK)      │
 ┌──────────────┐  │software_id(FK)│
 │proxies_info  │  │ filename     │
@@ -143,6 +143,7 @@ AUR 软件包详细信息，通过 AUR RPC 接口获取。
 | upstream_version | TEXT | 上游最新版本 |
 | upstream_license_id | TEXT | 上游 License 列表 (JSON 数组格式，如 `["MIT", "GPL-3.0"]`) |
 | last_checked | INTEGER | 最后检查时间 (Unix 时间戳) |
+| upstream_url_status | TEXT | 上游 URL 验证状态 (ok/not_found/forbidden/redirected/server_error/timeout/connection_error/other_error) |
 
 <!-- backup_software：备份文件记录，从 pacman 缓存复制到备份目录 -->
 ### backup_software

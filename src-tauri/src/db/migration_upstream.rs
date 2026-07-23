@@ -6,6 +6,7 @@
  * - 重命名 upstream_license 为 upstream_license_id
  * - 标准化 last_checked 列为 Unix 时间戳
  * - 将 upstream_license_id 从 INTEGER 改为 TEXT（存储 JSON 数组）
+ * - 添加 upstream_url_status 列（上游 URL 验证状态）
  */
 use crate::errors::AppResult;
 
@@ -19,6 +20,7 @@ impl Database {
         let has_upstream_license = columns.contains(&"upstream_license".to_string());
         let has_upstream_license_id = columns.contains(&"upstream_license_id".to_string());
         let has_last_checked = columns.contains(&"last_checked".to_string());
+        let has_upstream_url_status = columns.contains(&"upstream_url_status".to_string());
 
         // 检查 license_id 是否为 INTEGER 类型（需要迁移）
         let license_col_type: String = self.conn.query_row(
@@ -28,7 +30,14 @@ impl Database {
         ).unwrap_or_default();
         let needs_license_migration = license_col_type == "integer" || license_col_type == "null";
 
-        if has_upstream_url || has_upstream_license || !has_upstream_license_id || needs_license_migration {
+        // 需要迁移的情况：缺少新列、有旧列需要清理、或 license 类型需要迁移
+        let needs_migration = has_upstream_url
+            || has_upstream_license
+            || !has_upstream_license_id
+            || !has_upstream_url_status
+            || needs_license_migration;
+
+        if needs_migration {
             let last_checked_type: String = self.conn.query_row(
                 "SELECT COALESCE((SELECT typeof(\"last_checked\") FROM upstream_info LIMIT 1), 'null')",
                 [],
@@ -36,7 +45,8 @@ impl Database {
             ).unwrap_or_default();
 
             self.conn.execute_batch("PRAGMA foreign_keys=OFF;")?;
-            self.conn.execute_batch("DROP TABLE IF EXISTS upstream_info_new;")?;
+            self.conn
+                .execute_batch("DROP TABLE IF EXISTS upstream_info_new;")?;
 
             self.conn.execute_batch(
                 "CREATE TABLE upstream_info_new (
@@ -44,13 +54,18 @@ impl Database {
                     upstream_version   TEXT,
                     upstream_license_id TEXT,
                     last_checked       INTEGER,
+                    upstream_url_status TEXT DEFAULT NULL,
                     FOREIGN KEY (software_id) REFERENCES software_info(software_id) ON DELETE CASCADE
                 );"
             )?;
 
             self.copy_upstream_data(
-                has_upstream_url, has_upstream_license, has_upstream_license_id,
-                has_last_checked, &last_checked_type, needs_license_migration,
+                has_upstream_url,
+                has_upstream_license,
+                has_upstream_license_id,
+                has_last_checked,
+                &last_checked_type,
+                needs_license_migration,
             )?;
 
             self.conn.execute_batch("DROP TABLE upstream_info;")?;

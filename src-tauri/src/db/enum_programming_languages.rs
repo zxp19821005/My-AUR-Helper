@@ -8,9 +8,9 @@ impl Database {
     /// 获取所有编程语言记录（按名称排序）
     /// @returns 所有编程语言列表
     pub fn get_all_languages(&self) -> AppResult<Vec<EnumProgrammingLanguage>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id, name, short_name FROM enum_programming_languages ORDER BY name"
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id, name, short_name FROM enum_programming_languages ORDER BY name")?;
         let rows = stmt.query_map([], |row| {
             Ok(EnumProgrammingLanguage {
                 id: Some(row.get(0)?),
@@ -55,9 +55,9 @@ impl Database {
     /// @returns 语言 ID
     pub fn get_or_create_language_id(&self, name: &str) -> AppResult<i64> {
         // 先尝试查询
-        let mut stmt = self.conn.prepare(
-            "SELECT id FROM enum_programming_languages WHERE name=?1"
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id FROM enum_programming_languages WHERE name=?1")?;
         let existing: Option<i64> = stmt
             .query_map(rusqlite::params![name], |row| row.get(0))?
             .next()

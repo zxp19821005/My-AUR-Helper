@@ -71,10 +71,7 @@ pub async fn fetch_github_repo_languages(
     repo: &str,
     token: Option<&str>,
 ) -> AppResult<Vec<String>> {
-    let api_url = format!(
-        "https://api.github.com/repos/{}/{}/languages",
-        owner, repo
-    );
+    let api_url = format!("https://api.github.com/repos/{}/{}/languages", owner, repo);
 
     let resp = build_github_request(client, &api_url, token).send().await?;
     if !resp.status().is_success() {
@@ -93,10 +90,16 @@ pub async fn fetch_github_repo_languages(
         lang_list.sort_by(|a, b| b.1.cmp(&a.1));
 
         let lang_names: Vec<String> = lang_list.into_iter().map(|(name, _)| name).collect();
-        info!("[GitHub Languages] {} {}: languages={:?}", owner, repo, lang_names);
+        info!(
+            "[GitHub Languages] {} {}: languages={:?}",
+            owner, repo, lang_names
+        );
         Ok(lang_names)
     } else {
-        debug!("[GitHub Languages] {} {}: 未找到 language 信息", owner, repo);
+        debug!(
+            "[GitHub Languages] {} {}: 未找到 language 信息",
+            owner, repo
+        );
         Ok(vec![])
     }
 }

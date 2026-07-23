@@ -47,6 +47,7 @@ impl Database {
                 upstream_version   TEXT,
                 upstream_license_id TEXT,
                 last_checked       INTEGER,
+                upstream_url_status TEXT DEFAULT NULL,
                 FOREIGN KEY (software_id) REFERENCES software_info(software_id) ON DELETE CASCADE
             );
 

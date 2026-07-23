@@ -37,4 +37,4 @@ pub use setting::Setting;
 pub use software_detail::SoftwareDetail;
 pub use software_info::SoftwareInfo;
 pub use software_list_entry::SoftwareListEntry;
-pub use upstream_info::UpstreamInfo;
+pub use upstream_info::{UpstreamInfo, UpstreamUrlStatus};

@@ -110,6 +110,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/db/logs.rs` | 日志表 |
 | `src-tauri/src/db/settings.rs` | 设置表 |
 | `src-tauri/src/commands/` | Tauri IPC 命令（software/sys_command/enums 等） |
+| `src-tauri/src/commands/upstream_validate.rs` | 上游 URL 验证命令 |
 | `src-tauri/src/commands/software_sync/` | 软件包同步命令模块（目录结构） |
 | `src-tauri/src/commands/software_sync/mod.rs` | 模块声明和导出（不含具体实现） |
 | `src-tauri/src/commands/software_sync/aur.rs` | AUR 信息同步和更新命令 |
@@ -142,6 +143,8 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/backup/mod.rs` | 备份管理 |
 | `src-tauri/src/backup/execute.rs` | 备份执行逻辑 |
 | `src-tauri/src/models/` | 数据模型定义 |
+| `src-tauri/src/models/upstream_info.rs` | 上游版本信息模型（含 UpstreamUrlStatus 枚举） |
+| `src-tauri/src/models/software_list_entry.rs` | 软件包列表展示模型 |
 
 <!-- Vue 前端关键文件列表 -->
 ### Vue 前端
@@ -152,6 +155,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/router/index.ts` | Vue Router 路由配置 |
 | `src/views/` | 页面组件（每个页面一个文件） |
 | `src/components/DataTable.vue` | 通用数据表格组件（支持分页、搜索、选择） |
+| `src/components/FilterBar.vue` | 筛选器组件（快速筛选 + 条件筛选） |
 | `src/components/` | 通用组件（跨页面复用） |
 | `src/composables/` | 组合式函数（hooks） |
 | `src/composables/footer.ts` | 底部状态栏状态管理 |

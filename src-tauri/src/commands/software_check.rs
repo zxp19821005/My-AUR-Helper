@@ -99,17 +99,24 @@ fn compare_and_update(
     );
 
     db.update_software_outdated(software_id, is_outdated)?;
-    debug!("[版本检查] {} step1: update_software_outdated 成功", pkgname);
-    
+    debug!(
+        "[版本检查] {} step1: update_software_outdated 成功",
+        pkgname
+    );
+
     // 更新软件的语言 ID 列表
     db.update_software_languages(software_id, &language_ids)?;
-    debug!("[版本检查] {} step2: update_software_languages 成功", pkgname);
-    
+    debug!(
+        "[版本检查] {} step2: update_software_languages 成功",
+        pkgname
+    );
+
     let upstream_info = UpstreamInfo {
         software_id,
         upstream_version: Some(cleaned_version.to_string()),
         upstream_license_id,
         last_checked: Some(Utc::now().timestamp()),
+        upstream_url_status: None,
     };
     db.upsert_upstream_info(&upstream_info)?;
     debug!("[版本检查] {} step3: upsert_upstream_info 成功", pkgname);

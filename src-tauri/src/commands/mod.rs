@@ -42,5 +42,8 @@ pub mod software_sync;
 /// 软件包上游版本检查相关命令
 pub mod software_check;
 
+/// 上游 URL 验证命令
+pub mod upstream_validate;
+
 /// 系统命令执行（仅保留安全命令：get_package_version、list_installed_packages）
 pub mod sys_command;

@@ -24,9 +24,9 @@ mod enum_licenses;
 mod enum_programming_languages;
 mod logs;
 mod migration_aur;
+mod migration_enum;
 mod migration_software;
 mod migration_upstream;
-mod migration_enum;
 mod proxies_info;
 mod proxies_test;
 mod schema;
@@ -77,16 +77,27 @@ impl Database {
     fn get_table_columns(&self, table_name: &str) -> AppResult<Vec<String>> {
         // 白名单：仅允许已知的表名
         const ALLOWED_TABLES: &[&str] = &[
-            "software_info", "aur_info", "upstream_info", "proxies_info",
-            "backup_software", "cache_software", "logs", "settings",
-            "enum_licenses", "enum_programming_languages", "proxies_test",
+            "software_info",
+            "aur_info",
+            "upstream_info",
+            "proxies_info",
+            "backup_software",
+            "cache_software",
+            "logs",
+            "settings",
+            "enum_licenses",
+            "enum_programming_languages",
+            "proxies_test",
         ];
         if !ALLOWED_TABLES.contains(&table_name) {
-            return Err(crate::errors::AppError::DatabaseError(
-                format!("不允许查询表 '{}' 的列信息", table_name)
-            ));
+            return Err(crate::errors::AppError::DatabaseError(format!(
+                "不允许查询表 '{}' 的列信息",
+                table_name
+            )));
         }
-        let mut stmt = self.conn.prepare(&format!("PRAGMA table_info({table_name})"))?;
+        let mut stmt = self
+            .conn
+            .prepare(&format!("PRAGMA table_info({table_name})"))?;
         let columns: Vec<String> = stmt
             .query_map([], |row| row.get(1))?
             .filter_map(|r| r.ok())
@@ -100,11 +111,14 @@ impl Database {
         if self.fk_checked.get() {
             return Ok(());
         }
-        let fk_count: i64 = self.conn.query_row(
-            "SELECT COUNT(*) FROM pragma_foreign_key_list('software_info')",
-            [],
-            |row| row.get(0),
-        ).unwrap_or(0);
+        let fk_count: i64 = self
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_foreign_key_list('software_info')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
         if fk_count > 0 {
             log::warn!(
                 "[ensure_no_fk_constraints] software_info 表有 {} 个外键约束，正在移除...",
@@ -119,7 +133,8 @@ impl Database {
     /// 重建 software_info 表以移除所有外键约束
     fn rebuild_software_info_remove_fk(&self) -> AppResult<()> {
         self.conn.execute_batch("PRAGMA foreign_keys=OFF;")?;
-        self.conn.execute_batch("DROP TABLE IF EXISTS software_info_new;")?;
+        self.conn
+            .execute_batch("DROP TABLE IF EXISTS software_info_new;")?;
         self.conn.execute_batch(
             "CREATE TABLE software_info_new (
                 software_id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -143,7 +158,8 @@ impl Database {
              FROM software_info;",
         )?;
         self.conn.execute_batch("DROP TABLE software_info;")?;
-        self.conn.execute_batch("ALTER TABLE software_info_new RENAME TO software_info;")?;
+        self.conn
+            .execute_batch("ALTER TABLE software_info_new RENAME TO software_info;")?;
         self.conn.execute_batch(
             "CREATE INDEX IF NOT EXISTS idx_software_pkgname ON software_info(pkgname);
              CREATE INDEX IF NOT EXISTS idx_software_outdated ON software_info(is_outdated);",

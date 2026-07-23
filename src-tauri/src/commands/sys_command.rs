@@ -22,10 +22,7 @@ fn is_valid_pkgname(name: &str) -> bool {
 #[command]
 pub async fn get_package_version(pkgname: String) -> AppResult<String> {
     if !is_valid_pkgname(&pkgname) {
-        return Err(AppError::InvalidInput(format!(
-            "无效的包名: {}",
-            pkgname
-        )));
+        return Err(AppError::InvalidInput(format!("无效的包名: {}", pkgname)));
     }
     debug!("正在获取软件包版本: {}", pkgname);
     let output = tokio::process::Command::new("pacman")

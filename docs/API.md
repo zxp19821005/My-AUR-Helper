@@ -97,6 +97,15 @@
 - 参数: `{ pkgname_list: string[] }`
 - 返回: `[string, string][]` (包名, 版本) 数组
 
+## 上游 URL 验证 (commands/upstream_validate.rs)
+
+### validate_upstream_urls
+批量验证软件包的上游 URL 可达性。
+- 参数: `{ pkgname_list?: string[] }` (可选，为空时验证所有有上游 URL 的包)
+- 返回: `ValidateResult[]` (验证结果数组)
+- 事件: `validate-upstream-progress` — 验证进度
+- 说明: 并发数 10，超时 10 秒，更新 upstream_info 表的 upstream_url_status 字段
+
 ## 文件操作 (commands/files.rs)
 
 ### copy_file

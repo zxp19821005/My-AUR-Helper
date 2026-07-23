@@ -15,7 +15,7 @@
  */
 #[cfg(test)]
 mod tests {
-    use crate::versions::comparison::{VersionComparison, compare_versions as compare_vercmp};
+    use crate::versions::comparison::{compare_versions as compare_vercmp, VersionComparison};
 
     #[test]
     fn test_equal() {

@@ -77,9 +77,16 @@ pub async fn check_github_release_latest(
                         pkgname
                     );
                     return check_github_releases(
-                        client, owner, repo, token, version_extract_regex,
-                        true, true, pkgname,
-                    ).await;
+                        client,
+                        owner,
+                        repo,
+                        token,
+                        version_extract_regex,
+                        true,
+                        true,
+                        pkgname,
+                    )
+                    .await;
                 }
             }
         }
@@ -103,9 +110,16 @@ pub async fn check_github_release_latest(
                 pkgname, tag, regex
             );
             return check_github_releases(
-                client, owner, repo, token, version_extract_regex,
-                true, false, pkgname,
-            ).await;
+                client,
+                owner,
+                repo,
+                token,
+                version_extract_regex,
+                true,
+                false,
+                pkgname,
+            )
+            .await;
         }
 
         return Ok(Some(clean_version(tag)));
@@ -173,7 +187,9 @@ pub async fn check_github_releases(
         if page > max_pages {
             debug!(
                 "[二进制检查] {}: 已达到最大页数限制 ({} 页，{} 个 releases)，停止搜索",
-                pkgname, max_pages, max_pages * per_page
+                pkgname,
+                max_pages,
+                max_pages * per_page
             );
             break;
         }
@@ -206,13 +222,18 @@ pub async fn check_github_releases(
 
         debug!(
             "[二进制检查] {}: 正在检查第 {} 页 ({} 个 releases)",
-            pkgname, page, releases.len()
+            pkgname,
+            page,
+            releases.len()
         );
 
         for release in &releases {
             if let Some(tag) = release["tag_name"].as_str() {
                 if !check_test_versions && release["prerelease"].as_bool().unwrap_or(false) {
-                    debug!("[二进制检查] {}: Release {} 是 prerelease，跳过", pkgname, tag);
+                    debug!(
+                        "[二进制检查] {}: Release {} 是 prerelease，跳过",
+                        pkgname, tag
+                    );
                     continue;
                 }
 
@@ -221,7 +242,9 @@ pub async fn check_github_releases(
                     if !re.is_match(tag) && !re.is_match(release_name) {
                         debug!(
                             "[二进制检查] {}: Release {} ({}) 不匹配正则 {}，跳过",
-                            pkgname, tag, release_name,
+                            pkgname,
+                            tag,
+                            release_name,
                             version_extract_regex.unwrap_or("")
                         );
                         continue;
@@ -231,7 +254,10 @@ pub async fn check_github_releases(
                 if check_binary_files {
                     if let Some(assets) = release["assets"].as_array() {
                         if !has_linux_binary(assets, version_extract_regex) {
-                            debug!("[二进制检查] {}: Release {} 无匹配的资产文件，跳过", pkgname, tag);
+                            debug!(
+                                "[二进制检查] {}: Release {} 无匹配的资产文件，跳过",
+                                pkgname, tag
+                            );
                             continue;
                         }
                     }

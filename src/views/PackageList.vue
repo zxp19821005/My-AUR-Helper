@@ -6,13 +6,16 @@
   - 支持搜索、分页、多选
   - 提供批量操作：同步AUR、同步PKGBUILD、检查上游、删除
   - 支持单行操作：查看详情、编辑、同步、检查、删除
+  - 支持筛选器：快速筛选（OR）+ 条件筛选（AND）
 -->
 <script setup lang="ts">
-import { onMounted } from "vue";
+import { onMounted, ref } from "vue";
+import { invoke } from "@tauri-apps/api/core";
 import { usePackageStore } from "../stores/packages";
 import { usePackageActions } from "../composables/packageActions";
 import { usePackageList, fmtTimestamp } from "../composables/usePackageList";
 import PageToolbar from "../components/PageToolbar.vue";
+import FilterBar from "../components/FilterBar.vue";
 import SoftwareFormModal from "../components/SoftwareFormModal.vue";
 import SoftwareDetailModal from "../components/SoftwareDetailModal.vue";
 import {
@@ -23,13 +26,17 @@ import {
   Pencil,
   Info,
   Download,
+  Filter,
 } from "@lucide/vue";
+import type { ValidateResult } from "../types";
 
 const pkgStore = usePackageStore();
 
 const {
   searchQuery,
   selectedPkgnames,
+  filterState,
+  showFilterBar,
   showModal,
   modalMode,
   modalPkgname,
@@ -45,6 +52,8 @@ const {
   onModalSaved,
   setSelected,
   syncToolbar,
+  activeFilterCount,
+  resetFilters,
 } = usePackageList();
 
 const {
@@ -61,6 +70,31 @@ const {
   rowDelete,
 } = usePackageActions(fetchView, syncToolbar);
 
+const validating = ref(false);
+
+async function handleValidateUrls() {
+  validating.value = true;
+  try {
+    // 获取当前筛选后的包名列表
+    const pkgnameList = pageData.value.map((p) => p.pkgname);
+    const results = await invoke<ValidateResult[]>("validate_upstream_urls", {
+      pkgnameList: pkgnameList.length > 0 ? pkgnameList : null,
+    });
+    // 刷新列表以显示更新后的状态
+    await fetchView();
+    console.log(`验证完成: ${results.length} 个软件包`);
+  } catch (error) {
+    console.error("验证失败:", error);
+  } finally {
+    validating.value = false;
+    showFilterBar.value = false;
+  }
+}
+
+function handleFilterUpdate(newState: typeof filterState.value) {
+  filterState.value = newState;
+}
+
 onMounted(async () => {
   await Promise.all([fetchView(), pkgStore.fetchPackages()]);
 });
@@ -69,6 +103,17 @@ onMounted(async () => {
 <template>
   <div>
     <PageToolbar v-model="searchQuery" @refresh="fetchView">
+      <template #right>
+        <button
+          class="btn-icon"
+          :class="activeFilterCount > 0 ? 'btn-icon-warning' : 'btn-icon-default'"
+          @click="showFilterBar = !showFilterBar"
+          title="筛选"
+        >
+          <Filter :size="16" />
+          <span v-if="activeFilterCount > 0" class="filter-count-badge">{{ activeFilterCount }}</span>
+        </button>
+      </template>
       <button class="btn-icon btn-icon-accent" @click="syncFromAur(selectedPkgnames)" :disabled="loading" title="从AUR同步">
         <RefreshCw :size="16" />
       </button>
@@ -88,6 +133,17 @@ onMounted(async () => {
         <Trash2 :size="16" />
       </button>
     </PageToolbar>
+
+    <FilterBar
+      :show="showFilterBar"
+      :filter-state="filterState"
+      :active-filter-count="activeFilterCount"
+      :loading="loading || validating"
+      @update:show="showFilterBar = $event"
+      @update:filter-state="handleFilterUpdate"
+      @validate-urls="handleValidateUrls"
+      @reset-filters="resetFilters"
+    />
 
     <div class="card" style="overflow-x: auto; padding: 0">
       <table class="pkg-table">
@@ -207,5 +263,16 @@ onMounted(async () => {
 
 .pkg-outdated {
   color: var(--warning);
+}
+
+.filter-count-badge {
+  background: var(--warning);
+  color: white;
+  font-size: 0.65rem;
+  padding: 1px 5px;
+  border-radius: 8px;
+  margin-left: 2px;
+  min-width: 16px;
+  text-align: center;
 }
 </style>

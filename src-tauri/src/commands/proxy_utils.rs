@@ -79,13 +79,12 @@ pub fn build_client_with_redirect(
     proxy_url: Option<&str>,
     follow_redirects: bool,
 ) -> reqwest::Client {
-    let mut builder = reqwest::Client::builder()
-        .timeout(Duration::from_secs(timeout_secs));
-    
+    let mut builder = reqwest::Client::builder().timeout(Duration::from_secs(timeout_secs));
+
     if !follow_redirects {
         builder = builder.redirect(reqwest::redirect::Policy::none());
     }
-    
+
     if let Some(url) = proxy_url {
         if url.starts_with("http://") || url.starts_with("https://") {
             info!("[HTTP代理] 使用代理");
@@ -93,9 +92,7 @@ pub fn build_client_with_redirect(
                 builder = builder.proxy(proxy);
             }
         } else if url.starts_with("socks5://") {
-            info!(
-                "[HTTP代理] SOCKS5代理不支持（需要启用 socks 特性），跳过"
-            );
+            info!("[HTTP代理] SOCKS5代理不支持（需要启用 socks 特性），跳过");
         }
     }
     builder.build().unwrap_or_default()
