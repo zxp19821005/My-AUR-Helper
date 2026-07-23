@@ -41,7 +41,7 @@ impl VersionChecker for RedirectChecker {
         upstream_url: &str,
         pkgname: &str,
         version_extract_regex: Option<&str>,
-        _options: &CheckOptions,
+        options: &CheckOptions,
     ) -> AppResult<CheckResult> {
         info!(
             "[版本检查] 开始检查软件包: {} (检查器: {})",
@@ -56,10 +56,27 @@ impl VersionChecker for RedirectChecker {
             return Ok(CheckResult::default());
         }
 
-        // 创建不自动跟随重定向的客户端
-        let no_redirect_client = Client::builder()
-            .redirect(reqwest::redirect::Policy::none())
-            .build()?;
+        // 创建不自动跟随重定向的客户端（继承代理配置）
+        let client = {
+            let proxy_url = options.proxy_url.clone()
+                .or_else(|| std::env::var("http_proxy").ok())
+                .or_else(|| std::env::var("https_proxy").ok())
+                .or_else(|| std::env::var("all_proxy").ok())
+                .filter(|v| !v.is_empty());
+            
+            let mut builder = Client::builder()
+                .redirect(reqwest::redirect::Policy::none())
+                .user_agent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+            
+            if let Some(url) = proxy_url {
+                debug!("[HTTP 重定向] 使用代理: {}", url);
+                if let Ok(proxy) = reqwest::Proxy::all(&url) {
+                    builder = builder.proxy(proxy);
+                }
+            }
+            
+            builder.build()?
+        };
 
         // 手动跟踪重定向，获取最终的 URL
         let mut current_url = upstream_url.to_string();
@@ -68,7 +85,11 @@ impl VersionChecker for RedirectChecker {
         for i in 0..MAX_REDIRECTS {
             debug!("[HTTP 重定向] 第 {} 次请求: {}", i + 1, current_url);
 
-            let resp = no_redirect_client.get(&current_url).send().await?;
+            let resp = client.get(&current_url).send().await?;
+            
+            // 调试：打印响应状态码和所有 headers
+            debug!("[HTTP 重定向] 响应状态码: {}", resp.status());
+            debug!("[HTTP 重定向] 响应 Headers: {:?}", resp.headers());
 
             if let Some(location) = resp.headers().get("location") {
                 let location_str = location.to_str().unwrap_or("");
@@ -94,6 +115,17 @@ impl VersionChecker for RedirectChecker {
                 }
             } else {
                 debug!("[HTTP 重定向] 未找到 Location 头，重定向结束");
+                
+                // 尝试从 Content-Disposition header 提取版本（适用于直接返回文件的场景）
+                if version.is_none() {
+                    if let Some(content_disp) = resp.headers().get("content-disposition") {
+                        if let Ok(disp_str) = content_disp.to_str() {
+                            debug!("[HTTP 重定向] Content-Disposition: {}", disp_str);
+                            version = self.extract_version(disp_str, version_extract_regex);
+                        }
+                    }
+                }
+                
                 // 最终响应没有 Location 头，尝试从最终 URL 提取版本
                 if version.is_none() {
                     version = self.extract_version(&current_url, version_extract_regex);

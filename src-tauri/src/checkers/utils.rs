@@ -130,6 +130,19 @@ fn strip_file_extensions(version: &str) -> String {
             break;
         }
     }
+    
+    // 去除架构后缀 (如 .x86_64, .aarch64, .arm64, .amd64, .i386 等)
+    let arch_patterns = [
+        ".x86_64", ".aarch64", ".arm64", ".amd64", ".i386", ".i686", 
+        ".armv7l", ".armhf", ".noarch", ".all", ".universal",
+    ];
+    for arch in &arch_patterns {
+        if result.ends_with(arch) {
+            result = result[..result.len() - arch.len()].to_string();
+            break;
+        }
+    }
+    
     result
 }
 

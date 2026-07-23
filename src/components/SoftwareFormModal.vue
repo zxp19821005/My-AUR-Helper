@@ -130,33 +130,22 @@ async function handleSave() {
       </div>
 
       <div class="form-row-inline">
-        <div class="inline-item">
-          <label class="checkbox-label" v-if="mode === 'edit'">
-            <input type="checkbox" v-model="form.is_outdated" />
-            <span>状态：需更新</span>
-          </label>
-        </div>
-        <div class="inline-item">
-          <label class="checkbox-label">
-            <input type="checkbox" v-model="form.auto_check_enabled" />
-            <span>自动检查</span>
-          </label>
-        </div>
-      </div>
-
-      <div class="form-row-inline">
-        <div class="inline-item">
-          <label class="checkbox-label">
-            <input type="checkbox" v-model="form.check_test_versions" />
-            <span>测试版本</span>
-          </label>
-        </div>
-        <div class="inline-item">
-          <label class="checkbox-label">
-            <input type="checkbox" v-model="form.check_binary_files" />
-            <span>二进制文件</span>
-          </label>
-        </div>
+        <label class="checkbox-label" v-if="mode === 'edit'">
+          <input type="checkbox" v-model="form.is_outdated" />
+          <span>状态：需更新</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" v-model="form.auto_check_enabled" />
+          <span>自动检查</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" v-model="form.check_test_versions" />
+          <span>测试版本</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" v-model="form.check_binary_files" />
+          <span>二进制文件</span>
+        </label>
       </div>
 
       <div class="form-row-full">

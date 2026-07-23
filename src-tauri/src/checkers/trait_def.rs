@@ -7,6 +7,8 @@ use crate::errors::AppResult;
 pub struct CheckOptions {
     pub check_test_versions: bool,
     pub check_binary_files: bool,
+    /// 代理 URL（用于 redirect checker 创建不跟随重定向的客户端）
+    pub proxy_url: Option<String>,
 }
 
 /// 版本检查结果

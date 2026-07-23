@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@esbuild/linux-x64':
+        specifier: ^0.28.1
+        version: 0.28.1
       '@lucide/vue':
         specifier: ^1.23.0
         version: 1.23.0(vue@3.5.39(typescript@5.7.2))
@@ -164,6 +167,12 @@ packages:
   '@esbuild/linux-x64@0.21.3':
     resolution: {integrity: sha512-IOXOIm9WaK7plL2gMhsWJd+l2bfrhfilv0uPTptoRoSb2p09RghhQQp9YY6ZJhk/kqmeRt6siRdMSLLwzuT0KQ==}
     engines: {node: '>=12'}
+    cpu: [x64]
+    os: [linux]
+
+  '@esbuild/linux-x64@0.28.1':
+    resolution: {integrity: sha512-u/anNYF2mmVOEDwLtnQ1wOr3EZ9sTNGLWrsYGYwHWzGA3Si84IOkHXlbWTD1NB+9/1lcnweYKO54uhxZydNzfA==}
+    engines: {node: '>=18'}
     cpu: [x64]
     os: [linux]
 
@@ -712,6 +721,8 @@ snapshots:
 
   '@esbuild/linux-x64@0.21.3':
     optional: true
+
+  '@esbuild/linux-x64@0.28.1': {}
 
   '@esbuild/netbsd-x64@0.21.3':
     optional: true

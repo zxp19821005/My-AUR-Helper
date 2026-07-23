@@ -145,7 +145,26 @@ pub async fn check_github_releases(
     let max_pages = 5;
 
     let tag_filter = if let Some(regex) = version_extract_regex {
-        regex::Regex::new(regex).ok()
+        // 如果正则包含明显的文件扩展名，说明是用于匹配 asset 文件名的，
+        // 不应用于过滤 release tags
+        let has_file_extension = regex.contains(".rpm")
+            || regex.contains(".deb")
+            || regex.contains(".zip")
+            || regex.contains(".tar")
+            || regex.contains(".pkg")
+            || regex.contains(".dmg")
+            || regex.contains(".exe")
+            || regex.contains(".AppImage");
+
+        if has_file_extension {
+            debug!(
+                "[二进制检查] {}: 正则 '{}' 包含文件扩展名，跳过 tag 过滤",
+                pkgname, regex
+            );
+            None
+        } else {
+            regex::Regex::new(regex).ok()
+        }
     } else {
         None
     };

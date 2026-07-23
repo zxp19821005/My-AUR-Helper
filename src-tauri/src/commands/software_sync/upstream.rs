@@ -57,11 +57,13 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
         let software_id = sw.software_id.unwrap_or(0);
         let retry = retry;
 
+        let proxy_url_for_spawn = proxy_url.clone();
         let handle = tokio::spawn(async move {
             let checker = crate::checkers::get_checker(&checker_type_id, settings);
             let options = crate::checkers::CheckOptions {
                 check_test_versions,
                 check_binary_files,
+                proxy_url: proxy_url_for_spawn,
             };
 
             let result = check_with_retry(

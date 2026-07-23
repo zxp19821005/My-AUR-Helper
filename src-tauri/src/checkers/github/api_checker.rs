@@ -21,6 +21,7 @@ use log::{debug, info};
 use reqwest::Client;
 
 use crate::checkers::github::release::{check_github_release_latest, check_github_releases};
+use crate::checkers::github::tags::check_github_tags;
 use crate::checkers::github::repo_info::{fetch_github_repo_languages, fetch_github_repo_license};
 use crate::checkers::github::git_describe::check_github_git_describe;
 use crate::checkers::trait_def::{CheckOptions, CheckResult, VersionChecker};
@@ -146,7 +147,7 @@ impl VersionChecker for GitHubAPIChecker {
             return Ok(CheckResult { version, license, language_names });
         }
 
-        // 默认：只获取 latest release
+        // 默认：先获取 latest release
         let version = check_github_release_latest(
             client,
             &owner,
@@ -155,8 +156,31 @@ impl VersionChecker for GitHubAPIChecker {
             version_extract_regex,
             options.check_binary_files,
             pkgname,
-        )
-        .await?;
+        ).await?;
+        
+        // 如果 releases 为空，且未启用二进制文件检查，则 fallback 到 tags API
+        // 如果启用了二进制文件检查，则不应该 fallback 到 tags（因为 tags 没有资产信息）
+        if version.is_none() && !options.check_binary_files {
+            debug!(
+                "[GitHub API] {}: 未找到 releases，尝试使用 tags API",
+                pkgname
+            );
+            let tags_version = check_github_tags(
+                client,
+                &owner,
+                &repo,
+                self.token.as_deref(),
+                version_extract_regex,
+                options.check_test_versions,
+            )
+            .await?;
+            
+            if let Some(v) = &tags_version {
+                info!("[版本检查] 检查完成: {} -> 上游版本={} (来自 tags)", pkgname, v);
+            }
+            return Ok(CheckResult { version: tags_version, license, language_names });
+        }
+        
         if let Some(v) = &version {
             info!("[版本检查] 检查完成: {} -> 上游版本={}", pkgname, v);
         } else {
