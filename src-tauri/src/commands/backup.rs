@@ -67,6 +67,33 @@ pub async fn clear_backup_software(state: State<'_, AppState>) -> AppResult<usiz
 /// 扫描备份目录并写入数据库
 ///
 /// 扫描指定备份目录中的 .pkg.tar.zst 文件，
+/// 扫描目录，递归收集所有 .pkg.tar.zst 文件
+async fn scan_directory_recursive(
+    dir: &std::path::Path,
+    files: &mut Vec<std::path::PathBuf>,
+) -> AppResult<()> {
+    let mut entries = fs::read_dir(dir)
+        .await
+        .map_err(|e| crate::errors::AppError::FileOperation(format!("读取目录失败: {}", e)))?;
+
+    while let Some(entry) = entries
+        .next_entry()
+        .await
+        .map_err(|e| crate::errors::AppError::FileOperation(format!("读取目录项失败: {}", e)))?
+    {
+        let path = entry.path();
+        if path.is_dir() {
+            Box::pin(scan_directory_recursive(&path, files)).await?;
+        } else if path.is_file() {
+            let filename = path.file_name().unwrap().to_string_lossy().to_string();
+            if filename.ends_with(".pkg.tar.zst") {
+                files.push(path);
+            }
+        }
+    }
+    Ok(())
+}
+
 /// 解析文件名并写入 backup_software 表
 #[tauri::command]
 pub async fn scan_backup_directory(
@@ -83,23 +110,21 @@ pub async fn scan_backup_directory(
         )));
     }
 
-    // 扫描目录中的 .pkg.tar.zst 文件
-    let mut entries = fs::read_dir(dir_path)
-        .await
-        .map_err(|e| crate::errors::AppError::FileOperation(format!("读取备份目录失败: {}", e)))?;
+    // 递归扫描目录中的 .pkg.tar.zst 文件
+    let mut found_paths = Vec::new();
+    scan_directory_recursive(dir_path, &mut found_paths).await?;
+    info!("[备份管理] 找到 {} 个备份文件", found_paths.len());
 
     let mut scanned_files = Vec::new();
-    while let Some(entry) = entries
-        .next_entry()
-        .await
-        .map_err(|e| crate::errors::AppError::FileOperation(format!("读取目录项失败: {}", e)))?
-    {
-        let path = entry.path();
-        if path.is_file() {
-            let filename = path.file_name().unwrap().to_string_lossy().to_string();
-            if let Some((name, epoch, _version, pkgrel, arch)) = parse_pkg_filename(&filename) {
-                scanned_files.push((filename, name, epoch, pkgrel, arch));
-            }
+    for path in &found_paths {
+        let filename = path.file_name().unwrap().to_string_lossy().to_string();
+        if let Some((name, epoch, _version, pkgrel, arch)) = parse_pkg_filename(&filename) {
+            let subdirectory = path
+                .parent()
+                .and_then(|p| p.strip_prefix(dir_path).ok())
+                .map(|p| p.to_string_lossy().to_string())
+                .filter(|s| !s.is_empty());
+            scanned_files.push((filename, name, epoch, pkgrel, arch, subdirectory));
         }
     }
 
@@ -116,14 +141,14 @@ pub async fn scan_backup_directory(
             name_to_id.insert(sw.pkgname.clone(), sw.software_id.unwrap_or(0));
         }
 
-        for (filename, name, epoch, pkgrel, arch) in &scanned_files {
+        for (filename, name, epoch, pkgrel, arch, subdirectory) in &scanned_files {
             // 检查是否已存在
             if let Ok(Some(_existing)) = db.get_backup_software_by_filename(filename) {
                 continue;
             }
 
             // 查找对应的 software_id
-            let software_id = name_to_id.get(name).copied().unwrap_or(0);
+            let software_id = name_to_id.get(name).copied();
 
             let bs = BackupSoftware {
                 id: None,
@@ -132,7 +157,7 @@ pub async fn scan_backup_directory(
                 epoch: *epoch,
                 pkgrel: pkgrel.clone(),
                 arch: arch.clone(),
-                subdirectory: None,
+                subdirectory: subdirectory.clone(),
             };
 
             match db.insert_backup_software(&bs) {

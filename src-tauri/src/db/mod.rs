@@ -66,9 +66,68 @@ impl Database {
         self.migrate_upstream_info()?;
         self.migrate_enum_licenses()?;
         self.migrate_enum_programming_languages()?;
+        self.migrate_backup_software()?;
         self.seed_defaults()?;
         // 初始化时一次性检查并修复 FK 约束
         self.ensure_no_fk_constraints()?;
+        Ok(())
+    }
+
+    /// 迁移 backup_software 表：使 software_id 可空并移除外键约束
+    fn migrate_backup_software(&self) -> AppResult<()> {
+        // 检查表是否存在
+        let exists: bool = self.conn.query_row(
+            "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='backup_software'",
+            [],
+            |row| row.get(0),
+        )?;
+        if !exists {
+            return Ok(());
+        }
+
+        let _columns = self.get_table_columns("backup_software")?;
+        let has_fk: bool = self.conn.query_row(
+            "SELECT COUNT(*) > 0 FROM pragma_foreign_key_list('backup_software')",
+            [],
+            |row| row.get(0),
+        )?;
+
+        // 如果 software_id 已经可空且没有 FK，不需要迁移
+        let sw_col_nullable: bool = self.conn.query_row(
+            "SELECT \"notnull\" = 0 FROM pragma_table_info('backup_software') WHERE name='software_id'",
+            [],
+            |row| row.get(0),
+        )?;
+
+        if sw_col_nullable && !has_fk {
+            return Ok(());
+        }
+
+        log::info!("[migrate_backup_software] 重建 backup_software 表: software_id 可空, 移除 FK");
+
+        let new_schema = "CREATE TABLE backup_software_new (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            software_id  INTEGER,
+            filename     TEXT NOT NULL,
+            epoch        INTEGER NOT NULL DEFAULT 0,
+            pkgrel       TEXT NOT NULL DEFAULT '1',
+            arch         TEXT NOT NULL DEFAULT 'x86_64',
+            subdirectory TEXT
+        );";
+
+        self.conn.execute_batch("PRAGMA foreign_keys=OFF;")?;
+        self.conn.execute_batch("DROP TABLE IF EXISTS backup_software_new;")?;
+        self.conn.execute_batch(new_schema)?;
+        self.conn.execute_batch(
+            "INSERT INTO backup_software_new (id, software_id, filename, epoch, pkgrel, arch, subdirectory)
+             SELECT id, software_id, filename, epoch, pkgrel, arch, subdirectory FROM backup_software;",
+        )?;
+        self.conn.execute_batch("DROP TABLE backup_software;")?;
+        self.conn.execute_batch("ALTER TABLE backup_software_new RENAME TO backup_software;")?;
+        self.conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_backup_software_pkg ON backup_software(software_id);",
+        )?;
+        self.conn.execute_batch("PRAGMA foreign_keys=ON;")?;
         Ok(())
     }
 

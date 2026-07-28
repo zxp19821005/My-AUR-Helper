@@ -1,3 +1,16 @@
+/**
+ * backup_software.rs - 备份记录表 CRUD
+ *
+ * 功能：
+ * - insert_backup_software: 插入备份记录
+ * - get_backup_software_by_pkg: 按软件包 ID 查询
+ * - get_all_backup_software: 查询所有备份记录
+ * - get_all_backup_entries: 查询所有备份记录（含软件包名称，用于列表展示）
+ * - clear_backup_software: 清空备份表
+ * - delete_backup_software_batch: 批量删除备份记录
+ * - delete_backup_software: 删除单条备份记录
+ * - get_backup_software_by_filename: 按文件名查找备份记录
+ */
 use crate::errors::AppResult;
 
 use crate::models::*;
@@ -26,7 +39,7 @@ impl Database {
         let rows = stmt.query_map(rusqlite::params![software_id], |row| {
             Ok(BackupSoftware {
                 id: Some(row.get(0)?),
-                software_id: row.get(1)?,
+                software_id: row.get(1).ok(),
                 filename: row.get(2)?,
                 epoch: row.get(3)?,
                 pkgrel: row.get(4)?,
@@ -50,7 +63,7 @@ impl Database {
         let rows = stmt.query_map([], |row| {
             Ok(BackupSoftware {
                 id: Some(row.get(0)?),
-                software_id: row.get(1)?,
+                software_id: row.get(1).ok(),
                 filename: row.get(2)?,
                 epoch: row.get(3)?,
                 pkgrel: row.get(4)?,
@@ -77,7 +90,7 @@ impl Database {
         let rows = stmt.query_map([], |row| {
             Ok(BackupSoftwareEntry {
                 id: row.get(0)?,
-                software_id: row.get(1)?,
+                software_id: row.get(1).ok(),
                 pkgname: row.get(2).unwrap_or_default(),
                 filename: row.get(3)?,
                 epoch: row.get(4)?,
@@ -138,7 +151,7 @@ impl Database {
         let mut rows = stmt.query_map(rusqlite::params![filename], |row| {
             Ok(BackupSoftware {
                 id: Some(row.get(0)?),
-                software_id: row.get(1)?,
+                software_id: row.get(1).ok(),
                 filename: row.get(2)?,
                 epoch: row.get(3)?,
                 pkgrel: row.get(4)?,

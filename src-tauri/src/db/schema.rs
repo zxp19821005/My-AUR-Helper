@@ -54,13 +54,12 @@ impl Database {
             -- 备份软件包记录表
             CREATE TABLE IF NOT EXISTS backup_software (
                 id           INTEGER PRIMARY KEY AUTOINCREMENT,
-                software_id  INTEGER NOT NULL,
+                software_id  INTEGER,
                 filename     TEXT NOT NULL,
                 epoch        INTEGER NOT NULL DEFAULT 0,
                 pkgrel       TEXT NOT NULL DEFAULT '1',
                 arch         TEXT NOT NULL DEFAULT 'x86_64',
-                subdirectory TEXT,
-                FOREIGN KEY (software_id) REFERENCES software_info(software_id) ON DELETE CASCADE
+                subdirectory TEXT
             );
 
             -- 缓存软件包记录表

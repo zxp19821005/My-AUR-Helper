@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize}; // serde 序列化/反序列化支持
 pub struct BackupSoftware {
     /// 备份记录 ID，数据库自增主键
     pub id: Option<i64>,
-    /// 关联的软件包 ID
-    pub software_id: i64,
+    /// 关联的软件包 ID（NULL 表示不在 software_info 表中）
+    pub software_id: Option<i64>,
     /// 备份文件名
     pub filename: String,
     /// 版本 epoch 号

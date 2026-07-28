@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackupSoftwareEntry {
     pub id: i64,
-    pub software_id: i64,
+    pub software_id: Option<i64>,
     pub pkgname: String,
     pub filename: String,
     pub epoch: i64,
