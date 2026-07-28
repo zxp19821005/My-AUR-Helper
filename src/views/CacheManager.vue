@@ -308,7 +308,7 @@ function rowDelete(filename: string) {
                 @change="toggleSelect((currentPage - 1) * pageSize + i)"
               />
             </td>
-            <td><strong>{{ pkg.name }}</strong></td>
+            <td><strong>{{ pkg.pkgname }}</strong></td>
             <td class="cell-filename">{{ pkg.filename }}</td>
             <td>{{ pkg.version }}</td>
             <td>{{ pkg.pkgrel }}</td>

@@ -3,13 +3,14 @@
  *
  * 功能：
  * - clear_cache_software: 清空 cache_software 表
+ * - list_cache_software: 直接从 cache_software 表读取所有记录（用于页面初始加载）
  * - scan_all_cache_dirs: 扫描所有启用的缓存目录，写入 cache_software 表
  */
 use tauri::State;
 
 use super::dirs::get_cache_dirs;
 use crate::errors::AppResult;
-use crate::models::CacheSoftware;
+use crate::models::{CacheSoftware, CacheSoftwareEntry};
 use crate::AppState;
 
 /// 清空 cache_software 表
@@ -25,6 +26,23 @@ pub fn clear_cache_software(state: State<'_, AppState>) -> AppResult<usize> {
     let count = db.clear_cache_software()?;
     log::info!("[缓存管理] 已清空 cache_software 表，删除 {} 条记录", count);
     Ok(count)
+}
+
+/// 直接从 cache_software 表读取所有缓存记录（用于页面初始加载）
+///
+/// 页面打开时调用，不需要扫描磁盘，直接读取数据库存量数据
+///
+/// @returns 缓存记录列表（包含解析后的包名）
+#[tauri::command]
+pub fn list_cache_software(state: State<'_, AppState>) -> AppResult<Vec<CacheSoftwareEntry>> {
+    log::debug!("[缓存管理] 从 cache_software 表读取所有记录");
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| crate::errors::AppError::DatabaseError(format!("获取数据库锁失败: {}", e)))?;
+    let entries = db.get_all_cache_entries()?;
+    log::debug!("[缓存管理] 从 cache_software 表读取到 {} 条记录", entries.len());
+    Ok(entries)
 }
 
 /// 扫描所有启用的缓存目录

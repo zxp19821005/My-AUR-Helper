@@ -9,6 +9,7 @@ mod aur_info; // AUR 包信息模型
 mod backup_software; // 备份软件包模型
 mod backup_software_entry; // 备份软件包列表展示模型
 mod cache_software; // 缓存软件包模型
+mod cache_software_entry; // 缓存软件包列表展示模型
 mod checker_type; // 检查器类型枚举
 mod enum_license; // License 枚举模型
 mod enum_programming_language; // 编程语言枚举模型
@@ -27,6 +28,7 @@ pub use aur_info::AurInfo;
 pub use backup_software::BackupSoftware;
 pub use backup_software_entry::BackupSoftwareEntry;
 pub use cache_software::CacheSoftware;
+pub use cache_software_entry::CacheSoftwareEntry;
 pub use checker_type::CheckerType;
 pub use enum_license::EnumLicense;
 pub use enum_programming_language::EnumProgrammingLanguage;

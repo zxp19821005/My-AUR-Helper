@@ -129,12 +129,28 @@ impl Database {
         let has_size = columns.contains(&"size".to_string());
         let has_source_dir = columns.contains(&"source_dir".to_string());
 
-        // 如果所有新字段都已存在，跳过迁移
-        if has_name && has_version && has_size && has_source_dir {
+        // 检测是否还有外键约束（老版本 CREATE TABLE 带了 FOREIGN KEY）
+        let fk_count: i64 = self
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_foreign_key_list('cache_software')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+        let has_foreign_key = fk_count > 0;
+
+        // 如果所有新字段都已存在且没有外键约束，跳过迁移
+        if has_name && has_version && has_size && has_source_dir && !has_foreign_key {
             return Ok(());
         }
 
-        log::info!("[migrate_cache_software] 重建 cache_software 表");
+        log::info!(
+            "[migrate_cache_software] 重建 cache_software 表（字段齐全={}/{}，外键约束={}）",
+            (has_name as u8) + (has_version as u8) + (has_size as u8) + (has_source_dir as u8),
+            4,
+            has_foreign_key
+        );
 
         let new_schema = "CREATE TABLE cache_software_new (
             id              INTEGER PRIMARY KEY AUTOINCREMENT,

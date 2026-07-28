@@ -65,14 +65,17 @@ impl Database {
 
             -- 缓存软件包记录表
             CREATE TABLE IF NOT EXISTS cache_software (
-                id             INTEGER PRIMARY KEY AUTOINCREMENT,
-                software_id    INTEGER NOT NULL,
-                filename       TEXT NOT NULL,
-                epoch          INTEGER NOT NULL DEFAULT 0,
-                pkgrel         TEXT NOT NULL DEFAULT '1',
-                arch           TEXT NOT NULL DEFAULT 'x86_64',
-                cache_directory TEXT NOT NULL,
-                FOREIGN KEY (software_id) REFERENCES software_info(software_id) ON DELETE CASCADE
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                software_id     INTEGER NOT NULL DEFAULT 0,
+                filename        TEXT NOT NULL,
+                name            TEXT NOT NULL DEFAULT '',
+                epoch           INTEGER NOT NULL DEFAULT 0,
+                version         TEXT NOT NULL DEFAULT '',
+                pkgrel          TEXT NOT NULL DEFAULT '1',
+                arch            TEXT NOT NULL DEFAULT 'x86_64',
+                size            INTEGER NOT NULL DEFAULT 0,
+                source_dir      TEXT,
+                cache_directory TEXT NOT NULL DEFAULT ''
             );
 
             -- 代理信息表
@@ -133,6 +136,7 @@ impl Database {
             CREATE INDEX IF NOT EXISTS idx_software_outdated ON software_info(is_outdated);
             CREATE INDEX IF NOT EXISTS idx_backup_software_filename ON backup_software(filename);
             CREATE INDEX IF NOT EXISTS idx_cache_software_pkg ON cache_software(software_id);
+            CREATE INDEX IF NOT EXISTS idx_cache_software_name ON cache_software(name);
             CREATE INDEX IF NOT EXISTS idx_proxies_test_proxy ON proxies_test(proxy_id);
             CREATE INDEX IF NOT EXISTS idx_logs_created ON logs(created_at);
             CREATE INDEX IF NOT EXISTS idx_settings_category ON settings(category);
