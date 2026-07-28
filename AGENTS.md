@@ -107,6 +107,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/db/upstream_info.rs` | 上游版本信息表 |
 | `src-tauri/src/db/proxies_info.rs` | 代理配置表 |
 | `src-tauri/src/db/backup_software.rs` | 备份软件表 |
+| `src-tauri/src/db/cache_dirs.rs` | 缓存目录配置表 |
 | `src-tauri/src/db/cache_software.rs` | 缓存软件表 |
 | `src-tauri/src/db/logs.rs` | 日志表 |
 | `src-tauri/src/db/settings.rs` | 设置表 |
@@ -117,6 +118,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/commands/backup/backup_basic.rs` | 备份基础操作（查询、扫描、去重、删除） |
 | `src-tauri/src/commands/backup/backup_install.rs` | 备份包安装和信息查询（pacman -Qip、sudoers、install） |
 | `src-tauri/src/commands/backup/dedup.rs` | 去重逻辑（文件名解析、版本比较） |
+| `src-tauri/src/commands/cache_dirs.rs` | 缓存目录管理命令（CRUD、扫描） |
 | `src-tauri/src/commands/software_sync/` | 软件包同步命令模块（目录结构） |
 | `src-tauri/src/commands/software_sync/mod.rs` | 模块声明和导出（不含具体实现） |
 | `src-tauri/src/commands/software_sync/aur.rs` | AUR 信息同步和更新命令 |
@@ -154,6 +156,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/models/upstream_info.rs` | 上游版本信息模型（含 UpstreamUrlStatus 枚举） |
 | `src-tauri/src/models/software_list_entry.rs` | 软件包列表展示模型 |
 | `src-tauri/src/models/backup_software_entry.rs` | 备份软件包列表展示模型 |
+| `src-tauri/src/models/cache_dir.rs` | 缓存目录配置模型 |
 
 <!-- Vue 前端关键文件列表 -->
 ### Vue 前端
@@ -165,6 +168,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/views/` | 页面组件（每个页面一个文件） |
 | `src/components/DataTable.vue` | 通用数据表格组件（支持分页、搜索、选择） |
 | `src/components/FilterBar.vue` | 筛选器组件（快速筛选 + 条件筛选） |
+| `src/components/SettingsCacheSection.vue` | 缓存目录设置组件（CRUD、启用/禁用） |
 | `src/components/` | 通用组件（跨页面复用） |
 | `src/composables/` | 组合式函数（hooks） |
 | `src/composables/footer.ts` | 底部状态栏状态管理 |
@@ -172,6 +176,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/composables/usePackageList.ts` | 软件包列表页逻辑（分页、搜索、选择） |
 | `src/composables/useBackupList.ts` | 备份管理列表页逻辑（分页、搜索、选择） |
 | `src/composables/useBackupInstall.ts` | 备份包安装逻辑（sudoers 检测、安装、包信息查询） |
+| `src/composables/useCacheList.ts` | 缓存管理列表页逻辑（分页、搜索、选择） |
 | `src/composables/useSoftwareForm.ts` | 软件包表单逻辑（验证、自动检测） |
 | `src/composables/useLicenseSelect.ts` | License 可搜索下拉框逻辑 |
 | `src/stores/` | Pinia 状态管理 |
