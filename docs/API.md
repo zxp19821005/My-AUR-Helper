@@ -226,10 +226,30 @@
 
 ## 备份管理 (commands/backup.rs)
 
-### run_backup
-执行备份操作。
+### list_backup_software
+列出所有备份记录（含软件包名称）。
 - 参数: 无
-- 返回: 执行结果
+- 返回: `BackupSoftwareEntry[]`
+
+### clear_backup_software
+清空备份表（仅删除数据库记录，不删除磁盘文件）。
+- 参数: 无
+- 返回: `number` (删除数量)
+
+### scan_backup_directory
+扫描备份目录并写入数据库。
+- 参数: `{ backup_path: string }`
+- 返回: `number` (新增记录数)
+
+### deduplicate_backups
+软件去重（保留最新版本，删除旧文件和记录）。
+- 参数: `{ backup_path: string }`
+- 返回: `DeduplicateResult`
+
+### delete_backup
+删除单个备份记录（及对应磁盘文件）。
+- 参数: `{ id: number, backup_path: string }`
+- 返回: `void`
 
 ## 代理管理 (commands/proxy.rs)
 

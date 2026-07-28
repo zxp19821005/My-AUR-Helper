@@ -61,6 +61,12 @@ Tauri 桌面应用，用于管理 AUR 软件包更新、本地备份和代理。
   - [x] 更新 database schema (upstream_url_status 列)
   - [x] 更新 frontend types 和 composables (usePackageList 筛选逻辑)
   - [x] 更新 PageToolbar 支持 right slot
+- [x] 重构备份管理模块
+  - [x] 创建 BackupSoftwareEntry 模型和 DB 查询
+  - [x] 重写 backup.rs 命令（列表/清空/扫描/去重/删除）
+  - [x] 创建 useBackupList composable
+  - [x] 重写 BackupManager.vue（匹配 PackageList 布局）
+  - [x] 更新 frontend types
 - [ ] 重构数据库 schema
   - [x] 更新 DATABASE.md 设计文档
   - [ ] 重写 models/mod.rs

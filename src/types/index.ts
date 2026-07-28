@@ -194,6 +194,25 @@ export interface CachePackage {
   size: number;
 }
 
+/** 备份软件包列表展示条目（含软件包名称） */
+export interface BackupSoftwareEntry {
+  id: number;
+  software_id: number;
+  pkgname: string;
+  filename: string;
+  epoch: number;
+  pkgrel: string;
+  arch: string;
+  subdirectory: string | null;
+}
+
+/** 备份去重结果 */
+export interface DeduplicateResult {
+  removed_files: number;
+  removed_records: number;
+  errors: string[];
+}
+
 /** 软件包列表展示条目（含 AUR + Upstream 信息） */
 export interface SoftwareListEntry {
   software_id: number;

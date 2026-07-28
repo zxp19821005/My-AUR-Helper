@@ -145,6 +145,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/models/` | 数据模型定义 |
 | `src-tauri/src/models/upstream_info.rs` | 上游版本信息模型（含 UpstreamUrlStatus 枚举） |
 | `src-tauri/src/models/software_list_entry.rs` | 软件包列表展示模型 |
+| `src-tauri/src/models/backup_software_entry.rs` | 备份软件包列表展示模型 |
 
 <!-- Vue 前端关键文件列表 -->
 ### Vue 前端
@@ -161,6 +162,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/composables/footer.ts` | 底部状态栏状态管理 |
 | `src/composables/packageActions.ts` | 软件包操作逻辑（同步、检查、删除） |
 | `src/composables/usePackageList.ts` | 软件包列表页逻辑（分页、搜索、选择） |
+| `src/composables/useBackupList.ts` | 备份管理列表页逻辑（分页、搜索、选择） |
 | `src/composables/useSoftwareForm.ts` | 软件包表单逻辑（验证、自动检测） |
 | `src/composables/useLicenseSelect.ts` | License 可搜索下拉框逻辑 |
 | `src/stores/` | Pinia 状态管理 |

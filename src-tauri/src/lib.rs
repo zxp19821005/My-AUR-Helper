@@ -211,7 +211,11 @@ pub fn run() {
             // 扫描
             commands::scan::scan_pkg_files_cmd, // 扫描 .pkg.tar.zst 包文件
             // 备份管理
-            commands::backup::run_backup, // 执行备份操作
+            commands::backup::list_backup_software, // 列出所有备份记录
+            commands::backup::clear_backup_software, // 清空备份表
+            commands::backup::scan_backup_directory, // 扫描备份目录
+            commands::backup::deduplicate_backups,  // 软件去重
+            commands::backup::delete_backup,        // 删除单个备份
             // 代理管理
             commands::proxy::get_proxies,         // 获取所有代理列表
             commands::proxy::fetch_proxy_sources, // 从 Greasyfork 获取代理源

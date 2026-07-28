@@ -54,6 +54,7 @@ src-tauri/src/
 │   ├── proxy_type.rs         # 代理类型枚举
 │   ├── proxy_test.rs         # 代理测试结果模型
 │   ├── backup_software.rs    # 备份软件模型
+│   ├── backup_software_entry.rs # 备份软件包列表展示模型
 │   ├── cache_software.rs     # 缓存软件模型
 │   ├── log_entry.rs          # 日志模型
 │   ├── setting.rs            # 设置模型
@@ -88,7 +89,7 @@ src-tauri/src/
 │   ├── upstream_validate.rs  # 上游 URL 验证命令 (130行)
 │   ├── files.rs              # 文件操作命令 (221行)
 │   ├── files_scan.rs         # 包文件扫描命令 (85行)
-│   ├── backup.rs             # 备份命令
+│   ├── backup.rs             # 备份管理命令（列表/清空/扫描/去重/删除）
 │   ├── proxy.rs              # 代理命令 (83行)
 │   ├── proxy_utils.rs        # 代理工具命令
 │   ├── sys_command.rs        # 系统命令 (183行)
@@ -159,6 +160,8 @@ src/
 ├── composables/              # 组合式函数
 │   ├── footer.ts             # 底部工具栏状态 (23行)
 │   ├── packageActions.ts     # 软件包操作逻辑 (189行)
+│   ├── usePackageList.ts     # 软件包列表页逻辑
+│   ├── useBackupList.ts      # 备份管理列表页逻辑
 │   └── useSoftwareForm.ts    # 软件包表单逻辑 (218行)
 ├── stores/                   # Pinia 状态管理
 │   ├── packages.ts           # 软件包状态 (57行)

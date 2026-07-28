@@ -1,8 +1,8 @@
-use crate::errors::AppResult; // 通用错误处理
+use crate::errors::AppResult;
 
-use crate::models::*; // 数据模型
+use crate::models::*;
 
-use super::Database; // 数据库结构体
+use super::Database;
 
 impl Database {
     /// 插入备份软件记录
@@ -65,6 +65,56 @@ impl Database {
         Ok(items)
     }
 
+    /// 获取所有备份记录（含软件包名称，用于列表展示）
+    /// @returns 备份记录列表（含 pkgname）
+    pub fn get_all_backup_entries(&self) -> AppResult<Vec<BackupSoftwareEntry>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT b.id, b.software_id, s.pkgname, b.filename, b.epoch, b.pkgrel, b.arch, b.subdirectory
+             FROM backup_software b
+             LEFT JOIN software_info s ON b.software_id = s.software_id
+             ORDER BY s.pkgname, b.filename"
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok(BackupSoftwareEntry {
+                id: row.get(0)?,
+                software_id: row.get(1)?,
+                pkgname: row.get(2).unwrap_or_default(),
+                filename: row.get(3)?,
+                epoch: row.get(4)?,
+                pkgrel: row.get(5)?,
+                arch: row.get(6)?,
+                subdirectory: row.get(7)?,
+            })
+        })?;
+        let mut items = Vec::new();
+        for row in rows {
+            items.push(row?);
+        }
+        Ok(items)
+    }
+
+    /// 清空备份表
+    /// @returns 删除的记录数
+    pub fn clear_backup_software(&self) -> AppResult<usize> {
+        let count = self.conn.execute("DELETE FROM backup_software", [])?;
+        Ok(count)
+    }
+
+    /// 批量删除备份记录
+    /// @param ids - 要删除的记录 ID 列表
+    /// @returns 删除的记录数
+    pub fn delete_backup_software_batch(&self, ids: &[i64]) -> AppResult<usize> {
+        let mut count = 0;
+        for id in ids {
+            self.conn.execute(
+                "DELETE FROM backup_software WHERE id=?1",
+                rusqlite::params![id],
+            )?;
+            count += 1;
+        }
+        Ok(count)
+    }
+
     /// 删除备份记录
     /// @param id - 备份记录 ID
     pub fn delete_backup_software(&self, id: i64) -> AppResult<()> {
@@ -73,5 +123,29 @@ impl Database {
             rusqlite::params![id],
         )?;
         Ok(())
+    }
+
+    /// 根据文件名查找备份记录
+    /// @param filename - 文件名
+    /// @returns 备份记录
+    pub fn get_backup_software_by_filename(
+        &self,
+        filename: &str,
+    ) -> AppResult<Option<BackupSoftware>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, software_id, filename, epoch, pkgrel, arch, subdirectory FROM backup_software WHERE filename=?1"
+        )?;
+        let mut rows = stmt.query_map(rusqlite::params![filename], |row| {
+            Ok(BackupSoftware {
+                id: Some(row.get(0)?),
+                software_id: row.get(1)?,
+                filename: row.get(2)?,
+                epoch: row.get(3)?,
+                pkgrel: row.get(4)?,
+                arch: row.get(5)?,
+                subdirectory: row.get(6)?,
+            })
+        })?;
+        Ok(rows.next().transpose()?)
     }
 }
