@@ -20,6 +20,8 @@ export function useBackupList() {
   const entries = ref<BackupSoftwareEntry[]>([]);
   const selectedIds = ref(new Set<number>());
   const searchQuery = ref("");
+  const subdirectoryFilter = ref("");
+  const subdirectories = ref<string[]>([]);
   const loading = ref(false);
 
   onMounted(async () => {
@@ -27,12 +29,18 @@ export function useBackupList() {
   });
 
   const filteredEntries = computed(() => {
-    if (!searchQuery.value) return entries.value;
-    const q = searchQuery.value.toLowerCase();
-    return entries.value.filter((e) =>
-      e.pkgname.toLowerCase().includes(q) ||
-      e.filename.toLowerCase().includes(q)
-    );
+    let result = entries.value;
+    if (subdirectoryFilter.value) {
+      result = result.filter((e) => e.subdirectory === subdirectoryFilter.value);
+    }
+    if (searchQuery.value) {
+      const q = searchQuery.value.toLowerCase();
+      result = result.filter((e) =>
+        e.pkgname.toLowerCase().includes(q) ||
+        e.filename.toLowerCase().includes(q)
+      );
+    }
+    return result;
   });
 
   const totalRecords = computed(() => filteredEntries.value.length);
@@ -58,6 +66,7 @@ export function useBackupList() {
 
   watch(totalRecords, syncToolbar);
   watch(searchQuery, () => { currentPage.value = 1; });
+  watch(subdirectoryFilter, () => { currentPage.value = 1; });
   watch(currentPage, (p) => {
     footer.currentPage = p;
     footer.onPageChange = goToPage;
@@ -96,6 +105,8 @@ export function useBackupList() {
     entries,
     selectedIds,
     searchQuery,
+    subdirectoryFilter,
+    subdirectories,
     loading,
     filteredEntries,
     totalRecords,

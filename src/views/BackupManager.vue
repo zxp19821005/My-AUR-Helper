@@ -4,8 +4,10 @@
   功能：
   - 显示备份文件列表（含软件包名称、文件名、版本、架构等）
   - 支持搜索、分页、多选
-  - 提供批量操作：清空备份表、扫描备份目录、软件去重
-  - 支持单行操作：删除备份（同时删除磁盘文件）
+  - 子目录筛选下拉框
+  - 提供批量操作：清空备份表、扫描备份目录、软件去重、批量安装备份包
+  - 支持单行操作：查看包信息、安装备份包、删除备份
+  - sudoers 配置检测与提示
 -->
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
@@ -16,6 +18,9 @@ import {
   Trash2,
   Scan,
   Copy,
+  Info,
+  Download,
+  X,
 } from "@lucide/vue";
 import type { DeduplicateResult } from "../types";
 
@@ -24,6 +29,8 @@ const {
   selectedIds,
   loading,
   pageData,
+  subdirectoryFilter,
+  subdirectories,
   fetchEntries,
   toggleSelect,
   toggleSelectAll,
@@ -33,6 +40,20 @@ const {
 const backupPath = ref("");
 const scanning = ref(false);
 
+// 信息弹窗状态
+const infoDialogVisible = ref(false);
+const infoDialogLoading = ref(false);
+const infoDialogContent = ref("");
+const infoDialogPkgname = ref("");
+
+// 安装相关状态
+const installing = ref(false);
+const sudoersAvailable = ref<boolean | null>(null);
+const sudoersCommand = ref("");
+const showSudoersPrompt = ref(false);
+const pendingInstallPath = ref("");
+const pendingInstallPkgname = ref("");
+
 async function loadSettings() {
   try {
     const { invoke: inv } = await import("@tauri-apps/api/core");
@@ -41,8 +62,28 @@ async function loadSettings() {
   } catch { /* ignore */ }
 }
 
+async function loadSubdirectories() {
+  try {
+    subdirectories.value = await invoke<string[]>("list_backup_subdirectories");
+  } catch { /* ignore */ }
+}
+
+async function checkSudoers() {
+  try {
+    sudoersAvailable.value = await invoke<boolean>("check_sudoers_config");
+  } catch {
+    sudoersAvailable.value = false;
+  }
+}
+
+async function loadSudoersCommand() {
+  try {
+    sudoersCommand.value = await invoke<string>("get_sudoers_command");
+  } catch { /* ignore */ }
+}
+
 onMounted(async () => {
-  await Promise.all([fetchEntries(), loadSettings()]);
+  await Promise.all([fetchEntries(), loadSettings(), loadSubdirectories(), checkSudoers()]);
   syncToolbar();
 });
 
@@ -53,6 +94,7 @@ async function handleClearTable() {
     const count = await invoke<number>("clear_backup_software");
     alert(`已清空备份表，删除 ${count} 条记录`);
     await fetchEntries();
+    await loadSubdirectories();
   } catch (e) {
     alert(`清空失败: ${e}`);
   } finally {
@@ -70,6 +112,7 @@ async function handleScanDirectory() {
     const count = await invoke<number>("scan_backup_directory", { backupPath: backupPath.value });
     alert(`扫描完成，新增 ${count} 条备份记录`);
     await fetchEntries();
+    await loadSubdirectories();
   } catch (e) {
     alert(`扫描失败: ${e}`);
   } finally {
@@ -106,6 +149,7 @@ async function rowDelete(id: number, filename: string) {
   try {
     await invoke("delete_backup", { id, backupPath: backupPath.value });
     await fetchEntries();
+    await loadSubdirectories();
   } catch (e) {
     alert(`删除失败: ${e}`);
   } finally {
@@ -119,11 +163,107 @@ function deleteSelected() {
   // TODO: batch delete
   alert("批量删除功能开发中");
 }
+
+// 查看包信息
+async function viewPackageInfo(fullPath: string, pkgname: string) {
+  infoDialogPkgname.value = pkgname;
+  infoDialogVisible.value = true;
+  infoDialogLoading.value = true;
+  infoDialogContent.value = "";
+  try {
+    const output = await invoke<string>("get_package_file_info", { fullPath });
+    infoDialogContent.value = output;
+  } catch (e) {
+    infoDialogContent.value = `获取信息失败: ${e}`;
+  } finally {
+    infoDialogLoading.value = false;
+  }
+}
+
+function closeInfoDialog() {
+  infoDialogVisible.value = false;
+  infoDialogContent.value = "";
+  infoDialogPkgname.value = "";
+}
+
+// 安装备份包
+async function handleInstall(fullPath: string, pkgname: string) {
+  pendingInstallPath.value = fullPath;
+  pendingInstallPkgname.value = pkgname;
+
+  if (sudoersAvailable.value === false) {
+    await loadSudoersCommand();
+    showSudoersPrompt.value = true;
+    return;
+  }
+
+  doInstall(fullPath, pkgname);
+}
+
+async function doInstall(fullPath: string, pkgname: string) {
+  installing.value = true;
+  try {
+    const output = await invoke<string>("install_backup_package", { fullPath });
+    alert(`${pkgname} 安装成功！\n\n${output}`);
+  } catch (e) {
+    alert(`${pkgname} 安装失败: ${e}`);
+  } finally {
+    installing.value = false;
+    showSudoersPrompt.value = false;
+  }
+}
+
+function closeSudoersPrompt() {
+  showSudoersPrompt.value = false;
+}
+
+// 批量安装
+async function batchInstall() {
+  if (selectedIds.value.size === 0) return;
+
+  if (sudoersAvailable.value === false) {
+    await loadSudoersCommand();
+    showSudoersPrompt.value = true;
+    return;
+  }
+
+  if (!confirm(`确定要安装选中的 ${selectedIds.value.size} 个备份包吗？`)) return;
+
+  installing.value = true;
+  let successCount = 0;
+  let failCount = 0;
+  const errors: string[] = [];
+
+  for (const entry of pageData.value) {
+    if (!selectedIds.value.has(entry.id)) continue;
+    try {
+      await invoke<string>("install_backup_package", { fullPath: entry.full_path });
+      successCount++;
+    } catch (e) {
+      failCount++;
+      errors.push(`${entry.pkgname}: ${e}`);
+    }
+  }
+
+  installing.value = false;
+  const msg = `批量安装完成：成功 ${successCount} 个，失败 ${failCount} 个`;
+  if (errors.length > 0) {
+    alert(`${msg}\n\n错误:\n${errors.join("\n")}`);
+  } else {
+    alert(msg);
+  }
+}
 </script>
 
 <template>
   <div>
     <PageToolbar v-model="searchQuery" @refresh="fetchEntries">
+      <template #right>
+        <select v-model="subdirectoryFilter" class="subdirectory-select">
+          <option value="">全部子目录</option>
+          <option v-for="dir in subdirectories" :key="dir" :value="dir">{{ dir }}</option>
+        </select>
+      </template>
       <button class="btn-icon btn-icon-danger" @click="handleClearTable" :disabled="loading" title="清空备份表">
         <Trash2 :size="16" />
       </button>
@@ -132,6 +272,9 @@ function deleteSelected() {
       </button>
       <button class="btn-icon btn-icon-warning" @click="handleDeduplicate" :disabled="loading" title="软件去重">
         <Copy :size="16" />
+      </button>
+      <button class="btn-icon btn-icon-primary" @click="batchInstall" :disabled="selectedIds.size === 0 || installing" title="批量安装备份包">
+        <Download :size="16" />
       </button>
       <button class="btn-icon btn-icon-danger" @click="deleteSelected" :disabled="selectedIds.size === 0" title="删除选中">
         <Trash2 :size="16" />
@@ -155,7 +298,7 @@ function deleteSelected() {
             <th>PkgRel</th>
             <th>架构</th>
             <th>子目录</th>
-            <th style="min-width: 80px">操作</th>
+            <th style="min-width: 120px">操作</th>
           </tr>
         </thead>
         <tbody>
@@ -176,6 +319,12 @@ function deleteSelected() {
             <td>{{ pkg.subdirectory || "-" }}</td>
             <td>
               <div class="row-actions">
+                <button class="btn-icon btn-icon-info" @click.stop="viewPackageInfo(pkg.full_path, pkg.pkgname)" title="查看信息">
+                  <Info :size="14" />
+                </button>
+                <button class="btn-icon btn-icon-primary" @click.stop="handleInstall(pkg.full_path, pkg.pkgname)" :disabled="installing" title="安装">
+                  <Download :size="14" />
+                </button>
                 <button class="btn-icon btn-icon-danger" @click.stop="rowDelete(pkg.id, pkg.filename)" :disabled="loading" title="删除">
                   <Trash2 :size="14" />
                 </button>
@@ -185,6 +334,47 @@ function deleteSelected() {
         </tbody>
       </table>
     </div>
+
+    <!-- 包信息弹窗 -->
+    <Teleport to="body">
+      <div v-if="infoDialogVisible" class="modal-overlay" @click.self="closeInfoDialog">
+        <div class="modal-dialog">
+          <div class="modal-header">
+            <h3>{{ infoDialogPkgname }} - 包信息</h3>
+            <button class="btn-icon btn-icon-danger" @click="closeInfoDialog">
+              <X :size="16" />
+            </button>
+          </div>
+          <div class="modal-body">
+            <div v-if="infoDialogLoading" class="loading-spinner">加载中...</div>
+            <pre v-else class="info-content">{{ infoDialogContent }}</pre>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- sudoers 配置提示弹窗 -->
+    <Teleport to="body">
+      <div v-if="showSudoersPrompt" class="modal-overlay" @click.self="closeSudoersPrompt">
+        <div class="modal-dialog">
+          <div class="modal-header">
+            <h3>需要配置 sudoers 免密</h3>
+            <button class="btn-icon btn-icon-danger" @click="closeSudoersPrompt">
+              <X :size="16" />
+            </button>
+          </div>
+          <div class="modal-body">
+            <p>安装备份包需要 root 权限。请在终端中执行以下命令配置 sudoers 免密：</p>
+            <pre class="sudoers-command">{{ sudoersCommand }}</pre>
+            <p class="hint">配置完成后，点击"重试"按钮继续安装。</p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" @click="closeSudoersPrompt">取消</button>
+            <button class="btn btn-primary" @click="doInstall(pendingInstallPath, pendingInstallPkgname)">重试</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -235,5 +425,141 @@ function deleteSelected() {
   white-space: nowrap;
   color: var(--text-secondary);
   font-size: 0.8125rem;
+}
+
+.subdirectory-select {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  outline: none;
+  cursor: pointer;
+  min-width: 120px;
+}
+.subdirectory-select:focus {
+  border-color: var(--accent);
+}
+
+.btn-icon-info {
+  color: var(--text-secondary);
+}
+.btn-icon-info:hover {
+  color: var(--accent);
+}
+.btn-icon-primary {
+  color: var(--text-secondary);
+}
+.btn-icon-primary:hover {
+  color: var(--primary);
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal-dialog {
+  background: var(--bg-primary);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  width: 90%;
+  max-width: 700px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.modal-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+.modal-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+}
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.loading-spinner {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 2rem;
+}
+
+.info-content {
+  font-family: monospace;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  padding: 1rem;
+  border-radius: 8px;
+  margin: 0;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.sudoers-command {
+  font-family: monospace;
+  font-size: 0.8125rem;
+  background: var(--bg-secondary);
+  padding: 1rem;
+  border-radius: 8px;
+  margin: 0.75rem 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--accent);
+}
+
+.hint {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  margin-top: 0.5rem;
+}
+
+.btn {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  transition: all 0.15s;
+}
+.btn-primary {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+.btn-primary:hover {
+  opacity: 0.9;
+}
+.btn-secondary {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+.btn-secondary:hover {
+  background: var(--bg-card);
 }
 </style>

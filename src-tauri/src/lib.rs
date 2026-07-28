@@ -216,6 +216,11 @@ pub fn run() {
             commands::backup::scan_backup_directory, // 扫描备份目录
             commands::backup::deduplicate_backups,  // 软件去重
             commands::backup::delete_backup,        // 删除单个备份
+            commands::backup::list_backup_subdirectories, // 获取子目录列表
+            commands::backup::get_package_file_info,      // 获取包文件信息
+            commands::backup::check_sudoers_config,       // 检测 sudoers 配置
+            commands::backup::get_sudoers_command,        // 获取 sudoers 配置命令
+            commands::backup::install_backup_package,     // 安装备份包
             // 代理管理
             commands::proxy::get_proxies,         // 获取所有代理列表
             commands::proxy::fetch_proxy_sources, // 从 Greasyfork 获取代理源

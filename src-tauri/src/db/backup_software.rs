@@ -147,7 +147,7 @@ impl Database {
     ) -> AppResult<Option<BackupSoftware>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, filename, epoch, pkgver, pkgrel, arch, subdirectory, full_path
-             FROM backup_software WHERE filename=?1",
+             FROM backup_software WHERE filename=?1"
         )?;
         let mut rows = stmt.query_map(rusqlite::params![filename], |row| {
             Ok(BackupSoftware {
@@ -162,5 +162,21 @@ impl Database {
             })
         })?;
         Ok(rows.next().transpose()?)
+    }
+
+    /// 获取所有不重复的子目录列表
+    /// @returns 子目录名称列表（不含空值）
+    pub fn get_backup_subdirectories(&self) -> AppResult<Vec<String>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT DISTINCT subdirectory FROM backup_software
+             WHERE subdirectory IS NOT NULL AND subdirectory != ''
+             ORDER BY subdirectory"
+        )?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        let mut items = Vec::new();
+        for row in rows {
+            items.push(row?);
+        }
+        Ok(items)
     }
 }

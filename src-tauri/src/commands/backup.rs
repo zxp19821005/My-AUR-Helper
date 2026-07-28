@@ -350,3 +350,93 @@ pub async fn delete_backup(
 
     Ok(())
 }
+
+/// 获取所有不重复的子目录列表
+#[tauri::command]
+pub async fn list_backup_subdirectories(
+    state: State<'_, AppState>,
+) -> AppResult<Vec<String>> {
+    let db = state.db.lock().map_err(|e| {
+        crate::errors::AppError::DatabaseError(format!("获取数据库锁失败: {}", e))
+    })?;
+    db.get_backup_subdirectories()
+}
+
+/// 从包文件获取软件信息（pacman -Qip）
+#[tauri::command]
+pub async fn get_package_file_info(
+    full_path: String,
+) -> AppResult<String> {
+    let output = tokio::process::Command::new("pacman")
+        .args(["-Qip", &full_path])
+        .output()
+        .await
+        .map_err(|e| crate::errors::AppError::SystemCommand(format!("执行 pacman 失败: {}", e)))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(crate::errors::AppError::SystemCommand(format!(
+            "pacman -Qip 失败: {}",
+            stderr.trim()
+        )));
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+/// 检测 sudoers 免密配置是否可用
+#[tauri::command]
+pub async fn check_sudoers_config() -> AppResult<bool> {
+    let output = tokio::process::Command::new("sudo")
+        .args(["-n", "true"])
+        .output()
+        .await
+        .map_err(|e| crate::errors::AppError::SystemCommand(format!("检测 sudo 失败: {}", e)))?;
+
+    Ok(output.status.success())
+}
+
+/// 获取 sudoers 配置命令
+#[tauri::command]
+pub async fn get_sudoers_command() -> AppResult<String> {
+    // 获取当前用户名
+    let output = tokio::process::Command::new("whoami")
+        .output()
+        .await
+        .map_err(|e| crate::errors::AppError::SystemCommand(format!("获取用户名失败: {}", e)))?;
+
+    let username = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+    Ok(format!(
+        "echo \"{} ALL=(ALL) NOPASSWD: /usr/bin/pacman -U *\" | sudo tee /etc/sudoers.d/aur-helper-backup",
+        username
+    ))
+}
+
+/// 安装备份包
+#[tauri::command]
+pub async fn install_backup_package(
+    full_path: String,
+) -> AppResult<String> {
+    info!("[备份管理] 开始安装备份包: {}", full_path);
+
+    let output = tokio::process::Command::new("sudo")
+        .args(["pacman", "-U", "--noconfirm", &full_path])
+        .output()
+        .await
+        .map_err(|e| crate::errors::AppError::SystemCommand(format!("执行安装失败: {}", e)))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+    if output.status.success() {
+        info!("[备份管理] 安装成功: {}", full_path);
+        Ok(stdout)
+    } else {
+        error!("[备份管理] 安装失败: {} - {}", full_path, stderr);
+        Err(crate::errors::AppError::SystemCommand(format!(
+            "安装失败:\n{}",
+            stderr
+        )))
+    }
+}
