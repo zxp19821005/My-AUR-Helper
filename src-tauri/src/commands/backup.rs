@@ -186,7 +186,8 @@ pub struct DeduplicateResult {
 
 /// 软件去重
 ///
-/// 对每个软件包，保留最新版本的备份文件，删除旧版本的文件和数据库记录
+/// 对每个软件包（按 pkgname 分组），保留最新版本的备份文件，删除旧版本
+/// 版本比较规则：epoch > version > pkgrel（与 pacman vercmp 一致）
 #[tauri::command]
 pub async fn deduplicate_backups(
     state: State<'_, AppState>,
@@ -201,57 +202,69 @@ pub async fn deduplicate_backups(
     };
 
     // 第一阶段：获取所有备份记录并按包名分组（在锁内完成）
-    let (pkg_map, _entries_map) = {
+    let pkg_map = {
         let db = state.db.lock().map_err(|e| {
             crate::errors::AppError::DatabaseError(format!("获取数据库锁失败: {}", e))
         })?;
         let entries = db.get_all_backup_software()?;
 
-        let dir_path = std::path::Path::new(&backup_path);
-        let mut pkg_map: std::collections::HashMap<
-            String,
-            Vec<(std::time::SystemTime, String, i64)>,
-        > = std::collections::HashMap::new();
-        let mut entries_map: std::collections::HashMap<i64, String> =
+        // 按包名分组: pkgname -> Vec<(id, filename, version_string)>
+        let mut pkg_map: std::collections::HashMap<String, Vec<(i64, String, String)>> =
             std::collections::HashMap::new();
 
         for entry in &entries {
             if let Some(id) = entry.id {
-                entries_map.insert(id, entry.filename.clone());
-            }
-            let file_path = dir_path.join(&entry.filename);
-            if file_path.exists() {
-                if let Ok(meta) = std::fs::metadata(&file_path) {
-                    if let Ok(mtime) = meta.modified() {
-                        let pkg_name = entry
-                            .filename
-                            .split('-')
-                            .take_while(|s| !s.chars().next().is_some_and(|c| c.is_ascii_digit()))
-                            .collect::<Vec<_>>()
-                            .join("-");
-                        pkg_map.entry(pkg_name).or_default().push((
-                            mtime,
-                            entry.filename.clone(),
-                            entry.id.unwrap_or(0),
-                        ));
-                    }
+                if let Some((name, epoch, version, pkgrel, _arch)) =
+                    parse_pkg_filename(&entry.filename)
+                {
+                    // 构建完整的版本字符串 epoch:version-pkgrel 供 vercmp 比较
+                    let full_ver = if epoch > 0 {
+                        format!("{}:{}-{}", epoch, version, pkgrel)
+                    } else {
+                        format!("{}-{}", version, pkgrel)
+                    };
+                    pkg_map
+                        .entry(name)
+                        .or_default()
+                        .push((id, entry.filename.clone(), full_ver));
                 }
             }
         }
-        (pkg_map, entries_map)
+        pkg_map
     };
 
-    // 第二阶段：收集需要删除的文件（在锁外完成）
+    // 第二阶段：对每个包名，用 vercmp 比较版本，收集需要删除的文件
     let mut files_to_delete: Vec<(String, i64)> = Vec::new();
-    for versions in pkg_map.values() {
-        if versions.len() > 1 {
-            let mut sorted = versions.clone();
-            sorted.sort_by_key(|b| std::cmp::Reverse(b.0));
-            for (_mtime, filename, id) in sorted.iter().skip(1) {
+    let compare_versions = crate::versions::comparison::compare_versions;
+    for (_pkg_name, entries) in &pkg_map {
+        if entries.len() <= 1 {
+            continue;
+        }
+        // 找到最新版本（"最大" 的版本）
+        let mut best_idx = 0;
+        for i in 1..entries.len() {
+            let cmp = compare_versions(&entries[i].2, &entries[best_idx].2);
+            if cmp == crate::versions::comparison::VersionComparison::GreaterThan {
+                best_idx = i;
+            }
+        }
+        // 其余都删除
+        for (i, (id, filename, _ver)) in entries.iter().enumerate() {
+            if i != best_idx {
                 files_to_delete.push((filename.clone(), *id));
+                info!(
+                    "[备份管理] 标记删除旧版本: {} (最新: {})",
+                    filename, entries[best_idx].1
+                );
             }
         }
     }
+
+    info!(
+        "[备份管理] 共 {} 个包存在多版本，需删除 {} 个旧文件",
+        pkg_map.values().filter(|v| v.len() > 1).count(),
+        files_to_delete.len()
+    );
 
     // 第三阶段：删除磁盘文件（在锁外完成）
     let dir_path = std::path::Path::new(&backup_path);

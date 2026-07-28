@@ -116,14 +116,16 @@ impl Database {
         );";
 
         self.conn.execute_batch("PRAGMA foreign_keys=OFF;")?;
-        self.conn.execute_batch("DROP TABLE IF EXISTS backup_software_new;")?;
+        self.conn
+            .execute_batch("DROP TABLE IF EXISTS backup_software_new;")?;
         self.conn.execute_batch(new_schema)?;
         self.conn.execute_batch(
             "INSERT INTO backup_software_new (id, software_id, filename, epoch, pkgrel, arch, subdirectory)
              SELECT id, software_id, filename, epoch, pkgrel, arch, subdirectory FROM backup_software;",
         )?;
         self.conn.execute_batch("DROP TABLE backup_software;")?;
-        self.conn.execute_batch("ALTER TABLE backup_software_new RENAME TO backup_software;")?;
+        self.conn
+            .execute_batch("ALTER TABLE backup_software_new RENAME TO backup_software;")?;
         self.conn.execute_batch(
             "CREATE INDEX IF NOT EXISTS idx_backup_software_pkg ON backup_software(software_id);",
         )?;
