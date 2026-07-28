@@ -24,6 +24,8 @@ pub struct PkgFileInfo {
     pub pkgrel: String,
     pub arch: String,
     pub size: u64,
+    /// 来源目录名称（缓存扫描时使用）
+    pub source_dir: Option<String>,
 }
 
 // ════════════════════════════════════════════════════════════
@@ -84,6 +86,7 @@ fn parse_pkg_filename(filename: &str) -> Option<PkgFileInfo> {
         pkgrel,
         arch,
         size: 0,
+        source_dir: None,
     })
 }
 

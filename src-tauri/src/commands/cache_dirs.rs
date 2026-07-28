@@ -114,9 +114,12 @@ pub async fn scan_all_cache_dirs(
         }
 
         match crate::commands::scan::scan_pkg_files(&dir.path).await {
-            Ok(packages) => {
+            Ok(mut packages) => {
+                for pkg in &mut packages {
+                    pkg.source_dir = Some(dir.name.clone());
+                }
                 log::info!("[缓存管理] 扫描 {} 完成，找到 {} 个包", dir.name, packages.len());
-                all_packages.extend(packages);
+                all_packages.append(&mut packages);
             }
             Err(e) => {
                 log::error!("[缓存管理] 扫描 {} 失败: {}", dir.name, e);
@@ -126,4 +129,13 @@ pub async fn scan_all_cache_dirs(
 
     info!("[缓存管理] 所有缓存目录扫描完成，共找到 {} 个包", all_packages.len());
     Ok(all_packages)
+}
+
+/// 清空缓存表
+#[tauri::command]
+pub async fn clear_cache_software(state: State<'_, AppState>) -> AppResult<usize> {
+    let db = state.db.lock().map_err(|e| {
+        crate::errors::AppError::DatabaseError(format!("获取数据库锁失败: {}", e))
+    })?;
+    db.clear_cache_software()
 }

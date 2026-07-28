@@ -215,6 +215,7 @@ pub fn run() {
             commands::cache_dirs::update_cache_dir, // 更新缓存目录
             commands::cache_dirs::delete_cache_dir, // 删除缓存目录
             commands::cache_dirs::scan_all_cache_dirs, // 扫描所有启用的缓存目录
+            commands::cache_dirs::clear_cache_software, // 清空缓存表
             // 备份管理
             commands::backup::list_backup_software, // 列出所有备份记录
             commands::backup::clear_backup_software, // 清空备份表

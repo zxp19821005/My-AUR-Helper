@@ -148,16 +148,16 @@ function inputType(s: Setting): string {
 
     <div v-if="loading" class="card">加载中...</div>
 
-    <div v-else-if="filteredSettings.length === 0 && category !== 'general'" class="card">
-      <p style="color: var(--text-secondary)">暂无设置项</p>
-    </div>
-
     <div v-else-if="category === 'log'">
       <SettingsLogSection />
     </div>
 
     <div v-else-if="category === 'cache'">
       <SettingsCacheSection />
+    </div>
+
+    <div v-else-if="filteredSettings.length === 0 && category !== 'general'" class="card">
+      <p style="color: var(--text-secondary)">暂无设置项</p>
     </div>
 
     <div v-else-if="filteredSettings.length > 0" class="card">

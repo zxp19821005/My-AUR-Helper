@@ -74,4 +74,15 @@ impl Database {
         )?;
         Ok(())
     }
+
+    /// 清空缓存表
+    /// @returns 删除的记录数
+    pub fn clear_cache_software(&self) -> AppResult<usize> {
+        let count = self.conn.execute("DELETE FROM cache_software", [])?;
+        self.conn.execute(
+            "DELETE FROM sqlite_sequence WHERE name='cache_software'",
+            [],
+        )?;
+        Ok(count)
+    }
 }

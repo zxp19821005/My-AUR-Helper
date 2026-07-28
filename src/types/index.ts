@@ -192,6 +192,7 @@ export interface CachePackage {
   pkgrel: string;
   arch: string;
   size: number;
+  source_dir: string | null;
 }
 
 /** 缓存目录配置 */
