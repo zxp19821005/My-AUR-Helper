@@ -210,6 +210,11 @@ pub fn run() {
             commands::upstream_validate::validate_upstream_urls, // 批量验证上游 URL
             // 扫描
             commands::scan::scan_pkg_files_cmd, // 扫描 .pkg.tar.zst 包文件
+            commands::cache_dirs::list_cache_dirs, // 获取所有缓存目录配置
+            commands::cache_dirs::add_cache_dir, // 添加缓存目录
+            commands::cache_dirs::update_cache_dir, // 更新缓存目录
+            commands::cache_dirs::delete_cache_dir, // 删除缓存目录
+            commands::cache_dirs::scan_all_cache_dirs, // 扫描所有启用的缓存目录
             // 备份管理
             commands::backup::list_backup_software, // 列出所有备份记录
             commands::backup::clear_backup_software, // 清空备份表

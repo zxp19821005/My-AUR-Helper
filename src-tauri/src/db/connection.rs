@@ -34,6 +34,7 @@ impl Database {
         self.migrate_enum_licenses()?;
         self.migrate_enum_programming_languages()?;
         self.migrate_backup_software()?;
+        self.migrate_cache_dirs()?;
         self.seed_defaults()?;
         self.ensure_no_fk_constraints()?;
         Ok(())

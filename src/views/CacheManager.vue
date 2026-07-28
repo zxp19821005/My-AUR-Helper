@@ -2,85 +2,117 @@
   CacheManager.vue - 缓存管理页面
 
   功能：
-  - 扫描指定缓存目录中的 .pkg.tar.zst 包文件
-  - 显示扫描结果
-
-  数据来源：
-  - scan_pkg_files_cmd: 扫描包文件
-  - get_setting: 获取缓存目录设置
+  - 扫描所有启用的缓存目录中的 .pkg.tar.zst 包文件
+  - 显示扫描结果（表格形式，支持分页、搜索、选择）
+  - 批量操作：批量删除缓存文件
+  - 单行操作：删除缓存文件
 -->
 <script setup lang="ts">
-import { ref, onMounted, inject } from "vue";
+import { onMounted, ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
-import type { CachePackage, Setting } from "../types";
-import { FOOTER_KEY } from "../composables/footer";
+import { useCacheList, formatSize } from "../composables/useCacheList";
 import PageToolbar from "../components/PageToolbar.vue";
+import { Trash2, Scan } from "@lucide/vue";
 
-const footer = inject(FOOTER_KEY)!;
+const {
+  searchQuery, selectedIds, loading, pageData,
+  fetchEntries, toggleSelect, toggleSelectAll, syncToolbar,
+} = useCacheList();
 
-/** 缓存目录 */
-const cacheDir = ref("");
-
-/** 扫描到的包文件列表 */
-const packages = ref<CachePackage[]>([]);
-
-/** 扫描中 */
 const scanning = ref(false);
 
-/** 加载设置 */
 onMounted(async () => {
-  try {
-    const setting = await invoke<Setting | null>("get_setting", { key: "backup_dir" });
-    if (setting) cacheDir.value = setting.value;
-  } catch { /* ignore */ }
-  footer.infoText = `缓存目录: ${cacheDir.value || "未设置"}`;
+  await fetchEntries();
+  syncToolbar();
 });
 
-/** 扫描缓存目录 */
-async function scanCache() {
-  if (!cacheDir.value) return;
+async function handleScan() {
   scanning.value = true;
-  footer.progress = { current: 0, total: 1 };
   try {
-    packages.value = await invoke<CachePackage[]>("scan_pkg_files_cmd", { directory: cacheDir.value });
-    footer.infoText = `缓存目录: ${cacheDir.value}  |  找到 ${packages.value.length} 个包文件`;
-  } catch { /* ignore */ }
-  scanning.value = false;
-  footer.progress = null;
+    await fetchEntries();
+  } finally {
+    scanning.value = false;
+  }
 }
 
-function formatSize(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return (bytes / Math.pow(1024, i)).toFixed(1) + " " + units[i];
+function deleteSelected() {
+  if (selectedIds.value.size === 0) return;
+  if (!confirm(`确定要删除选中的 ${selectedIds.value.size} 个缓存文件吗？`)) return;
+  alert("批量删除功能开发中");
+}
+
+function rowDelete(filename: string) {
+  if (!confirm(`确定要删除缓存文件 ${filename} 吗？`)) return;
+  alert("删除功能开发中");
 }
 </script>
 
 <template>
   <div>
-    <PageToolbar>
-      <input v-model="cacheDir" placeholder="缓存目录路径" class="input" style="width: 320px" />
-      <button class="btn btn-primary" @click="scanCache" :disabled="scanning || !cacheDir">
-        {{ scanning ? "扫描中..." : "扫描缓存" }}
+    <PageToolbar v-model="searchQuery" @refresh="fetchEntries">
+      <button class="btn-icon btn-icon-accent" @click="handleScan" :disabled="loading || scanning" title="扫描所有缓存目录">
+        <Scan :size="16" />
+      </button>
+      <button class="btn-icon btn-icon-danger" @click="deleteSelected" :disabled="selectedIds.size === 0" title="删除选中">
+        <Trash2 :size="16" />
       </button>
     </PageToolbar>
 
-    <div v-if="packages.length" class="card">
-      <h3>缓存文件 ({{ packages.length }})</h3>
-      <div style="margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.5rem">
-        <div v-for="pkg in packages" :key="pkg.filename"
-          style="padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; min-width: 220px; font-size: 0.8125rem">
-          <strong>{{ pkg.name }}</strong>
-          <div style="color: var(--text-secondary); margin-top: 0.25rem">
-            {{ pkg.version }}-{{ pkg.pkgrel }} · {{ pkg.arch }}
-            <span v-if="pkg.epoch"> (epoch: {{ pkg.epoch }})</span>
-          </div>
-          <div style="color: var(--text-secondary); font-size: 0.75rem">
-            {{ formatSize(pkg.size) }}
-          </div>
-        </div>
-      </div>
+    <div class="card" style="overflow-x: auto; padding: 0">
+      <table class="pkg-table">
+        <thead>
+          <tr>
+            <th style="width: 2rem">
+              <input type="checkbox"
+                :checked="pageData.length > 0 && pageData.every((_, i) => selectedIds.has((currentPage - 1) * pageSize + i))"
+                :indeterminate="pageData.some((_, i) => selectedIds.has((currentPage - 1) * pageSize + i)) && !pageData.every((_, i) => selectedIds.has((currentPage - 1) * pageSize + i))"
+                @change="toggleSelectAll" />
+            </th>
+            <th>包名</th>
+            <th>文件名</th>
+            <th>Epoch</th>
+            <th>版本</th>
+            <th>PkgRel</th>
+            <th>架构</th>
+            <th>大小</th>
+            <th style="min-width: 60px">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(pkg, i) in pageData" :key="pkg.filename"
+            :class="{ 'row-selected': selectedIds.has((currentPage - 1) * pageSize + i) }">
+            <td @click.stop>
+              <input type="checkbox" :checked="selectedIds.has((currentPage - 1) * pageSize + i)"
+                @change="toggleSelect((currentPage - 1) * pageSize + i)" />
+            </td>
+            <td><strong>{{ pkg.name }}</strong></td>
+            <td class="cell-filename">{{ pkg.filename }}</td>
+            <td>{{ pkg.epoch || "-" }}</td>
+            <td>{{ pkg.version }}</td>
+            <td>{{ pkg.pkgrel }}</td>
+            <td>{{ pkg.arch }}</td>
+            <td>{{ formatSize(pkg.size) }}</td>
+            <td>
+              <div class="row-actions">
+                <button class="btn-icon btn-icon-danger" @click.stop="rowDelete(pkg.filename)" :disabled="loading" title="删除">
+                  <Trash2 :size="14" />
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </template>
+
+<style scoped>
+.pkg-table { width: 100%; border-collapse: collapse; table-layout: auto; }
+.pkg-table th { text-align: center; padding: 0.75rem; color: var(--text-secondary); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; border-bottom: 1px solid var(--border); white-space: nowrap; background-color: var(--bg-secondary); }
+.pkg-table td { padding: 0.75rem; border-bottom: 1px solid var(--border); font-size: 0.875rem; }
+.pkg-table tbody tr { cursor: pointer; transition: background-color 0.15s; }
+.pkg-table tbody tr:hover { background-color: rgba(108, 99, 255, 0.05); }
+.pkg-table tbody tr.row-selected { background-color: rgba(108, 99, 255, 0.1); }
+.row-actions { display: flex; gap: 0.25rem; flex-wrap: nowrap; align-items: center; }
+.cell-filename { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: 0.8125rem; }
+</style>

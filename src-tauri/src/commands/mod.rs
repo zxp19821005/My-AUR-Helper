@@ -15,6 +15,9 @@
 /// 备份管理命令
 pub mod backup;
 
+/// 缓存目录管理命令
+pub mod cache_dirs;
+
 /// 扫描命令
 pub mod scan;
 

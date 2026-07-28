@@ -8,6 +8,7 @@
  * - aur_info.rs   — AUR 包信息表 CRUD
  * - backup_software.rs — 备份记录表 CRUD
  * - cache_software.rs  — 缓存记录表 CRUD
+ * - cache_dirs.rs  — 缓存目录配置表 CRUD
  * - enum_licenses.rs   — License 枚举表 CRUD
  * - enum_programming_languages.rs — 编程语言枚举表 CRUD
  * - logs.rs       — 日志表 CRUD
@@ -19,12 +20,14 @@
  */
 mod aur_info;
 mod backup_software;
+mod cache_dirs;
 mod cache_software;
 mod connection;
 mod enum_licenses;
 mod enum_programming_languages;
 mod logs;
 mod migration_aur;
+mod migration_cache_dirs;
 mod migration_enum;
 mod migration_software;
 mod migration_upstream;

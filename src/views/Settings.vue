@@ -4,6 +4,7 @@ import { useRoute } from "vue-router";
 import { invoke } from "@tauri-apps/api/core";
 import type { Setting } from "../types";
 import SettingsLogSection from "../components/SettingsLogSection.vue";
+import SettingsCacheSection from "../components/SettingsCacheSection.vue";
 import { useSettingsStore } from "../stores/settings";
 
 const route = useRoute();
@@ -68,7 +69,6 @@ async function saveSetting(key: string, value: string) {
     if (idx >= 0) {
       settings.value[idx] = { ...settings.value[idx], value };
     }
-    // 更新设置缓存，使其他组件能立即获取最新值
     await settingsStore.refreshSetting(key);
     message.value = "已保存";
     setTimeout(() => (message.value = ""), 2000);
@@ -154,6 +154,10 @@ function inputType(s: Setting): string {
 
     <div v-else-if="category === 'log'">
       <SettingsLogSection />
+    </div>
+
+    <div v-else-if="category === 'cache'">
+      <SettingsCacheSection />
     </div>
 
     <div v-else-if="filteredSettings.length > 0" class="card">
