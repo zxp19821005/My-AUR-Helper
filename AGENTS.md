@@ -94,7 +94,8 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/main.rs` | Tauri 应用入口点 |
 | `src-tauri/src/logger.rs` | 日志系统配置（tracing） |
 | `src-tauri/src/db/` | 数据库层 |
-| `src-tauri/src/db/mod.rs` | 数据库模块入口和初始化 |
+| `src-tauri/src/db/mod.rs` | 数据库模块入口和导出 |
+| `src-tauri/src/db/connection.rs` | Database 结构体、连接创建、表初始化和迁移 |
 | `src-tauri/src/db/schema.rs` | 数据库 Schema 定义 |
 | `src-tauri/src/db/migration_aur.rs` | aur_info 表迁移 |
 | `src-tauri/src/db/migration_software.rs` | software_info 表迁移 |
@@ -123,7 +124,8 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/commands/software_sync/pkgbuild.rs` | PKGBUILD 文件同步命令 |
 | `src-tauri/src/commands/software_sync/utils.rs` | 同步工具函数和类型定义 |
 | `src-tauri/src/checkers/` | 版本检查器模块 |
-| `src-tauri/src/checkers/mod.rs` | 检查器工厂函数 |
+| `src-tauri/src/checkers/mod.rs` | 检查器模块入口和导出 |
+| `src-tauri/src/checkers/factory.rs` | 检查器工厂函数（get_checker） |
 | `src-tauri/src/checkers/trait_def.rs` | VersionChecker trait 定义 |
 | `src-tauri/src/checkers/utils.rs` | 检查器工具函数（含版本正则提取） |
 | `src-tauri/src/checkers/github/` | GitHub 检查器模块（目录结构） |
@@ -135,6 +137,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/checkers/github/git_describe.rs` | Git Describe 格式化（-git 包专用） |
 | `src-tauri/src/versions/` | 版本处理模块（解析、标准化、比较） |
 | `src-tauri/src/versions/mod.rs` | versions 模块入口 |
+| `src-tauri/src/versions/utils.rs` | 版本处理工具函数（比较、排序、查找最新版本） |
 | `src-tauri/src/versions/aur.rs` | AUR 版本解析和标准化 |
 | `src-tauri/src/versions/upstream.rs` | 上游版本清洗和标准化 |
 | `src-tauri/src/versions/comparison.rs` | 版本比较算法（vercmp） |
