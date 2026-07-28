@@ -131,7 +131,7 @@ impl Database {
             -- 索引
             CREATE INDEX IF NOT EXISTS idx_software_pkgname ON software_info(pkgname);
             CREATE INDEX IF NOT EXISTS idx_software_outdated ON software_info(is_outdated);
-            CREATE INDEX IF NOT EXISTS idx_backup_software_pkg ON backup_software(software_id);
+            CREATE INDEX IF NOT EXISTS idx_backup_software_filename ON backup_software(filename);
             CREATE INDEX IF NOT EXISTS idx_cache_software_pkg ON cache_software(software_id);
             CREATE INDEX IF NOT EXISTS idx_proxies_test_proxy ON proxies_test(proxy_id);
             CREATE INDEX IF NOT EXISTS idx_logs_created ON logs(created_at);
