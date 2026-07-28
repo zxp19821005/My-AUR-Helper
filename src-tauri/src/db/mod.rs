@@ -109,8 +109,8 @@ impl Database {
             id           INTEGER PRIMARY KEY AUTOINCREMENT,
             software_id  INTEGER,
             filename     TEXT NOT NULL,
-            pkgver       TEXT NOT NULL DEFAULT '',
             epoch        INTEGER NOT NULL DEFAULT 0,
+            pkgver       TEXT NOT NULL DEFAULT '',
             pkgrel       TEXT NOT NULL DEFAULT '1',
             arch         TEXT NOT NULL DEFAULT 'x86_64',
             subdirectory TEXT,
@@ -127,14 +127,14 @@ impl Database {
 
         let insert_sql = if has_pkgver {
             format!(
-                "INSERT INTO backup_software_new (id, software_id, filename, pkgver, epoch, pkgrel, arch, subdirectory, full_path)
-                 SELECT id, software_id, filename, pkgver, epoch, pkgrel, arch, subdirectory, {fp} FROM backup_software;",
+                "INSERT INTO backup_software_new (id, software_id, filename, epoch, pkgver, pkgrel, arch, subdirectory, full_path)
+                 SELECT id, software_id, filename, epoch, pkgver, pkgrel, arch, subdirectory, {fp} FROM backup_software;",
                 fp = full_path_expr
             )
         } else {
             format!(
-                "INSERT INTO backup_software_new (id, software_id, filename, pkgver, epoch, pkgrel, arch, subdirectory, full_path)
-                 SELECT id, software_id, filename, '', epoch, pkgrel, arch, subdirectory, {fp} FROM backup_software;",
+                "INSERT INTO backup_software_new (id, software_id, filename, epoch, pkgver, pkgrel, arch, subdirectory, full_path)
+                 SELECT id, software_id, filename, epoch, '', pkgrel, arch, subdirectory, {fp} FROM backup_software;",
                 fp = full_path_expr
             )
         };

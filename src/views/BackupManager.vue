@@ -150,8 +150,8 @@ function deleteSelected() {
             </th>
             <th>包名</th>
             <th>文件名</th>
-            <th>版本</th>
             <th>Epoch</th>
+            <th>版本</th>
             <th>PkgRel</th>
             <th>架构</th>
             <th>子目录</th>
@@ -169,8 +169,8 @@ function deleteSelected() {
               <strong>{{ pkg.pkgname }}</strong>
             </td>
             <td class="cell-filename">{{ pkg.filename }}</td>
-            <td>{{ pkg.pkgver }}</td>
             <td>{{ fmtEpoch(pkg.epoch) }}</td>
+            <td>{{ pkg.pkgver }}</td>
             <td>{{ pkg.pkgrel }}</td>
             <td>{{ pkg.arch }}</td>
             <td>{{ pkg.subdirectory || "-" }}</td>

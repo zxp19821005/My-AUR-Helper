@@ -10,10 +10,10 @@ pub struct BackupSoftware {
     pub software_id: Option<i64>,
     /// 备份文件名（仅文件名，不含路径）
     pub filename: String,
-    /// 软件包版本号（如 1.0.0）
-    pub pkgver: String,
     /// 版本 epoch 号
     pub epoch: i64,
+    /// 软件包版本号（如 1.0.0）
+    pub pkgver: String,
     /// 包发布号（如 pkgrel）
     pub pkgrel: String,
     /// 目标架构（如 x86_64）

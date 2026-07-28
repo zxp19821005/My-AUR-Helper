@@ -200,8 +200,8 @@ export interface BackupSoftwareEntry {
   software_id: number | null;
   pkgname: string;
   filename: string;
-  pkgver: string;
   epoch: number;
+  pkgver: string;
   pkgrel: string;
   arch: string;
   subdirectory: string | null;

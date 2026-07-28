@@ -23,13 +23,13 @@ impl Database {
     /// @returns 新插入记录的 ID
     pub fn insert_backup_software(&self, bs: &BackupSoftware) -> AppResult<i64> {
         self.conn.execute(
-            "INSERT INTO backup_software (software_id, filename, pkgver, epoch, pkgrel, arch, subdirectory, full_path)
+            "INSERT INTO backup_software (software_id, filename, epoch, pkgver, pkgrel, arch, subdirectory, full_path)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             rusqlite::params![
                 bs.software_id,
                 bs.filename,
-                bs.pkgver,
                 bs.epoch,
+                bs.pkgver,
                 bs.pkgrel,
                 bs.arch,
                 bs.subdirectory,
@@ -44,7 +44,7 @@ impl Database {
     /// @returns 该包对应的所有备份记录
     pub fn get_backup_software_by_pkg(&self, software_id: i64) -> AppResult<Vec<BackupSoftware>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, software_id, filename, pkgver, epoch, pkgrel, arch, subdirectory, full_path
+            "SELECT id, software_id, filename, epoch, pkgver, pkgrel, arch, subdirectory, full_path
              FROM backup_software WHERE software_id=?1 ORDER BY filename",
         )?;
         let rows = stmt.query_map(rusqlite::params![software_id], |row| {
@@ -52,8 +52,8 @@ impl Database {
                 id: Some(row.get(0)?),
                 software_id: row.get(1).ok(),
                 filename: row.get(2)?,
-                pkgver: row.get(3)?,
-                epoch: row.get(4)?,
+                epoch: row.get(3)?,
+                pkgver: row.get(4)?,
                 pkgrel: row.get(5)?,
                 arch: row.get(6)?,
                 subdirectory: row.get(7).ok(),
@@ -71,7 +71,7 @@ impl Database {
     /// @returns 所有备份记录列表
     pub fn get_all_backup_software(&self) -> AppResult<Vec<BackupSoftware>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, software_id, filename, pkgver, epoch, pkgrel, arch, subdirectory, full_path
+            "SELECT id, software_id, filename, epoch, pkgver, pkgrel, arch, subdirectory, full_path
              FROM backup_software ORDER BY software_id, filename",
         )?;
         let rows = stmt.query_map([], |row| {
@@ -79,8 +79,8 @@ impl Database {
                 id: Some(row.get(0)?),
                 software_id: row.get(1).ok(),
                 filename: row.get(2)?,
-                pkgver: row.get(3)?,
-                epoch: row.get(4)?,
+                epoch: row.get(3)?,
+                pkgver: row.get(4)?,
                 pkgrel: row.get(5)?,
                 arch: row.get(6)?,
                 subdirectory: row.get(7).ok(),
@@ -98,7 +98,7 @@ impl Database {
     /// @returns 备份记录列表（含 pkgname）
     pub fn get_all_backup_entries(&self) -> AppResult<Vec<BackupSoftwareEntry>> {
         let mut stmt = self.conn.prepare(
-            "SELECT b.id, b.software_id, s.pkgname, b.filename, b.pkgver, b.epoch, b.pkgrel, b.arch, b.subdirectory, b.full_path
+            "SELECT b.id, b.software_id, s.pkgname, b.filename, b.epoch, b.pkgver, b.pkgrel, b.arch, b.subdirectory, b.full_path
              FROM backup_software b
              LEFT JOIN software_info s ON b.software_id = s.software_id
              ORDER BY s.pkgname, b.filename"
@@ -109,8 +109,8 @@ impl Database {
                 software_id: row.get(1).ok(),
                 pkgname: row.get(2).unwrap_or_default(),
                 filename: row.get(3)?,
-                pkgver: row.get(4)?,
-                epoch: row.get(5)?,
+                epoch: row.get(4)?,
+                pkgver: row.get(5)?,
                 pkgrel: row.get(6)?,
                 arch: row.get(7)?,
                 subdirectory: row.get(8).ok(),
@@ -168,7 +168,7 @@ impl Database {
         filename: &str,
     ) -> AppResult<Option<BackupSoftware>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, software_id, filename, pkgver, epoch, pkgrel, arch, subdirectory, full_path
+            "SELECT id, software_id, filename, epoch, pkgver, pkgrel, arch, subdirectory, full_path
              FROM backup_software WHERE filename=?1",
         )?;
         let mut rows = stmt.query_map(rusqlite::params![filename], |row| {
@@ -176,8 +176,8 @@ impl Database {
                 id: Some(row.get(0)?),
                 software_id: row.get(1).ok(),
                 filename: row.get(2)?,
-                pkgver: row.get(3)?,
-                epoch: row.get(4)?,
+                epoch: row.get(3)?,
+                pkgver: row.get(4)?,
                 pkgrel: row.get(5)?,
                 arch: row.get(6)?,
                 subdirectory: row.get(7).ok(),
