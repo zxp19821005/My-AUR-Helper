@@ -56,10 +56,12 @@ impl Database {
                 id           INTEGER PRIMARY KEY AUTOINCREMENT,
                 software_id  INTEGER,
                 filename     TEXT NOT NULL,
+                pkgver       TEXT NOT NULL DEFAULT '',
                 epoch        INTEGER NOT NULL DEFAULT 0,
                 pkgrel       TEXT NOT NULL DEFAULT '1',
                 arch         TEXT NOT NULL DEFAULT 'x86_64',
-                subdirectory TEXT
+                subdirectory TEXT,
+                full_path    TEXT NOT NULL DEFAULT ''
             );
 
             -- 缓存软件包记录表

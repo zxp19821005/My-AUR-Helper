@@ -118,13 +118,23 @@ pub async fn scan_backup_directory(
     let mut scanned_files = Vec::new();
     for path in &found_paths {
         let filename = path.file_name().unwrap().to_string_lossy().to_string();
-        if let Some((name, epoch, _version, pkgrel, arch)) = parse_pkg_filename(&filename) {
+        if let Some((name, epoch, version, pkgrel, arch)) = parse_pkg_filename(&filename) {
             let subdirectory = path
                 .parent()
                 .and_then(|p| p.strip_prefix(dir_path).ok())
                 .map(|p| p.to_string_lossy().to_string())
                 .filter(|s| !s.is_empty());
-            scanned_files.push((filename, name, epoch, pkgrel, arch, subdirectory));
+            let full_path = path.to_string_lossy().to_string();
+            scanned_files.push((
+                filename,
+                name,
+                epoch,
+                version,
+                pkgrel,
+                arch,
+                subdirectory,
+                full_path,
+            ));
         }
     }
 
@@ -141,7 +151,9 @@ pub async fn scan_backup_directory(
             name_to_id.insert(sw.pkgname.clone(), sw.software_id.unwrap_or(0));
         }
 
-        for (filename, name, epoch, pkgrel, arch, subdirectory) in &scanned_files {
+        for (filename, name, epoch, version, pkgrel, arch, subdirectory, full_path) in
+            &scanned_files
+        {
             // 检查是否已存在
             if let Ok(Some(_existing)) = db.get_backup_software_by_filename(filename) {
                 continue;
@@ -154,10 +166,12 @@ pub async fn scan_backup_directory(
                 id: None,
                 software_id,
                 filename: filename.clone(),
+                pkgver: version.clone(),
                 epoch: *epoch,
                 pkgrel: pkgrel.clone(),
                 arch: arch.clone(),
                 subdirectory: subdirectory.clone(),
+                full_path: full_path.clone(),
             };
 
             match db.insert_backup_software(&bs) {
@@ -208,11 +222,9 @@ pub async fn deduplicate_backups(
         })?;
         let entries = db.get_all_backup_software()?;
 
-        // 按包名分组: pkgname -> Vec<(id, filename, version_string, subdirectory)>
-        let mut pkg_map: std::collections::HashMap<
-            String,
-            Vec<(i64, String, String, Option<String>)>,
-        > = std::collections::HashMap::new();
+        // 按包名分组: pkgname -> Vec<(id, filename, version_string, full_path)>
+        let mut pkg_map: std::collections::HashMap<String, Vec<(i64, String, String, String)>> =
+            std::collections::HashMap::new();
 
         for entry in &entries {
             if let Some(id) = entry.id {
@@ -228,7 +240,7 @@ pub async fn deduplicate_backups(
                         id,
                         entry.filename.clone(),
                         full_ver,
-                        entry.subdirectory.clone(),
+                        entry.full_path.clone(),
                     ));
                 }
             }
@@ -237,7 +249,7 @@ pub async fn deduplicate_backups(
     };
 
     // 第二阶段：对每个包名，用 vercmp 比较版本，收集需要删除的文件
-    let mut files_to_delete: Vec<(String, i64, Option<String>)> = Vec::new();
+    let mut files_to_delete: Vec<(String, i64, String)> = Vec::new();
     let compare_versions = crate::versions::comparison::compare_versions;
     for (_pkg_name, entries) in &pkg_map {
         if entries.len() <= 1 {
@@ -252,9 +264,9 @@ pub async fn deduplicate_backups(
             }
         }
         // 其余都删除
-        for (i, (id, filename, _ver, subdir)) in entries.iter().enumerate() {
+        for (i, (id, filename, _ver, full_path)) in entries.iter().enumerate() {
             if i != best_idx {
-                files_to_delete.push((filename.clone(), *id, subdir.clone()));
+                files_to_delete.push((filename.clone(), *id, full_path.clone()));
                 info!(
                     "[备份管理] 标记删除旧版本: {} (最新: {})",
                     filename, entries[best_idx].1
@@ -270,22 +282,17 @@ pub async fn deduplicate_backups(
     );
 
     // 第三阶段：删除磁盘文件（在锁外完成）
-    let dir_path = std::path::Path::new(&backup_path);
-    for (filename, _id, subdir) in &files_to_delete {
-        let file_path = if let Some(sub) = subdir {
-            dir_path.join(sub).join(filename)
-        } else {
-            dir_path.join(filename)
-        };
-        match fs::remove_file(&file_path).await {
+    for (_filename, _id, full_path) in &files_to_delete {
+        let file_path = std::path::Path::new(full_path);
+        match fs::remove_file(file_path).await {
             Ok(()) => {
                 result.removed_files += 1;
-                info!("[备份管理] 已删除旧备份文件: {}", file_path.display());
+                info!("[备份管理] 已删除旧备份文件: {}", full_path);
             }
             Err(e) => {
                 result
                     .errors
-                    .push(format!("删除文件失败 {}: {}", file_path.display(), e));
+                    .push(format!("删除文件失败 {}: {}", full_path, e));
             }
         }
     }
@@ -296,7 +303,7 @@ pub async fn deduplicate_backups(
             crate::errors::AppError::DatabaseError(format!("获取数据库锁失败: {}", e))
         })?;
 
-        for (_filename, id, _subdir) in &files_to_delete {
+        for (_filename, id, _full_path) in &files_to_delete {
             match db.delete_backup_software(*id) {
                 Ok(()) => {
                     result.removed_records += 1;
@@ -322,9 +329,9 @@ pub async fn deduplicate_backups(
 pub async fn delete_backup(
     state: State<'_, AppState>,
     id: i64,
-    backup_path: String,
+    _backup_path: String,
 ) -> AppResult<()> {
-    // 先获取记录信息（含 subdirectory）
+    // 先获取记录信息（含 full_path）
     let record = {
         let db = state.db.lock().map_err(|e| {
             crate::errors::AppError::DatabaseError(format!("获取数据库锁失败: {}", e))
@@ -334,17 +341,10 @@ pub async fn delete_backup(
     };
 
     if let Some(entry) = record {
-        // 构建完整文件路径: backup_dir/subdir/filename
-        let dir_path = std::path::Path::new(&backup_path);
-        let file_path = if let Some(sub) = &entry.subdirectory {
-            dir_path.join(sub).join(&entry.filename)
-        } else {
-            dir_path.join(&entry.filename)
-        };
-
-        // 删除磁盘文件
+        // 使用 full_path 字段直接定位文件
+        let file_path = std::path::Path::new(&entry.full_path);
         if file_path.exists() {
-            fs::remove_file(&file_path).await.map_err(|e| {
+            fs::remove_file(file_path).await.map_err(|e| {
                 crate::errors::AppError::FileOperation(format!("删除文件失败: {}", e))
             })?;
         }
@@ -355,7 +355,7 @@ pub async fn delete_backup(
         })?;
         db.delete_backup_software(id)?;
 
-        info!("[备份管理] 已删除备份: {}", file_path.display());
+        info!("[备份管理] 已删除备份: {}", entry.full_path);
     }
 
     Ok(())

@@ -73,7 +73,7 @@ impl Database {
         Ok(())
     }
 
-    /// 迁移 backup_software 表：使 software_id 可空并移除外键约束
+    /// 迁移 backup_software 表：使 software_id 可空、添加 pkgver/full_path 字段、移除外键约束
     fn migrate_backup_software(&self) -> AppResult<()> {
         // 检查表是否存在
         let exists: bool = self.conn.query_row(
@@ -85,44 +85,65 @@ impl Database {
             return Ok(());
         }
 
-        let _columns = self.get_table_columns("backup_software")?;
+        let columns = self.get_table_columns("backup_software")?;
         let has_fk: bool = self.conn.query_row(
             "SELECT COUNT(*) > 0 FROM pragma_foreign_key_list('backup_software')",
             [],
             |row| row.get(0),
         )?;
+        let has_pkgver = columns.contains(&"pkgver".to_string());
+        let has_full_path = columns.contains(&"full_path".to_string());
 
-        // 如果 software_id 已经可空且没有 FK，不需要迁移
         let sw_col_nullable: bool = self.conn.query_row(
             "SELECT \"notnull\" = 0 FROM pragma_table_info('backup_software') WHERE name='software_id'",
             [],
             |row| row.get(0),
         )?;
-
-        if sw_col_nullable && !has_fk {
+        if sw_col_nullable && !has_fk && has_pkgver && has_full_path {
             return Ok(());
         }
 
-        log::info!("[migrate_backup_software] 重建 backup_software 表: software_id 可空, 移除 FK");
+        log::info!("[migrate_backup_software] 重建 backup_software 表");
 
         let new_schema = "CREATE TABLE backup_software_new (
             id           INTEGER PRIMARY KEY AUTOINCREMENT,
             software_id  INTEGER,
             filename     TEXT NOT NULL,
+            pkgver       TEXT NOT NULL DEFAULT '',
             epoch        INTEGER NOT NULL DEFAULT 0,
             pkgrel       TEXT NOT NULL DEFAULT '1',
             arch         TEXT NOT NULL DEFAULT 'x86_64',
-            subdirectory TEXT
+            subdirectory TEXT,
+            full_path    TEXT NOT NULL DEFAULT ''
         );";
+
+        // 为旧数据构建 full_path
+        let has_subdir = columns.contains(&"subdirectory".to_string());
+        let subdir_expr = if has_subdir { "subdirectory" } else { "''" };
+        let full_path_expr = format!(
+            "CASE WHEN {subdir} IS NOT NULL AND {subdir} != '' THEN {subdir} || '/' || filename ELSE filename END",
+            subdir = subdir_expr
+        );
+
+        let insert_sql = if has_pkgver {
+            format!(
+                "INSERT INTO backup_software_new (id, software_id, filename, pkgver, epoch, pkgrel, arch, subdirectory, full_path)
+                 SELECT id, software_id, filename, pkgver, epoch, pkgrel, arch, subdirectory, {fp} FROM backup_software;",
+                fp = full_path_expr
+            )
+        } else {
+            format!(
+                "INSERT INTO backup_software_new (id, software_id, filename, pkgver, epoch, pkgrel, arch, subdirectory, full_path)
+                 SELECT id, software_id, filename, '', epoch, pkgrel, arch, subdirectory, {fp} FROM backup_software;",
+                fp = full_path_expr
+            )
+        };
 
         self.conn.execute_batch("PRAGMA foreign_keys=OFF;")?;
         self.conn
             .execute_batch("DROP TABLE IF EXISTS backup_software_new;")?;
         self.conn.execute_batch(new_schema)?;
-        self.conn.execute_batch(
-            "INSERT INTO backup_software_new (id, software_id, filename, epoch, pkgrel, arch, subdirectory)
-             SELECT id, software_id, filename, epoch, pkgrel, arch, subdirectory FROM backup_software;",
-        )?;
+        self.conn.execute_batch(&insert_sql)?;
         self.conn.execute_batch("DROP TABLE backup_software;")?;
         self.conn
             .execute_batch("ALTER TABLE backup_software_new RENAME TO backup_software;")?;

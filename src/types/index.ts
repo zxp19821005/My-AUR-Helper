@@ -197,13 +197,15 @@ export interface CachePackage {
 /** 备份软件包列表展示条目（含软件包名称） */
 export interface BackupSoftwareEntry {
   id: number;
-  software_id: number;
+  software_id: number | null;
   pkgname: string;
   filename: string;
+  pkgver: string;
   epoch: number;
   pkgrel: string;
   arch: string;
   subdirectory: string | null;
+  full_path: string;
 }
 
 /** 备份去重结果 */

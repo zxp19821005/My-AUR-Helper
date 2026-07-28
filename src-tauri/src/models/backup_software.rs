@@ -8,8 +8,10 @@ pub struct BackupSoftware {
     pub id: Option<i64>,
     /// 关联的软件包 ID（NULL 表示不在 software_info 表中）
     pub software_id: Option<i64>,
-    /// 备份文件名
+    /// 备份文件名（仅文件名，不含路径）
     pub filename: String,
+    /// 软件包版本号（如 1.0.0）
+    pub pkgver: String,
     /// 版本 epoch 号
     pub epoch: i64,
     /// 包发布号（如 pkgrel）
@@ -18,4 +20,6 @@ pub struct BackupSoftware {
     pub arch: String,
     /// 备份存放的子目录（可选）
     pub subdirectory: Option<String>,
+    /// 完整文件路径（backup_dir/subdir/filename）
+    pub full_path: String,
 }

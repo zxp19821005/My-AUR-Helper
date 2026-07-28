@@ -7,8 +7,10 @@ pub struct BackupSoftwareEntry {
     pub software_id: Option<i64>,
     pub pkgname: String,
     pub filename: String,
+    pub pkgver: String,
     pub epoch: i64,
     pub pkgrel: String,
     pub arch: String,
     pub subdirectory: Option<String>,
+    pub full_path: String,
 }
