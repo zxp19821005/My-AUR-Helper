@@ -216,6 +216,8 @@ pub fn run() {
             commands::cache_dirs::delete_cache_dir, // 删除缓存目录
             commands::cache_dirs::scan_all_cache_dirs, // 扫描所有启用的缓存目录
             commands::cache_dirs::clear_cache_software, // 清空缓存表
+            commands::cache_backup::backup_cache_to_existing, // 备份缓存到已有备份位置
+            commands::cache_backup::backup_cache_to_subdirectory, // 备份缓存到指定子目录
             // 备份管理
             commands::backup::list_backup_software, // 列出所有备份记录
             commands::backup::clear_backup_software, // 清空备份表

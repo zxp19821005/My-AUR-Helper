@@ -5,7 +5,7 @@
   - 扫描所有启用的缓存目录中的 .pkg.tar.zst 包文件
   - 显示扫描结果（表格形式，支持分页、搜索、选择）
   - 按缓存目录筛选
-  - 批量操作：清空缓存表、删除缓存
+  - 批量操作：清空缓存表、去重、备份新版、备份到、删除缓存
   - 单行操作：删除缓存
 -->
 <script setup lang="ts">
@@ -13,8 +13,8 @@ import { ref, computed, onMounted } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { useCacheList, formatSize } from "../composables/useCacheList";
 import PageToolbar from "../components/PageToolbar.vue";
-import { Trash2, Scan } from "@lucide/vue";
-import type { CacheDir } from "../types";
+import { Trash2, Scan, Copy, GitBranch } from "@lucide/vue";
+import type { CacheDir, DeduplicateResult } from "../types";
 
 const {
   searchQuery, selectedIds, loading,
@@ -25,6 +25,13 @@ const {
 const scanning = ref(false);
 const sourceDirFilter = ref("");
 const cacheDirs = ref<CacheDir[]>([]);
+const backupPath = ref("");
+const backupSubdirectories = ref<string[]>([]);
+
+// 备份到弹窗状态
+const showBackupToModal = ref(false);
+const backupToSubdirectory = ref("");
+const backingUp = ref(false);
 
 // 所有可用的来源目录（从数据库读取）
 const sourceDirs = computed(() => {
@@ -33,12 +40,26 @@ const sourceDirs = computed(() => {
     .sort((a, b) => a.sort_order - b.sort_order);
 });
 
+// 获取选中的文件名列表
+const selectedFilenames = computed(() => {
+  return entries.value
+    .filter((_, i) => selectedIds.value.has(i))
+    .map(e => e.filename);
+});
+
 onMounted(async () => {
   try {
     cacheDirs.value = await invoke("list_cache_dirs");
   } catch (e) {
     console.error("加载缓存目录失败:", e);
   }
+  try {
+    const setting = await invoke<{ value: string } | null>("get_setting", { key: "backup_dir" });
+    if (setting) backupPath.value = setting.value;
+  } catch { /* ignore */ }
+  try {
+    backupSubdirectories.value = await invoke<string[]>("list_backup_subdirectories");
+  } catch { /* ignore */ }
 });
 
 // 根据来源目录筛选
@@ -52,6 +73,11 @@ const displayData = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value;
   return filteredByDir.value.slice(start, start + pageSize.value);
 });
+
+function updateFilter(dir: string) {
+  sourceDirFilter.value = dir;
+  currentPage.value = 1;
+}
 
 async function handleScan() {
   scanning.value = true;
@@ -75,6 +101,91 @@ async function handleClearTable() {
   }
 }
 
+async function handleDedup() {
+  if (!backupPath.value) {
+    alert("未设置备份目录，请先在设置中配置备份目录");
+    return;
+  }
+  if (!confirm("确定要对备份目录进行去重吗？将删除旧版本文件。")) return;
+  loading.value = true;
+  try {
+    const result = await invoke<DeduplicateResult>("deduplicate_backups", {
+      backupPath: backupPath.value,
+    });
+    alert(
+      `去重完成\n\n删除文件: ${result.removed_files} 个\n删除记录: ${result.removed_records} 条` +
+      (result.errors.length > 0 ? `\n\n错误:\n${result.errors.join("\n")}` : "")
+    );
+  } catch (e) {
+    alert(`去重失败: ${e}`);
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function handleBackupNewVersion() {
+  if (selectedIds.value.size === 0) {
+    alert("请先选择要备份的缓存包");
+    return;
+  }
+  if (!backupPath.value) {
+    alert("未设置备份目录，请先在设置中配置备份目录");
+    return;
+  }
+  loading.value = true;
+  try {
+    const [success, errors] = await invoke<[number, string[]]>("backup_cache_to_existing", {
+      filenames: selectedFilenames.value,
+      backupPath: backupPath.value,
+    });
+    const msg = `备份完成\n\n成功: ${success} 个` +
+      (errors.length > 0 ? `\n\n详细:\n${errors.join("\n")}` : "");
+    alert(msg);
+    selectedIds.value.clear();
+  } catch (e) {
+    alert(`备份失败: ${e}`);
+  } finally {
+    loading.value = false;
+  }
+}
+
+function openBackupToModal() {
+  if (selectedIds.value.size === 0) {
+    alert("请先选择要备份的缓存包");
+    return;
+  }
+  if (!backupPath.value) {
+    alert("未设置备份目录，请先在设置中配置备份目录");
+    return;
+  }
+  backupToSubdirectory.value = "";
+  showBackupToModal.value = true;
+}
+
+async function handleBackupTo() {
+  if (!backupToSubdirectory.value && backupSubdirectories.value.length > 0) {
+    alert("请选择一个备份子目录");
+    return;
+  }
+  backingUp.value = true;
+  try {
+    const [success, errors] = await invoke<[number, string[]]>("backup_cache_to_subdirectory", {
+      filenames: selectedFilenames.value,
+      backupPath: backupPath.value,
+      subdirectory: backupToSubdirectory.value,
+    });
+    const msg = `备份完成\n\n成功: ${success} 个` +
+      (errors.length > 0 ? `\n\n详细:\n${errors.join("\n")}` : "");
+    alert(msg);
+    selectedIds.value.clear();
+    showBackupToModal.value = false;
+  } catch (e) {
+    alert(`备份失败: ${e}`);
+  } finally {
+    backingUp.value = false;
+  }
+}
+
 function deleteSelected() {
   if (selectedIds.value.size === 0) return;
   if (!confirm(`确定要删除选中的 ${selectedIds.value.size} 个缓存文件吗？`)) return;
@@ -84,11 +195,6 @@ function deleteSelected() {
 function rowDelete(filename: string) {
   if (!confirm(`确定要删除缓存文件 ${filename} 吗？`)) return;
   alert("删除功能开发中");
-}
-
-function updateFilter(dir: string) {
-  sourceDirFilter.value = dir;
-  currentPage.value = 1;
 }
 </script>
 
@@ -109,6 +215,15 @@ function updateFilter(dir: string) {
       </button>
       <button class="btn-icon btn-icon-danger" @click="deleteSelected" :disabled="selectedIds.size === 0" title="删除选中">
         <Trash2 :size="16" />
+      </button>
+      <button class="btn-icon btn-icon-accent" @click="handleDedup" :disabled="loading" title="去重（保留最新版本）">
+        <GitBranch :size="16" />
+      </button>
+      <button class="btn-icon btn-icon-accent" @click="handleBackupNewVersion" :disabled="loading || selectedIds.size === 0" title="备份新版（备份到已有位置）">
+        <Copy :size="16" />
+      </button>
+      <button class="btn-icon btn-icon-accent" @click="openBackupToModal" :disabled="loading || selectedIds.size === 0" title="备份到（选择子目录）">
+        <Copy :size="16" />
       </button>
     </PageToolbar>
 
@@ -157,6 +272,36 @@ function updateFilter(dir: string) {
         </tbody>
       </table>
     </div>
+
+    <!-- 备份到弹窗 -->
+    <Teleport to="body">
+      <div v-if="showBackupToModal" class="modal-overlay" @click.self="showBackupToModal = false">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>备份到子目录</h3>
+            <button class="btn-icon" @click="showBackupToModal = false">
+              <span>&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <p>选中 {{ selectedFilenames.length }} 个缓存包</p>
+            <div class="form-group">
+              <label>选择备份子目录：</label>
+              <select v-model="backupToSubdirectory" class="backup-dir-select">
+                <option value="">根目录</option>
+                <option v-for="dir in backupSubdirectories" :key="dir" :value="dir">{{ dir }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-secondary" @click="showBackupToModal = false">取消</button>
+            <button class="btn-primary" @click="handleBackupTo" :disabled="backingUp">
+              {{ backingUp ? "备份中..." : "确认备份" }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -171,4 +316,20 @@ function updateFilter(dir: string) {
 .cell-filename { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: 0.8125rem; }
 .source-dir-select { padding: 0.25rem 0.5rem; border: 1px solid var(--border); border-radius: 6px; background-color: var(--bg-card); color: var(--text-primary); font-size: 0.8125rem; outline: none; cursor: pointer; min-width: 120px; }
 .source-dir-select:focus { border-color: var(--accent); }
+
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.modal-content { background: var(--bg-card); border-radius: 12px; width: 420px; max-width: 90vw; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); }
+.modal-header h3 { margin: 0; font-size: 1rem; }
+.modal-body { padding: 1.25rem; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 0.5rem; padding: 1rem 1.25rem; border-top: 1px solid var(--border); }
+.form-group { margin-top: 1rem; }
+.form-group label { display: block; margin-bottom: 0.5rem; font-size: 0.875rem; color: var(--text-secondary); }
+.backup-dir-select { width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; background-color: var(--bg-card); color: var(--text-primary); font-size: 0.875rem; outline: none; }
+.backup-dir-select:focus { border-color: var(--accent); }
+.btn-secondary { padding: 0.5rem 1rem; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--text-primary); cursor: pointer; font-size: 0.875rem; }
+.btn-secondary:hover { background: var(--bg-secondary); }
+.btn-primary { padding: 0.5rem 1rem; border: none; border-radius: 6px; background: var(--accent); color: white; cursor: pointer; font-size: 0.875rem; }
+.btn-primary:hover { opacity: 0.9; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>

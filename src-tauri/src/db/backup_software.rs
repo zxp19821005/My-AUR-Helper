@@ -179,4 +179,38 @@ impl Database {
         }
         Ok(items)
     }
+
+    /// 按包名查询备份记录（模糊匹配文件名开头）
+    /// @param pkgname - 软件包名称
+    /// @returns 匹配的备份记录列表
+    pub fn get_backup_entries_by_pkgname(
+        &self,
+        pkgname: &str,
+    ) -> AppResult<Vec<BackupSoftwareEntry>> {
+        let like_pattern = format!("{}%-", pkgname);
+        let mut stmt = self.conn.prepare(
+            "SELECT id, filename, epoch, pkgver, pkgrel, arch, subdirectory, full_path
+             FROM backup_software WHERE filename LIKE ?1 ORDER BY filename"
+        )?;
+        let rows = stmt.query_map(rusqlite::params![like_pattern], |row| {
+            let filename: String = row.get(1)?;
+            let pkgname = extract_pkgname(&filename);
+            Ok(BackupSoftwareEntry {
+                id: row.get(0)?,
+                pkgname,
+                filename,
+                epoch: row.get(2)?,
+                pkgver: row.get(3)?,
+                pkgrel: row.get(4)?,
+                arch: row.get(5)?,
+                subdirectory: row.get(6).ok(),
+                full_path: row.get(7)?,
+            })
+        })?;
+        let mut items = Vec::new();
+        for row in rows {
+            items.push(row?);
+        }
+        Ok(items)
+    }
 }
