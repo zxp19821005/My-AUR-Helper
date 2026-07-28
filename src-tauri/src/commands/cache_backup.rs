@@ -19,32 +19,57 @@ struct CacheDir {
 
 /// 从 settings 表获取启用的缓存目录列表
 fn get_cache_dirs(db: &crate::db::Database) -> AppResult<Vec<CacheDir>> {
-    let system_dir = db.get_setting("cache_dir_system")?.and_then(|s| {
-        if s.value.is_empty() {
-            None
-        } else {
-            Some(CacheDir { path: s.value })
-        }
-    });
-    let paru_dir = db.get_setting("cache_dir_paru")?.and_then(|s| {
-        if s.value.is_empty() {
-            None
-        } else {
-            Some(CacheDir { path: s.value })
-        }
-    });
-    let yay_dir = db.get_setting("cache_dir_yay")?.and_then(|s| {
-        if s.value.is_empty() {
-            None
-        } else {
-            Some(CacheDir { path: s.value })
-        }
-    });
-
     let mut dirs = Vec::new();
-    if let Some(d) = system_dir { dirs.push(d); }
-    if let Some(d) = paru_dir { dirs.push(d); }
-    if let Some(d) = yay_dir { dirs.push(d); }
+    
+    // 系统缓存
+    if let Some(system_dir) = db.get_setting("cache_dir_system")? {
+        let system_enabled = db.get_setting("cache_dir_system_enabled")?
+            .map(|s| s.value != "false")
+            .unwrap_or(true);
+        
+        if system_enabled && !system_dir.value.is_empty() {
+            dirs.push(CacheDir { path: system_dir.value });
+        }
+    }
+    
+    // paru 缓存
+    if let Some(paru_dir) = db.get_setting("cache_dir_paru")? {
+        let paru_enabled = db.get_setting("cache_dir_paru_enabled")?
+            .map(|s| s.value != "false")
+            .unwrap_or(true);
+        
+        if paru_enabled && !paru_dir.value.is_empty() {
+            dirs.push(CacheDir { path: paru_dir.value });
+        }
+    }
+    
+    // yay 缓存
+    if let Some(yay_dir) = db.get_setting("cache_dir_yay")? {
+        let yay_enabled = db.get_setting("cache_dir_yay_enabled")?
+            .map(|s| s.value != "false")
+            .unwrap_or(true);
+        
+        if yay_enabled && !yay_dir.value.is_empty() {
+            dirs.push(CacheDir { path: yay_dir.value });
+        }
+    }
+    
+    // 自定义缓存目录
+    if let Some(custom_dirs) = db.get_setting("cache_dirs_custom")? {
+        if !custom_dirs.value.is_empty() {
+            if let Ok(custom_list) = serde_json::from_str::<Vec<serde_json::Value>>(&custom_dirs.value) {
+                for dir in custom_list {
+                    let path = dir.get("path").and_then(|v| v.as_str()).unwrap_or("");
+                    let is_enabled = dir.get("is_enabled").and_then(|v| v.as_bool()).unwrap_or(true);
+                    
+                    if is_enabled && !path.is_empty() {
+                        dirs.push(CacheDir { path: path.to_string() });
+                    }
+                }
+            }
+        }
+    }
+    
     Ok(dirs)
 }
 

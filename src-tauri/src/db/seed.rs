@@ -126,15 +126,39 @@ impl Database {
                 "cache",
             ),
             (
+                "cache_dir_system_enabled",
+                "true",
+                "是否启用系统缓存目录",
+                "cache",
+            ),
+            (
                 "cache_dir_paru",
                 "",
                 "paru AUR 助手缓存目录（留空则不使用）",
                 "cache",
             ),
             (
+                "cache_dir_paru_enabled",
+                "true",
+                "是否启用 paru 缓存目录",
+                "cache",
+            ),
+            (
                 "cache_dir_yay",
                 "",
                 "yay AUR 助手缓存目录（留空则不使用）",
+                "cache",
+            ),
+            (
+                "cache_dir_yay_enabled",
+                "true",
+                "是否启用 yay 缓存目录",
+                "cache",
+            ),
+            (
+                "cache_dirs_custom",
+                "",
+                "自定义缓存目录配置（JSON 格式）",
                 "cache",
             ),
         ];

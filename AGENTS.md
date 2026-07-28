@@ -109,7 +109,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/db/backup_software.rs` | 备份软件表 |
 | `src-tauri/src/db/cache_software.rs` | 缓存软件表 |
 | `src-tauri/src/db/logs.rs` | 日志表 |
-| `src-tauri/src/db/settings.rs` | 设置表（含缓存目录配置） |
+| `src-tauri/src/db/settings.rs` | 设置表（含缓存目录配置、启用/禁用） |
 | `src-tauri/src/commands/` | Tauri IPC 命令（software/sys_command/enums 等） |
 | `src-tauri/src/commands/upstream_validate.rs` | 上游 URL 验证命令 |
 | `src-tauri/src/commands/backup/` | 备份管理命令模块（目录结构） |

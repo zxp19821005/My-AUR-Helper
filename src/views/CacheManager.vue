@@ -63,19 +63,36 @@ onMounted(async () => {
 async function loadCacheDirs() {
   const dirs: {name: string, path: string}[] = [];
   
+  // 系统缓存
   const systemDir = await invoke<{ value: string } | null>("get_setting", { key: "cache_dir_system" });
-  if (systemDir?.value) {
+  const systemEnabled = await invoke<{ value: string } | null>("get_setting", { key: "cache_dir_system_enabled" });
+  if (systemDir?.value && systemEnabled?.value !== "false") {
     dirs.push({ name: "系统缓存", path: systemDir.value });
   }
   
+  // paru 缓存
   const paruDir = await invoke<{ value: string } | null>("get_setting", { key: "cache_dir_paru" });
-  if (paruDir?.value) {
+  const paruEnabled = await invoke<{ value: string } | null>("get_setting", { key: "cache_dir_paru_enabled" });
+  if (paruDir?.value && paruEnabled?.value !== "false") {
     dirs.push({ name: "paru 缓存", path: paruDir.value });
   }
   
+  // yay 缓存
   const yayDir = await invoke<{ value: string } | null>("get_setting", { key: "cache_dir_yay" });
-  if (yayDir?.value) {
+  const yayEnabled = await invoke<{ value: string } | null>("get_setting", { key: "cache_dir_yay_enabled" });
+  if (yayDir?.value && yayEnabled?.value !== "false") {
     dirs.push({ name: "yay 缓存", path: yayDir.value });
+  }
+  
+  // 自定义缓存目录
+  const customDirs = await invoke<{ value: string } | null>("get_setting", { key: "cache_dirs_custom" });
+  if (customDirs?.value) {
+    const customList: { name: string; path: string; is_enabled: boolean }[] = JSON.parse(customDirs.value);
+    for (const dir of customList) {
+      if (dir.path && dir.is_enabled) {
+        dirs.push({ name: dir.name, path: dir.path });
+      }
+    }
   }
   
   cacheDirs.value = dirs;
