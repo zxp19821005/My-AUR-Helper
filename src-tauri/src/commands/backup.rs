@@ -138,20 +138,14 @@ pub async fn scan_backup_directory(
         }
     }
 
-    // 获取所有软件包名称到 ID 的映射
+    // 写入数据库
     let mut count = 0;
     {
         let db = state.db.lock().map_err(|e| {
             crate::errors::AppError::DatabaseError(format!("获取数据库锁失败: {}", e))
         })?;
 
-        let all_software = db.get_all_software()?;
-        let mut name_to_id = std::collections::HashMap::new();
-        for sw in &all_software {
-            name_to_id.insert(sw.pkgname.clone(), sw.software_id.unwrap_or(0));
-        }
-
-        for (filename, name, epoch, version, pkgrel, arch, subdirectory, full_path) in
+        for (filename, _name, epoch, version, pkgrel, arch, subdirectory, full_path) in
             &scanned_files
         {
             // 检查是否已存在
@@ -159,12 +153,8 @@ pub async fn scan_backup_directory(
                 continue;
             }
 
-            // 查找对应的 software_id
-            let software_id = name_to_id.get(name).copied();
-
             let bs = BackupSoftware {
                 id: None,
-                software_id,
                 filename: filename.clone(),
                 epoch: *epoch,
                 pkgver: version.clone(),

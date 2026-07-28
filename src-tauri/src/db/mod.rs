@@ -73,7 +73,7 @@ impl Database {
         Ok(())
     }
 
-    /// 迁移 backup_software 表：使 software_id 可空、添加 pkgver/full_path 字段、移除外键约束
+    /// 迁移 backup_software 表：移除 software_id、添加 pkgver/full_path 字段
     fn migrate_backup_software(&self) -> AppResult<()> {
         // 检查表是否存在
         let exists: bool = self.conn.query_row(
@@ -86,20 +86,11 @@ impl Database {
         }
 
         let columns = self.get_table_columns("backup_software")?;
-        let has_fk: bool = self.conn.query_row(
-            "SELECT COUNT(*) > 0 FROM pragma_foreign_key_list('backup_software')",
-            [],
-            |row| row.get(0),
-        )?;
+        let has_software_id = columns.contains(&"software_id".to_string());
         let has_pkgver = columns.contains(&"pkgver".to_string());
         let has_full_path = columns.contains(&"full_path".to_string());
 
-        let sw_col_nullable: bool = self.conn.query_row(
-            "SELECT \"notnull\" = 0 FROM pragma_table_info('backup_software') WHERE name='software_id'",
-            [],
-            |row| row.get(0),
-        )?;
-        if sw_col_nullable && !has_fk && has_pkgver && has_full_path {
+        if !has_software_id && has_pkgver && has_full_path {
             return Ok(());
         }
 
@@ -107,7 +98,6 @@ impl Database {
 
         let new_schema = "CREATE TABLE backup_software_new (
             id           INTEGER PRIMARY KEY AUTOINCREMENT,
-            software_id  INTEGER,
             filename     TEXT NOT NULL,
             epoch        INTEGER NOT NULL DEFAULT 0,
             pkgver       TEXT NOT NULL DEFAULT '',
@@ -117,7 +107,7 @@ impl Database {
             full_path    TEXT NOT NULL DEFAULT ''
         );";
 
-        // 为旧数据构建 full_path
+        // 构建 full_path（如果旧表没有则从 subdir+filename 拼接）
         let has_subdir = columns.contains(&"subdirectory".to_string());
         let subdir_expr = if has_subdir { "subdirectory" } else { "''" };
         let full_path_expr = format!(
@@ -125,19 +115,26 @@ impl Database {
             subdir = subdir_expr
         );
 
-        let insert_sql = if has_pkgver {
+        // 构建列列表（根据旧表有哪些列来决定）
+        let select_cols = if has_pkgver {
             format!(
-                "INSERT INTO backup_software_new (id, software_id, filename, epoch, pkgver, pkgrel, arch, subdirectory, full_path)
-                 SELECT id, software_id, filename, epoch, pkgver, pkgrel, arch, subdirectory, {fp} FROM backup_software;",
+                "id, filename, epoch, pkgver, pkgrel, arch, {subdir}, {fp}",
+                subdir = subdir_expr,
                 fp = full_path_expr
             )
         } else {
             format!(
-                "INSERT INTO backup_software_new (id, software_id, filename, epoch, pkgver, pkgrel, arch, subdirectory, full_path)
-                 SELECT id, software_id, filename, epoch, '', pkgrel, arch, subdirectory, {fp} FROM backup_software;",
+                "id, filename, epoch, '', pkgrel, arch, {subdir}, {fp}",
+                subdir = subdir_expr,
                 fp = full_path_expr
             )
         };
+
+        let insert_sql = format!(
+            "INSERT INTO backup_software_new (id, filename, epoch, pkgver, pkgrel, arch, subdirectory, full_path)
+             SELECT {cols} FROM backup_software;",
+            cols = select_cols
+        );
 
         self.conn.execute_batch("PRAGMA foreign_keys=OFF;")?;
         self.conn
@@ -147,9 +144,6 @@ impl Database {
         self.conn.execute_batch("DROP TABLE backup_software;")?;
         self.conn
             .execute_batch("ALTER TABLE backup_software_new RENAME TO backup_software;")?;
-        self.conn.execute_batch(
-            "CREATE INDEX IF NOT EXISTS idx_backup_software_pkg ON backup_software(software_id);",
-        )?;
         self.conn.execute_batch("PRAGMA foreign_keys=ON;")?;
         Ok(())
     }

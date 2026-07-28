@@ -54,7 +54,6 @@ impl Database {
             -- 备份软件包记录表
             CREATE TABLE IF NOT EXISTS backup_software (
                 id           INTEGER PRIMARY KEY AUTOINCREMENT,
-                software_id  INTEGER,
                 filename     TEXT NOT NULL,
                 epoch        INTEGER NOT NULL DEFAULT 0,
                 pkgver       TEXT NOT NULL DEFAULT '',

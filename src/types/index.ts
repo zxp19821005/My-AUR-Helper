@@ -197,7 +197,6 @@ export interface CachePackage {
 /** 备份软件包列表展示条目（含软件包名称） */
 export interface BackupSoftwareEntry {
   id: number;
-  software_id: number | null;
   pkgname: string;
   filename: string;
   epoch: number;
