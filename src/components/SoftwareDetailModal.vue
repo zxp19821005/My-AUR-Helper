@@ -1,12 +1,29 @@
+<!--
+  SoftwareDetailModal.vue - 软件详情弹窗组件
+
+  功能：
+  - 显示软件包的完整信息（基本信息、AUR 信息、上游信息）
+  - 支持前后导航（上一个/下一个软件包）
+  - 提供操作按钮：编辑、删除、更新 AUR、同步 PKGBUILD、检查更新
+
+  注意：复用 SoftwareInfoCard、SoftwareAurCard、SoftwareUpstreamCard 组件
+-->
 <script setup lang="ts">
 import { ref, watch, onMounted } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { SoftwareDetail, Language } from "../types";
-import { pkgTypeOptions, checkerTypeOptions } from "../utils/enums";
 import Modal from "./common/Modal.vue";
 import SoftwareFormModal from "./SoftwareFormModal.vue";
 import FloatingNav from "./FloatingNav.vue";
 import DetailToolbar from "./DetailToolbar.vue";
+import SoftwareInfoCard from "./SoftwareInfoCard.vue";
+import SoftwareAurCard from "./SoftwareAurCard.vue";
+import SoftwareUpstreamCard from "./SoftwareUpstreamCard.vue";
+import {
+  formatLicense,
+  parseJsonList,
+  getLanguageNames,
+} from "../utils/format";
 
 const props = defineProps<{
   show: boolean;
@@ -39,27 +56,6 @@ async function loadLanguages() {
   }
 }
 
-function getLanguageNames(ids: number[] | null | undefined): string {
-  if (!ids || ids.length === 0) return '—';
-  return ids
-    .map(id => languages.value.find(l => l.id === id)?.name)
-    .filter(Boolean)
-    .join(', ') || '—';
-}
-
-function formatLicense(licenseJson: string | null | undefined): string {
-  if (!licenseJson) return '—';
-  try {
-    const parsed = JSON.parse(licenseJson);
-    if (Array.isArray(parsed)) {
-      return parsed.length > 0 ? parsed.join(', ') : '—';
-    }
-  } catch {
-    // Not JSON, return as is
-  }
-  return licenseJson;
-}
-
 onMounted(() => {
   loadLanguages();
 });
@@ -69,7 +65,9 @@ async function loadSoftware() {
   loading.value = true;
   error.value = "";
   try {
-    detail.value = await invoke<SoftwareDetail | null>("get_software_detail", { pkgname: props.pkgname });
+    detail.value = await invoke<SoftwareDetail | null>("get_software_detail", {
+      pkgname: props.pkgname,
+    });
     if (!detail.value) error.value = "未找到软件包";
     await loadNav();
   } catch (e) {
@@ -81,14 +79,20 @@ async function loadSoftware() {
 
 async function loadNav() {
   try {
-    const [prev, next] = await invoke<[string | null, string | null]>("get_prev_next_software", { pkgname: props.pkgname });
+    const [prev, next] = await invoke<[string | null, string | null]>(
+      "get_prev_next_software",
+      { pkgname: props.pkgname }
+    );
     prevPkgname.value = prev;
     nextPkgname.value = next;
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 function navigate(direction: "prev" | "next") {
-  const target = direction === "prev" ? prevPkgname.value : nextPkgname.value;
+  const target =
+    direction === "prev" ? prevPkgname.value : nextPkgname.value;
   if (target) emit("navigate", target);
 }
 
@@ -97,7 +101,9 @@ async function updateAurInfo() {
   updatingAur.value = true;
   error.value = "";
   try {
-    await invoke<number>("update_aur_info", { pkgnameList: [detail.value.pkgname] });
+    await invoke<number>("update_aur_info", {
+      pkgnameList: [detail.value.pkgname],
+    });
     await loadSoftware();
   } catch (e) {
     error.value = String(e);
@@ -111,7 +117,9 @@ async function updatePkgbuild() {
   updatingPkgbuild.value = true;
   error.value = "";
   try {
-    await invoke<number>("sync_from_pkgbuild", { pkgname: detail.value.pkgname });
+    await invoke<number>("sync_from_pkgbuild", {
+      pkgname: detail.value.pkgname,
+    });
     await loadSoftware();
   } catch (e) {
     error.value = String(e);
@@ -125,7 +133,9 @@ async function checkUpdate() {
   checking.value = true;
   error.value = "";
   try {
-    await invoke<string>("check_upstream_version", { pkgname: detail.value.pkgname });
+    await invoke<string>("check_upstream_version", {
+      pkgname: detail.value.pkgname,
+    });
     await loadSoftware();
   } catch (e) {
     error.value = String(e);
@@ -150,32 +160,18 @@ async function handleDelete() {
   }
 }
 
-function formatTimestamp(ts: number | null): string {
-  return ts ? new Date(ts * 1000).toLocaleDateString("zh-CN", {
-    year: "numeric", month: "2-digit", day: "2-digit",
-  }) : "—";
-}
-
-function getPkgTypeName(id: number | null): string {
-  return pkgTypeOptions.find(t => t.id === id)?.label || '未知';
-}
-
-function getCheckerTypeName(id: number | null): string {
-  return checkerTypeOptions.find(c => c.id === id)?.label || '未知';
-}
-
-function parseJsonList(val: string | null): string {
-  if (!val) return '—';
-  try {
-    const arr = JSON.parse(val);
-    return Array.isArray(arr) ? arr.join(', ') : val;
-  } catch {
-    return val;
+watch(
+  () => props.pkgname,
+  () => {
+    if (props.show) loadSoftware();
   }
-}
-
-watch(() => props.pkgname, () => { if (props.show) loadSoftware(); });
-watch(() => props.show, (val) => { if (!val) showEditModal.value = false; });
+);
+watch(
+  () => props.show,
+  (val) => {
+    if (!val) showEditModal.value = false;
+  }
+);
 </script>
 
 <template>
@@ -192,72 +188,113 @@ watch(() => props.show, (val) => { if (!val) showEditModal.value = false; });
 
     <div v-else-if="detail" class="detail-content">
       <div class="section">
-        <h4 class="section-title">基本信息</h4>
         <div class="badge-row">
-          <span :class="['status-badge', detail.is_outdated ? 'outdated' : 'latest']">
-            {{ detail.is_outdated ? '需更新' : '已最新' }}
+          <span
+            :class="[
+              'status-badge',
+              detail.is_outdated ? 'outdated' : 'latest',
+            ]"
+          >
+            {{ detail.is_outdated ? "需更新" : "已最新" }}
           </span>
-          <span class="type-tag">{{ getPkgTypeName(detail.package_type_id) }}</span>
-          <span class="type-tag">{{ getCheckerTypeName(detail.checker_type_id) }}</span>
         </div>
         <table class="info-table">
           <tbody>
-            <tr><td class="label">上游地址</td><td class="value url-cell">
-              <a v-if="detail.upstream_url" :href="detail.upstream_url" target="_blank">{{ detail.upstream_url }}</a>
-              <span v-else>未设置</span></td></tr>
-            <tr><td class="label">包描述</td><td class="value">{{ detail.aur_pkgdesc || '—' }}</td></tr>
-            <tr><td class="label">版本提取关键字</td><td class="value">
-              <code v-if="detail.version_extract_regex">{{ detail.version_extract_regex }}</code>
-              <span v-else class="empty">未设置</span></td></tr>
-            <tr><td class="label">运行时依赖</td><td class="value">{{ parseJsonList(detail.depends) }}</td></tr>
-            <tr><td class="label">构建依赖</td><td class="value">{{ parseJsonList(detail.makedepends) }}</td></tr>
-            <tr><td class="label">可选依赖</td><td class="value">{{ parseJsonList(detail.optdepends) }}</td></tr>
-            <tr><td class="label">编程语言</td><td class="value">{{ getLanguageNames(detail.language_ids) }}</td></tr>
+            <tr>
+              <td class="label">运行时依赖</td>
+              <td class="value">{{ parseJsonList(detail.depends) }}</td>
+            </tr>
+            <tr>
+              <td class="label">构建依赖</td>
+              <td class="value">{{ parseJsonList(detail.makedepends) }}</td>
+            </tr>
+            <tr>
+              <td class="label">可选依赖</td>
+              <td class="value">{{ parseJsonList(detail.optdepends) }}</td>
+            </tr>
+            <tr>
+              <td class="label">编程语言</td>
+              <td class="value">
+                {{ getLanguageNames(detail.language_ids, languages) }}
+              </td>
+            </tr>
           </tbody>
         </table>
         <div class="status-row">
           <span class="status-item">
             <span class="status-label">自动检查</span>
-            <span :class="['status-value', detail.auto_check_enabled ? 'enabled' : 'disabled']">
-              {{ detail.auto_check_enabled ? '已启用' : '已禁用' }}
+            <span
+              :class="[
+                'status-value',
+                detail.auto_check_enabled ? 'enabled' : 'disabled',
+              ]"
+            >
+              {{ detail.auto_check_enabled ? "已启用" : "已禁用" }}
             </span>
           </span>
           <span class="status-item">
             <span class="status-label">测试版本</span>
-            <span :class="['status-value', detail.check_test_versions ? 'enabled' : 'disabled']">
-              {{ detail.check_test_versions ? '已启用' : '已禁用' }}
+            <span
+              :class="[
+                'status-value',
+                detail.check_test_versions ? 'enabled' : 'disabled',
+              ]"
+            >
+              {{ detail.check_test_versions ? "已启用" : "已禁用" }}
             </span>
           </span>
           <span class="status-item">
             <span class="status-label">二进制文件</span>
-            <span :class="['status-value', detail.check_binary_files ? 'enabled' : 'disabled']">
-              {{ detail.check_binary_files ? '已启用' : '已禁用' }}
+            <span
+              :class="[
+                'status-value',
+                detail.check_binary_files ? 'enabled' : 'disabled',
+              ]"
+            >
+              {{ detail.check_binary_files ? "已启用" : "已禁用" }}
             </span>
           </span>
         </div>
+
+        <SoftwareInfoCard :detail="detail" />
       </div>
 
       <div class="side-by-side">
         <div class="section half-section">
-          <h4 class="section-title">AUR 信息</h4>
+          <h4 class="section-title">AUR 信息（扩展）</h4>
           <table class="info-table">
             <tbody>
-              <tr><td class="label">AUR 版本</td><td class="value version-cell">{{ detail.aur_version || '—' }}</td></tr>
-              <tr><td class="label">AUR License</td><td class="value">{{ formatLicense(detail.aur_license_name) }}</td></tr>
-              <tr><td class="label">更新时间</td><td class="value">{{ formatTimestamp(detail.aur_last_updated) }}</td></tr>
+              <tr>
+                <td class="label">AUR License</td>
+                <td class="value">
+                  {{ formatLicense(detail.aur_license_name) }}
+                </td>
+              </tr>
             </tbody>
           </table>
+          <SoftwareAurCard
+            :aur-version="detail.aur_version"
+            :aur-pkgdesc="detail.aur_pkgdesc"
+            :aur-last-updated="detail.aur_last_updated"
+          />
         </div>
 
         <div class="section half-section">
-          <h4 class="section-title">上游版本信息</h4>
+          <h4 class="section-title">上游版本信息（扩展）</h4>
           <table class="info-table">
             <tbody>
-              <tr><td class="label">上游版本</td><td class="value version-cell">{{ detail.upstream_version || '—' }}</td></tr>
-              <tr><td class="label">上游 License</td><td class="value">{{ formatLicense(detail.upstream_license_name) }}</td></tr>
-              <tr><td class="label">上次检查</td><td class="value">{{ formatTimestamp(detail.upstream_last_checked) }}</td></tr>
+              <tr>
+                <td class="label">上游 License</td>
+                <td class="value">
+                  {{ formatLicense(detail.upstream_license_name) }}
+                </td>
+              </tr>
             </tbody>
           </table>
+          <SoftwareUpstreamCard
+            :upstream-version="detail.upstream_version"
+            :upstream-last-checked="detail.upstream_last_checked"
+          />
         </div>
       </div>
     </div>
@@ -288,14 +325,42 @@ watch(() => props.show, (val) => { if (!val) showEditModal.value = false; });
 </template>
 
 <style scoped>
-.detail-header { text-align: center; margin-bottom: 0.75rem; }
-.pkg-title { font-size: 0.9375rem; font-weight: 600; color: var(--text-primary); margin: 0; }
+.detail-header {
+  text-align: center;
+  margin-bottom: 0.75rem;
+}
+.pkg-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
 
-.loading-text { color: var(--text-secondary); text-align: center; padding: 1.5rem 0; }
-.detail-content { max-height: 75vh; overflow: visible; }
+.loading-text {
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 1.5rem 0;
+}
+.detail-content {
+  max-height: 75vh;
+  overflow: visible;
+}
 
-.side-by-side { display: flex; gap: 1rem; }
-.side-by-side .half-section { flex: 1; min-width: 0; }
+.side-by-side {
+  display: flex;
+  gap: 1rem;
+}
+.side-by-side .half-section {
+  flex: 1;
+  min-width: 0;
+}
+
+.section-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem;
+}
 
 .status-row {
   display: flex;
@@ -331,5 +396,22 @@ watch(() => props.show, (val) => { if (!val) showEditModal.value = false; });
 .status-value.disabled {
   color: var(--error);
   background: var(--error-bg);
+}
+
+.info-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.info-table .label {
+  width: 120px;
+  padding: 0.5rem 0;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  vertical-align: top;
+}
+.info-table .value {
+  padding: 0.5rem 0;
+  font-size: 0.875rem;
+  color: var(--text-primary);
 }
 </style>

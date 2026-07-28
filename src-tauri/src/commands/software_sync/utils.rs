@@ -152,3 +152,55 @@ pub fn build_checker_settings(db: &crate::db::Database) -> crate::checkers::Chec
         gitlab_token: get_setting_opt(db, "gitlab_token"),
     }
 }
+
+/// 从 AUR JSON 数据中提取通用字段
+///
+/// 从 AUR RPC 返回的 JSON 对象中提取描述、版本、URL、修改时间等通用字段，
+/// 避免在多个函数中重复相同的解析逻辑。
+///
+/// # 参数
+/// - `data`: AUR RPC 返回的单个软件包 JSON 数据
+///
+/// # 返回
+/// - `AurParsedFields`: 解析后的通用字段集合
+pub struct AurParsedFields {
+    pub desc: Option<String>,
+    pub version: Option<String>,
+    pub url: Option<String>,
+    pub last_modified: Option<i64>,
+    pub license_spdx: Option<String>,
+    pub depends: Option<String>,
+    pub makedepends: Option<String>,
+    pub optdepends: Option<String>,
+    pub out_of_date: Option<bool>,
+}
+
+/// 解析 AUR JSON 数据为通用字段
+pub fn parse_aur_fields(data: &serde_json::Value) -> AurParsedFields {
+    let desc = data["Description"].as_str().map(|s| s.to_string());
+    let version = data["Version"].as_str().map(|s| s.to_string());
+    let url = data["URL"].as_str().map(|s| s.to_string());
+    let last_modified = data["LastModified"].as_i64();
+    let license_arr = data["License"].as_array();
+    let license_spdx = license_arr.map(|a| serde_json::to_string(a).unwrap_or_default());
+    let depends_arr = data["Depends"].as_array();
+    let depends = depends_arr.map(|a| serde_json::to_string(a).unwrap_or_default());
+    let makedepends_arr = data["MakeDepends"].as_array();
+    let makedepends = makedepends_arr.map(|a| serde_json::to_string(a).unwrap_or_default());
+    let optdepends_arr = data["OptDepends"].as_array();
+    let optdepends = optdepends_arr.map(|a| serde_json::to_string(a).unwrap_or_default());
+    let out_of_date_val = data["OutOfDate"].as_i64();
+    let out_of_date = out_of_date_val.map(|v| v != 0);
+
+    AurParsedFields {
+        desc,
+        version,
+        url,
+        last_modified,
+        license_spdx,
+        depends,
+        makedepends,
+        optdepends,
+        out_of_date,
+    }
+}

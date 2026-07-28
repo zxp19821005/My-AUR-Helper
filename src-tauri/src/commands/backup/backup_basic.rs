@@ -13,7 +13,9 @@ use log::{error, info};
 use tauri::State;
 use tokio::fs;
 
-use super::dedup::{collect_files_to_delete, collect_pkg_map, parse_pkg_filename, DeduplicateResult};
+use super::dedup::{
+    collect_files_to_delete, collect_pkg_map, parse_pkg_filename, DeduplicateResult,
+};
 use crate::errors::AppResult;
 use crate::models::{BackupSoftware, BackupSoftwareEntry};
 use crate::AppState;
@@ -23,18 +25,20 @@ use crate::AppState;
 pub async fn list_backup_software(
     state: State<'_, AppState>,
 ) -> AppResult<Vec<BackupSoftwareEntry>> {
-    let db = state.db.lock().map_err(|e| {
-        crate::errors::AppError::DatabaseError(format!("获取数据库锁失败: {}", e))
-    })?;
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| crate::errors::AppError::DatabaseError(format!("获取数据库锁失败: {}", e)))?;
     db.get_all_backup_entries()
 }
 
 /// 清空备份表
 #[tauri::command]
 pub async fn clear_backup_software(state: State<'_, AppState>) -> AppResult<usize> {
-    let db = state.db.lock().map_err(|e| {
-        crate::errors::AppError::DatabaseError(format!("获取数据库锁失败: {}", e))
-    })?;
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| crate::errors::AppError::DatabaseError(format!("获取数据库锁失败: {}", e)))?;
     let count = db.clear_backup_software()?;
     info!("[备份管理] 已清空备份表，删除 {} 条记录", count);
     Ok(count)
@@ -98,7 +102,14 @@ pub async fn scan_backup_directory(
                 .filter(|s| !s.is_empty());
             let full_path = path.to_string_lossy().to_string();
             scanned_files.push((
-                filename, name, epoch, version, pkgrel, arch, subdirectory, full_path,
+                filename,
+                name,
+                epoch,
+                version,
+                pkgrel,
+                arch,
+                subdirectory,
+                full_path,
             ));
         }
     }
@@ -240,11 +251,10 @@ pub async fn delete_backup(
 
 /// 获取所有不重复的子目录列表
 #[tauri::command]
-pub async fn list_backup_subdirectories(
-    state: State<'_, AppState>,
-) -> AppResult<Vec<String>> {
-    let db = state.db.lock().map_err(|e| {
-        crate::errors::AppError::DatabaseError(format!("获取数据库锁失败: {}", e))
-    })?;
+pub async fn list_backup_subdirectories(state: State<'_, AppState>) -> AppResult<Vec<String>> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| crate::errors::AppError::DatabaseError(format!("获取数据库锁失败: {}", e)))?;
     db.get_backup_subdirectories()
 }

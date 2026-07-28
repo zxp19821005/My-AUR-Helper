@@ -1,3 +1,5 @@
+use crate::db::Database;
+use crate::errors::AppResult;
 /**
  * dedup.rs - 备份去重逻辑
  *
@@ -7,8 +9,6 @@
  * - DeduplicateResult: 去重结果结构体
  */
 use log::info;
-use crate::errors::AppResult;
-use crate::db::Database;
 
 /// 备份去重结果
 #[derive(Debug, Clone, serde::Serialize)]
@@ -52,8 +52,7 @@ pub fn collect_pkg_map(
 
     for entry in &entries {
         if let Some(id) = entry.id {
-            if let Some((name, epoch, version, pkgrel, _arch)) =
-                parse_pkg_filename(&entry.filename)
+            if let Some((name, epoch, version, pkgrel, _arch)) = parse_pkg_filename(&entry.filename)
             {
                 let full_ver = if epoch > 0 {
                     format!("{}:{}-{}", epoch, version, pkgrel)

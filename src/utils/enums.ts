@@ -6,12 +6,12 @@ export const pkgTypes: Record<number, string> = {
 };
 
 export const checkerTypes: Record<number, string> = {
-  1: "GitHub Tags",
-  2: "GitHub API",
+  1: "GitHub Tag",
+  2: "GitHub Release",
   3: "Gitee",
   4: "GitLab",
   5: "重定向",
-  6: "HTTP 页面解析",
+  6: "HTTP 页面",
   7: "手动",
 };
 
@@ -24,3 +24,18 @@ export const checkerTypeOptions = Object.entries(checkerTypes).map(([id, label])
   id: Number(id),
   label,
 }));
+
+export interface SelectOption<T> {
+  value: T;
+  label: string;
+}
+
+export const packageTypeFilterOptions: SelectOption<number | null>[] = [
+  { value: null, label: "全部" },
+  ...pkgTypeOptions.map((o) => ({ value: o.id, label: o.label })),
+];
+
+export const checkerTypeFilterOptions: SelectOption<number | null>[] = [
+  { value: null, label: "全部" },
+  ...checkerTypeOptions.map((o) => ({ value: o.id, label: o.label })),
+];

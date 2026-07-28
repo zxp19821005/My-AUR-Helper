@@ -18,9 +18,7 @@ pub async fn get_package_file_info(full_path: String) -> AppResult<String> {
         .args(["-Qip", &full_path])
         .output()
         .await
-        .map_err(|e| {
-            crate::errors::AppError::SystemCommand(format!("执行 pacman 失败: {}", e))
-        })?;
+        .map_err(|e| crate::errors::AppError::SystemCommand(format!("执行 pacman 失败: {}", e)))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -45,9 +43,7 @@ pub async fn check_sudoers_config() -> AppResult<bool> {
     let output = tokio::process::Command::new("whoami")
         .output()
         .await
-        .map_err(|e| {
-            crate::errors::AppError::SystemCommand(format!("获取用户名失败: {}", e))
-        })?;
+        .map_err(|e| crate::errors::AppError::SystemCommand(format!("获取用户名失败: {}", e)))?;
     let username = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
     // 检查 /etc/sudoers.d/aur-helper-backup 文件是否存在
@@ -68,9 +64,7 @@ pub async fn get_sudoers_command() -> AppResult<String> {
     let output = tokio::process::Command::new("whoami")
         .output()
         .await
-        .map_err(|e| {
-            crate::errors::AppError::SystemCommand(format!("获取用户名失败: {}", e))
-        })?;
+        .map_err(|e| crate::errors::AppError::SystemCommand(format!("获取用户名失败: {}", e)))?;
 
     let username = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
@@ -89,9 +83,7 @@ pub async fn install_backup_package(full_path: String) -> AppResult<String> {
         .args(["pacman", "-U", "--noconfirm", &full_path])
         .output()
         .await
-        .map_err(|e| {
-            crate::errors::AppError::SystemCommand(format!("执行安装失败: {}", e))
-        })?;
+        .map_err(|e| crate::errors::AppError::SystemCommand(format!("执行安装失败: {}", e)))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();

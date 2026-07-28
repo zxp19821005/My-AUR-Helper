@@ -10,6 +10,7 @@
 <script setup lang="ts">
 import { Filter, X, Search } from "@lucide/vue";
 import type { FilterState } from "../composables/usePackageList";
+import { packageTypeFilterOptions, checkerTypeFilterOptions } from "../utils/enums";
 
 const props = defineProps<{
   filterState: FilterState;
@@ -26,30 +27,31 @@ const emit = defineEmits<{
 }>();
 
 const quickFilterOptions = [
-  { key: "upstreamUrlEmpty" as const, label: "上游URL为空", description: "未配置上游仓库地址" },
-  { key: "aurUpdateFailed" as const, label: "AUR更新失败", description: "未获取到AUR版本信息" },
-  { key: "upstreamUpdateFailed" as const, label: "上游更新失败", description: "未获取到上游版本信息" },
-  { key: "upstreamUrlAbnormal" as const, label: "上游地址异常", description: "上游URL验证不通过" },
-  { key: "licenseMissing" as const, label: "License缺失", description: "未获取到上游License信息" },
-];
-
-const packageTypeOptions = [
-  { value: null, label: "全部" },
-  { value: 1, label: "编译安装" },
-  { value: 2, label: "二进制包" },
-  { value: 3, label: "Git仓库" },
-  { value: 4, label: "AppImage" },
-];
-
-const checkerTypeOptions = [
-  { value: null, label: "全部" },
-  { value: 1, label: "GitHub Release" },
-  { value: 2, label: "GitHub Tag" },
-  { value: 3, label: "Gitee" },
-  { value: 4, label: "GitLab" },
-  { value: 5, label: "重定向" },
-  { value: 6, label: "HTTP页面" },
-  { value: 7, label: "手动" },
+  {
+    key: "upstreamUrlEmpty" as const,
+    label: "上游URL为空",
+    description: "未配置上游仓库地址",
+  },
+  {
+    key: "aurUpdateFailed" as const,
+    label: "AUR更新失败",
+    description: "未获取到AUR版本信息",
+  },
+  {
+    key: "upstreamUpdateFailed" as const,
+    label: "上游更新失败",
+    description: "未获取到上游版本信息",
+  },
+  {
+    key: "upstreamUrlAbnormal" as const,
+    label: "上游地址异常",
+    description: "上游URL验证不通过",
+  },
+  {
+    key: "licenseMissing" as const,
+    label: "License缺失",
+    description: "未获取到上游License信息",
+  },
 ];
 
 function toggleQuickFilter(key: keyof FilterState["quickFilters"]) {
@@ -59,7 +61,10 @@ function toggleQuickFilter(key: keyof FilterState["quickFilters"]) {
   emit("update:filterState", newState);
 }
 
-function updateConditionFilter(key: "packageType" | "checkerType", value: number | null) {
+function updateConditionFilter(
+  key: "packageType" | "checkerType",
+  value: number | null
+) {
   const newState = { ...props.filterState };
   newState.conditionFilters = { ...newState.conditionFilters };
   newState.conditionFilters[key] = value;
@@ -87,7 +92,9 @@ function handleValidateUrls() {
           <div class="filter-title">
             <Filter :size="16" />
             <span>筛选条件</span>
-            <span v-if="activeFilterCount > 0" class="filter-badge">{{ activeFilterCount }}</span>
+            <span v-if="activeFilterCount > 0" class="filter-badge">
+              {{ activeFilterCount }}
+            </span>
           </div>
           <button class="btn-icon btn-icon-default" @click="handleClose">
             <X :size="16" />
@@ -124,9 +131,20 @@ function handleValidateUrls() {
                 <select
                   class="filter-select"
                   :value="filterState.conditionFilters.packageType"
-                  @change="updateConditionFilter('packageType', ($event.target as HTMLSelectElement).value === '' ? null : Number(($event.target as HTMLSelectElement).value))"
+                  @change="
+                    updateConditionFilter(
+                      'packageType',
+                      ($event.target as HTMLSelectElement).value === ''
+                        ? null
+                        : Number(($event.target as HTMLSelectElement).value)
+                    )
+                  "
                 >
-                  <option v-for="opt in packageTypeOptions" :key="opt.value ?? 'all'" :value="opt.value">
+                  <option
+                    v-for="opt in packageTypeFilterOptions"
+                    :key="opt.value ?? 'all'"
+                    :value="opt.value"
+                  >
                     {{ opt.label }}
                   </option>
                 </select>
@@ -136,9 +154,20 @@ function handleValidateUrls() {
                 <select
                   class="filter-select"
                   :value="filterState.conditionFilters.checkerType"
-                  @change="updateConditionFilter('checkerType', ($event.target as HTMLSelectElement).value === '' ? null : Number(($event.target as HTMLSelectElement).value))"
+                  @change="
+                    updateConditionFilter(
+                      'checkerType',
+                      ($event.target as HTMLSelectElement).value === ''
+                        ? null
+                        : Number(($event.target as HTMLSelectElement).value)
+                    )
+                  "
                 >
-                  <option v-for="opt in checkerTypeOptions" :key="opt.value ?? 'all'" :value="opt.value">
+                  <option
+                    v-for="opt in checkerTypeFilterOptions"
+                    :key="opt.value ?? 'all'"
+                    :value="opt.value"
+                  >
                     {{ opt.label }}
                   </option>
                 </select>

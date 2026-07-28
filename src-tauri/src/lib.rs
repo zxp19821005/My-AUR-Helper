@@ -210,6 +210,8 @@ pub fn run() {
             commands::upstream_validate::validate_upstream_urls, // 批量验证上游 URL
             // 扫描
             commands::scan::scan_pkg_files_cmd, // 扫描 .pkg.tar.zst 包文件
+            commands::cache_backup::scan_all_cache_dirs, // 扫描所有启用的缓存目录
+            commands::cache_backup::clear_cache_software, // 清空 cache_software 表
             commands::cache_backup::backup_cache_to_existing, // 备份缓存到已有备份位置
             commands::cache_backup::backup_cache_to_subdirectory, // 备份缓存到指定子目录
             // 备份管理
@@ -219,10 +221,10 @@ pub fn run() {
             commands::backup::deduplicate_backups,  // 软件去重
             commands::backup::delete_backup,        // 删除单个备份
             commands::backup::list_backup_subdirectories, // 获取子目录列表
-            commands::backup::get_package_file_info,      // 获取包文件信息
-            commands::backup::check_sudoers_config,       // 检测 sudoers 配置
-            commands::backup::get_sudoers_command,        // 获取 sudoers 配置命令
-            commands::backup::install_backup_package,     // 安装备份包
+            commands::backup::get_package_file_info, // 获取包文件信息
+            commands::backup::check_sudoers_config, // 检测 sudoers 配置
+            commands::backup::get_sudoers_command,  // 获取 sudoers 配置命令
+            commands::backup::install_backup_package, // 安装备份包
             // 代理管理
             commands::proxy::get_proxies,         // 获取所有代理列表
             commands::proxy::fetch_proxy_sources, // 从 Greasyfork 获取代理源

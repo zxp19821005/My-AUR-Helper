@@ -27,7 +27,7 @@ const {
 const {
   installing, sudoersCommand, showSudoersPrompt,
   pendingInstallPath, pendingInstallPkgname,
-  sudoersAvailable, infoDialogVisible, infoDialogLoading, infoDialogContent, infoDialogPkgname,
+  sudoersAvailable: _sudoersAvailable, infoDialogVisible, infoDialogLoading, infoDialogContent, infoDialogPkgname,
   checkSudoers, viewPackageInfo, closeInfoDialog,
   handleInstall, doInstall, closeSudoersPrompt, batchInstall,
 } = useBackupInstall();

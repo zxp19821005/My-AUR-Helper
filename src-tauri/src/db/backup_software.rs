@@ -147,7 +147,7 @@ impl Database {
     ) -> AppResult<Option<BackupSoftware>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, filename, epoch, pkgver, pkgrel, arch, subdirectory, full_path
-             FROM backup_software WHERE filename=?1"
+             FROM backup_software WHERE filename=?1",
         )?;
         let mut rows = stmt.query_map(rusqlite::params![filename], |row| {
             Ok(BackupSoftware {
@@ -170,7 +170,7 @@ impl Database {
         let mut stmt = self.conn.prepare(
             "SELECT DISTINCT subdirectory FROM backup_software
              WHERE subdirectory IS NOT NULL AND subdirectory != ''
-             ORDER BY subdirectory"
+             ORDER BY subdirectory",
         )?;
         let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
         let mut items = Vec::new();
@@ -190,7 +190,7 @@ impl Database {
         let like_pattern = format!("{}%-", pkgname);
         let mut stmt = self.conn.prepare(
             "SELECT id, filename, epoch, pkgver, pkgrel, arch, subdirectory, full_path
-             FROM backup_software WHERE filename LIKE ?1 ORDER BY filename"
+             FROM backup_software WHERE filename LIKE ?1 ORDER BY filename",
         )?;
         let rows = stmt.query_map(rusqlite::params![like_pattern], |row| {
             let filename: String = row.get(1)?;

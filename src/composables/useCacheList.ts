@@ -67,6 +67,9 @@ export function useCacheList() {
     loading.value = true;
     try {
       entries.value = await invoke<CachePackage[]>("scan_all_cache_dirs");
+    } catch (e) {
+      console.error("[缓存管理] 扫描缓存目录失败:", e);
+      throw e;
     } finally {
       loading.value = false;
       syncToolbar();

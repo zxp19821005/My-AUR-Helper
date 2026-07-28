@@ -1,11 +1,11 @@
+use crate::errors::AppResult;
+use rusqlite::Connection;
 /**
  * connection.rs - 数据库连接和初始化
  *
  * 提供 Database 结构体定义、连接创建、表初始化和迁移功能
  */
 use std::path::Path;
-use crate::errors::AppResult;
-use rusqlite::Connection;
 
 /// 数据库结构体，包装 rusqlite 连接
 pub struct Database {
@@ -185,9 +185,17 @@ impl Database {
     /// 获取指定表的所有列名（通过白名单验证防止 SQL 注入）
     pub(crate) fn get_table_columns(&self, table_name: &str) -> AppResult<Vec<String>> {
         const ALLOWED_TABLES: &[&str] = &[
-            "software_info", "aur_info", "upstream_info", "proxies_info",
-            "backup_software", "cache_software", "logs", "settings",
-            "enum_licenses", "enum_programming_languages", "proxies_test",
+            "software_info",
+            "aur_info",
+            "upstream_info",
+            "proxies_info",
+            "backup_software",
+            "cache_software",
+            "logs",
+            "settings",
+            "enum_licenses",
+            "enum_programming_languages",
+            "proxies_test",
         ];
         if !ALLOWED_TABLES.contains(&table_name) {
             return Err(crate::errors::AppError::DatabaseError(format!(

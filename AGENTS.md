@@ -117,13 +117,17 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/commands/backup/backup_basic.rs` | 备份基础操作（查询、扫描、去重、删除） |
 | `src-tauri/src/commands/backup/backup_install.rs` | 备份包安装和信息查询（pacman -Qip、sudoers、install） |
 | `src-tauri/src/commands/backup/dedup.rs` | 去重逻辑（文件名解析、版本比较） |
-| `src-tauri/src/commands/cache_backup.rs` | 缓存包备份命令（从 settings 读取缓存目录） |
+| `src-tauri/src/commands/cache_backup/` | 缓存包备份命令模块（目录结构，替换原单文件） |
+| `src-tauri/src/commands/cache_backup/mod.rs` | 模块声明和导出（dirs/backup/scan 子模块） |
+| `src-tauri/src/commands/cache_backup/dirs.rs` | 缓存目录通用工具（CacheDir、路径展开、包名解析、启用目录获取） |
+| `src-tauri/src/commands/cache_backup/backup.rs` | 备份命令（备份到已有目录/备份到子目录） |
+| `src-tauri/src/commands/cache_backup/scan.rs` | 扫描命令（清空缓存表/扫描所有缓存目录） |
 | `src-tauri/src/commands/software_sync/` | 软件包同步命令模块（目录结构） |
 | `src-tauri/src/commands/software_sync/mod.rs` | 模块声明和导出（不含具体实现） |
-| `src-tauri/src/commands/software_sync/aur.rs` | AUR 信息同步和更新命令 |
+| `src-tauri/src/commands/software_sync/aur.rs` | AUR 信息同步和更新命令（复用 parse_aur_fields） |
 | `src-tauri/src/commands/software_sync/upstream.rs` | 上游版本并行检查命令 |
 | `src-tauri/src/commands/software_sync/pkgbuild.rs` | PKGBUILD 文件同步命令 |
-| `src-tauri/src/commands/software_sync/utils.rs` | 同步工具函数和类型定义 |
+| `src-tauri/src/commands/software_sync/utils.rs` | 同步工具函数（AurParsedFields、parse_aur_fields 通用 AUR JSON 解析） |
 | `src-tauri/src/checkers/` | 版本检查器模块 |
 | `src-tauri/src/checkers/mod.rs` | 检查器模块入口和导出 |
 | `src-tauri/src/checkers/factory.rs` | 检查器工厂函数（get_checker） |
@@ -166,10 +170,21 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/router/index.ts` | Vue Router 路由配置 |
 | `src/views/` | 页面组件（每个页面一个文件） |
 | `src/components/DataTable.vue` | 通用数据表格组件（支持分页、搜索、选择） |
-| `src/components/FilterBar.vue` | 筛选器组件（快速筛选 + 条件筛选） |
-| `src/components/SettingsCacheSection.vue` | 缓存目录设置组件（CRUD、启用/禁用） |
+| `src/components/FilterBar.vue` | 筛选器组件（快速筛选 + 条件筛选，复用 enums.ts 中的枚举选项） |
+| `src/components/SettingsCacheSection.vue` | 缓存目录设置组件（使用 useCacheDirs composable） |
+| `src/components/BackupToModal.vue` | 备份到子目录弹窗组件（从 CacheManager 拆分） |
+| `src/components/SoftwareDetailModal.vue` | 软件详情弹窗（复用 SoftwareInfoCard/AurCard/UpstreamCard） |
+| `src/components/SoftwareInfoCard.vue` | 软件基本信息卡片组件 |
+| `src/components/SoftwareAurCard.vue` | AUR 信息卡片组件 |
+| `src/components/SoftwareUpstreamCard.vue` | 上游版本信息卡片组件 |
+| `src/components/common/Modal.vue` | 通用弹窗组件 |
+| `src/components/DetailToolbar.vue` | 详情页工具栏组件 |
+| `src/components/FloatingNav.vue` | 详情页浮动前后导航组件 |
 | `src/components/` | 通用组件（跨页面复用） |
+| `src/utils/enums.ts` | 枚举常量和共享选项（packageTypes/checkerTypes/filterOptions） |
+| `src/utils/format.ts` | 通用格式化工具（时间戳/License/JSON列表/枚举名称/语言名称） |
 | `src/composables/` | 组合式函数（hooks） |
+| `src/composables/useCacheDirs.ts` | 缓存目录管理 composable（SettingsCacheSection 和 CacheManager 复用） |
 | `src/composables/footer.ts` | 底部状态栏状态管理 |
 | `src/composables/packageActions.ts` | 软件包操作逻辑（同步、检查、删除） |
 | `src/composables/usePackageList.ts` | 软件包列表页逻辑（分页、搜索、选择） |

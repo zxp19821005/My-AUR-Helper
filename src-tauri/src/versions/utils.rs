@@ -3,7 +3,7 @@
  *
  * 提供版本比较、排序、查找最新版本等通用功能
  */
-use super::{AurVersion, UpstreamVersion, VersionComparison, comparison};
+use super::{comparison, AurVersion, UpstreamVersion, VersionComparison};
 
 /// 比较 AUR 版本与上游版本
 pub fn compare_versions(aur_version: &str, upstream_version: &str) -> VersionComparison {
@@ -31,7 +31,8 @@ pub fn compare_versions(aur_version: &str, upstream_version: &str) -> VersionCom
 
     log::debug!(
         "[版本比较] 标准化后比较: AUR={} vs 上游={}",
-        aur.normalized_version, upstream.normalized_version
+        aur.normalized_version,
+        upstream.normalized_version
     );
 
     let result =

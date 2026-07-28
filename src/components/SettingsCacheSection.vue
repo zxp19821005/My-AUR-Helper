@@ -5,102 +5,24 @@
   - 通过 settings 表配置缓存目录路径
   - 支持启用/禁用切换
   - 支持编辑、删除、添加缓存目录
+
+  注意：使用 useCacheDirs composable 管理目录状态，避免重复代码
 -->
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import { useCacheDirs, getDefaultCacheKey } from "../composables/useCacheDirs";
 
-interface CacheDir {
-  name: string;
-  path: string;
-  is_enabled: boolean;
-  is_default: boolean;
-}
+const { cacheDirs, loading, message, load, saveCustom, showMessage } = useCacheDirs();
 
-const message = ref("");
-const loading = ref(false);
-const cacheDirs = ref<CacheDir[]>([]);
 const editingIndex = ref<number | null>(null);
 const tempValues = ref({ name: "", path: "", is_enabled: true });
 const showAddForm = ref(false);
 const newCacheDir = ref({ name: "", path: "", is_enabled: true });
 
 onMounted(async () => {
-  await loadCacheDirs();
+  await load();
 });
-
-async function loadCacheDirs() {
-  try {
-    const dirs: CacheDir[] = [];
-    
-    // 系统缓存（默认）
-    const systemPath = await invoke<{ value: string } | null>("get_setting", { key: "cache_dir_system" });
-    const systemEnabled = await invoke<{ value: string } | null>("get_setting", { key: "cache_dir_system_enabled" });
-    dirs.push({
-      name: "系统缓存",
-      path: systemPath?.value || "/var/cache/pacman/pkg",
-      is_enabled: systemEnabled?.value !== "false",
-      is_default: true,
-    });
-    
-    // paru 缓存（默认）
-    const paruPath = await invoke<{ value: string } | null>("get_setting", { key: "cache_dir_paru" });
-    const paruEnabled = await invoke<{ value: string } | null>("get_setting", { key: "cache_dir_paru_enabled" });
-    if (paruPath?.value) {
-      dirs.push({
-        name: "paru 缓存",
-        path: paruPath.value,
-        is_enabled: paruEnabled?.value !== "false",
-        is_default: true,
-      });
-    }
-    
-    // yay 缓存（默认）
-    const yayPath = await invoke<{ value: string } | null>("get_setting", { key: "cache_dir_yay" });
-    const yayEnabled = await invoke<{ value: string } | null>("get_setting", { key: "cache_dir_yay_enabled" });
-    if (yayPath?.value) {
-      dirs.push({
-        name: "yay 缓存",
-        path: yayPath.value,
-        is_enabled: yayEnabled?.value !== "false",
-        is_default: true,
-      });
-    }
-    
-    // 自定义缓存目录（从 cache_dirs_custom 读取）
-    const customDirs = await invoke<{ value: string } | null>("get_setting", { key: "cache_dirs_custom" });
-    if (customDirs?.value) {
-      const customList: { name: string; path: string; is_enabled: boolean }[] = JSON.parse(customDirs.value);
-      for (const dir of customList) {
-        dirs.push({
-          name: dir.name,
-          path: dir.path,
-          is_enabled: dir.is_enabled,
-          is_default: false,
-        });
-      }
-    }
-    
-    cacheDirs.value = dirs;
-  } catch (e) {
-    message.value = "加载缓存目录失败: " + String(e);
-  }
-}
-
-async function saveCustomDirs() {
-  const customDirs = cacheDirs.value
-    .filter(d => !d.is_default)
-    .map(d => ({ name: d.name, path: d.path, is_enabled: d.is_enabled }));
-  
-  try {
-    await invoke("set_setting", {
-      key: "cache_dirs_custom",
-      value: JSON.stringify(customDirs),
-    });
-  } catch (e) {
-    throw e;
-  }
-}
 
 function startEdit(index: number) {
   editingIndex.value = index;
@@ -121,14 +43,14 @@ async function saveEdit(index: number) {
   loading.value = true;
   try {
     const dir = cacheDirs.value[index];
-    const key = getCacheKey(index, dir.is_default);
-    
+    const key = getDefaultCacheKey(index, cacheDirs.value);
+
     if (dir.is_default) {
       await invoke("set_setting", {
         key,
         value: tempValues.value.path,
       });
-      
+
       const enabledKey = `${key}_enabled`;
       await invoke("set_setting", {
         key: enabledKey,
@@ -138,13 +60,12 @@ async function saveEdit(index: number) {
       dir.name = tempValues.value.name;
       dir.path = tempValues.value.path;
       dir.is_enabled = tempValues.value.is_enabled;
-      await saveCustomDirs();
+      await saveCustom();
     }
-    
-    await loadCacheDirs();
+
+    await load();
     editingIndex.value = null;
-    message.value = "保存成功";
-    setTimeout(() => (message.value = ""), 2000);
+    showMessage("保存成功");
   } catch (e) {
     message.value = "保存失败: " + String(e);
   } finally {
@@ -152,29 +73,15 @@ async function saveEdit(index: number) {
   }
 }
 
-function getCacheKey(index: number, isDefault: boolean): string {
-  if (!isDefault) return "";
-  
-  const customDirsCount = cacheDirs.value.slice(0, index).filter(d => !d.is_default).length;
-  const defaultIndex = index - customDirsCount;
-  
-  switch (defaultIndex) {
-    case 0: return "cache_dir_system";
-    case 1: return "cache_dir_paru";
-    case 2: return "cache_dir_yay";
-    default: return "";
-  }
-}
-
 async function toggleEnabled(index: number) {
   loading.value = true;
   try {
     const dir = cacheDirs.value[index];
-    
+
     if (dir.is_default) {
-      const key = getCacheKey(index, true);
+      const key = getDefaultCacheKey(index, cacheDirs.value);
       const enabledKey = `${key}_enabled`;
-      
+
       dir.is_enabled = !dir.is_enabled;
       await invoke("set_setting", {
         key: enabledKey,
@@ -182,11 +89,10 @@ async function toggleEnabled(index: number) {
       });
     } else {
       dir.is_enabled = !dir.is_enabled;
-      await saveCustomDirs();
+      await saveCustom();
     }
-    
-    message.value = dir.is_enabled ? "已启用" : "已禁用";
-    setTimeout(() => (message.value = ""), 2000);
+
+    showMessage(dir.is_enabled ? "已启用" : "已禁用");
   } catch (e) {
     message.value = "操作失败: " + String(e);
   } finally {
@@ -196,18 +102,18 @@ async function toggleEnabled(index: number) {
 
 async function deleteCacheDir(index: number) {
   if (!confirm("确定要删除此缓存目录配置吗？")) return;
-  
+
   loading.value = true;
   try {
     const dir = cacheDirs.value[index];
-    
+
     if (dir.is_default) {
-      const key = getCacheKey(index, true);
+      const key = getDefaultCacheKey(index, cacheDirs.value);
       await invoke("set_setting", {
         key,
         value: "",
       });
-      
+
       const enabledKey = `${key}_enabled`;
       await invoke("set_setting", {
         key: enabledKey,
@@ -215,12 +121,11 @@ async function deleteCacheDir(index: number) {
       });
     } else {
       cacheDirs.value.splice(index, 1);
-      await saveCustomDirs();
+      await saveCustom();
     }
-    
-    await loadCacheDirs();
-    message.value = "删除成功";
-    setTimeout(() => (message.value = ""), 2000);
+
+    await load();
+    showMessage("删除成功");
   } catch (e) {
     message.value = "删除失败: " + String(e);
   } finally {
@@ -233,7 +138,7 @@ async function addCacheDir() {
     message.value = "请填写名称和路径";
     return;
   }
-  
+
   loading.value = true;
   try {
     cacheDirs.value.push({
@@ -242,13 +147,12 @@ async function addCacheDir() {
       is_enabled: newCacheDir.value.is_enabled,
       is_default: false,
     });
-    
-    await saveCustomDirs();
-    
+
+    await saveCustom();
+
     newCacheDir.value = { name: "", path: "", is_enabled: true };
     showAddForm.value = false;
-    message.value = "添加成功";
-    setTimeout(() => (message.value = ""), 2000);
+    showMessage("添加成功");
   } catch (e) {
     message.value = "添加失败: " + String(e);
   } finally {
