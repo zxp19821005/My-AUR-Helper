@@ -32,7 +32,7 @@ pub async fn get_setting(state: State<'_, AppState>, key: String) -> AppResult<O
 /// 注意：不记录 value 内容，防止敏感信息（如代理凭据）泄露到日志
 #[tauri::command]
 pub async fn set_setting(state: State<'_, AppState>, key: String, value: String) -> AppResult<()> {
-    debug!("正在设置配置: key={}", key);
+    debug!("正在设置配置: key={}, value_len={}", key, value.len());
     let db = state.db.lock()?;
     db.set_setting(&key, &value)?;
     info!("已设置配置: key={}", key);

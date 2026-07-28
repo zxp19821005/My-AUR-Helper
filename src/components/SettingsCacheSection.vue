@@ -60,13 +60,15 @@ async function saveEdit(type: "system" | "paru" | "yay") {
   const key = type === "system" ? "cache_dir_system" : 
               type === "paru" ? "cache_dir_paru" : 
               "cache_dir_yay";
+  const value = tempValues.value[type];
+  console.log("[SettingsCacheSection] 保存配置:", key, "=", value);
   loading.value = true;
   try {
     await invoke("set_setting", {
       key,
-      value: tempValues.value[type],
+      value,
     });
-    cacheDirs.value[type] = tempValues.value[type];
+    cacheDirs.value[type] = value;
     editing.value[type] = false;
     message.value = "保存成功";
     setTimeout(() => (message.value = ""), 2000);
