@@ -34,7 +34,7 @@ impl Database {
         self.migrate_enum_licenses()?;
         self.migrate_enum_programming_languages()?;
         self.migrate_backup_software()?;
-        self.migrate_cache_dirs()?;
+        self.migrate_cache_software()?;
         self.seed_defaults()?;
         self.ensure_no_fk_constraints()?;
         Ok(())
@@ -109,6 +109,76 @@ impl Database {
         self.conn
             .execute_batch("ALTER TABLE backup_software_new RENAME TO backup_software;")?;
         self.conn.execute_batch("PRAGMA foreign_keys=ON;")?;
+        Ok(())
+    }
+
+    /// 迁移 cache_software 表：移除 software_id 外键，添加 name/version/size/source_dir 字段
+    fn migrate_cache_software(&self) -> AppResult<()> {
+        let exists: bool = self.conn.query_row(
+            "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='cache_software'",
+            [],
+            |row| row.get(0),
+        )?;
+        if !exists {
+            return Ok(());
+        }
+
+        let columns = self.get_table_columns("cache_software")?;
+        let has_name = columns.contains(&"name".to_string());
+        let has_version = columns.contains(&"version".to_string());
+        let has_size = columns.contains(&"size".to_string());
+        let has_source_dir = columns.contains(&"source_dir".to_string());
+
+        // 如果所有新字段都已存在，跳过迁移
+        if has_name && has_version && has_size && has_source_dir {
+            return Ok(());
+        }
+
+        log::info!("[migrate_cache_software] 重建 cache_software 表");
+
+        let new_schema = "CREATE TABLE cache_software_new (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            software_id     INTEGER NOT NULL DEFAULT 0,
+            filename        TEXT NOT NULL,
+            name            TEXT NOT NULL DEFAULT '',
+            epoch           INTEGER NOT NULL DEFAULT 0,
+            version         TEXT NOT NULL DEFAULT '',
+            pkgrel          TEXT NOT NULL DEFAULT '1',
+            arch            TEXT NOT NULL DEFAULT 'x86_64',
+            size            INTEGER NOT NULL DEFAULT 0,
+            source_dir      TEXT,
+            cache_directory TEXT NOT NULL DEFAULT ''
+        );";
+
+        let name_expr = if has_name { "name" } else { "''" };
+        let version_expr = if has_version { "version" } else { "''" };
+        let size_expr = if has_size { "size" } else { "0" };
+        let source_dir_expr = if has_source_dir { "source_dir" } else { "NULL" };
+
+        let insert_sql = format!(
+            "INSERT INTO cache_software_new (id, software_id, filename, name, epoch, version, pkgrel, arch, size, source_dir, cache_directory)
+             SELECT id, software_id, filename, {name}, epoch, {version}, pkgrel, arch, {size}, {source_dir}, cache_directory
+             FROM cache_software;",
+            name = name_expr,
+            version = version_expr,
+            size = size_expr,
+            source_dir = source_dir_expr
+        );
+
+        self.conn.execute_batch("PRAGMA foreign_keys=OFF;")?;
+        self.conn
+            .execute_batch("DROP TABLE IF EXISTS cache_software_new;")?;
+        self.conn.execute_batch(new_schema)?;
+        self.conn.execute_batch(&insert_sql)?;
+        self.conn.execute_batch("DROP TABLE cache_software;")?;
+        self.conn
+            .execute_batch("ALTER TABLE cache_software_new RENAME TO cache_software;")?;
+        self.conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_cache_software_pkg ON cache_software(software_id);
+             CREATE INDEX IF NOT EXISTS idx_cache_software_name ON cache_software(name);",
+        )?;
+        self.conn.execute_batch("PRAGMA foreign_keys=ON;")?;
+        log::info!("[migrate_cache_software] cache_software 表已重建");
         Ok(())
     }
 

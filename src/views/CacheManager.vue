@@ -14,7 +14,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useCacheList, formatSize } from "../composables/useCacheList";
 import PageToolbar from "../components/PageToolbar.vue";
 import { Trash2, Scan, Copy, GitBranch } from "@lucide/vue";
-import type { CacheDir, DeduplicateResult } from "../types";
+import type { DeduplicateResult } from "../types";
 
 const {
   searchQuery, selectedIds, loading,
@@ -24,7 +24,7 @@ const {
 
 const scanning = ref(false);
 const sourceDirFilter = ref("");
-const cacheDirs = ref<CacheDir[]>([]);
+const cacheDirs = ref<{name: string, path: string}[]>([]);
 const backupPath = ref("");
 const backupSubdirectories = ref<string[]>([]);
 
@@ -33,11 +33,9 @@ const showBackupToModal = ref(false);
 const backupToSubdirectory = ref("");
 const backingUp = ref(false);
 
-// 所有可用的来源目录（从数据库读取）
+// 所有可用的来源目录（从 settings 读取）
 const sourceDirs = computed(() => {
-  return cacheDirs.value
-    .filter(d => d.is_enabled)
-    .sort((a, b) => a.sort_order - b.sort_order);
+  return cacheDirs.value.filter(d => d.path);
 });
 
 // 获取选中的文件名列表
@@ -49,7 +47,7 @@ const selectedFilenames = computed(() => {
 
 onMounted(async () => {
   try {
-    cacheDirs.value = await invoke("list_cache_dirs");
+    await loadCacheDirs();
   } catch (e) {
     console.error("加载缓存目录失败:", e);
   }
@@ -61,6 +59,27 @@ onMounted(async () => {
     backupSubdirectories.value = await invoke<string[]>("list_backup_subdirectories");
   } catch { /* ignore */ }
 });
+
+async function loadCacheDirs() {
+  const dirs: {name: string, path: string}[] = [];
+  
+  const systemDir = await invoke<{ value: string } | null>("get_setting", { key: "cache_dir_system" });
+  if (systemDir?.value) {
+    dirs.push({ name: "系统缓存", path: systemDir.value });
+  }
+  
+  const paruDir = await invoke<{ value: string } | null>("get_setting", { key: "cache_dir_paru" });
+  if (paruDir?.value) {
+    dirs.push({ name: "paru 缓存", path: paruDir.value });
+  }
+  
+  const yayDir = await invoke<{ value: string } | null>("get_setting", { key: "cache_dir_yay" });
+  if (yayDir?.value) {
+    dirs.push({ name: "yay 缓存", path: yayDir.value });
+  }
+  
+  cacheDirs.value = dirs;
+}
 
 // 根据来源目录筛选
 const filteredByDir = computed(() => {

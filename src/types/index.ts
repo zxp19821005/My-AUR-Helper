@@ -195,15 +195,6 @@ export interface CachePackage {
   source_dir: string | null;
 }
 
-/** 缓存目录配置 */
-export interface CacheDir {
-  id: number | null;
-  name: string;
-  path: string;
-  is_enabled: boolean;
-  sort_order: number;
-}
-
 /** 备份软件包列表展示条目（含软件包名称） */
 export interface BackupSoftwareEntry {
   id: number;

@@ -118,6 +118,25 @@ impl Database {
                 "编程语言管理列表每页显示行数",
                 "list",
             ),
+            // 缓存目录配置
+            (
+                "cache_dir_system",
+                "/var/cache/pacman/pkg",
+                "系统 pacman 缓存目录",
+                "cache",
+            ),
+            (
+                "cache_dir_paru",
+                "",
+                "paru AUR 助手缓存目录（留空则不使用）",
+                "cache",
+            ),
+            (
+                "cache_dir_yay",
+                "",
+                "yay AUR 助手缓存目录（留空则不使用）",
+                "cache",
+            ),
         ];
         for (key, value, description, category) in defaults {
             self.conn.execute(

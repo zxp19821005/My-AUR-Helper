@@ -107,10 +107,9 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/db/upstream_info.rs` | 上游版本信息表 |
 | `src-tauri/src/db/proxies_info.rs` | 代理配置表 |
 | `src-tauri/src/db/backup_software.rs` | 备份软件表 |
-| `src-tauri/src/db/cache_dirs.rs` | 缓存目录配置表 |
 | `src-tauri/src/db/cache_software.rs` | 缓存软件表 |
 | `src-tauri/src/db/logs.rs` | 日志表 |
-| `src-tauri/src/db/settings.rs` | 设置表 |
+| `src-tauri/src/db/settings.rs` | 设置表（含缓存目录配置） |
 | `src-tauri/src/commands/` | Tauri IPC 命令（software/sys_command/enums 等） |
 | `src-tauri/src/commands/upstream_validate.rs` | 上游 URL 验证命令 |
 | `src-tauri/src/commands/backup/` | 备份管理命令模块（目录结构） |
@@ -118,7 +117,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/commands/backup/backup_basic.rs` | 备份基础操作（查询、扫描、去重、删除） |
 | `src-tauri/src/commands/backup/backup_install.rs` | 备份包安装和信息查询（pacman -Qip、sudoers、install） |
 | `src-tauri/src/commands/backup/dedup.rs` | 去重逻辑（文件名解析、版本比较） |
-| `src-tauri/src/commands/cache_dirs.rs` | 缓存目录管理命令（CRUD、扫描） |
+| `src-tauri/src/commands/cache_backup.rs` | 缓存包备份命令（从 settings 读取缓存目录） |
 | `src-tauri/src/commands/software_sync/` | 软件包同步命令模块（目录结构） |
 | `src-tauri/src/commands/software_sync/mod.rs` | 模块声明和导出（不含具体实现） |
 | `src-tauri/src/commands/software_sync/aur.rs` | AUR 信息同步和更新命令 |

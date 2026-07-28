@@ -12,6 +12,42 @@ use crate::errors::AppResult;
 use crate::models::BackupSoftware;
 use crate::AppState;
 
+/// 缓存目录配置
+struct CacheDir {
+    path: String,
+}
+
+/// 从 settings 表获取启用的缓存目录列表
+fn get_cache_dirs(db: &crate::db::Database) -> AppResult<Vec<CacheDir>> {
+    let system_dir = db.get_setting("cache_dir_system")?.and_then(|s| {
+        if s.value.is_empty() {
+            None
+        } else {
+            Some(CacheDir { path: s.value })
+        }
+    });
+    let paru_dir = db.get_setting("cache_dir_paru")?.and_then(|s| {
+        if s.value.is_empty() {
+            None
+        } else {
+            Some(CacheDir { path: s.value })
+        }
+    });
+    let yay_dir = db.get_setting("cache_dir_yay")?.and_then(|s| {
+        if s.value.is_empty() {
+            None
+        } else {
+            Some(CacheDir { path: s.value })
+        }
+    });
+
+    let mut dirs = Vec::new();
+    if let Some(d) = system_dir { dirs.push(d); }
+    if let Some(d) = paru_dir { dirs.push(d); }
+    if let Some(d) = yay_dir { dirs.push(d); }
+    Ok(dirs)
+}
+
 /// 将缓存包备份到已有备份记录所在的子目录
 ///
 /// 如果软件名在备份表中存在，则将缓存文件复制到该备份记录所在的子目录。
@@ -51,7 +87,7 @@ pub async fn backup_cache_to_existing(
         let db = state.db.lock().map_err(|e| {
             crate::errors::AppError::DatabaseError(format!("获取数据库锁失败: {}", e))
         })?;
-        db.get_enabled_cache_dirs()?
+        get_cache_dirs(&db)?
     };
 
     for filename in &filenames {
@@ -157,7 +193,7 @@ pub async fn backup_cache_to_subdirectory(
         let db = state.db.lock().map_err(|e| {
             crate::errors::AppError::DatabaseError(format!("获取数据库锁失败: {}", e))
         })?;
-        db.get_enabled_cache_dirs()?
+        get_cache_dirs(&db)?
     };
 
     // 确定目标目录
@@ -244,7 +280,7 @@ fn extract_pkgname_from_cache(filename: &str) -> Option<String> {
 /// 在缓存目录中查找文件
 async fn find_cache_file(
     filename: &str,
-    cache_dirs: &[crate::models::CacheDir],
+    cache_dirs: &[CacheDir],
 ) -> Option<std::path::PathBuf> {
     for dir in cache_dirs {
         let path = std::path::Path::new(&dir.path);
