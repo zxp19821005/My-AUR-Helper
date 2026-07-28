@@ -111,6 +111,11 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/db/settings.rs` | 设置表 |
 | `src-tauri/src/commands/` | Tauri IPC 命令（software/sys_command/enums 等） |
 | `src-tauri/src/commands/upstream_validate.rs` | 上游 URL 验证命令 |
+| `src-tauri/src/commands/backup/` | 备份管理命令模块（目录结构） |
+| `src-tauri/src/commands/backup/mod.rs` | 模块声明和导出 |
+| `src-tauri/src/commands/backup/backup_basic.rs` | 备份基础操作（查询、扫描、去重、删除） |
+| `src-tauri/src/commands/backup/backup_install.rs` | 备份包安装和信息查询（pacman -Qip、sudoers、install） |
+| `src-tauri/src/commands/backup/dedup.rs` | 去重逻辑（文件名解析、版本比较） |
 | `src-tauri/src/commands/software_sync/` | 软件包同步命令模块（目录结构） |
 | `src-tauri/src/commands/software_sync/mod.rs` | 模块声明和导出（不含具体实现） |
 | `src-tauri/src/commands/software_sync/aur.rs` | AUR 信息同步和更新命令 |
@@ -163,6 +168,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/composables/packageActions.ts` | 软件包操作逻辑（同步、检查、删除） |
 | `src/composables/usePackageList.ts` | 软件包列表页逻辑（分页、搜索、选择） |
 | `src/composables/useBackupList.ts` | 备份管理列表页逻辑（分页、搜索、选择） |
+| `src/composables/useBackupInstall.ts` | 备份包安装逻辑（sudoers 检测、安装、包信息查询） |
 | `src/composables/useSoftwareForm.ts` | 软件包表单逻辑（验证、自动检测） |
 | `src/composables/useLicenseSelect.ts` | License 可搜索下拉框逻辑 |
 | `src/stores/` | Pinia 状态管理 |
