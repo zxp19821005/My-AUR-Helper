@@ -109,11 +109,6 @@ watch(
     <!-- 底部工具栏主体 -->
     <div class="bottom-toolbar">
       <div class="btf-left">
-        <button class="log-toggle-btn" @click="toggleLogPanel" :title="footer.logPanelExpanded ? '收起日志' : '展开日志'">
-          <ChevronUp v-if="footer.logPanelExpanded" :size="14" />
-          <ChevronDown v-else :size="14" />
-          <span v-if="footer.messages.length > 0" class="log-count-badge">{{ footer.messages.length }}</span>
-        </button>
         <span v-if="footer.infoText" class="info-text">{{ footer.infoText }}</span>
       </div>
       <div class="btf-center">
@@ -141,6 +136,11 @@ watch(
         </template>
       </div>
       <div class="btf-right">
+        <button class="log-toggle-btn" @click="toggleLogPanel" :title="footer.logPanelExpanded ? '收起日志' : '展开日志'">
+          <ChevronUp v-if="footer.logPanelExpanded" :size="14" />
+          <ChevronDown v-else :size="14" />
+          <span v-if="footer.messages.length > 0" class="log-count-badge">{{ footer.messages.length }}</span>
+        </button>
         <div v-if="footer.progress" class="btf-progress">
           <span v-if="footer.progress.message" class="btf-progress-msg">{{ footer.progress.message }}</span>
           <div class="btf-progress-track">
@@ -157,6 +157,7 @@ watch(
 .bottom-toolbar-wrapper {
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
   border-top: 1px solid var(--border);
   background-color: var(--bg-secondary);
 }
@@ -166,7 +167,11 @@ watch(
   display: flex;
   flex-direction: column;
   max-height: 200px;
+  width: 420px;
+  max-width: 100vw;
   border-bottom: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  border-radius: 8px 0 0 0;
 }
 
 .log-panel-header {
@@ -290,6 +295,7 @@ watch(
 .bottom-toolbar {
   display: flex;
   align-items: center;
+  align-self: stretch;
   justify-content: space-between;
   padding: 0.375rem 1.25rem;
   min-height: 36px;
