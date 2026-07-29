@@ -299,6 +299,8 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
   border-radius: 12px;
   border: 1px solid var(--border);
   padding: 1.5rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .setting-row {
@@ -344,6 +346,7 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
 .text-input {
   flex: 1;
   min-width: 0;
+  width: 100%;
   padding: 0.5rem 0.75rem;
   border-radius: 6px;
   border: 1px solid var(--border);
@@ -352,6 +355,8 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
   font-size: 0.875rem;
   font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
   transition: border-color 0.15s;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .text-input:focus {
