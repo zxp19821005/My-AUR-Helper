@@ -273,8 +273,8 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
 
 .setting-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 0.5rem;
   padding: 0.75rem 0;
   border-bottom: 1px solid var(--border);
 }
@@ -287,7 +287,6 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
   display: flex;
   flex-direction: column;
   gap: 0.125rem;
-  min-width: 200px;
 }
 
 .setting-desc {
@@ -299,12 +298,12 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  flex: 1;
-  max-width: 500px;
+  width: 100%;
 }
 
 .text-input {
   flex: 1;
+  min-width: 0;
   padding: 0.375rem 0.5rem;
   border-radius: 6px;
   border: 1px solid var(--border);
