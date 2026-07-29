@@ -16,6 +16,7 @@ import "./assets/base.css";
 import "./assets/components.css";
 import "./assets/modal.css";
 import "./assets/forms.css";
+import "./assets/styles/table-styles.css";
 
 // 应用保存的客户端设置
 // 这些设置存储在 localStorage 中，在应用启动时应用到文档

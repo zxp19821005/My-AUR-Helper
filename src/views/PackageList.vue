@@ -7,9 +7,17 @@
   - 提供批量操作：同步AUR、同步PKGBUILD、检查上游、删除
   - 支持单行操作：查看详情、编辑、同步、检查、删除
   - 支持筛选器：快速筛选（OR）+ 条件筛选（AND）
+
+  使用组件：
+  - StandardizedTable: 数据表格
+  - StandardizedBadge: 状态徽章
+  - PageToolbar: 页面工具栏
+  - FilterBar: 筛选器
+  - SoftwareFormModal: 软件表单弹窗
+  - SoftwareDetailModal: 软件详情弹窗
 -->
 <script setup lang="ts">
-import { onMounted, ref, computed } from "vue";
+import { onMounted, ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { usePackageStore } from "../stores/packages";
 import { usePackageActions } from "../composables/packageActions";
@@ -18,6 +26,8 @@ import PageToolbar from "../components/PageToolbar.vue";
 import FilterBar from "../components/FilterBar.vue";
 import SoftwareFormModal from "../components/SoftwareFormModal.vue";
 import SoftwareDetailModal from "../components/SoftwareDetailModal.vue";
+import StandardizedTable from "../components/common/StandardizedTable.vue";
+import StandardizedBadge from "../components/base/StandardizedBadge.vue";
 import {
   RefreshCw,
   Plus,
@@ -29,6 +39,7 @@ import {
   Filter,
 } from "@lucide/vue";
 import type { ValidateResult } from "../types";
+import type { Column } from "../composables/useTableState";
 
 const pkgStore = usePackageStore();
 
@@ -44,8 +55,6 @@ const {
   detailPkgname,
   pageData,
   fetchView,
-  toggleSelect,
-  toggleSelectAll,
   openAddModal,
   openEditModal,
   openDetailModal,
@@ -55,14 +64,6 @@ const {
   activeFilterCount,
   resetFilters,
 } = usePackageList();
-
-const isAllPageSelected = computed(() => {
-  return pageData.value.length > 0 && pageData.value.every(p => selectedPkgnames.value.has(p.pkgname));
-});
-
-const isPartialPageSelected = computed(() => {
-  return pageData.value.some(p => selectedPkgnames.value.has(p.pkgname)) && !isAllPageSelected.value;
-});
 
 const {
   loading,
@@ -83,12 +84,10 @@ const validating = ref(false);
 async function handleValidateUrls() {
   validating.value = true;
   try {
-    // 获取当前筛选后的包名列表
     const pkgnameList = pageData.value.map((p) => p.pkgname);
     const results = await invoke<ValidateResult[]>("validate_upstream_urls", {
       pkgnameList: pkgnameList.length > 0 ? pkgnameList : null,
     });
-    // 刷新列表以显示更新后的状态
     await fetchView();
     console.log(`验证完成: ${results.length} 个软件包`);
   } catch (error) {
@@ -101,6 +100,46 @@ async function handleValidateUrls() {
 
 function handleFilterUpdate(newState: typeof filterState.value) {
   filterState.value = newState;
+}
+
+/** 表格列配置 */
+const columns: Column[] = [
+  {
+    key: "pkgname",
+    title: "包名",
+    sortable: true,
+  },
+  {
+    key: "aur_version",
+    title: "AUR 版本",
+    sortable: true,
+  },
+  {
+    key: "aur_last_updated",
+    title: "AUR 最后提交",
+    formatter: (value: any) => fmtTimestamp(value),
+  },
+  {
+    key: "upstream_version",
+    title: "上游版本",
+    sortable: true,
+  },
+  {
+    key: "upstream_last_checked",
+    title: "上游检查日期",
+    formatter: (value: any) => fmtTimestamp(value),
+  },
+];
+
+/** 处理行点击 */
+function handleRowClick(row: any) {
+  openDetailModal(row.pkgname);
+}
+
+/** 处理选择变化 */
+function handleSelectionChange(selectedRows: any[]) {
+  // 更新选中状态（由StandardizedTable内部管理）
+  console.log(`已选中 ${selectedRows.length} 个软件包`);
 }
 
 onMounted(async () => {
@@ -153,64 +192,98 @@ onMounted(async () => {
       @reset-filters="resetFilters"
     />
 
-    <div class="card" style="overflow-x: auto; padding: 0">
-      <table class="pkg-table">
-        <thead>
-          <tr>
-            <th style="width: 2rem">
-              <input type="checkbox"
-                :checked="isAllPageSelected"
-                :indeterminate="isPartialPageSelected"
-                @change="toggleSelectAll" />
-            </th>
-            <th>包名</th>
-            <th>AUR 版本</th>
-            <th>AUR 最后提交</th>
-            <th>上游版本</th>
-            <th>上游检查日期</th>
-            <th style="min-width: 200px">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="pkg in pageData" :key="pkg.pkgname"
-            :class="{ 'row-selected': selectedPkgnames.has(pkg.pkgname) }">
-            <td @click.stop>
-              <input type="checkbox" :checked="selectedPkgnames.has(pkg.pkgname)"
-                @change="toggleSelect(pkg.pkgname)" />
-            </td>
-            <td>
-              <strong :class="{ 'pkg-outdated': pkg.is_outdated }">{{ pkg.pkgname }}</strong>
-            </td>
-            <td>{{ pkg.aur_version || "-" }}</td>
-            <td>{{ fmtTimestamp(pkg.aur_last_updated) }}</td>
-            <td>{{ pkg.upstream_version || "-" }}</td>
-            <td>{{ fmtTimestamp(pkg.upstream_last_checked) }}</td>
-            <td>
-              <div class="row-actions">
-                <button class="btn-icon btn-icon-default" @click.stop="openDetailModal(pkg.pkgname)" title="查看详情">
-                  <Eye :size="14" />
-                </button>
-                <button class="btn-icon btn-icon-accent" @click.stop="openEditModal(pkg.pkgname)" title="软件编辑">
-                  <Pencil :size="14" />
-                </button>
-                <button class="btn-icon btn-icon-accent" @click.stop="rowSyncFromAur(pkg.pkgname)" :disabled="isRowLoading(pkg.pkgname, 'sync-aur')" title="从AUR同步">
-                  <RefreshCw :size="14" />
-                </button>
-                <button class="btn-icon btn-icon-accent" @click.stop="rowSyncFromPkgbuild(pkg.pkgname)" :disabled="isRowLoading(pkg.pkgname, 'sync-pkgbuild')" title="从PKGBUILD同步">
-                  <Download :size="14" />
-                </button>
-                <button class="btn-icon btn-icon-info" @click.stop="rowCheckUpstream(pkg.pkgname)" :disabled="isRowLoading(pkg.pkgname, 'check-upstream')" title="更新上游信息">
-                  <RefreshCw :size="14" />
-                </button>
-                <button class="btn-icon btn-icon-danger" @click.stop="rowDelete(pkg.pkgname, selectedPkgnames, setSelected)" :disabled="isRowLoading(pkg.pkgname, 'delete')" title="删除">
-                  <Trash2 :size="14" />
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <!-- 使用StandardizedTable替换原有表格 -->
+    <StandardizedTable
+      :columns="columns"
+      :data="pageData"
+      :pageSize="50"
+      :searchQuery="searchQuery"
+      :searchFields="['pkgname']"
+      rowKey="pkgname"
+      showCheckbox
+      showIndex
+      striped
+      hoverable
+      clickable
+      emptyText="暂无软件包"
+      @selection-change="handleSelectionChange"
+      @row-click="handleRowClick"
+    >
+      <!-- 自定义包名列 -->
+      <template #cell-pkgname="{ row }">
+        <strong :class="{ 'pkg-outdated': row.is_outdated }">
+          {{ row.pkgname }}
+        </strong>
+        <StandardizedBadge
+          v-if="row.is_outdated"
+          type="warning"
+          text="需更新"
+          size="sm"
+          variant="soft"
+          class="ml-2"
+        />
+      </template>
+
+      <!-- 自定义AUR版本列 -->
+      <template #cell-aur_version="{ row }">
+        {{ row.aur_version || "-" }}
+      </template>
+
+      <!-- 自定义上游版本列 -->
+      <template #cell-upstream_version="{ row }">
+        {{ row.upstream_version || "-" }}
+      </template>
+
+      <!-- 操作列 -->
+      <template #actions="{ row }">
+        <button
+          class="btn-icon btn-icon-default"
+          @click.stop="openDetailModal(row.pkgname)"
+          title="查看详情"
+        >
+          <Eye :size="14" />
+        </button>
+        <button
+          class="btn-icon btn-icon-accent"
+          @click.stop="openEditModal(row.pkgname)"
+          title="软件编辑"
+        >
+          <Pencil :size="14" />
+        </button>
+        <button
+          class="btn-icon btn-icon-accent"
+          @click.stop="rowSyncFromAur(row.pkgname)"
+          :disabled="isRowLoading(row.pkgname, 'sync-aur')"
+          title="从AUR同步"
+        >
+          <RefreshCw :size="14" />
+        </button>
+        <button
+          class="btn-icon btn-icon-accent"
+          @click.stop="rowSyncFromPkgbuild(row.pkgname)"
+          :disabled="isRowLoading(row.pkgname, 'sync-pkgbuild')"
+          title="从PKGBUILD同步"
+        >
+          <Download :size="14" />
+        </button>
+        <button
+          class="btn-icon btn-icon-info"
+          @click.stop="rowCheckUpstream(row.pkgname)"
+          :disabled="isRowLoading(row.pkgname, 'check-upstream')"
+          title="更新上游信息"
+        >
+          <RefreshCw :size="14" />
+        </button>
+        <button
+          class="btn-icon btn-icon-danger"
+          @click.stop="rowDelete(row.pkgname, selectedPkgnames, setSelected)"
+          :disabled="isRowLoading(row.pkgname, 'delete')"
+          title="删除"
+        >
+          <Trash2 :size="14" />
+        </button>
+      </template>
+    </StandardizedTable>
 
     <SoftwareFormModal
       :show="showModal"
@@ -230,47 +303,12 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.pkg-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: auto;
-}
-.pkg-table th {
-  text-align: center;
-  padding: 0.75rem;
-  color: var(--text-secondary);
-  font-weight: 600;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-  background-color: var(--bg-secondary);
-}
-.pkg-table td {
-  padding: 0.75rem;
-  border-bottom: 1px solid var(--border);
-  font-size: 0.875rem;
-}
-.pkg-table tbody tr {
-  cursor: pointer;
-  transition: background-color 0.15s;
-}
-.pkg-table tbody tr:hover {
-  background-color: rgba(108, 99, 255, 0.05);
-}
-.pkg-table tbody tr.row-selected {
-  background-color: rgba(108, 99, 255, 0.1);
-}
-
-.row-actions {
-  display: flex;
-  gap: 0.25rem;
-  flex-wrap: nowrap;
-  align-items: center;
-}
-
 .pkg-outdated {
   color: var(--warning);
+}
+
+.ml-2 {
+  margin-left: 0.5rem;
 }
 
 .filter-count-badge {
@@ -282,5 +320,10 @@ onMounted(async () => {
   margin-left: 2px;
   min-width: 16px;
   text-align: center;
+}
+
+/* 操作列按钮间距 */
+:deep(.actions-cell) {
+  gap: 0.25rem;
 }
 </style>

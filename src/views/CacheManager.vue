@@ -7,6 +7,12 @@
   - 按缓存目录筛选
   - 批量操作：清空缓存表、去重、备份新版、备份到、删除缓存
   - 单行操作：删除缓存
+
+  使用组件：
+  - CacheToolbar: 工具栏组件
+  - CacheRowActions: 行操作按钮组
+  - StandardizedTable: 表格组件
+  - BackupToModal: 备份弹窗组件
 -->
 <script setup lang="ts">
 import { ref, computed, onMounted, inject } from "vue";
@@ -14,10 +20,11 @@ import { invoke } from "@tauri-apps/api/core";
 import { useCacheList, formatSize } from "../composables/useCacheList";
 import { loadEnabledCacheDirs } from "../composables/useCacheDirs";
 import { FOOTER_KEY, addMessage } from "../composables/footer";
-import PageToolbar from "../components/PageToolbar.vue";
 import BackupToModal from "../components/BackupToModal.vue";
-import { Trash2, Scan, Copy, GitBranch } from "@lucide/vue";
 import type { DeduplicateResult } from "../types";
+import StandardizedTable from "../components/common/StandardizedTable.vue";
+import CacheToolbar from "../components/CacheToolbar.vue";
+import CacheRowActions from "../components/CacheRowActions.vue";
 
 const footer = inject(FOOTER_KEY)!;
 
@@ -30,8 +37,6 @@ const {
   currentPage,
   loadEntries,
   fetchEntries,
-  toggleSelect,
-  toggleSelectAll,
 } = useCacheList();
 
 const scanning = ref(false);
@@ -39,7 +44,6 @@ const sourceDirFilter = ref("");
 const cacheDirs = ref<{ name: string; path: string }[]>([]);
 const backupPath = ref("");
 const backupSubdirectories = ref<string[]>([]);
-
 const showBackupToModal = ref(false);
 
 const sourceDirs = computed(() => {
@@ -47,7 +51,6 @@ const sourceDirs = computed(() => {
 });
 
 const selectedFilenames = computed(() => {
-  // 选中索引是相对于「目录筛选后列表」的全局行号，需与勾选逻辑保持同一数据源
   return filteredByDir.value
     .filter((_, i) => selectedIds.value.has(i))
     .map((e) => e.filename);
@@ -64,18 +67,13 @@ onMounted(async () => {
       key: "backup_dir",
     });
     if (setting) backupPath.value = setting.value;
-  } catch {
-    /* ignore */
-  }
+  } catch { /* ignore */ }
   try {
     backupSubdirectories.value = await invoke<string[]>("list_backup_subdirectories");
-  } catch {
-    /* ignore */
-  }
+  } catch { /* ignore */ }
 });
 
 const filteredByDir = computed(() => {
-  // 基于搜索过滤后的列表再按来源目录筛选，保证搜索框对表格生效
   if (!sourceDirFilter.value) return filteredEntries.value;
   return filteredEntries.value.filter((e) => e.source_dir === sourceDirFilter.value);
 });
@@ -85,10 +83,9 @@ const displayData = computed(() => {
   return filteredByDir.value.slice(start, start + pageSize.value);
 });
 
-function updateFilter(dir: string) {
-  sourceDirFilter.value = dir;
+function handleSourceDirFilterChange(dir: string | number) {
+  sourceDirFilter.value = String(dir);
   currentPage.value = 1;
-  // 数据源变化后原选中行号不再有效，清空选择
   selectedIds.value = new Set();
 }
 
@@ -207,146 +204,85 @@ function rowDelete(filename: string) {
   if (!confirm(`确定要删除缓存文件 ${filename} 吗？`)) return;
   addMessage(footer, "info", "删除功能开发中");
 }
+
+function handleSelectionChange(selectedRows: any[]) {
+  const newSelected = new Set<number>();
+  selectedRows.forEach((row) => {
+    const idx = filteredByDir.value.findIndex(
+      (e) => e.filename === row.filename
+    );
+    if (idx !== -1) newSelected.add(idx);
+  });
+  selectedIds.value = newSelected;
+}
+
+const columns = [
+  { key: "pkgname", title: "包名" },
+  { key: "filename", title: "文件名" },
+  { key: "version", title: "版本" },
+  { key: "pkgrel", title: "PkgRel" },
+  { key: "arch", title: "架构" },
+  { key: "size", title: "大小" },
+  { key: "source_dir", title: "来源目录" },
+];
 </script>
 
 <template>
   <div>
-    <PageToolbar v-model="searchQuery" @refresh="handleScan">
-      <template #right>
-        <select
-          :value="sourceDirFilter"
-          @change="updateFilter(($event.target as HTMLSelectElement).value)"
-          class="source-dir-select"
-        >
-          <option value="">全部缓存目录</option>
-          <option v-for="dir in sourceDirs" :key="dir.name" :value="dir.name">
-            {{ dir.name }}
-          </option>
-        </select>
+    <!-- 工具栏 -->
+    <CacheToolbar
+      v-model:search-query="searchQuery"
+      :source-dir-filter="sourceDirFilter"
+      :source-dirs="sourceDirs"
+      :loading="loading"
+      :scanning="scanning"
+      :selected-count="selectedIds.size"
+      @update:source-dir-filter="handleSourceDirFilterChange"
+      @scan="handleScan"
+      @clear-table="handleClearTable"
+      @delete-selected="deleteSelected"
+      @dedup="handleDedup"
+      @backup-new-version="handleBackupNewVersion"
+      @backup-to="openBackupToModal"
+    />
+
+    <!-- 缓存表格 -->
+    <StandardizedTable
+      :columns="columns"
+      :data="displayData"
+      rowKey="filename"
+      showCheckbox
+      showIndex
+      striped
+      hoverable
+      emptyText="暂无缓存数据"
+      @selection-change="handleSelectionChange"
+    >
+      <template #cell-pkgname="{ row }">
+        <strong>{{ row.pkgname }}</strong>
       </template>
-      <button
-        class="btn-icon btn-icon-danger"
-        @click="handleClearTable"
-        :disabled="loading"
-        title="清空缓存表"
-      >
-        <Trash2 :size="16" />
-      </button>
-      <button
-        class="btn-icon btn-icon-accent"
-        @click="handleScan"
-        :disabled="loading || scanning"
-        title="扫描所有缓存目录"
-      >
-        <Scan :size="16" />
-      </button>
-      <button
-        class="btn-icon btn-icon-danger"
-        @click="deleteSelected"
-        :disabled="selectedIds.size === 0"
-        title="删除选中"
-      >
-        <Trash2 :size="16" />
-      </button>
-      <button
-        class="btn-icon btn-icon-accent"
-        @click="handleDedup"
-        :disabled="loading"
-        title="去重（保留最新版本）"
-      >
-        <GitBranch :size="16" />
-      </button>
-      <button
-        class="btn-icon btn-icon-accent"
-        @click="handleBackupNewVersion"
-        :disabled="loading || selectedIds.size === 0"
-        title="备份新版（备份到已有位置）"
-      >
-        <Copy :size="16" />
-      </button>
-      <button
-        class="btn-icon btn-icon-accent"
-        @click="openBackupToModal"
-        :disabled="loading || selectedIds.size === 0"
-        title="备份到（选择子目录）"
-      >
-        <Copy :size="16" />
-      </button>
-    </PageToolbar>
 
-    <div class="card" style="overflow-x: auto; padding: 0">
-      <table class="pkg-table">
-        <thead>
-          <tr>
-            <th style="width: 2rem">
-              <input
-                type="checkbox"
-                :checked="
-                  displayData.length > 0 &&
-                  displayData.every((_, i) =>
-                    selectedIds.has((currentPage - 1) * pageSize + i)
-                  )
-                "
-                :indeterminate="
-                  displayData.some((_, i) =>
-                    selectedIds.has((currentPage - 1) * pageSize + i)
-                  ) &&
-                  !displayData.every((_, i) =>
-                    selectedIds.has((currentPage - 1) * pageSize + i)
-                  )
-                "
-                @change="toggleSelectAll"
-              />
-            </th>
-            <th>包名</th>
-            <th>文件名</th>
-            <th>版本</th>
-            <th>PkgRel</th>
-            <th>架构</th>
-            <th>大小</th>
-            <th>来源目录</th>
-            <th style="min-width: 60px">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="(pkg, i) in displayData"
-            :key="pkg.filename"
-            :class="{
-              'row-selected': selectedIds.has((currentPage - 1) * pageSize + i),
-            }"
-          >
-            <td @click.stop>
-              <input
-                type="checkbox"
-                :checked="selectedIds.has((currentPage - 1) * pageSize + i)"
-                @change="toggleSelect((currentPage - 1) * pageSize + i)"
-              />
-            </td>
-            <td><strong>{{ pkg.pkgname }}</strong></td>
-            <td class="cell-filename">{{ pkg.filename }}</td>
-            <td>{{ pkg.version }}</td>
-            <td>{{ pkg.pkgrel }}</td>
-            <td>{{ pkg.arch }}</td>
-            <td>{{ formatSize(pkg.size) }}</td>
-            <td>{{ pkg.source_dir || "-" }}</td>
-            <td>
-              <div class="row-actions">
-                <button
-                  class="btn-icon btn-icon-danger"
-                  @click.stop="rowDelete(pkg.filename)"
-                  :disabled="loading"
-                  title="删除"
-                >
-                  <Trash2 :size="14" />
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+      <template #cell-filename="{ row }">
+        <span class="cell-filename">{{ row.filename }}</span>
+      </template>
 
+      <template #cell-size="{ row }">
+        {{ formatSize(row.size) }}
+      </template>
+
+      <template #cell-source_dir="{ row }">
+        {{ row.source_dir || "-" }}
+      </template>
+
+      <template #actions="{ row }">
+        <CacheRowActions
+          :loading="loading"
+          @delete="rowDelete(row.filename)"
+        />
+      </template>
+    </StandardizedTable>
+
+    <!-- 备份到弹窗 -->
     <BackupToModal
       :show="showBackupToModal"
       :selected-filenames="selectedFilenames"
@@ -359,43 +295,6 @@ function rowDelete(filename: string) {
 </template>
 
 <style scoped>
-.pkg-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: auto;
-}
-.pkg-table th {
-  text-align: center;
-  padding: 0.75rem;
-  color: var(--text-secondary);
-  font-weight: 600;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-  background-color: var(--bg-secondary);
-}
-.pkg-table td {
-  padding: 0.75rem;
-  border-bottom: 1px solid var(--border);
-  font-size: 0.875rem;
-}
-.pkg-table tbody tr {
-  cursor: pointer;
-  transition: background-color 0.15s;
-}
-.pkg-table tbody tr:hover {
-  background-color: rgba(108, 99, 255, 0.05);
-}
-.pkg-table tbody tr.row-selected {
-  background-color: rgba(108, 99, 255, 0.1);
-}
-.row-actions {
-  display: flex;
-  gap: 0.25rem;
-  flex-wrap: nowrap;
-  align-items: center;
-}
 .cell-filename {
   max-width: 280px;
   overflow: hidden;
@@ -403,19 +302,5 @@ function rowDelete(filename: string) {
   white-space: nowrap;
   color: var(--text-secondary);
   font-size: 0.8125rem;
-}
-.source-dir-select {
-  padding: 0.25rem 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background-color: var(--bg-card);
-  color: var(--text-primary);
-  font-size: 0.8125rem;
-  outline: none;
-  cursor: pointer;
-  min-width: 120px;
-}
-.source-dir-select:focus {
-  border-color: var(--accent);
 }
 </style>

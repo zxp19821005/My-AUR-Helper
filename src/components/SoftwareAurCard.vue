@@ -1,8 +1,14 @@
 <script setup lang="ts">
+import { computed } from "vue";
+import type { SoftwareDetail } from "../../types";
+import StandardizedCard from "./base/StandardizedCard.vue";
+import StandardizedBadge from "./base/StandardizedBadge.vue";
+
 defineProps<{
   aurVersion: string | null;
   aurPkgdesc: string | null;
   aurLastUpdated: number | null;
+  detail?: SoftwareDetail;
 }>();
 
 function formatTimestamp(ts: number | null): string {
@@ -11,14 +17,21 @@ function formatTimestamp(ts: number | null): string {
     year: "numeric", month: "2-digit", day: "2-digit",
   });
 }
+
+const statusOptions = computed(() => [
+  { value: "latest", text: "已最新", className: "status-badge-success" },
+  { value: "outdated", text: "需更新", className: "status-badge-warning" },
+]);
 </script>
 
 <template>
-  <div class="info-card">
-    <div class="card-header">
-      <h3 class="card-title">AUR 信息</h3>
-      <span class="card-subtitle">来自 AUR 仓库</span>
-    </div>
+  <StandardizedCard
+    title="AUR 信息"
+    subtitle="来自 AUR 仓库"
+    :status="detail?.is_outdated ? 'outdated' : 'latest'"
+    :statusOptions="statusOptions"
+    layout="table"
+  >
     <table class="info-table">
       <tbody>
         <tr>
@@ -35,5 +48,5 @@ function formatTimestamp(ts: number | null): string {
         </tr>
       </tbody>
     </table>
-  </div>
+  </StandardizedCard>
 </template>

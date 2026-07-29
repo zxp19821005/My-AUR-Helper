@@ -1,122 +1,220 @@
 <!--
-  LogViewer.vue - 日志查看页面
+  LogViewer.vue - 日志查看器页面
 
   功能：
-  - 显示应用日志列表
+  - 显示应用日志列表（时间、级别、消息）
+  - 支持搜索、分页
+  - 支持按级别筛选
   - 支持清空日志
-  - 按日志级别着色显示（ERROR/WARN/INFO/DEBUG）
 
-  数据来源：
-  - get_logs: 获取日志列表
-  - clear_logs: 清空日志
+  使用组件：
+  - StandardizedTable: 表格组件
+  - StandardizedButton: 操作按钮
+  - StandardizedBadge: 状态徽章
+  - StandardizedMessage: 消息提示
+  - StandardizedSelect: 级别筛选下拉框
+  - StandardizedInput: 搜索输入框
 -->
 <script setup lang="ts">
-import { ref, onMounted } from "vue";                 // Vue 核心 API
-import { invoke } from "@tauri-apps/api/core";         // Tauri IPC 调用
-import type { LogEntry } from "../types";              // 日志条目类型定义
+import { ref, onMounted, computed, inject } from "vue";
+import { invoke } from "@tauri-apps/api/core";
+import { FOOTER_KEY, addMessage } from "../composables/footer";
+import { Trash2 } from "@lucide/vue";
+import StandardizedTable from "../components/common/StandardizedTable.vue";
+import StandardizedButton from "../components/base/StandardizedButton.vue";
+import StandardizedInput from "../components/base/StandardizedInput.vue";
+import StandardizedSelect from "../components/base/StandardizedSelect.vue";
+import StandardizedBadge from "../components/base/StandardizedBadge.vue";
 
-/** 日志列表 - 从后端获取的日志条目集合 */
+const footer = inject(FOOTER_KEY)!;
+
+interface LogEntry {
+  id: number;
+  timestamp: string;
+  level: string;
+  message: string;
+}
+
 const logs = ref<LogEntry[]>([]);
-
-/** 加载中状态 - 标识是否正在加载日志 */
 const loading = ref(false);
+const searchQuery = ref("");
+const levelFilter = ref("");
+const pageSize = ref(50);
 
-/** 组件挂载时加载日志 */
-onMounted(() => fetchLogs());
+onMounted(async () => {
+  await loadLogs();
+});
 
-/** 加载日志列表 - 调用后端获取最近 200 条日志 */
-async function fetchLogs() {
+async function loadLogs() {
   loading.value = true;
   try {
-    logs.value = await invoke<LogEntry[]>("get_logs", { limit: 200 });
-  } catch { /* 忽略获取日志错误 */ }
-  finally { loading.value = false; }
+    logs.value = await invoke<LogEntry[]>("get_logs");
+  } catch (e) {
+    addMessage(footer, "error", `加载日志失败: ${e}`);
+  } finally {
+    loading.value = false;
+  }
 }
 
-/** 清空日志 - 调用后端清除所有日志并清空本地列表 */
 async function clearLogs() {
-  await invoke("clear_logs");
-  logs.value = [];
+  if (!confirm("确定要清空所有日志吗？")) return;
+  loading.value = true;
+  try {
+    await invoke("clear_logs");
+    addMessage(footer, "success", "已清空日志");
+    logs.value = [];
+  } catch (e) {
+    addMessage(footer, "error", `清空日志失败: ${e}`);
+  } finally {
+    loading.value = false;
+  }
 }
 
-/** 日志级别颜色映射 - 不同级别显示不同颜色 */
-const levelColors: Record<string, string> = {
-  ERROR: "var(--error)",          // 错误 - 红色
-  WARN: "var(--warning)",         // 警告 - 橙色
-  INFO: "var(--accent)",          // 信息 - 紫色
-  DEBUG: "var(--text-secondary)", // 调试 - 灰色
-};
+/** 过滤后的日志 */
+const filteredLogs = computed(() => {
+  let result = logs.value;
+  if (levelFilter.value) {
+    result = result.filter((log) => log.level === levelFilter.value);
+  }
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase();
+    result = result.filter(
+      (log) =>
+        log.message.toLowerCase().includes(query) ||
+        log.timestamp.toLowerCase().includes(query)
+    );
+  }
+  return result;
+});
+
+/** 获取级别对应的徽章类型 */
+function getLevelType(level: string): "info" | "success" | "warning" | "danger" {
+  switch (level.toLowerCase()) {
+    case "info":
+      return "info";
+    case "warn":
+    case "warning":
+      return "warning";
+    case "error":
+      return "danger";
+    default:
+      return "info";
+  }
+}
+
+/** 表格列配置 */
+const columns = [
+  { key: "timestamp", title: "时间" },
+  { key: "level", title: "级别" },
+  { key: "message", title: "消息" },
+];
 </script>
 
 <template>
   <div>
-    <!-- 操作按钮区域 -->
-    <div style="margin-bottom: 1rem">
-      <!-- 清空日志按钮 -->
-      <button class="btn btn-outline" @click="clearLogs">清空日志</button>
-    </div>
+    <!-- 工具栏 -->
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <span class="total-count">总计: {{ filteredLogs.length }}</span>
+      </div>
+      <div class="toolbar-right">
+        <StandardizedInput
+          v-model="searchQuery"
+          placeholder="搜索日志消息..."
+          size="md"
+          clearable
+        />
 
-    <!-- 日志列表卡片 -->
-    <div class="card">
-      <!-- 加载中提示 -->
-      <div v-if="loading" style="color: var(--text-secondary)">加载中...</div>
-      <!-- 无数据提示 -->
-      <div v-else-if="logs.length === 0" style="color: var(--text-secondary)">暂无日志</div>
-      <!-- 日志条目列表 -->
-      <div v-else class="log-list">
-        <div v-for="(log, idx) in logs" :key="log.id ?? idx" class="log-entry">
-          <!-- 日志级别 - 按级别着色 -->
-          <span class="log-level" :style="{ color: levelColors[log.level] || 'inherit' }">
-            [{{ log.level }}]
-          </span>
-          <!-- 日志时间 -->
-          <span class="log-time">{{ new Date(log.created_at).toLocaleString() }}</span>
-          <!-- 日志模块 -->
-          <span class="log-module" v-if="log.module">[{{ log.module }}]</span>
-          <!-- 日志消息内容 -->
-          <span class="log-msg">{{ log.message }}</span>
-        </div>
+        <StandardizedSelect
+          v-model="levelFilter"
+          size="md"
+        >
+          <option value="">全部级别</option>
+          <option value="info">INFO</option>
+          <option value="warning">WARNING</option>
+          <option value="error">ERROR</option>
+        </StandardizedSelect>
+
+        <StandardizedButton
+          variant="danger"
+          size="md"
+          :loading="loading"
+          @click="clearLogs"
+        >
+          <Trash2 :size="16" />
+          清空日志
+        </StandardizedButton>
       </div>
     </div>
+
+    <!-- 日志表格 -->
+    <StandardizedTable
+      :columns="columns"
+      :data="filteredLogs"
+      :pageSize="pageSize"
+      rowKey="id"
+      showIndex
+      striped
+      hoverable
+      emptyText="暂无日志数据"
+    >
+      <!-- 时间列 -->
+      <template #cell-timestamp="{ row }">
+        <span class="timestamp">{{ row.timestamp }}</span>
+      </template>
+
+      <!-- 级别列 -->
+      <template #cell-level="{ row }">
+        <StandardizedBadge
+          :text="row.level"
+          :type="getLevelType(row.level)"
+          size="sm"
+        />
+      </template>
+
+      <!-- 消息列 -->
+      <template #cell-message="{ row }">
+        <span class="message">{{ row.message }}</span>
+      </template>
+    </StandardizedTable>
   </div>
 </template>
 
 <style scoped>
-/* 日志列表容器 - 固定高度可滚动，等宽字体 */
-.log-list {
-  max-height: 60vh;
-  overflow-y: auto;
-  font-family: "Cascadia Code", "Fira Code", monospace;
-  font-size: 0.8125rem;
-}
-
-/* 单条日志条目 - 水平排列各字段 */
-.log-entry {
-  padding: 0.375rem 0;
-  border-bottom: 1px solid rgba(53, 56, 87, 0.5);
+.toolbar {
   display: flex;
-  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
 }
 
-/* 日志级别 - 加粗固定宽度 */
-.log-level {
-  font-weight: 600;
-  min-width: 3.5rem;
-}
-
-/* 日志时间 - 灰色固定宽度 */
-.log-time {
-  color: var(--text-secondary);
-  min-width: 10rem;
-}
-
-/* 日志模块 - 灰色 */
-.log-module {
-  color: var(--text-secondary);
-}
-
-/* 日志消息 - 占据剩余空间 */
-.log-msg {
+.toolbar-left {
   flex: 1;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.total-count {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.timestamp {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-family: monospace;
+}
+
+.message {
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  word-break: break-word;
 }
 </style>

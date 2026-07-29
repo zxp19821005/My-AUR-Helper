@@ -197,6 +197,34 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/types/index.ts` | TypeScript 类型定义 |
 | `src/assets/styles.css` | 全局样式（TailwindCSS） |
 
+<!-- ========== 文件拆分记录：超限文件拆分历史 ========== -->
+### 文件拆分记录
+
+| 原文件 | 原行数 | 拆分后文件 | 新行数 | 拆分日期 | 状态 |
+|--------|--------|-----------|--------|---------|------|
+| `src/components/common/StandardizedTable.vue` | 718 | `StandardizedTable.vue` | 278 | 2026-07-29 | ✅ 完成 |
+| | | `StandardizedTableHeader.vue` | 104 | | 新文件 |
+| | | `StandardizedTableRow.vue` | 108 | | 新文件 |
+| | | `StandardizedTablePagination.vue` | 150 | | 新文件 |
+| | | `composables/useTableState.ts` | 257 | | 新文件 |
+| | | `assets/styles/table-styles.css` | 287 | | 全局样式 |
+| `src/views/PackageDetail.vue` | 643 | `PackageDetail.vue` | 277 | 2026-07-29 | ✅ 完成 |
+| | | `PackageBasicInfoCard.vue` | 145 | | 新文件 |
+| | | `PackageAurInfoCard.vue` | 101 | | 新文件 |
+| | | `PackageUpstreamInfoCard.vue` | 113 | | 新文件 |
+| | | `PackageDetailFooter.vue` | 175 | | 新文件 |
+| `src/views/BackupManager.vue` | 436 | `BackupManager.vue` | 257 | 2026-07-29 | ✅ 完成 |
+| | | `BackupToolbar.vue` | 145 | | 新文件 |
+| | | `BackupRowActions.vue` | 54 | | 新文件 |
+| | | `BackupInfoDialog.vue` | 58 | | 新文件 |
+| | | `BackupSudoersDialog.vue` | 67 | | 新文件 |
+| `src/views/CacheManager.vue` | 435 | `CacheManager.vue` | 304 | 2026-07-29 | ⚠️ 待优化 |
+| | | `CacheToolbar.vue` | 159 | | 新文件 |
+| | | `CacheRowActions.vue` | 29 | | 新文件 |
+| `src/views/ProxySettings.vue` | 428 | `ProxySettings.vue` | 276 | 2026-07-29 | ✅ 完成 |
+| | | `ProxyToolbar.vue` | 120 | | 新文件 |
+| | | `ProxyRowActions.vue` | 52 | | 新文件 |
+
 <!-- ========== 开发命令：常用命令速查 ========== -->
 ## 开发命令
 ```bash

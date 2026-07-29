@@ -6,16 +6,24 @@
   - 支持搜索、分页、多选
   - 提供批量操作：获取代理文件、解析代理文件、代理测试
   - 支持单行操作：启用/禁用、测试、删除
-  - 支持类型筛选
+
+  使用组件：
+  - ProxyToolbar: 工具栏组件
+  - ProxyRowActions: 行操作按钮组
+  - StandardizedTable: 表格组件
+  - StandardizedMessage: 消息提示
 -->
 <script setup lang="ts">
-import { onMounted, ref, inject, computed } from "vue";
+import { onMounted, ref, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
-import { useProxyList, PROXY_TYPE_OPTIONS } from "../composables/useProxyList";
+import { useProxyList } from "../composables/useProxyList";
 import { FOOTER_KEY, addMessage } from "../composables/footer";
-import PageToolbar from "../components/PageToolbar.vue";
-import { Trash2, Download, FileCode, Zap, Globe } from "@lucide/vue";
 import type { ProxyTestResult } from "../composables/useProxyList";
+import StandardizedTable from "../components/common/StandardizedTable.vue";
+import StandardizedMessage from "../components/base/StandardizedMessage.vue";
+import StandardizedBadge from "../components/base/StandardizedBadge.vue";
+import ProxyToolbar from "../components/ProxyToolbar.vue";
+import ProxyRowActions from "../components/ProxyRowActions.vue";
 
 const footer = inject(FOOTER_KEY)!;
 
@@ -27,8 +35,6 @@ const {
   typeFilter,
   testingIds,
   fetchEntries,
-  toggleSelect,
-  toggleSelectAll,
   syncToolbar,
   toggleProxyActive,
   deleteSelectedProxies,
@@ -37,29 +43,17 @@ const {
   getTestStatusClass,
 } = useProxyList();
 
-/** 下载中状态 */
 const downloading = ref(false);
-/** 解析中状态 */
 const parsing = ref(false);
 
-/** 全选状态计算 */
-const isAllPageSelected = computed(() => {
-  return pageData.value.length > 0 && pageData.value.every(p => p.proxy_id !== null && selectedIds.value.has(p.proxy_id));
-});
-
-const isPartialPageSelected = computed(() => {
-  return pageData.value.some(p => p.proxy_id !== null && selectedIds.value.has(p.proxy_id)) && !isAllPageSelected.value;
-});
+const messageText = ref("");
+const messageType = ref<"success" | "error" | "warning" | "info">("info");
 
 onMounted(async () => {
   await fetchEntries();
   syncToolbar();
 });
 
-/**
- * 获取代理文件
- * 从设置中配置的 URL 下载 JS 文件到本地
- */
 async function handleDownloadProxyFile() {
   downloading.value = true;
   try {
@@ -73,10 +67,6 @@ async function handleDownloadProxyFile() {
   }
 }
 
-/**
- * 解析代理文件
- * 读取已下载的 JS 文件，解析代理规则并写入数据库
- */
 async function handleParseProxyFile() {
   parsing.value = true;
   try {
@@ -90,10 +80,6 @@ async function handleParseProxyFile() {
   }
 }
 
-/**
- * 代理测试
- * 测试选中的代理或所有代理
- */
 async function handleTestProxies() {
   const proxyIds = selectedIds.value.size > 0
     ? Array.from(selectedIds.value)
@@ -110,7 +96,6 @@ async function handleTestProxies() {
       proxyIds: proxyIds.length > 0 ? proxyIds : null,
     });
 
-    // 更新测试结果
     for (const result of results) {
       setTestResult(result.proxy_id, result);
     }
@@ -123,9 +108,6 @@ async function handleTestProxies() {
   }
 }
 
-/**
- * 单行测试代理
- */
 async function handleTestSingleProxy(proxyId: number) {
   testingIds.value.add(proxyId);
   testingIds.value = new Set(testingIds.value);
@@ -153,9 +135,6 @@ async function handleTestSingleProxy(proxyId: number) {
   }
 }
 
-/**
- * 删除选中的代理
- */
 async function handleDeleteSelected() {
   if (selectedIds.value.size === 0) return;
   if (!confirm(`确定要删除选中的 ${selectedIds.value.size} 个代理吗？`)) return;
@@ -171,9 +150,6 @@ async function handleDeleteSelected() {
   }
 }
 
-/**
- * 切换代理启用状态
- */
 async function handleToggleProxy(proxy: any) {
   try {
     await toggleProxyActive(proxy);
@@ -181,187 +157,121 @@ async function handleToggleProxy(proxy: any) {
     addMessage(footer, "error", `操作失败: ${e}`);
   }
 }
+
+function handleDeleteSingleProxy(row: any) {
+  if (row.proxy_id !== null) {
+    selectedIds.value.delete(row.proxy_id);
+    handleDeleteSelected();
+  }
+}
+
+function getProxyTypeClass(type: string): string {
+  return `type-${type}`;
+}
+
+function handleSelectionChange(selectedRows: any[]) {
+  const newSelected = new Set<number>();
+  selectedRows.forEach((row) => {
+    if (row.proxy_id !== null) newSelected.add(row.proxy_id);
+  });
+  selectedIds.value = newSelected;
+}
+
+const columns = [
+  { key: "proxy_name", title: "名称" },
+  { key: "url", title: "URL" },
+  { key: "proxy_type", title: "类型" },
+  { key: "is_active", title: "状态" },
+  { key: "test_result", title: "测试结果" },
+];
 </script>
 
 <template>
   <div>
-    <PageToolbar v-model="searchQuery" @refresh="fetchEntries">
-      <template #right>
-        <select v-model="typeFilter" class="type-filter-select">
-          <option v-for="opt in PROXY_TYPE_OPTIONS" :key="opt.value" :value="opt.value">
-            {{ opt.label }}
-          </option>
-        </select>
-      </template>
-      <button class="btn-icon btn-icon-accent" @click="handleDownloadProxyFile" :disabled="downloading" title="获取代理文件">
-        <Download :size="16" />
-      </button>
-      <button class="btn-icon btn-icon-accent" @click="handleParseProxyFile" :disabled="parsing" title="解析代理文件">
-        <FileCode :size="16" />
-      </button>
-      <button class="btn-icon btn-icon-info" @click="handleTestProxies" :disabled="loading" title="代理测试">
-        <Zap :size="16" />
-      </button>
-      <button class="btn-icon btn-icon-danger" @click="handleDeleteSelected" :disabled="selectedIds.size === 0" title="删除选中">
-        <Trash2 :size="16" />
-      </button>
-    </PageToolbar>
+    <!-- 消息提示 -->
+    <StandardizedMessage
+      v-if="messageText"
+      :type="messageType"
+      :message="messageText"
+      :duration="3000"
+      @close="messageText = ''"
+    />
 
-    <div class="card" style="overflow-x: auto; padding: 0">
-      <table class="pkg-table">
-        <thead>
-          <tr>
-            <th style="width: 2rem">
-              <input type="checkbox"
-                :checked="isAllPageSelected"
-                :indeterminate="isPartialPageSelected"
-                @change="toggleSelectAll" />
-            </th>
-            <th>名称</th>
-            <th>URL</th>
-            <th>类型</th>
-            <th>状态</th>
-            <th>测试结果</th>
-            <th style="min-width: 180px">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="proxy in pageData" :key="proxy.proxy_id ?? 0"
-            :class="{ 'row-selected': proxy.proxy_id !== null && selectedIds.has(proxy.proxy_id) }">
-            <td @click.stop>
-              <input type="checkbox" :checked="proxy.proxy_id !== null && selectedIds.has(proxy.proxy_id)"
-                @change="proxy.proxy_id !== null && toggleSelect(proxy.proxy_id)" />
-            </td>
-            <td>
-              <strong>{{ proxy.proxy_name }}</strong>
-            </td>
-            <td class="cell-url">{{ proxy.url }}</td>
-            <td>
-              <span class="proxy-type-badge" :class="`type-${proxy.proxy_type}`">
-                {{ proxy.proxy_type }}
-              </span>
-            </td>
-            <td>
-              <span class="status-badge" :class="proxy.is_active ? 'status-active' : 'status-inactive'">
-                {{ proxy.is_active ? "启用" : "禁用" }}
-              </span>
-            </td>
-            <td>
-              <span class="test-status" :class="proxy.proxy_id !== null ? getTestStatusClass(proxy.proxy_id) : ''">
-                {{ proxy.proxy_id !== null ? getTestStatusText(proxy.proxy_id) : '未测试' }}
-              </span>
-            </td>
-            <td>
-              <div class="row-actions">
-                <button class="btn-icon btn-icon-default" @click.stop="handleToggleProxy(proxy)" :title="proxy.is_active ? '禁用' : '启用'">
-                  <Globe :size="14" />
-                </button>
-                <button class="btn-icon btn-icon-info" @click.stop="proxy.proxy_id !== null && handleTestSingleProxy(proxy.proxy_id)"
-                  :disabled="proxy.proxy_id !== null && testingIds.has(proxy.proxy_id)" title="测试代理">
-                  <Zap :size="14" />
-                </button>
-                <button class="btn-icon btn-icon-danger" @click.stop="proxy.proxy_id !== null && selectedIds.delete(proxy.proxy_id); handleDeleteSelected()" title="删除">
-                  <Trash2 :size="14" />
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <!-- 工具栏 -->
+    <ProxyToolbar
+      v-model:search-query="searchQuery"
+      v-model:type-filter="typeFilter"
+      :loading="loading"
+      :downloading="downloading"
+      :parsing="parsing"
+      :selected-count="selectedIds.size"
+      @download-proxy-file="handleDownloadProxyFile"
+      @parse-proxy-file="handleParseProxyFile"
+      @test-proxies="handleTestProxies"
+      @delete-selected="handleDeleteSelected"
+    />
+
+    <!-- 代理表格 -->
+    <StandardizedTable
+      :columns="columns"
+      :data="pageData"
+      rowKey="proxy_id"
+      showCheckbox
+      showIndex
+      striped
+      hoverable
+      emptyText="暂无代理数据"
+      @selection-change="handleSelectionChange"
+    >
+      <template #cell-proxy_name="{ row }">
+        <strong>{{ row.proxy_name }}</strong>
+      </template>
+
+      <template #cell-url="{ row }">
+        <span class="cell-url">{{ row.url }}</span>
+      </template>
+
+      <template #cell-proxy_type="{ row }">
+        <StandardizedBadge
+          :text="row.proxy_type"
+          :class="getProxyTypeClass(row.proxy_type)"
+          size="sm"
+          variant="soft"
+        />
+      </template>
+
+      <template #cell-is_active="{ row }">
+        <StandardizedBadge
+          :type="row.is_active ? 'success' : 'neutral'"
+          :text="row.is_active ? '启用' : '禁用'"
+          size="sm"
+        />
+      </template>
+
+      <template #cell-test_result="{ row }">
+        <span
+          v-if="row.proxy_id !== null"
+          class="test-status"
+          :class="getTestStatusClass(row.proxy_id)"
+        >
+          {{ getTestStatusText(row.proxy_id) }}
+        </span>
+        <span v-else class="test-not-tested">未测试</span>
+      </template>
+
+      <template #actions="{ row }">
+        <ProxyRowActions
+          :row="row"
+          :testing-ids="testingIds"
+          @toggle="handleToggleProxy"
+          @test="handleTestSingleProxy"
+          @delete="handleDeleteSingleProxy"
+        />
+      </template>
+    </StandardizedTable>
   </div>
 </template>
 
 <style scoped>
-.type-filter-select {
-  padding: 0.25rem 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background-color: var(--bg-card);
-  color: var(--text-primary);
-  font-size: 0.8125rem;
-  outline: none;
-  cursor: pointer;
-  min-width: 100px;
-}
-
-.type-filter-select:focus {
-  border-color: var(--accent);
-}
-
-.cell-url {
-  max-width: 300px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-secondary);
-  font-size: 0.8125rem;
-}
-
-.proxy-type-badge {
-  display: inline-block;
-  padding: 0.125rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  text-transform: uppercase;
-}
-
-.type-download {
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-}
-
-.type-clone {
-  background-color: rgba(16, 185, 129, 0.1);
-  color: #10b981;
-}
-
-.type-raw {
-  background-color: rgba(139, 92, 246, 0.1);
-  color: #8b5cf6;
-}
-
-.type-ssh {
-  background-color: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
-}
-
-.status-badge {
-  display: inline-block;
-  padding: 0.125rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-.status-active {
-  background-color: rgba(16, 185, 129, 0.1);
-  color: #10b981;
-}
-
-.status-inactive {
-  background-color: rgba(107, 114, 128, 0.1);
-  color: #6b7280;
-}
-
-.test-status {
-  font-size: 0.8125rem;
-}
-
-.status-success {
-  color: #10b981;
-}
-
-.status-error {
-  color: #ef4444;
-}
-
-.btn-icon-info {
-  color: var(--text-secondary);
-}
-
-.btn-icon-info:hover {
-  color: var(--accent);
-}
+/* 所有样式已移至全局 table-styles.css */
 </style>

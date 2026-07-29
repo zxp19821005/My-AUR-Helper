@@ -6,24 +6,26 @@
   - 支持通用设置、列表设置、AUR设置、检查器设置、备份设置、缓存设置、代理设置、日志设置
   - 提供保存设置和重置功能
 
-  依赖组件：
-  - SettingsCard: 通用设置卡片组件
-  - SettingRow: 通用设置行组件
-  - SettingsLogSection: 日志设置组件
-  - SettingsCacheSection: 缓存设置组件
-  - SettingsProxySection: 代理设置组件
+  使用组件：
+  - StandardizedCard: 设置卡片容器
+  - StandardizedInput: 输入框（支持密码显示/隐藏）
+  - StandardizedSelect: 下拉选择框
+  - StandardizedMessage: 消息提示
 -->
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
 import { useRoute } from "vue-router";
 import { invoke } from "@tauri-apps/api/core";
+import { Eye, EyeOff } from "@lucide/vue";
 import type { Setting } from "../types";
-import SettingsCard from "../components/SettingsCard.vue";
-import SettingRow from "../components/SettingRow.vue";
 import SettingsLogSection from "../components/SettingsLogSection.vue";
 import SettingsCacheSection from "../components/SettingsCacheSection.vue";
 import SettingsProxySection from "../components/SettingsProxySection.vue";
 import { useSettingsStore } from "../stores/settings";
+import StandardizedCard from "../components/base/StandardizedCard.vue";
+import StandardizedInput from "../components/base/StandardizedInput.vue";
+import StandardizedSelect from "../components/base/StandardizedSelect.vue";
+import StandardizedMessage from "../components/base/StandardizedMessage.vue";
 
 const route = useRoute();
 const settingsStore = useSettingsStore();
@@ -95,15 +97,15 @@ async function saveSetting(key: string, value: string) {
   }
 }
 
-function saveTheme(value: string) {
-  theme.value = value;
-  localStorage.setItem("app-theme", value);
+function saveTheme(value: string | number) {
+  theme.value = String(value);
+  localStorage.setItem("app-theme", String(value));
   applySettings();
 }
 
-function saveFontSize(value: string) {
-  fontSize.value = value;
-  localStorage.setItem("app-font-size", value);
+function saveFontSize(value: string | number) {
+  fontSize.value = String(value);
+  localStorage.setItem("app-font-size", String(value));
   applySettings();
 }
 
@@ -127,40 +129,62 @@ function inputType(s: Setting): string {
 </script>
 
 <template>
-  <div>
-    <h2 style="margin-bottom: 1.5rem; font-size: 1.25rem">{{ categoryLabels[category] || category }}</h2>
+  <div class="settings-container">
+    <!-- 消息提示 -->
+    <StandardizedMessage
+      v-if="message"
+      type="success"
+      :message="message"
+      :duration="2000"
+      @close="message = ''"
+    />
 
-    <div v-if="message" class="message message-success">
-      {{ message }}
-    </div>
+    <!-- 页面标题 -->
+    <h2 class="settings-title">{{ categoryLabels[category] || category }}</h2>
 
     <!-- 加载中 -->
-    <SettingsCard v-if="loading" title="加载中">
-      <p style="color: var(--text-secondary)">正在加载设置...</p>
-    </SettingsCard>
+    <StandardizedCard v-if="loading" title="加载中">
+      <p class="loading-text">正在加载设置...</p>
+    </StandardizedCard>
 
     <!-- 通用设置 -->
-    <SettingsCard
+    <StandardizedCard
       v-else-if="category === 'general'"
       title="外观设置"
-      description="选择应用主题和字体大小"
+      subtitle="选择应用主题和字体大小"
     >
-      <SettingRow label="主题" description="选择应用主题">
-        <select :value="theme" @change="saveTheme(($event.target as HTMLSelectElement).value)" class="select-input">
+      <div class="setting-row">
+        <div class="setting-info">
+          <h4>主题</h4>
+          <p>选择应用主题</p>
+        </div>
+        <StandardizedSelect
+          :modelValue="theme"
+          size="md"
+          @update:modelValue="saveTheme"
+        >
           <option value="dark">深色</option>
           <option value="light">浅色</option>
-        </select>
-      </SettingRow>
+        </StandardizedSelect>
+      </div>
 
-      <SettingRow label="字体大小" description="调整界面文字大小">
-        <select :value="fontSize" @change="saveFontSize(($event.target as HTMLSelectElement).value)" class="select-input">
+      <div class="setting-row">
+        <div class="setting-info">
+          <h4>字体大小</h4>
+          <p>调整界面文字大小</p>
+        </div>
+        <StandardizedSelect
+          :modelValue="fontSize"
+          size="md"
+          @update:modelValue="saveFontSize"
+        >
           <option value="12">小 (12px)</option>
           <option value="14">默认 (14px)</option>
           <option value="16">大 (16px)</option>
           <option value="18">特大 (18px)</option>
-        </select>
-      </SettingRow>
-    </SettingsCard>
+        </StandardizedSelect>
+      </div>
+    </StandardizedCard>
 
     <!-- 日志设置 -->
     <SettingsLogSection v-else-if="category === 'log'" />
@@ -172,80 +196,113 @@ function inputType(s: Setting): string {
     <SettingsProxySection v-else-if="category === 'proxy'" />
 
     <!-- 暂无设置 -->
-    <SettingsCard
+    <StandardizedCard
       v-else-if="filteredSettings.length === 0 && category !== 'general'"
       title="暂无设置"
     >
-      <p style="color: var(--text-secondary)">当前分类下暂无设置项</p>
-    </SettingsCard>
+      <p class="empty-text">当前分类下暂无设置项</p>
+    </StandardizedCard>
 
     <!-- 动态设置 -->
-    <SettingsCard
+    <StandardizedCard
       v-else-if="filteredSettings.length > 0"
       :title="categoryLabels[category] || category"
     >
-      <SettingRow
+      <div
         v-for="s in filteredSettings"
         :key="s.key"
-        :label="s.description || s.key"
-        :description="s.key"
+        class="setting-row"
       >
-        <!-- Token 类型输入框 -->
-        <template v-if="isTokenKey(s.key)">
-          <div class="password-wrapper">
-            <input
-              :type="inputType(s)"
-              :value="s.value"
-              @change="(e) => saveSetting(s.key, (e.target as HTMLInputElement).value)"
-              class="text-input"
+        <div class="setting-info">
+          <h4>{{ s.description || s.key }}</h4>
+          <p>{{ s.key }}</p>
+        </div>
+        <div class="setting-control">
+          <!-- Token 类型输入框（带密码显示/隐藏） -->
+          <template v-if="isTokenKey(s.key)">
+            <div class="password-wrapper">
+              <StandardizedInput
+                :type="inputType(s) as any"
+                :modelValue="s.value"
+                size="md"
+                @update:modelValue="(val) => saveSetting(s.key, val)"
+              />
+              <button
+                class="toggle-password"
+                @click="togglePassword(s.key)"
+                type="button"
+                :title="passwordVisible[s.key] ? '隐藏' : '显示'"
+              >
+                <Eye v-if="passwordVisible[s.key]" :size="18" />
+                <EyeOff v-else :size="18" />
+              </button>
+            </div>
+          </template>
+          <!-- 普通输入框 -->
+          <template v-else>
+            <StandardizedInput
+              type="text"
+              :modelValue="s.value"
+              size="md"
+              @update:modelValue="(val) => saveSetting(s.key, val)"
             />
-            <button class="toggle-password" @click="togglePassword(s.key)" type="button" :title="passwordVisible[s.key] ? '隐藏' : '显示'">
-              <svg v-if="passwordVisible[s.key]" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                <circle cx="12" cy="12" r="3"/>
-              </svg>
-              <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                <line x1="1" y1="1" x2="23" y2="23"/>
-              </svg>
-            </button>
-          </div>
-        </template>
-        <!-- 普通输入框 -->
-        <template v-else>
-          <input
-            type="text"
-            :value="s.value"
-            @change="(e) => saveSetting(s.key, (e.target as HTMLInputElement).value)"
-            class="text-input"
-          />
-        </template>
-      </SettingRow>
-    </SettingsCard>
+          </template>
+        </div>
+      </div>
+    </StandardizedCard>
   </div>
 </template>
 
 <style scoped>
-.message {
-  padding: 0.5rem 1rem;
-  margin-bottom: 1rem;
-  border-radius: 6px;
+.settings-container {
+  width: 100%;
+  min-width: 0;
+}
+
+.settings-title {
+  margin-bottom: 1.5rem;
+  font-size: 1.25rem;
+}
+
+.loading-text,
+.empty-text {
+  color: var(--text-secondary);
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+  gap: 1rem;
+}
+
+.setting-row:last-child {
+  border-bottom: none;
+}
+
+.setting-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.setting-info h4 {
+  margin: 0 0 0.25rem 0;
   font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
 }
 
-.message-success {
-  background-color: rgba(76, 175, 125, 0.1);
-  color: var(--success);
+.setting-info p {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
 }
 
-.message-error {
-  background-color: rgba(231, 76, 60, 0.1);
-  color: #e74c3c;
-}
-
-.message-warning {
-  background-color: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
+.setting-control {
+  flex-shrink: 0;
+  min-width: 240px;
 }
 
 .password-wrapper {
@@ -254,13 +311,13 @@ function inputType(s: Setting): string {
   align-items: center;
 }
 
-.password-wrapper .text-input {
+.password-wrapper :deep(.standardized-input) {
   padding-right: 2.5rem;
 }
 
 .toggle-password {
   position: absolute;
-  right: 0.25rem;
+  right: 0.5rem;
   top: 50%;
   transform: translateY(-50%);
   background: none;
@@ -272,36 +329,11 @@ function inputType(s: Setting): string {
   align-items: center;
   justify-content: center;
   border-radius: 4px;
+  transition: all 0.15s;
 }
 
 .toggle-password:hover {
   color: var(--text-primary);
-  background-color: var(--hover-bg, rgba(128,128,128,0.1));
-}
-
-.text-input, .select-input {
-  padding: 0.375rem 0.5rem;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: 0.875rem;
-  min-width: 240px;
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239a9cb8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.5rem center;
-  padding-right: 1.75rem;
-}
-
-.text-input:focus, .select-input:focus {
-  border-color: var(--accent);
-  outline: none;
-}
-
-.select-input option {
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
+  background-color: var(--hover-bg, rgba(128, 128, 128, 0.1));
 }
 </style>

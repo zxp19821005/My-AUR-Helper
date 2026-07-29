@@ -1,11 +1,29 @@
+<!--
+  LicenseManager.vue - License 管理页面
+
+  功能：
+  - 显示 License 列表（SPDX ID、全名）
+  - 支持搜索、分页
+  - 支持添加、编辑、删除 License
+  - 支持从 SPDX 同步
+
+  使用组件：
+  - StandardizedTable: 表格组件
+  - StandardizedButton: 操作按钮
+  - StandardizedMessage: 消息提示
+  - StandardizedInput: 搜索输入框
+  - StandardizedModal: 弹窗组件
+-->
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { License } from "../types";
 import LicenseFormModal from "../components/LicenseFormModal.vue";
-import DataTable from "../components/DataTable.vue";
-import type { Column } from "../components/DataTable.vue";
 import { useSettingsStore } from "../stores/settings";
+import StandardizedTable from "../components/common/StandardizedTable.vue";
+import StandardizedButton from "../components/base/StandardizedButton.vue";
+import StandardizedMessage from "../components/base/StandardizedMessage.vue";
+import StandardizedInput from "../components/base/StandardizedInput.vue";
 
 const settingsStore = useSettingsStore();
 const licenses = ref<License[]>([]);
@@ -22,13 +40,6 @@ const modalForm = ref({
   spdx_id: "",
   full_name: "",
 });
-
-/** 表格列配置 */
-const columns: Column[] = [
-  { key: "spdx_id", title: "SPDX ID", width: "180px" },
-  { key: "full_name", title: "全名" },
-  { key: "id", title: "操作", width: "120px", align: "center" },
-];
 
 onMounted(async () => {
   pageSize.value = await settingsStore.getSettingNumber("list_page_size_license", 50);
@@ -102,45 +113,97 @@ async function handleDelete(lic: License) {
   }
 }
 
+/** 表格列配置 */
+const columns = [
+  { key: "spdx_id", title: "SPDX ID" },
+  { key: "full_name", title: "全名" },
+];
+
+/** 处理行点击编辑 */
+function handleRowClick(row: License) {
+  openEdit(row);
+}
 </script>
 
 <template>
   <div>
-    <div v-if="message" class="card" style="margin-bottom: 1rem; border-color: var(--accent)">
-      {{ message }}
+    <!-- 消息提示 -->
+    <StandardizedMessage
+      v-if="message"
+      type="success"
+      :message="message"
+      :duration="3000"
+      @close="message = ''"
+    />
+
+    <!-- 工具栏 -->
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <span class="total-count">总计: {{ licenses.length }}</span>
+      </div>
+      <div class="toolbar-right">
+        <StandardizedInput
+          v-model="searchQuery"
+          placeholder="搜索 License (SPDX ID / 名称)..."
+          size="md"
+          clearable
+        />
+
+        <StandardizedButton
+          variant="outline"
+          size="md"
+          :loading="syncing"
+          @click="syncFromSPDX"
+        >
+          {{ syncing ? "同步中..." : "从 SPDX 同步" }}
+        </StandardizedButton>
+
+        <StandardizedButton
+          variant="primary"
+          size="md"
+          @click="openAdd"
+        >
+          新增 License
+        </StandardizedButton>
+      </div>
     </div>
 
-    <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; align-items: center; flex-wrap: wrap">
-      <span style="color: var(--text-secondary); font-size: 0.875rem">总计: {{ licenses.length }}</span>
-      <button class="btn btn-primary" @click="openAdd">新增 License</button>
-      <button class="btn btn-outline" @click="syncFromSPDX" :disabled="syncing">
-        {{ syncing ? "同步中..." : "从 SPDX 同步" }}
-      </button>
-      <input
-        type="text"
-        v-model="searchQuery"
-        placeholder="搜索 License (SPDX ID / 名称)..."
-        class="search-input"
-      />
-    </div>
-
-    <DataTable
+    <!-- License 表格 -->
+    <StandardizedTable
       :columns="columns"
       :data="licenses"
       :pageSize="pageSize"
       :searchQuery="searchQuery"
       :searchFields="['spdx_id', 'full_name']"
-      :showIndex="true"
+      rowKey="id"
+      showIndex
+      striped
+      hoverable
+      clickable
       emptyText="暂无 License 数据，请从 SPDX 同步或手动添加。"
+      @row-click="handleRowClick"
     >
-      <template #cell-id="{ row }">
-        <div class="license-actions">
-          <button class="btn-sm" @click="openEdit(row)">编辑</button>
-          <button class="btn-sm btn-sm-danger" @click="handleDelete(row)">删除</button>
-        </div>
-      </template>
-    </DataTable>
+      <!-- 操作列 -->
+      <template #actions="{ row }">
+        <StandardizedButton
+          variant="outline"
+          size="sm"
+          @click.stop="openEdit(row)"
+        >
+          编辑
+        </StandardizedButton>
 
+        <StandardizedButton
+          variant="danger"
+          size="sm"
+          @click.stop="handleDelete(row)"
+        >
+          删除
+        </StandardizedButton>
+      </template>
+    </StandardizedTable>
+
+    <!-- 编辑弹窗 -->
     <LicenseFormModal
       :show="showModal"
       :mode="modalMode"
@@ -152,34 +215,28 @@ async function handleDelete(lic: License) {
 </template>
 
 <style scoped>
-.search-input {
-  width: 240px;
-  padding: 0.5rem 0.75rem;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: 0.875rem;
-}
-
-.license-actions {
+.toolbar {
   display: flex;
-  gap: 0.375rem;
-  justify-content: center;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
 }
 
-.btn-sm {
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  border: 1px solid var(--border);
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: 0.75rem;
-  cursor: pointer;
+.toolbar-left {
+  flex: 1;
 }
 
-.btn-sm-danger {
-  color: var(--error);
-  border-color: var(--error);
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.total-count {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
 }
 </style>

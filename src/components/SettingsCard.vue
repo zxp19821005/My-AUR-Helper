@@ -43,7 +43,6 @@ defineProps<{
   background-color: var(--bg-card);
   border-radius: 12px;
   border: 1px solid var(--border);
-  width: 100%;
   box-sizing: border-box;
 }
 

@@ -1,7 +1,12 @@
 <script setup lang="ts">
+import { computed } from "vue";
+import type { SoftwareDetail } from "../../types";
+import StandardizedCard from "./base/StandardizedCard.vue";
+
 defineProps<{
   upstreamVersion: string | null;
   upstreamLastChecked: number | null;
+  detail?: SoftwareDetail;
 }>();
 
 function fmtDate(ts: number | null): string {
@@ -14,11 +19,11 @@ function fmtDate(ts: number | null): string {
 </script>
 
 <template>
-  <div class="info-card">
-    <div class="card-header">
-      <h3 class="card-title">上游版本信息</h3>
-      <span class="card-subtitle">最新版本检查结果</span>
-    </div>
+  <StandardizedCard
+    title="上游版本信息"
+    subtitle="最新版本检查结果"
+    layout="table"
+  >
     <table class="info-table">
       <tbody>
         <tr>
@@ -31,5 +36,5 @@ function fmtDate(ts: number | null): string {
         </tr>
       </tbody>
     </table>
-  </div>
+  </StandardizedCard>
 </template>

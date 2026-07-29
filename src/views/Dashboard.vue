@@ -9,14 +9,22 @@
   数据来源：
   - packages store: 软件包列表
   - get_proxies: 代理源列表
+
+  使用组件：
+  - StandardizedStatCard: 统计卡片
+  - StandardizedButton: 操作按钮
+  - PageToolbar: 页面工具栏
 -->
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
+import { Package, CheckCircle, AlertCircle, Globe, Settings, Database, HardDrive, Network } from "@lucide/vue";
 import { usePackageStore } from "../stores/packages";
 import { invoke } from "@tauri-apps/api/core";
 import type { ProxyInfo } from "../types";
 import PageToolbar from "../components/PageToolbar.vue";
+import StandardizedStatCard from "../components/base/StandardizedStatCard.vue";
+import StandardizedButton from "../components/base/StandardizedButton.vue";
 
 const router = useRouter();
 const pkgStore = usePackageStore();
@@ -42,32 +50,87 @@ const stats = {
   <div>
     <PageToolbar />
 
+    <!-- 统计卡片网格 -->
     <div class="dashboard-grid">
-      <div class="card stat-card" @click="router.push('/packages')">
-        <div class="stat-number">{{ stats.total() }}</div>
-        <div class="stat-label">总包数</div>
-      </div>
-      <div class="card stat-card" @click="router.push('/packages')">
-        <div class="stat-number" style="color: var(--success)">{{ stats.updated() }}</div>
-        <div class="stat-label">已最新</div>
-      </div>
-      <div class="card stat-card" @click="router.push('/packages')">
-        <div class="stat-number" style="color: var(--warning)">{{ stats.outdated() }}</div>
-        <div class="stat-label">有更新</div>
-      </div>
-      <div class="card stat-card" @click="router.push('/proxy')">
-        <div class="stat-number">{{ proxyCount }}</div>
-        <div class="stat-label">代理源</div>
-      </div>
+      <StandardizedStatCard
+        title="总包数"
+        :value="stats.total()"
+        :icon="Package"
+        color="var(--accent)"
+        clickable
+        @click="router.push('/packages')"
+      />
+
+      <StandardizedStatCard
+        title="已最新"
+        :value="stats.updated()"
+        :icon="CheckCircle"
+        color="var(--success)"
+        clickable
+        @click="router.push('/packages')"
+      />
+
+      <StandardizedStatCard
+        title="有更新"
+        :value="stats.outdated()"
+        :icon="AlertCircle"
+        color="var(--warning)"
+        clickable
+        @click="router.push('/packages')"
+      />
+
+      <StandardizedStatCard
+        title="代理源"
+        :value="proxyCount"
+        :icon="Globe"
+        color="var(--info)"
+        clickable
+        @click="router.push('/proxy')"
+      />
     </div>
 
-    <div class="card" style="margin-top: 1.5rem">
-      <h3>快速操作</h3>
-      <div style="display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap">
-        <button class="btn btn-primary" @click="router.push('/packages')">软件管理</button>
-        <button class="btn btn-outline" @click="router.push('/backup')">备份管理</button>
-        <button class="btn btn-outline" @click="router.push('/cache')">缓存管理</button>
-        <button class="btn btn-outline" @click="router.push('/proxy')">代理管理</button>
+    <!-- 快速操作区域 -->
+    <div class="card quick-actions-card">
+      <h3 class="quick-actions-title">
+        <Settings :size="18" />
+        快速操作
+      </h3>
+      <div class="quick-actions-buttons">
+        <StandardizedButton
+          variant="primary"
+          size="md"
+          @click="router.push('/packages')"
+        >
+          <Database :size="16" />
+          软件管理
+        </StandardizedButton>
+
+        <StandardizedButton
+          variant="outline"
+          size="md"
+          @click="router.push('/backup')"
+        >
+          <HardDrive :size="16" />
+          备份管理
+        </StandardizedButton>
+
+        <StandardizedButton
+          variant="outline"
+          size="md"
+          @click="router.push('/cache')"
+        >
+          <Database :size="16" />
+          缓存管理
+        </StandardizedButton>
+
+        <StandardizedButton
+          variant="outline"
+          size="md"
+          @click="router.push('/proxy')"
+        >
+          <Network :size="16" />
+          代理管理
+        </StandardizedButton>
       </div>
     </div>
   </div>
@@ -76,28 +139,45 @@ const stats = {
 <style scoped>
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 1rem;
 }
 
-.stat-card {
-  cursor: pointer;
-  text-align: center;
-  transition: transform 0.2s;
+.quick-actions-card {
+  margin-top: 1.5rem;
+  padding: 1.25rem;
 }
 
-.stat-card:hover {
-  transform: translateY(-2px);
+.quick-actions-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
-.stat-number {
-  font-size: 2.5rem;
-  font-weight: 700;
+.quick-actions-buttons {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
 }
 
-.stat-label {
-  color: var(--text-secondary);
-  margin-top: 0.25rem;
-  font-size: 0.875rem;
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+
+  .quick-actions-buttons {
+    flex-direction: column;
+  }
+
+  .quick-actions-buttons > * {
+    width: 100%;
+  }
 }
 </style>
