@@ -1,5 +1,5 @@
 /**
- * dirs.rs - 缓存目录通用工具
+ * cache_dirs.rs - 缓存目录通用工具
  *
  * 功能：
  * - 缓存目录结构体定义
@@ -124,7 +124,10 @@ pub fn extract_pkgname_from_cache(filename: &str) -> Option<String> {
 }
 
 /// 在缓存目录中查找文件
-pub async fn find_cache_file(filename: &str, cache_dirs: &[CacheDir]) -> Option<std::path::PathBuf> {
+pub async fn find_cache_file(
+    filename: &str,
+    cache_dirs: &[CacheDir],
+) -> Option<std::path::PathBuf> {
     for dir in cache_dirs {
         let path = std::path::Path::new(&dir.path);
         let file_path = path.join(filename);

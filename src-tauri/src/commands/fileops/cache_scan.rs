@@ -1,5 +1,5 @@
 /**
- * scan.rs - 缓存目录扫描和表管理命令
+ * cache_scan.rs - 缓存目录扫描和表管理命令
  *
  * 功能：
  * - clear_cache_software: 清空 cache_software 表
@@ -8,7 +8,7 @@
  */
 use tauri::State;
 
-use super::dirs::get_cache_dirs;
+use super::cache_dirs::get_cache_dirs;
 use crate::errors::AppResult;
 use crate::models::{CacheSoftware, CacheSoftwareEntry};
 use crate::AppState;
@@ -41,7 +41,10 @@ pub fn list_cache_software(state: State<'_, AppState>) -> AppResult<Vec<CacheSof
         .lock()
         .map_err(|e| crate::errors::AppError::DatabaseError(format!("获取数据库锁失败: {}", e)))?;
     let entries = db.get_all_cache_entries()?;
-    log::debug!("[缓存管理] 从 cache_software 表读取到 {} 条记录", entries.len());
+    log::debug!(
+        "[缓存管理] 从 cache_software 表读取到 {} 条记录",
+        entries.len()
+    );
     Ok(entries)
 }
 
@@ -56,7 +59,7 @@ pub fn list_cache_software(state: State<'_, AppState>) -> AppResult<Vec<CacheSof
 #[tauri::command]
 pub async fn scan_all_cache_dirs(
     state: State<'_, AppState>,
-) -> AppResult<Vec<crate::commands::scan::PkgFileInfo>> {
+) -> AppResult<Vec<super::scan::PkgFileInfo>> {
     log::info!("[缓存管理] 开始扫描所有缓存目录");
 
     let dirs = {
@@ -68,7 +71,7 @@ pub async fn scan_all_cache_dirs(
 
     log::info!("[缓存管理] 找到 {} 个启用的缓存目录", dirs.len());
 
-    let mut all_packages: Vec<(String, Vec<crate::commands::scan::PkgFileInfo>)> = Vec::new();
+    let mut all_packages: Vec<(String, Vec<super::scan::PkgFileInfo>)> = Vec::new();
     for dir in dirs {
         let path = std::path::Path::new(&dir.path);
         if !path.exists() {
@@ -78,7 +81,7 @@ pub async fn scan_all_cache_dirs(
 
         log::info!("[缓存管理] 正在扫描目录: {} ({})", dir.name, dir.path);
 
-        match crate::commands::scan::scan_pkg_files(&dir.path).await {
+        match super::scan::scan_pkg_files(&dir.path).await {
             Ok(mut packages) => {
                 log::info!(
                     "[缓存管理] 扫描 {} 完成，找到 {} 个包",
@@ -130,6 +133,13 @@ pub async fn scan_all_cache_dirs(
                     size: pkg.size as i64,
                     source_dir: pkg.source_dir.clone(),
                     cache_directory: cache_directory.clone(),
+                    // 完整存储路径 = 缓存目录 + 文件名（与 backup_software.full_path 对齐）
+                    full_path: std::path::Path::new(cache_directory)
+                        .join(&pkg.filename)
+                        .to_string_lossy()
+                        .to_string(),
+                    created_at: None,
+                    updated_at: None,
                 };
                 match db.insert_cache_software(&cs) {
                     Ok(_) => inserted += 1,
@@ -144,7 +154,7 @@ pub async fn scan_all_cache_dirs(
         log::info!("[缓存管理] 已写入 {} 条记录到 cache_software 表", inserted);
     }
 
-    let result: Vec<crate::commands::scan::PkgFileInfo> = all_packages
+    let result: Vec<super::scan::PkgFileInfo> = all_packages
         .into_iter()
         .flat_map(|(_, packages)| packages)
         .collect();

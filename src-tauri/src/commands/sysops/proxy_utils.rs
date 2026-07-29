@@ -1,8 +1,14 @@
+/**
+ * proxy_utils.rs - 代理工具函数
+ *
+ * 提供 HTTP 客户端构建和代理获取功能
+ */
 use log::info;
 use std::time::Duration;
 
 use crate::models::ProxyType;
 
+/// 获取 GNOME 系统代理设置
 fn get_gnome_system_proxy() -> Option<String> {
     let mode = std::process::Command::new("gsettings")
         .args(["get", "org.gnome.system.proxy", "mode"])
@@ -49,6 +55,12 @@ fn get_gnome_system_proxy() -> Option<String> {
     Some(format!("http://{}:{}", host, port))
 }
 
+/// 获取当前活跃的代理配置
+///
+/// 优先级：
+/// 1. 数据库中启用的代理
+/// 2. GNOME 系统代理
+/// 3. 环境变量代理（http_proxy/https_proxy/all_proxy）
 pub fn get_active_proxy(db: &crate::db::Database) -> Option<String> {
     let db_proxy = db
         .get_active_proxies(&ProxyType::Download)
@@ -70,10 +82,12 @@ pub fn get_active_proxy(db: &crate::db::Database) -> Option<String> {
         .filter(|v| !v.is_empty())
 }
 
+/// 构建 HTTP 客户端
 pub fn build_client(timeout_secs: u64, proxy_url: Option<&str>) -> reqwest::Client {
     build_client_with_redirect(timeout_secs, proxy_url, true)
 }
 
+/// 构建 HTTP 客户端（可配置是否跟随重定向）
 pub fn build_client_with_redirect(
     timeout_secs: u64,
     proxy_url: Option<&str>,

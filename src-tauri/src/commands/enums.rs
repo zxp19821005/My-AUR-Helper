@@ -7,7 +7,7 @@
 use log::{debug, info};
 use tauri::State;
 
-use crate::commands::proxy_utils::{build_client, get_active_proxy};
+use crate::commands::sysops::proxy_utils::{build_client, get_active_proxy};
 use crate::errors::{AppError, AppResult};
 use crate::models::*;
 use crate::AppState;

@@ -1,3 +1,8 @@
+/**
+ * backup_execute.rs - 备份执行逻辑
+ *
+ * 提供软件包备份文件的复制和旧版本清理功能
+ */
 use log::info;
 use std::path::Path;
 use std::path::PathBuf;

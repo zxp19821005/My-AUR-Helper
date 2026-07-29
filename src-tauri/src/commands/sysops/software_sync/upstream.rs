@@ -18,7 +18,7 @@ use tauri::State;
 use super::utils::{
     build_checker_settings, get_setting_opt, parse_u32, parse_u64, UpstreamCheckResult,
 };
-use crate::commands::proxy_utils::{build_client, get_active_proxy};
+use super::super::proxy_utils::{build_client, get_active_proxy};
 use crate::errors::AppResult;
 use crate::AppState;
 

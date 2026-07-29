@@ -1,10 +1,17 @@
+/**
+ * software_check.rs - 版本检查命令
+ *
+ * 功能：
+ * - check_upstream_version: 检查单个软件包的上游版本
+ * - check_selected_upstream: 检查选中的软件包上游版本
+ */
 use chrono::Utc;
 use log::{debug, error, info};
 use tauri::State;
 
 use crate::checkers::{self, CheckOptions, CheckResult};
-use crate::commands::proxy_utils::{build_client, get_active_proxy};
-use crate::commands::software_sync::utils::{
+use super::proxy_utils::{build_client, get_active_proxy};
+use super::software_sync::utils::{
     build_checker_settings, get_setting_opt, parse_u32, parse_u64,
 };
 use crate::errors::{AppError, AppResult};

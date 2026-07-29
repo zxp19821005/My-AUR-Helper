@@ -10,7 +10,6 @@
  * - 处理窗口关闭事件
  */
 pub mod aur; // AUR RPC API 交互模块
-pub mod backup; // 备份管理模块
 pub mod checkers; // 版本检查器模块
 pub mod commands; // Tauri IPC 命令模块
 pub mod db; // 数据库操作模块
@@ -123,7 +122,7 @@ pub fn run() {
                         .unwrap_or_else(|| {
                             log::warn!("默认图标加载失败，使用系统默认图标");
                             // 创建一个 1x1 的透明图标作为备用
-                            tauri::image::Image::new(vec![0, 0, 0, 0], 1, 1)
+                            tauri::image::Image::new(&[0u8, 0, 0, 0], 1, 1)
                         }))
                     .menu(&menu) // 绑定菜单
                     .tooltip("My AUR Helper") // 鼠标悬停提示
@@ -215,39 +214,43 @@ pub fn run() {
             commands::software::batch_delete_software, // 批量删除软件包
             commands::software::set_software_license, // 设置软件包的 License
             commands::software::set_software_language, // 设置软件包的编程语言
-            commands::software_sync::aur::sync_from_aur, // 从 AUR 同步软件包
-            commands::software_sync::aur::update_aur_info, // 更新 AUR 信息
-            commands::software_sync::pkgbuild::sync_from_pkgbuild, // 从 PKGBUILD 文件同步
-            commands::software_sync::upstream::check_all_upstream, // 并行检查所有软件包的上游版本
-            commands::software_check::check_upstream_version, // 检查单个软件包的上游版本
-            commands::software_check::check_selected_upstream, // 检查选中的软件包上游版本
-            commands::upstream_validate::validate_upstream_urls, // 批量验证上游 URL
-            // 扫描
-            commands::scan::scan_pkg_files_cmd, // 扫描 .pkg.tar.zst 包文件
-            commands::cache_backup::list_cache_software, // 直接读取 cache_software 表（页面打开时）
-            commands::cache_backup::scan_all_cache_dirs, // 扫描所有启用的缓存目录
-            commands::cache_backup::clear_cache_software, // 清空 cache_software 表
-            commands::cache_backup::backup_cache_to_existing, // 备份缓存到已有备份位置
-            commands::cache_backup::backup_cache_to_subdirectory, // 备份缓存到指定子目录
-            // 备份管理
-            commands::backup::list_backup_software, // 列出所有备份记录
-            commands::backup::clear_backup_software, // 清空备份表
-            commands::backup::scan_backup_directory, // 扫描备份目录
-            commands::backup::deduplicate_backups,  // 软件去重
-            commands::backup::delete_backup,        // 删除单个备份
-            commands::backup::list_backup_subdirectories, // 获取子目录列表
-            commands::backup::get_package_file_info, // 获取包文件信息
-            commands::backup::check_sudoers_config, // 检测 sudoers 配置
-            commands::backup::get_sudoers_command,  // 获取 sudoers 配置命令
-            commands::backup::install_backup_package, // 安装备份包
+            // 软件包同步（sysops 模块）
+            commands::sysops::software_sync::aur::sync_from_aur, // 从 AUR 同步软件包
+            commands::sysops::software_sync::aur::update_aur_info, // 更新 AUR 信息
+            commands::sysops::software_sync::pkgbuild::sync_from_pkgbuild, // 从 PKGBUILD 文件同步
+            commands::sysops::software_sync::upstream::check_all_upstream, // 并行检查所有软件包的上游版本
+            // 版本检查（sysops 模块）
+            commands::sysops::software_check::check_upstream_version, // 检查单个软件包的上游版本
+            commands::sysops::software_check::check_selected_upstream, // 检查选中的软件包上游版本
+            // 上游 URL 验证（sysops 模块）
+            commands::sysops::upstream_validate::validate_upstream_urls, // 批量验证上游 URL
+            // 扫描和缓存管理（fileops 模块）
+            commands::fileops::scan::scan_pkg_files_cmd, // 扫描 .pkg.tar.zst 包文件
+            commands::fileops::cache_scan::list_cache_software, // 直接读取 cache_software 表（页面打开时）
+            commands::fileops::cache_scan::scan_all_cache_dirs, // 扫描所有启用的缓存目录
+            commands::fileops::cache_scan::clear_cache_software, // 清空 cache_software 表
+            commands::fileops::cache_backup::backup_cache_to_existing, // 备份缓存到已有备份位置
+            commands::fileops::cache_backup::backup_cache_to_subdirectory, // 备份缓存到指定子目录
+            // 备份管理（fileops 模块）
+            commands::fileops::backup_scan::scan_backup_directory, // 扫描备份目录
+            commands::fileops::backup_scan::list_backup_subdirectories, // 获取子目录列表
+            commands::fileops::backup_dedup::deduplicate_backups,  // 软件去重
+            // 备份管理（sysops 模块 - 查询和安装）
+            commands::sysops::backup_basic::list_backup_software, // 列出所有备份记录
+            commands::sysops::backup_basic::clear_backup_software, // 清空备份表
+            commands::sysops::backup_basic::delete_backup,        // 删除单个备份
+            commands::sysops::backup_install::get_package_file_info, // 获取包文件信息
+            commands::sysops::backup_install::check_sudoers_config, // 检测 sudoers 配置
+            commands::sysops::backup_install::get_sudoers_command,  // 获取 sudoers 配置命令
+            commands::sysops::backup_install::install_backup_package, // 安装备份包
             // 代理管理
             commands::proxy::get_proxies,         // 获取所有代理列表
             commands::proxy::fetch_proxy_sources, // 从 Greasyfork 获取代理源
             commands::proxy::test_proxy,          // 测试代理延迟
             commands::proxy::set_proxy_active,    // 设置代理启用状态
-            // 系统命令
-            commands::sys_command::get_package_version, // 获取已安装包的版本
-            commands::sys_command::list_installed_packages, // 列出所有已安装包
+            // 系统命令（sysops 模块）
+            commands::sysops::sys_command::get_package_version, // 获取已安装包的版本
+            commands::sysops::sys_command::list_installed_packages, // 列出所有已安装包
             // 日志管理
             commands::logs::get_logs,   // 获取日志列表
             commands::logs::clear_logs, // 清空日志

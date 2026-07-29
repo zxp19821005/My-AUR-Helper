@@ -1,14 +1,19 @@
-use crate::db::Database;
-use crate::errors::AppResult;
 /**
- * dedup.rs - 备份去重逻辑
+ * backup_dedup.rs - 备份去重逻辑
  *
  * 功能：
  * - collect_pkg_map: 按包名分组所有备份记录
  * - collect_files_to_delete: 比较版本，收集需要删除的旧版本文件
  * - DeduplicateResult: 去重结果结构体
+ * - deduplicate_backups: 软件去重（保留最新版本，删除旧版本文件和记录）
  */
+use crate::db::Database;
+use crate::errors::AppResult;
 use log::info;
+use tauri::State;
+use tokio::fs;
+
+use crate::AppState;
 
 /// 备份去重结果
 #[derive(Debug, Clone, serde::Serialize)]
@@ -107,4 +112,68 @@ pub fn collect_files_to_delete(
     );
 
     files_to_delete
+}
+
+/// 软件去重：保留最新版本，删除旧版本文件和记录
+#[tauri::command]
+pub async fn deduplicate_backups(
+    state: State<'_, AppState>,
+    backup_path: String,
+) -> AppResult<DeduplicateResult> {
+    info!("[备份管理] 开始软件去重: {}", backup_path);
+
+    let mut result = DeduplicateResult {
+        removed_files: 0,
+        removed_records: 0,
+        errors: Vec::new(),
+    };
+
+    let pkg_map = {
+        let db = state.db.lock().map_err(|e| {
+            crate::errors::AppError::DatabaseError(format!("获取数据库锁失败: {}", e))
+        })?;
+        collect_pkg_map(&db)?
+    };
+
+    let files_to_delete = collect_files_to_delete(&pkg_map);
+
+    for (_filename, _id, full_path) in &files_to_delete {
+        let file_path = std::path::Path::new(full_path);
+        match fs::remove_file(file_path).await {
+            Ok(()) => {
+                result.removed_files += 1;
+                info!("[备份管理] 已删除旧备份文件: {}", full_path);
+            }
+            Err(e) => {
+                result
+                    .errors
+                    .push(format!("删除文件失败 {}: {}", full_path, e));
+            }
+        }
+    }
+
+    {
+        let db = state.db.lock().map_err(|e| {
+            crate::errors::AppError::DatabaseError(format!("获取数据库锁失败: {}", e))
+        })?;
+
+        for (_filename, id, _full_path) in &files_to_delete {
+            match db.delete_backup_software(*id) {
+                Ok(()) => {
+                    result.removed_records += 1;
+                }
+                Err(e) => {
+                    result
+                        .errors
+                        .push(format!("删除数据库记录失败 id={}: {}", id, e));
+                }
+            }
+        }
+    }
+
+    info!(
+        "[备份管理] 去重完成: 删除 {} 个文件, {} 条记录",
+        result.removed_files, result.removed_records
+    );
+    Ok(result)
 }

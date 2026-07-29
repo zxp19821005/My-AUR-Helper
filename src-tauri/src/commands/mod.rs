@@ -12,14 +12,11 @@
  *   makepkg（未使用的 makepkg 执行）、clean_cache/sync_database
  */
 
-/// 备份管理命令
-pub mod backup;
+/// 文件操作命令模块（目录扫描、文件拷贝、备份操作等）
+pub mod fileops;
 
-/// 缓存包备份命令
-pub mod cache_backup;
-
-/// 扫描命令
-pub mod scan;
+/// 系统操作命令模块（软件安装、缓存清理、版本检查等）
+pub mod sysops;
 
 /// 枚举值管理命令（License、编程语言）
 pub mod enums;
@@ -30,23 +27,8 @@ pub mod logs;
 /// 代理管理命令
 pub mod proxy;
 
-/// 代理工具函数（build_client、get_active_proxy）
-pub mod proxy_utils;
-
 /// 设置管理命令
 pub mod settings;
 
 /// 软件包 CRUD 和设置命令
 pub mod software;
-
-/// 软件包同步相关命令（AUR 同步、上游检查、PKGBUILD 同步）
-pub mod software_sync;
-
-/// 软件包上游版本检查相关命令
-pub mod software_check;
-
-/// 上游 URL 验证命令
-pub mod upstream_validate;
-
-/// 系统命令执行（仅保留安全命令：get_package_version、list_installed_packages）
-pub mod sys_command;

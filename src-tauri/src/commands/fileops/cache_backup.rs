@@ -1,5 +1,5 @@
 /**
- * backup.rs - 缓存包备份操作
+ * cache_backup.rs - 缓存包备份操作
  *
  * 功能：
  * - backup_cache_to_existing: 将缓存包备份到已有备份记录所在的子目录
@@ -8,9 +8,9 @@
 use log::info;
 use tauri::State;
 
-use super::dirs::{find_cache_file, get_cache_dirs, extract_pkgname_from_cache};
+use super::cache_dirs::{extract_pkgname_from_cache, find_cache_file, get_cache_dirs};
 use crate::errors::AppResult;
-use crate::models::{BackupSoftware};
+use crate::models::BackupSoftware;
 use crate::AppState;
 
 /// 将缓存包备份到已有备份记录所在的子目录
@@ -101,6 +101,8 @@ pub async fn backup_cache_to_existing(
                                 arch: String::new(),
                                 subdirectory: Some(subdirectory.to_string()),
                                 full_path: target_file.to_string_lossy().to_string(),
+                                created_at: None,
+                                updated_at: None,
                             };
                             let db = state.db.lock().map_err(|e| {
                                 crate::errors::AppError::DatabaseError(format!(
@@ -200,6 +202,8 @@ pub async fn backup_cache_to_subdirectory(
                                 Some(subdirectory.clone())
                             },
                             full_path: target_file.to_string_lossy().to_string(),
+                            created_at: None,
+                            updated_at: None,
                         };
                         let db = state.db.lock().map_err(|e| {
                             crate::errors::AppError::DatabaseError(format!(
