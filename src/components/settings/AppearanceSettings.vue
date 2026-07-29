@@ -6,10 +6,10 @@
   - 字体大小选择
 -->
 <script setup lang="ts">
-import StandardizedCard from "../components/base/StandardizedCard.vue";
-import StandardizedSelect from "../components/base/StandardizedSelect.vue";
+import StandardizedCard from "../base/StandardizedCard.vue";
+import StandardizedSelect from "../base/StandardizedSelect.vue";
 
-defineProps<{
+const props = defineProps<{
   theme: string;
   fontSize: string;
 }>();
@@ -37,11 +37,6 @@ function handleFontSizeChange(value: string | number) {
   emit("update:fontSize", fontSize);
   applySettings(props.theme, fontSize);
 }
-
-const props = defineProps<{
-  theme: string;
-  fontSize: string;
-}>();
 </script>
 
 <template>

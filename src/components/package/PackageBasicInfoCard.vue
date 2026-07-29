@@ -10,7 +10,7 @@ import { computed } from "vue";
 import { Package } from "@lucide/vue";
 import type { SoftwareDetail } from "../../types";
 import { pkgTypeOptions, checkerTypeOptions } from "../../utils/enums";
-import StandardizedCard from "../components/base/StandardizedCard.vue";
+import StandardizedCard from "../base/StandardizedCard.vue";
 
 const props = defineProps<{
   detail: SoftwareDetail;

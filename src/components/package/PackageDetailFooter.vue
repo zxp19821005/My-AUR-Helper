@@ -8,7 +8,7 @@
 <script setup lang="ts">
 import { invoke } from "@tauri-apps/api/core";
 import type { SoftwareDetail } from "../../types";
-import StandardizedButton from "../components/base/StandardizedButton.vue";
+import StandardizedButton from "../base/StandardizedButton.vue";
 
 const props = defineProps<{
   detail: SoftwareDetail | null;

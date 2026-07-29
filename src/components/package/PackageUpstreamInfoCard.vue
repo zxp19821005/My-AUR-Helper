@@ -8,7 +8,7 @@
 <script setup lang="ts">
 import { Info, Clock } from "@lucide/vue";
 import type { SoftwareDetail } from "../../types";
-import StandardizedCard from "../components/base/StandardizedCard.vue";
+import StandardizedCard from "../base/StandardizedCard.vue";
 
 defineProps<{
   detail: SoftwareDetail;

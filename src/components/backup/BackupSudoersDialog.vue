@@ -7,7 +7,7 @@
   - 提供重试和取消操作
 -->
 <script setup lang="ts">
-import StandardizedModal from "../components/common/StandardizedModal.vue";
+import StandardizedModal from "../common/StandardizedModal.vue";
 
 defineProps<{
   show: boolean;

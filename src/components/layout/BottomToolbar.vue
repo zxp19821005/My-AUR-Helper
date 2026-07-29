@@ -17,8 +17,8 @@ import { ref, inject, watch, nextTick } from "vue";
 import { FOOTER_KEY, clearMessages } from "../../composables/footer";
 import { ChevronUp, ChevronDown } from "@lucide/vue";
 import LogPanel from "./LogPanel.vue";
-import PaginationControls from "./PaginationControls.vue";
-import ProgressBar from "./ProgressBar.vue";
+import PaginationControls from "../common/PaginationControls.vue";
+import ProgressBar from "../common/ProgressBar.vue";
 
 const footer = inject(FOOTER_KEY)!;
 

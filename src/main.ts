@@ -14,8 +14,9 @@ import router from "./router";            // Vue Router 路由配置，管理页
 import "./assets/variables.css";
 import "./assets/base.css";
 import "./assets/components.css";
-import "./assets/modal.css";
 import "./assets/forms.css";
+import "./assets/styles/base-components.css";
+import "./assets/styles/layout-components.css";
 import "./assets/styles/table-styles.css";
 import "./assets/styles/modal-styles.css";
 import "./assets/styles/settings-styles.css";
