@@ -105,7 +105,7 @@ impl VersionChecker for GitHubAPIChecker {
         let license = fetch_github_repo_license(client, &owner, &repo, self.token.as_deref())
             .await
             .unwrap_or_else(|e| {
-                debug!("[版本检查] 获取 license 失败: {}", e);
+                log::warn!("[版本检查] 获取 license 失败: {}", e);
                 None
             });
 
@@ -114,7 +114,7 @@ impl VersionChecker for GitHubAPIChecker {
             fetch_github_repo_languages(client, &owner, &repo, self.token.as_deref())
                 .await
                 .unwrap_or_else(|e| {
-                    debug!("[版本检查] 获取 languages 失败: {}", e);
+                    log::warn!("[版本检查] 获取 languages 失败: {}", e);
                     vec![]
                 });
 

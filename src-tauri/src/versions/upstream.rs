@@ -15,7 +15,7 @@ pub struct UpstreamVersion {
 /// 预编译正则：匹配版本前缀 v/V
 fn re_v_prefix() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| Regex::new(r"^[vV]").unwrap())
+    RE.get_or_init(|| Regex::new(r"^[vV]").expect("静态正则表达式编译失败: v_prefix"))
 }
 
 /// 预编译正则：匹配发行版后缀
@@ -25,14 +25,14 @@ fn re_release_suffix() -> &'static Regex {
         Regex::new(
             r"-(release|uos|arch|linux|debian|ubuntu|fedora|centos|el\d+|fc\d+|srpm|rpm|deb)$",
         )
-        .unwrap()
+        .expect("静态正则表达式编译失败: release_suffix")
     })
 }
 
 /// 预编译正则：匹配构建元数据
 fn re_build_metadata() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| Regex::new(r"\+[a-zA-Z0-9.-]+$").unwrap())
+    RE.get_or_init(|| Regex::new(r"\+[a-zA-Z0-9.-]+$").expect("静态正则表达式编译失败: build_metadata"))
 }
 
 impl UpstreamVersion {

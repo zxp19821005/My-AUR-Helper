@@ -54,6 +54,11 @@ const quickFilterOptions = [
   },
 ];
 
+function parseSelectValue(event: Event): number | null {
+  const value = (event.target as HTMLSelectElement).value;
+  return value === "" ? null : Number(value);
+}
+
 function toggleQuickFilter(key: keyof FilterState["quickFilters"]) {
   const newState = { ...props.filterState };
   newState.quickFilters = { ...newState.quickFilters };
@@ -131,14 +136,7 @@ function handleValidateUrls() {
                 <select
                   class="filter-select"
                   :value="filterState.conditionFilters.packageType"
-                  @change="
-                    updateConditionFilter(
-                      'packageType',
-                      ($event.target as HTMLSelectElement).value === ''
-                        ? null
-                        : Number(($event.target as HTMLSelectElement).value)
-                    )
-                  "
+                  @change="updateConditionFilter('packageType', parseSelectValue($event))"
                 >
                   <option
                     v-for="opt in packageTypeFilterOptions"
@@ -154,14 +152,7 @@ function handleValidateUrls() {
                 <select
                   class="filter-select"
                   :value="filterState.conditionFilters.checkerType"
-                  @change="
-                    updateConditionFilter(
-                      'checkerType',
-                      ($event.target as HTMLSelectElement).value === ''
-                        ? null
-                        : Number(($event.target as HTMLSelectElement).value)
-                    )
-                  "
+                  @change="updateConditionFilter('checkerType', parseSelectValue($event))"
                 >
                   <option
                     v-for="opt in checkerTypeFilterOptions"
@@ -330,42 +321,5 @@ function handleValidateUrls() {
   padding: 12px 16px;
   border-top: 1px solid var(--border);
   justify-content: flex-end;
-}
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-  border: none;
-}
-
-.btn-primary {
-  background: var(--primary);
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  opacity: 0.9;
-}
-
-.btn-secondary {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  border: 1px solid var(--border);
-}
-
-.btn-secondary:hover {
-  background: var(--bg-tertiary);
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 </style>

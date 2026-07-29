@@ -57,8 +57,13 @@ export function useSoftwareForm() {
     );
   }
 
-  function canSave(mode: string, dirty: boolean): boolean {
-    if (mode === "add") return form.value.pkgname.trim().length > 0;
+  function validatePkgname(pkgname: string): boolean {
+    const regex = /^[a-zA-Z0-9@._+\-]+$/;
+    return regex.test(pkgname) && pkgname.length > 0 && pkgname.length <= 255;
+  }
+
+  function canSave(mode: "add" | "edit", dirty: boolean): boolean {
+    if (mode === "add") return validatePkgname(form.value.pkgname);
     return dirty;
   }
 
@@ -97,7 +102,7 @@ export function useSoftwareForm() {
     }
   }
 
-  function resetForm(mode: string) {
+  function resetForm(mode: "add" | "edit") {
     if (mode === "edit" && detail.value) {
       form.value = {
         pkgname: detail.value.pkgname,
@@ -128,7 +133,7 @@ export function useSoftwareForm() {
       form.value.check_binary_files = true;
     } else if (name.endsWith("-git")) {
       form.value.package_type_id = 3;
-      form.value.checker_type_id = 8;
+      form.value.checker_type_id = 1;
     } else if (name.endsWith("-appimage")) {
       form.value.package_type_id = 4;
       form.value.checker_type_id = 2;
@@ -140,10 +145,14 @@ export function useSoftwareForm() {
     }
   }
 
-  async function save(mode: string): Promise<boolean> {
+  async function save(mode: "add" | "edit"): Promise<boolean> {
     saving.value = true;
     error.value = "";
     try {
+      if (mode === "add" && !validatePkgname(form.value.pkgname)) {
+        error.value = "包名格式不合法，仅允许字母、数字、@、.、_、+、- 字符";
+        return false;
+      }
       let softwareId: number | null = null;
       if (mode === "add") {
         softwareId = await invoke<number>("add_software", {
@@ -189,7 +198,7 @@ export function useSoftwareForm() {
     }
   }
 
-  async function init(mode: string, pkgname?: string) {
+  async function init(mode: "add" | "edit", pkgname?: string) {
     error.value = "";
     loadEnums();
     if (mode === "edit" && pkgname) {

@@ -5,19 +5,19 @@ use regex::Regex;
 /// 预编译正则：匹配 git describe 格式 tag.rN.gHASH
 fn re_git_describe() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| Regex::new(r"\.r\d+\.g[a-f0-9]+$").unwrap())
+    RE.get_or_init(|| Regex::new(r"\.r\d+\.g[a-f0-9]+$").expect("静态正则表达式编译失败: git_describe"))
 }
 
 /// 预编译正则：匹配 rN.HASH 格式提取 commit count
 fn re_r_format_capture() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| Regex::new(r"^r(\d+)\.[a-f0-9]+$").unwrap())
+    RE.get_or_init(|| Regex::new(r"^r(\d+)\.[a-f0-9]+$").expect("静态正则表达式编译失败: r_format_capture"))
 }
 
 /// 预编译正则：匹配 rN.HASH 格式（hash >= 7 字符）
 fn re_r_format_match() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| Regex::new(r"^r\d+\.[a-f0-9]{7,}$").unwrap())
+    RE.get_or_init(|| Regex::new(r"^r\d+\.[a-f0-9]{7,}$").expect("静态正则表达式编译失败: r_format_match"))
 }
 
 /// 清理 git describe 格式的版本元数据

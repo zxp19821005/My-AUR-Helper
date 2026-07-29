@@ -54,25 +54,32 @@ impl Database {
         serde_json::from_str(json_str).unwrap_or_default()
     }
 
+    fn row_to_software_info(row: &rusqlite::Row) -> rusqlite::Result<SoftwareInfo> {
+        let lang_json: String = row.get(9)?;
+        Ok(SoftwareInfo {
+            software_id: Some(row.get(0)?),
+            pkgname: row.get(1)?,
+            upstream_url: row.get(2)?,
+            package_type_id: PackageType::from_id(row.get(3)?),
+            checker_type_id: CheckerType::from_id(row.get(4)?),
+            is_outdated: row.get::<_, i32>(5)? != 0,
+            check_test_versions: row.get::<_, i32>(6)? != 0,
+            check_binary_files: row.get::<_, i32>(7)? != 0,
+            auto_check_enabled: row.get::<_, i32>(8)? != 0,
+            language_ids: Self::parse_language_ids(&lang_json),
+            version_extract_regex: row.get(10)?,
+        })
+    }
+
     pub fn get_all_software(&self) -> AppResult<Vec<SoftwareInfo>> {
         let mut stmt = self.conn.prepare(
-            "SELECT software_id, pkgname, upstream_url, package_type_id, checker_type_id, is_outdated, check_test_versions, check_binary_files, auto_check_enabled, language_id, version_extract_regex FROM software_info ORDER BY pkgname"
+            "SELECT software_id, pkgname, upstream_url, package_type_id, checker_type_id, \
+             is_outdated, check_test_versions, check_binary_files, auto_check_enabled, \
+             language_id, version_extract_regex \
+             FROM software_info ORDER BY pkgname"
         )?;
         let rows = stmt.query_map([], |row| {
-            let lang_json: String = row.get(9)?;
-            Ok(SoftwareInfo {
-                software_id: Some(row.get(0)?),
-                pkgname: row.get(1)?,
-                upstream_url: row.get(2)?,
-                package_type_id: PackageType::from_id(row.get(3)?),
-                checker_type_id: CheckerType::from_id(row.get(4)?),
-                is_outdated: row.get::<_, i32>(5)? != 0,
-                check_test_versions: row.get::<_, i32>(6)? != 0,
-                check_binary_files: row.get::<_, i32>(7)? != 0,
-                auto_check_enabled: row.get::<_, i32>(8)? != 0,
-                language_ids: Self::parse_language_ids(&lang_json),
-                version_extract_regex: row.get(10)?,
-            })
+            Self::row_to_software_info(row)
         })?;
         let mut items = Vec::new();
         for row in rows {
@@ -83,23 +90,13 @@ impl Database {
 
     pub fn get_software_by_name(&self, pkgname: &str) -> AppResult<Option<SoftwareInfo>> {
         let mut stmt = self.conn.prepare(
-            "SELECT software_id, pkgname, upstream_url, package_type_id, checker_type_id, is_outdated, check_test_versions, check_binary_files, auto_check_enabled, language_id, version_extract_regex FROM software_info WHERE pkgname=?1"
+            "SELECT software_id, pkgname, upstream_url, package_type_id, checker_type_id, \
+             is_outdated, check_test_versions, check_binary_files, auto_check_enabled, \
+             language_id, version_extract_regex \
+             FROM software_info WHERE pkgname=?1"
         )?;
         let mut rows = stmt.query_map(rusqlite::params![pkgname], |row| {
-            let lang_json: String = row.get(9)?;
-            Ok(SoftwareInfo {
-                software_id: Some(row.get(0)?),
-                pkgname: row.get(1)?,
-                upstream_url: row.get(2)?,
-                package_type_id: PackageType::from_id(row.get(3)?),
-                checker_type_id: CheckerType::from_id(row.get(4)?),
-                is_outdated: row.get::<_, i32>(5)? != 0,
-                check_test_versions: row.get::<_, i32>(6)? != 0,
-                check_binary_files: row.get::<_, i32>(7)? != 0,
-                auto_check_enabled: row.get::<_, i32>(8)? != 0,
-                language_ids: Self::parse_language_ids(&lang_json),
-                version_extract_regex: row.get(10)?,
-            })
+            Self::row_to_software_info(row)
         })?;
         Ok(rows.next().transpose()?)
     }
@@ -125,25 +122,18 @@ impl Database {
     }
 
     pub fn search_software(&self, keyword: &str) -> AppResult<Vec<SoftwareInfo>> {
-        let pattern = format!("%{}%", keyword);
+        let escaped_keyword = keyword.replace('%', "\\%").replace('_', "\\_");
+        let pattern = format!("%{}%", escaped_keyword);
         let mut stmt = self.conn.prepare(
-            "SELECT software_id, pkgname, upstream_url, package_type_id, checker_type_id, is_outdated, check_test_versions, check_binary_files, auto_check_enabled, language_id, version_extract_regex FROM software_info WHERE pkgname LIKE ?1 OR upstream_url LIKE ?1 ORDER BY pkgname"
+            "SELECT software_id, pkgname, upstream_url, package_type_id, checker_type_id, \
+             is_outdated, check_test_versions, check_binary_files, auto_check_enabled, \
+             language_id, version_extract_regex \
+             FROM software_info \
+             WHERE pkgname LIKE ?1 ESCAPE '\\' OR upstream_url LIKE ?1 ESCAPE '\\' \
+             ORDER BY pkgname"
         )?;
         let rows = stmt.query_map(rusqlite::params![pattern], |row| {
-            let lang_json: String = row.get(9)?;
-            Ok(SoftwareInfo {
-                software_id: Some(row.get(0)?),
-                pkgname: row.get(1)?,
-                upstream_url: row.get(2)?,
-                package_type_id: PackageType::from_id(row.get(3)?),
-                checker_type_id: CheckerType::from_id(row.get(4)?),
-                is_outdated: row.get::<_, i32>(5)? != 0,
-                check_test_versions: row.get::<_, i32>(6)? != 0,
-                check_binary_files: row.get::<_, i32>(7)? != 0,
-                auto_check_enabled: row.get::<_, i32>(8)? != 0,
-                language_ids: Self::parse_language_ids(&lang_json),
-                version_extract_regex: row.get(10)?,
-            })
+            Self::row_to_software_info(row)
         })?;
         let mut items = Vec::new();
         for row in rows {

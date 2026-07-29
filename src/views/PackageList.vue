@@ -56,6 +56,14 @@ const {
   resetFilters,
 } = usePackageList();
 
+const isAllPageSelected = computed(() => {
+  return pageData.value.length > 0 && pageData.value.every(p => selectedPkgnames.value.has(p.pkgname));
+});
+
+const isPartialPageSelected = computed(() => {
+  return pageData.value.some(p => selectedPkgnames.value.has(p.pkgname)) && !isAllPageSelected.value;
+});
+
 const {
   loading,
   isRowLoading,
@@ -151,8 +159,8 @@ onMounted(async () => {
           <tr>
             <th style="width: 2rem">
               <input type="checkbox"
-                :checked="pageData.length > 0 && pageData.every(p => selectedPkgnames.has(p.pkgname))"
-                :indeterminate="pageData.some(p => selectedPkgnames.has(p.pkgname)) && !pageData.every(p => selectedPkgnames.has(p.pkgname))"
+                :checked="isAllPageSelected"
+                :indeterminate="isPartialPageSelected"
                 @change="toggleSelectAll" />
             </th>
             <th>包名</th>

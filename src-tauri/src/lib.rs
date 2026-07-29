@@ -74,11 +74,9 @@ pub fn run() {
                 .map_err(|e| errors::AppError::FileOperation(format!("创建配置目录失败: {}", e)))?;
             let db_path = app_dir.join("my_aur_helper.db"); // 数据库文件路径
             let database = db::Database::new(&db_path).map_err(|e| {
-                eprintln!("数据库初始化失败: {}", e);
                 errors::AppError::DatabaseError(format!("数据库初始化失败: {}", e))
             })?;
             database.initialize().map_err(|e| {
-                eprintln!("数据库表结构初始化失败: {}", e);
                 errors::AppError::DatabaseError(format!("数据库表结构初始化失败: {}", e))
             })?;
 
@@ -120,7 +118,13 @@ pub fn run() {
 
                 // 创建托盘图标
                 let _tray = TrayIconBuilder::new()
-                    .icon(app.default_window_icon().unwrap().clone()) // 使用应用默认图标
+                    .icon(app.default_window_icon()
+                        .map(|icon| icon.clone())
+                        .unwrap_or_else(|| {
+                            log::warn!("默认图标加载失败，使用系统默认图标");
+                            // 创建一个 1x1 的透明图标作为备用
+                            tauri::image::Image::new(vec![0, 0, 0, 0], 1, 1)
+                        }))
                     .menu(&menu) // 绑定菜单
                     .tooltip("My AUR Helper") // 鼠标悬停提示
                     // 菜单事件处理
@@ -129,8 +133,12 @@ pub fn run() {
                             "show" => {
                                 // 显示主窗口并获取焦点
                                 if let Some(window) = app.get_webview_window("main") {
-                                    let _ = window.show();
-                                    let _ = window.set_focus();
+                                    if let Err(e) = window.show() {
+                                        log::warn!("窗口显示失败: {}", e);
+                                    }
+                                    if let Err(e) = window.set_focus() {
+                                        log::warn!("窗口聚焦失败: {}", e);
+                                    }
                                 }
                             }
                             "quit" => {
@@ -150,8 +158,12 @@ pub fn run() {
                         {
                             let app = tray.app_handle();
                             if let Some(window) = app.get_webview_window("main") {
-                                let _ = window.show();
-                                let _ = window.set_focus();
+                                if let Err(e) = window.show() {
+                                    log::warn!("窗口显示失败: {}", e);
+                                }
+                                if let Err(e) = window.set_focus() {
+                                    log::warn!("窗口聚焦失败: {}", e);
+                                }
                             }
                         }
                     })
@@ -180,7 +192,9 @@ pub fn run() {
 
                 if close_action == "minimize_to_tray" {
                     // 隐藏窗口到系统托盘，而不是关闭应用
-                    let _ = window.hide();
+                    if let Err(e) = window.hide() {
+                        log::warn!("窗口隐藏失败: {}", e);
+                    }
                     api.prevent_close(); // 阻止窗口关闭
                 }
                 // 否则：默认行为，关闭窗口并退出应用

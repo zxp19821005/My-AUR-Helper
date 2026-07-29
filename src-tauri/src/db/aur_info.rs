@@ -9,17 +9,18 @@ impl Database {
     /// @param info - AUR 包信息（按 software_id 去重）
     pub fn upsert_aur_info(&self, info: &AurInfo) -> AppResult<()> {
         self.conn.execute(
-            "INSERT INTO aur_info (software_id, pkgdesc, aur_version, license_id, last_updated, depends, makedepends, optdepends, out_of_date)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
-             ON CONFLICT(software_id) DO UPDATE SET
-                pkgdesc=excluded.pkgdesc, aur_version=excluded.aur_version, license_id=excluded.license_id,
-                last_updated=excluded.last_updated, depends=excluded.depends, makedepends=excluded.makedepends,
+            "INSERT INTO aur_info (software_id, pkgdesc, aur_version, license_id, last_updated, \
+             depends, makedepends, optdepends, out_of_date) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) \
+             ON CONFLICT(software_id) DO UPDATE SET \
+                pkgdesc=excluded.pkgdesc, aur_version=excluded.aur_version, \
+                license_id=excluded.license_id, last_updated=excluded.last_updated, \
+                depends=excluded.depends, makedepends=excluded.makedepends, \
                 optdepends=excluded.optdepends, out_of_date=excluded.out_of_date",
-            // 参数列表：9 个字段
             rusqlite::params![
                 info.software_id, info.pkgdesc, info.aur_version, info.license_id,
                 info.last_updated, info.depends, info.makedepends, info.optdepends,
-                info.out_of_date.map(|b| b as i32), // bool 转 i32
+                info.out_of_date.map(|b| b as i32),
             ],
         )?;
         Ok(())
@@ -30,7 +31,9 @@ impl Database {
     /// @returns 可选的 AUR 包信息
     pub fn get_aur_info(&self, software_id: i64) -> AppResult<Option<AurInfo>> {
         let mut stmt = self.conn.prepare(
-            "SELECT software_id, pkgdesc, aur_version, license_id, CAST(last_updated AS INTEGER), depends, makedepends, optdepends, out_of_date FROM aur_info WHERE software_id=?1"
+            "SELECT software_id, pkgdesc, aur_version, license_id, \
+             CAST(last_updated AS INTEGER), depends, makedepends, optdepends, out_of_date \
+             FROM aur_info WHERE software_id=?1"
         )?;
         let mut rows = stmt.query_map(rusqlite::params![software_id], |row| {
             Ok(AurInfo {
@@ -42,7 +45,7 @@ impl Database {
                 depends: row.get(5)?,
                 makedepends: row.get(6)?,
                 optdepends: row.get(7)?,
-                out_of_date: row.get::<_, Option<i32>>(8)?.map(|v| v != 0), // i32 转 bool
+                out_of_date: row.get::<_, Option<i32>>(8)?.map(|v| v != 0),
             })
         })?;
         Ok(rows.next().transpose()?)
@@ -55,28 +58,9 @@ impl Database {
             software_id,
             license_id
         );
-        // 检查 software_id 是否存在于 software_info
-        let sw_exists: bool = self.conn.query_row(
-            "SELECT COUNT(*) > 0 FROM software_info WHERE software_id=?1",
-            rusqlite::params![software_id],
-            |row| row.get(0),
-        )?;
-        log::debug!("[set_aur_license] software_info exists: {}", sw_exists);
-
-        // 检查 aur_info 是否已有该 software_id 的行
-        let aur_exists: bool = self.conn.query_row(
-            "SELECT COUNT(*) > 0 FROM aur_info WHERE software_id=?1",
-            rusqlite::params![software_id],
-            |row| row.get(0),
-        )?;
-        log::debug!(
-            "[set_aur_license] aur_info exists for software_id={}: {}",
-            software_id,
-            aur_exists
-        );
 
         self.conn.execute(
-            "INSERT INTO aur_info (software_id, license_id) VALUES (?1, ?2)
+            "INSERT INTO aur_info (software_id, license_id) VALUES (?1, ?2) \
              ON CONFLICT(software_id) DO UPDATE SET license_id=excluded.license_id",
             rusqlite::params![software_id, license_id],
         )?;

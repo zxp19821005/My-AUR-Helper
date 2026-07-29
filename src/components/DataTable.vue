@@ -235,12 +235,52 @@ defineExpose({ clearSelection, goToPage, selectedRows });
 </template>
 
 <style scoped>
-.data-table-wrapper { display: flex; flex-direction: column; gap: 0.5rem; }
-.data-table { width: 100%; border-collapse: collapse; table-layout: auto; }
-.data-table th { text-align: left; padding: 0.75rem; color: var(--text-secondary); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; border-bottom: 1px solid var(--border); white-space: nowrap; }
-.data-table td { padding: 0.75rem; border-bottom: 1px solid var(--border); font-size: 0.875rem; }
-.data-table tbody tr { cursor: pointer; transition: background-color 0.15s; }
-.data-table tbody tr:hover { background-color: rgba(108, 99, 255, 0.05); }
-.index-cell { color: var(--text-secondary); font-size: 0.75rem; }
-.empty-state { padding: 2rem; text-align: center; color: var(--text-secondary); }
+.data-table-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+.data-table th {
+  text-align: left;
+  padding: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.data-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.875rem;
+}
+
+.data-table tbody tr {
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.data-table tbody tr:hover {
+  background-color: rgba(108, 99, 255, 0.05);
+}
+
+.index-cell {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.empty-state {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-secondary);
+}
 </style>
