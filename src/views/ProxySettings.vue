@@ -22,8 +22,8 @@ import type { ProxyTestResult } from "../composables/useProxyList";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
 import StandardizedMessage from "../components/base/StandardizedMessage.vue";
 import StandardizedBadge from "../components/base/StandardizedBadge.vue";
-import ProxyToolbar from "../components/ProxyToolbar.vue";
-import ProxyRowActions from "../components/ProxyRowActions.vue";
+import ProxyToolbar from "../components/proxy/ProxyToolbar.vue";
+import ProxyRowActions from "../components/proxy/ProxyRowActions.vue";
 
 const footer = inject(FOOTER_KEY)!;
 

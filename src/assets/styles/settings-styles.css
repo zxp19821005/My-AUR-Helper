@@ -1,0 +1,222 @@
+/**
+ * settings-styles.css - 设置页面全局样式
+ *
+ * 包含所有设置组件共享的样式：按钮、输入框、缓存目录行等
+ */
+
+/* ========== 消息提示 ========== */
+.settings-message {
+  padding: 0.5rem 1rem;
+  margin-bottom: 1rem;
+  border-radius: 6px;
+  background-color: rgba(76, 175, 125, 0.1);
+  color: var(--success);
+  font-size: 0.875rem;
+}
+
+/* ========== 缓存目录行 ========== */
+.cache-dir-row {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.cache-dir-row:last-child {
+  border-bottom: none;
+}
+
+.cache-dir-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 100px;
+  cursor: pointer;
+}
+
+.cache-dir-toggle input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.cache-dir-path {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-family: monospace;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ========== 代理配置行 ========== */
+.proxy-row {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.proxy-row:last-child {
+  border-bottom: none;
+}
+
+.proxy-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 120px;
+  cursor: pointer;
+}
+
+.proxy-toggle input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.proxy-url {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-family: monospace;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ========== 设置页面通用输入框 ========== */
+.settings-input {
+  padding: 0.375rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.settings-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.settings-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+/* ========== 设置页面按钮 ========== */
+.settings-btn {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.settings-btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.settings-btn-primary {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.settings-btn-primary:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.settings-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.settings-btn-secondary {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.settings-btn-secondary:hover:not(:disabled) {
+  background: var(--bg-card);
+}
+
+.settings-btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.settings-btn-outline {
+  background: none;
+  border: 1px dashed var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  transition: all 0.15s;
+}
+
+.settings-btn-outline:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.settings-btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-btn-icon-info {
+  color: var(--text-secondary);
+}
+
+.settings-btn-icon-info:hover {
+  color: var(--accent);
+  background-color: var(--hover-bg, rgba(128,128,128,0.1));
+}
+
+.settings-btn-icon-danger {
+  color: var(--text-secondary);
+}
+
+.settings-btn-icon-danger:hover {
+  color: #e74c3c;
+  background-color: rgba(231,76,60,0.1);
+}
+
+/* ========== 设置页面通用行 ========== */
+.settings-row {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.settings-row:last-child {
+  border-bottom: none;
+}
+
+.settings-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 100px;
+  cursor: pointer;
+}
+
+.settings-toggle input[type="checkbox"] {
+  cursor: pointer;
+}

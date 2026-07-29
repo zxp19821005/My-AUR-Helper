@@ -169,18 +169,16 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/App.vue` | 根组件，布局容器 |
 | `src/router/index.ts` | Vue Router 路由配置 |
 | `src/views/` | 页面组件（每个页面一个文件） |
-| `src/components/DataTable.vue` | 通用数据表格组件（支持分页、搜索、选择） |
-| `src/components/FilterBar.vue` | 筛选器组件（快速筛选 + 条件筛选，复用 enums.ts 中的枚举选项） |
-| `src/components/SettingsCacheSection.vue` | 缓存目录设置组件（使用 useCacheDirs composable） |
-| `src/components/BackupToModal.vue` | 备份到子目录弹窗组件（从 CacheManager 拆分） |
-| `src/components/SoftwareDetailModal.vue` | 软件详情弹窗（复用 SoftwareInfoCard/AurCard/UpstreamCard） |
-| `src/components/SoftwareInfoCard.vue` | 软件基本信息卡片组件 |
-| `src/components/SoftwareAurCard.vue` | AUR 信息卡片组件 |
-| `src/components/SoftwareUpstreamCard.vue` | 上游版本信息卡片组件 |
-| `src/components/common/Modal.vue` | 通用弹窗组件 |
-| `src/components/DetailToolbar.vue` | 详情页工具栏组件 |
-| `src/components/FloatingNav.vue` | 详情页浮动前后导航组件 |
-| `src/components/` | 通用组件（跨页面复用） |
+| `src/components/base/` | 基础UI组件（Button、Card、Input、Select、Message、StatCard、Badge） |
+| `src/components/common/` | 通用组件（DataTable、Modal、Pagination、ProgressBar、PageToolbar等） |
+| `src/components/layout/` | 布局组件（Sidebar、TabBar、BottomToolbar、PopupLayout、LogPanel等） |
+| `src/components/package/` | 软件包相关组件（SoftwareDetailModal、InfoCard、AurCard、UpstreamCard等） |
+| `src/components/backup/` | 备份管理组件（BackupToolbar、RowActions、InfoDialog、SudoersDialog等） |
+| `src/components/cache/` | 缓存管理组件（CacheToolbar、CacheRowActions） |
+| `src/components/proxy/` | 代理管理组件（ProxyToolbar、ProxyRowActions） |
+| `src/components/settings/` | 设置页面组件（SettingsCard、SettingRow、各配置Section） |
+| `src/components/filter/` | 筛选组件（FilterBar） |
+| `src/components/enum/` | 枚举管理组件（LanguageFormModal、LicenseFormModal） |
 | `src/utils/enums.ts` | 枚举常量和共享选项（packageTypes/checkerTypes/filterOptions） |
 | `src/utils/format.ts` | 通用格式化工具（时间戳/License/JSON列表/枚举名称/语言名称） |
 | `src/composables/` | 组合式函数（hooks） |
@@ -195,7 +193,12 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/composables/useLicenseSelect.ts` | License 可搜索下拉框逻辑 |
 | `src/stores/` | Pinia 状态管理 |
 | `src/types/index.ts` | TypeScript 类型定义 |
-| `src/assets/styles.css` | 全局样式（TailwindCSS） |
+| `src/assets/styles/` | 样式文件目录（集中管理所有组件样式） |
+| `src/assets/styles/base-components.css` | 基础组件样式（Button、Card、Input、Select等） |
+| `src/assets/styles/layout-components.css` | 布局组件样式（Sidebar、TabBar、BottomToolbar等） |
+| `src/assets/styles/modal-styles.css` | 模态框样式 |
+| `src/assets/styles/table-styles.css` | 表格样式 |
+| `src/assets/styles/settings-styles.css` | 设置页面样式 |
 
 <!-- ========== 文件拆分记录：超限文件拆分历史 ========== -->
 ### 文件拆分记录
@@ -234,6 +237,51 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | | | `SoftwareSideCards.vue` | 91 | | 新文件 |
 | `src/components/common/StandardizedModal.vue` | 391 | `StandardizedModal.vue` | 189 | 2026-07-29 | ✅ 完成 |
 | | | `assets/styles/modal-styles.css` | 205 | | 全局样式 |
+
+<!-- ========== 前端重构记录：目录重组与样式提取 ========== -->
+### 前端重构记录（2026-07-29）
+
+**重构目标**：组件目录模块化重组 + 样式文件集中管理
+
+**重构内容**：
+1. **目录结构重组**：将 `src/components/` 下 50+ 个文件按功能模块拆分为 10 个子目录
+   - `base/` - 基础UI组件（7个文件）
+   - `common/` - 通用组件（12个文件）
+   - `layout/` - 布局组件（8个文件）
+   - `package/` - 软件包组件（14个文件）
+   - `backup/` - 备份组件（5个文件）
+   - `cache/` - 缓存组件（2个文件）
+   - `proxy/` - 代理组件（2个文件）
+   - `settings/` - 设置组件（6个文件）
+   - `filter/` - 筛选组件（1个文件）
+   - `enum/` - 枚举组件（2个文件）
+
+2. **冗余文件清理**：
+   - 删除 `ConditionFilters.vue`（功能已整合到 FilterBar.vue）
+   - 删除 `QuickFilters.vue`（功能已整合到 FilterBar.vue）
+   - 删除 `assets/modal.css`（与 modal-styles.css 重复）
+   - 创建 `LanguageFormModal.vue`（缺失但被引用的组件）
+
+3. **样式文件提取与集中管理**：
+   - 创建 `assets/styles/base-components.css` - 基础组件样式
+   - 创建 `assets/styles/layout-components.css` - 布局组件样式
+   - 已有 `modal-styles.css`、`table-styles.css`、`settings-styles.css`
+
+4. **导入路径更新**：
+   - 更新 `router/index.ts` 中的所有导入路径
+   - 更新 `App.vue` 中的导入路径
+   - 更新所有 `views/` 目录下的导入路径（10个文件）
+   - 批量更新所有子目录组件的导入路径（50+ 文件）
+
+**重构成果**：
+- 删除冗余文件：3 个
+- 创建新文件：3 个
+- 移动文件到子目录：50+ 个
+- 更新导入路径：60+ 个文件
+- 创建子目录：10 个
+- 提取CSS样式文件：2 个（新增）
+
+**状态**：✅ 完成
 
 <!-- ========== 开发命令：常用命令速查 ========== -->
 ## 开发命令

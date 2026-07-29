@@ -18,7 +18,7 @@
 import { ref, onMounted } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { EnumProgrammingLanguage as ProgrammingLanguage } from "../types";
-import LanguageFormModal from "../components/LanguageFormModal.vue";
+import LanguageFormModal from "../components/enum/LanguageFormModal.vue";
 import { useSettingsStore } from "../stores/settings";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
 import StandardizedButton from "../components/base/StandardizedButton.vue";

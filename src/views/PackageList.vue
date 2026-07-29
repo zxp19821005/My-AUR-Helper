@@ -22,10 +22,10 @@ import { invoke } from "@tauri-apps/api/core";
 import { usePackageStore } from "../stores/packages";
 import { usePackageActions } from "../composables/packageActions";
 import { usePackageList, fmtTimestamp } from "../composables/usePackageList";
-import PageToolbar from "../components/PageToolbar.vue";
-import FilterBar from "../components/FilterBar.vue";
-import SoftwareFormModal from "../components/SoftwareFormModal.vue";
-import SoftwareDetailModal from "../components/SoftwareDetailModal.vue";
+import PageToolbar from "../components/common/PageToolbar.vue";
+import FilterBar from "../components/filter/FilterBar.vue";
+import SoftwareFormModal from "../components/package/SoftwareFormModal.vue";
+import SoftwareDetailModal from "../components/package/SoftwareDetailModal.vue";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
 import StandardizedBadge from "../components/base/StandardizedBadge.vue";
 import {

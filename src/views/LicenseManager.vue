@@ -18,7 +18,7 @@
 import { ref, onMounted } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { License } from "../types";
-import LicenseFormModal from "../components/LicenseFormModal.vue";
+import LicenseFormModal from "../components/enum/LicenseFormModal.vue";
 import { useSettingsStore } from "../stores/settings";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
 import StandardizedButton from "../components/base/StandardizedButton.vue";

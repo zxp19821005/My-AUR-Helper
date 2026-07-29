@@ -22,7 +22,7 @@ import { Package, CheckCircle, AlertCircle, Globe, Settings, Database, HardDrive
 import { usePackageStore } from "../stores/packages";
 import { invoke } from "@tauri-apps/api/core";
 import type { ProxyInfo } from "../types";
-import PageToolbar from "../components/PageToolbar.vue";
+import PageToolbar from "../components/common/PageToolbar.vue";
 import StandardizedStatCard from "../components/base/StandardizedStatCard.vue";
 import StandardizedButton from "../components/base/StandardizedButton.vue";
 

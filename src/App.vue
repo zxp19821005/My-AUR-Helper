@@ -16,9 +16,9 @@
 import { ref, watch, onMounted, reactive, provide } from "vue";
 import { useRoute } from "vue-router";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import Sidebar from "./components/Sidebar.vue";
-import TabBar from "./components/TabBar.vue";
-import BottomToolbar from "./components/BottomToolbar.vue";
+import Sidebar from "./components/layout/Sidebar.vue";
+import TabBar from "./components/layout/TabBar.vue";
+import BottomToolbar from "./components/layout/BottomToolbar.vue";
 import { useTabStore } from "./stores/tabs";
 import { FOOTER_KEY, defaultFooterState } from "./composables/footer";
 import type { FooterState } from "./composables/footer";

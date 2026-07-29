@@ -18,9 +18,10 @@ import { useRoute } from "vue-router";
 import { invoke } from "@tauri-apps/api/core";
 import { Eye, EyeOff } from "@lucide/vue";
 import type { Setting } from "../types";
-import SettingsLogSection from "../components/SettingsLogSection.vue";
-import SettingsCacheSection from "../components/SettingsCacheSection.vue";
-import SettingsProxySection from "../components/SettingsProxySection.vue";
+import SettingsLogSection from "../components/settings/SettingsLogSection.vue";
+import SettingsCacheSection from "../components/settings/SettingsCacheSection.vue";
+import SettingsProxySection from "../components/settings/SettingsProxySection.vue";
+import AppearanceSettings from "../components/settings/AppearanceSettings.vue";
 import { useSettingsStore } from "../stores/settings";
 import StandardizedCard from "../components/base/StandardizedCard.vue";
 import StandardizedInput from "../components/base/StandardizedInput.vue";
@@ -97,23 +98,6 @@ async function saveSetting(key: string, value: string) {
   }
 }
 
-function saveTheme(value: string | number) {
-  theme.value = String(value);
-  localStorage.setItem("app-theme", String(value));
-  applySettings();
-}
-
-function saveFontSize(value: string | number) {
-  fontSize.value = String(value);
-  localStorage.setItem("app-font-size", String(value));
-  applySettings();
-}
-
-function applySettings() {
-  document.documentElement.setAttribute("data-theme", theme.value);
-  document.documentElement.style.fontSize = fontSize.value + "px";
-}
-
 function togglePassword(key: string) {
   passwordVisible.value[key] = !passwordVisible.value[key];
 }
@@ -148,43 +132,11 @@ function inputType(s: Setting): string {
     </StandardizedCard>
 
     <!-- 通用设置 -->
-    <StandardizedCard
+    <AppearanceSettings
       v-else-if="category === 'general'"
-      title="外观设置"
-      subtitle="选择应用主题和字体大小"
-    >
-      <div class="setting-row">
-        <div class="setting-info">
-          <h4>主题</h4>
-          <p>选择应用主题</p>
-        </div>
-        <StandardizedSelect
-          :modelValue="theme"
-          size="md"
-          @update:modelValue="saveTheme"
-        >
-          <option value="dark">深色</option>
-          <option value="light">浅色</option>
-        </StandardizedSelect>
-      </div>
-
-      <div class="setting-row">
-        <div class="setting-info">
-          <h4>字体大小</h4>
-          <p>调整界面文字大小</p>
-        </div>
-        <StandardizedSelect
-          :modelValue="fontSize"
-          size="md"
-          @update:modelValue="saveFontSize"
-        >
-          <option value="12">小 (12px)</option>
-          <option value="14">默认 (14px)</option>
-          <option value="16">大 (16px)</option>
-          <option value="18">特大 (18px)</option>
-        </StandardizedSelect>
-      </div>
-    </StandardizedCard>
+      v-model:theme="theme"
+      v-model:font-size="fontSize"
+    />
 
     <!-- 日志设置 -->
     <SettingsLogSection v-else-if="category === 'log'" />

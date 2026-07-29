@@ -20,11 +20,11 @@ import { invoke } from "@tauri-apps/api/core";
 import { useCacheList, formatSize } from "../composables/useCacheList";
 import { loadEnabledCacheDirs } from "../composables/useCacheDirs";
 import { FOOTER_KEY, addMessage } from "../composables/footer";
-import BackupToModal from "../components/BackupToModal.vue";
+import BackupToModal from "../components/backup/BackupToModal.vue";
 import type { DeduplicateResult } from "../types";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
-import CacheToolbar from "../components/CacheToolbar.vue";
-import CacheRowActions from "../components/CacheRowActions.vue";
+import CacheToolbar from "../components/cache/CacheToolbar.vue";
+import CacheRowActions from "../components/cache/CacheRowActions.vue";
 
 const footer = inject(FOOTER_KEY)!;
 

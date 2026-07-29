@@ -21,11 +21,11 @@ import { invoke } from "@tauri-apps/api/core";
 import { ArrowLeft, ArrowRight } from "@lucide/vue";
 import { FOOTER_KEY } from "../composables/footer";
 import { useSoftwareForm } from "../composables/useSoftwareForm";
-import SoftwareFormModal from "../components/SoftwareFormModal.vue";
-import PackageBasicInfoCard from "../components/PackageBasicInfoCard.vue";
-import PackageAurInfoCard from "../components/PackageAurInfoCard.vue";
-import PackageUpstreamInfoCard from "../components/PackageUpstreamInfoCard.vue";
-import PackageDetailFooter from "../components/PackageDetailFooter.vue";
+import SoftwareFormModal from "../components/package/SoftwareFormModal.vue";
+import PackageBasicInfoCard from "../components/package/PackageBasicInfoCard.vue";
+import PackageAurInfoCard from "../components/package/PackageAurInfoCard.vue";
+import PackageUpstreamInfoCard from "../components/package/PackageUpstreamInfoCard.vue";
+import PackageDetailFooter from "../components/package/PackageDetailFooter.vue";
 import StandardizedBadge from "../components/base/StandardizedBadge.vue";
 import StandardizedMessage from "../components/base/StandardizedMessage.vue";
 

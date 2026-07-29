@@ -23,10 +23,10 @@ import { useBackupInstall } from "../composables/useBackupInstall";
 import { FOOTER_KEY, addMessage } from "../composables/footer";
 import type { DeduplicateResult } from "../types";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
-import BackupToolbar from "../components/BackupToolbar.vue";
-import BackupRowActions from "../components/BackupRowActions.vue";
-import BackupInfoDialog from "../components/BackupInfoDialog.vue";
-import BackupSudoersDialog from "../components/BackupSudoersDialog.vue";
+import BackupToolbar from "../components/backup/BackupToolbar.vue";
+import BackupRowActions from "../components/backup/BackupRowActions.vue";
+import BackupInfoDialog from "../components/backup/BackupInfoDialog.vue";
+import BackupSudoersDialog from "../components/backup/BackupSudoersDialog.vue";
 
 const footer = inject(FOOTER_KEY)!;
 

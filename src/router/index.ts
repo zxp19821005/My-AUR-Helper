@@ -22,9 +22,9 @@ import CacheManager from "../views/CacheManager.vue";    // 缓存管理页面 -
 import ProxySettings from "../views/ProxySettings.vue";  // 代理设置页面 - 管理代理源
 
 // 弹出窗口布局组件
-import SettingsPopup from "../components/SettingsPopup.vue";  // 设置窗口布局 - 左侧菜单 + 右侧内容
-import EnumLayout from "../components/EnumLayout.vue";        // 枚举值管理窗口布局
-import LogsPopup from "../components/LogsPopup.vue";          // 日志窗口布局
+import SettingsPopup from "../components/layout/SettingsPopup.vue";  // 设置窗口布局 - 左侧菜单 + 右侧内容
+import EnumLayout from "../components/layout/EnumLayout.vue";        // 枚举值管理窗口布局
+import LogsPopup from "../components/layout/LogsPopup.vue";          // 日志窗口布局
 
 // 弹出窗口子页面组件
 import Settings from "../views/Settings.vue";            // 设置页面 - 应用配置管理
