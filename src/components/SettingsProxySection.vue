@@ -6,10 +6,6 @@
   - 配置四类代理的测试 URL
   - 支持保存和重置为默认值
   - 输入合法性校验
-
-  响应式设计：
-  - PC端：标签和输入框垂直排列，输入框占满宽度
-  - 平板/手机端：垂直排列，输入框占满宽度
 -->
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
@@ -135,9 +131,9 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
 </script>
 
 <template>
-  <div class="proxy-settings">
-    <h3 class="page-title">代理管理设置</h3>
-    <p class="page-desc">
+  <div class="card">
+    <h3 style="margin-bottom: 1rem">代理管理设置</h3>
+    <p style="color: var(--text-secondary); font-size: 0.8125rem; margin-bottom: 1rem">
       配置代理文件下载地址和各类代理的测试地址。
     </p>
 
@@ -145,100 +141,98 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
       {{ message }}
     </div>
 
-    <div class="settings-card">
-      <!-- 代理文件下载 URL -->
-      <div class="setting-row">
-        <div class="setting-label">
-          <strong>代理文件下载地址</strong>
-          <span class="setting-desc">用于下载代理规则 JS 文件</span>
-        </div>
-        <div class="setting-input-group">
-          <input
-            v-model="settings.proxy_download_url"
-            type="text"
-            class="text-input"
-            placeholder="输入代理文件下载 URL"
-          />
-          <button class="btn btn-outline btn-sm" @click="resetSingleSetting('proxy_download_url')" title="重置为默认值">
-            重置
-          </button>
-        </div>
+    <!-- 代理文件下载 URL -->
+    <div class="setting-row">
+      <div class="setting-label">
+        <strong>代理文件下载地址</strong>
+        <span class="setting-desc">用于下载代理规则 JS 文件</span>
       </div>
-
-      <!-- 下载代理测试 URL -->
-      <div class="setting-row">
-        <div class="setting-label">
-          <strong>下载代理测试地址</strong>
-          <span class="setting-desc">用于测试下载代理的连通性</span>
-        </div>
-        <div class="setting-input-group">
-          <input
-            v-model="settings.proxy_test_download_url"
-            type="text"
-            class="text-input"
-            placeholder="输入下载代理测试 URL"
-          />
-          <button class="btn btn-outline btn-sm" @click="resetSingleSetting('proxy_test_download_url')" title="重置为默认值">
-            重置
-          </button>
-        </div>
+      <div class="setting-input-group">
+        <input
+          v-model="settings.proxy_download_url"
+          type="text"
+          class="text-input"
+          placeholder="输入代理文件下载 URL"
+        />
+        <button class="btn-reset" @click="resetSingleSetting('proxy_download_url')" title="重置为默认值">
+          重置
+        </button>
       </div>
+    </div>
 
-      <!-- 克隆代理测试 URL -->
-      <div class="setting-row">
-        <div class="setting-label">
-          <strong>克隆代理测试地址</strong>
-          <span class="setting-desc">用于测试克隆代理的连通性</span>
-        </div>
-        <div class="setting-input-group">
-          <input
-            v-model="settings.proxy_test_clone_url"
-            type="text"
-            class="text-input"
-            placeholder="输入克隆代理测试 URL"
-          />
-          <button class="btn btn-outline btn-sm" @click="resetSingleSetting('proxy_test_clone_url')" title="重置为默认值">
-            重置
-          </button>
-        </div>
+    <!-- 下载代理测试 URL -->
+    <div class="setting-row">
+      <div class="setting-label">
+        <strong>下载代理测试地址</strong>
+        <span class="setting-desc">用于测试下载代理的连通性</span>
       </div>
-
-      <!-- RAW 代理测试 URL -->
-      <div class="setting-row">
-        <div class="setting-label">
-          <strong>RAW 代理测试地址</strong>
-          <span class="setting-desc">用于测试 RAW 代理的连通性</span>
-        </div>
-        <div class="setting-input-group">
-          <input
-            v-model="settings.proxy_test_raw_url"
-            type="text"
-            class="text-input"
-            placeholder="输入 RAW 代理测试 URL"
-          />
-          <button class="btn btn-outline btn-sm" @click="resetSingleSetting('proxy_test_raw_url')" title="重置为默认值">
-            重置
-          </button>
-        </div>
+      <div class="setting-input-group">
+        <input
+          v-model="settings.proxy_test_download_url"
+          type="text"
+          class="text-input"
+          placeholder="输入下载代理测试 URL"
+        />
+        <button class="btn-reset" @click="resetSingleSetting('proxy_test_download_url')" title="重置为默认值">
+          重置
+        </button>
       </div>
+    </div>
 
-      <!-- SSH 代理测试 URL -->
-      <div class="setting-row">
-        <div class="setting-label">
-          <strong>SSH 代理测试地址</strong>
-          <span class="setting-desc">用于测试 SSH 代理的连通性</span>
-        </div>
-        <div class="setting-input-group">
-          <input
-            v-model="settings.proxy_test_ssh_url"
-            type="text"
-            class="text-input"
-            placeholder="输入 SSH 代理测试 URL"
-          />
-          <button class="btn btn-outline btn-sm" @click="resetSingleSetting('proxy_test_ssh_url')" title="重置为默认值">
-            重置
-          </button>
-        </div>
+    <!-- 克隆代理测试 URL -->
+    <div class="setting-row">
+      <div class="setting-label">
+        <strong>克隆代理测试地址</strong>
+        <span class="setting-desc">用于测试克隆代理的连通性</span>
+      </div>
+      <div class="setting-input-group">
+        <input
+          v-model="settings.proxy_test_clone_url"
+          type="text"
+          class="text-input"
+          placeholder="输入克隆代理测试 URL"
+        />
+        <button class="btn-reset" @click="resetSingleSetting('proxy_test_clone_url')" title="重置为默认值">
+          重置
+        </button>
+      </div>
+    </div>
+
+    <!-- RAW 代理测试 URL -->
+    <div class="setting-row">
+      <div class="setting-label">
+        <strong>RAW 代理测试地址</strong>
+        <span class="setting-desc">用于测试 RAW 代理的连通性</span>
+      </div>
+      <div class="setting-input-group">
+        <input
+          v-model="settings.proxy_test_raw_url"
+          type="text"
+          class="text-input"
+          placeholder="输入 RAW 代理测试 URL"
+        />
+        <button class="btn-reset" @click="resetSingleSetting('proxy_test_raw_url')" title="重置为默认值">
+          重置
+        </button>
+      </div>
+    </div>
+
+    <!-- SSH 代理测试 URL -->
+    <div class="setting-row">
+      <div class="setting-label">
+        <strong>SSH 代理测试地址</strong>
+        <span class="setting-desc">用于测试 SSH 代理的连通性</span>
+      </div>
+      <div class="setting-input-group">
+        <input
+          v-model="settings.proxy_test_ssh_url"
+          type="text"
+          class="text-input"
+          placeholder="输入 SSH 代理测试 URL"
+        />
+        <button class="btn-reset" @click="resetSingleSetting('proxy_test_ssh_url')" title="重置为默认值">
+          重置
+        </button>
       </div>
     </div>
 
@@ -255,25 +249,6 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
 </template>
 
 <style scoped>
-.proxy-settings {
-  display: block;
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-}
-
-.page-title {
-  font-size: 1.25rem;
-  margin-bottom: 0.5rem;
-  color: var(--text-primary);
-}
-
-.page-desc {
-  color: var(--text-secondary);
-  font-size: 0.8125rem;
-  margin-bottom: 1rem;
-}
-
 .message {
   padding: 0.5rem 1rem;
   margin-bottom: 1rem;
@@ -296,42 +271,22 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
   color: #f59e0b;
 }
 
-.settings-card {
-  background-color: var(--bg-card);
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  padding: 1.5rem;
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-}
-
 .setting-row {
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 1rem 0;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 0;
   border-bottom: 1px solid var(--border);
 }
 
 .setting-row:last-child {
   border-bottom: none;
-  padding-bottom: 0;
-}
-
-.setting-row:first-child {
-  padding-top: 0;
 }
 
 .setting-label {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-}
-
-.setting-label strong {
-  font-size: 0.875rem;
-  color: var(--text-primary);
+  gap: 0.125rem;
 }
 
 .setting-desc {
@@ -343,22 +298,16 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  width: 100%;
 }
 
 .text-input {
-  flex: 1;
-  min-width: 0;
-  width: 100%;
-  padding: 0.5rem 0.75rem;
+  padding: 0.375rem 0.5rem;
   border-radius: 6px;
   border: 1px solid var(--border);
   background-color: var(--bg-primary);
   color: var(--text-primary);
   font-size: 0.875rem;
-  font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
-  transition: border-color 0.15s;
-  box-sizing: border-box;
+  min-width: 240px;
 }
 
 .text-input:focus {
@@ -370,6 +319,23 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
   color: var(--text-muted);
 }
 
+.btn-reset {
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.75rem;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.btn-reset:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .btn {
   padding: 0.5rem 1rem;
   border-radius: 6px;
@@ -378,7 +344,6 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
   font-size: 0.8125rem;
   transition: all 0.15s;
   white-space: nowrap;
-  flex-shrink: 0;
 }
 
 .btn-primary {
@@ -410,47 +375,30 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
   cursor: not-allowed;
 }
 
-.btn-outline {
-  background: none;
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-}
-
-.btn-outline:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.btn-sm {
-  padding: 0.375rem 0.625rem;
-  font-size: 0.75rem;
-}
-
 .setting-actions {
   display: flex;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
   border-top: 1px solid var(--border);
 }
 
 /* 响应式设计 - 平板及以下 */
 @media (max-width: 768px) {
-  .settings-card {
-    padding: 1rem;
-  }
-
   .setting-row {
+    flex-direction: column;
+    align-items: flex-start;
     gap: 0.5rem;
   }
 
   .setting-input-group {
-    flex-direction: column;
-    align-items: stretch;
+    width: 100%;
   }
 
-  .btn-sm {
-    align-self: flex-start;
+  .text-input {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
   }
 
   .setting-actions {
@@ -459,27 +407,6 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
 
   .setting-actions .btn {
     width: 100%;
-  }
-}
-
-/* 响应式设计 - 小屏幕手机 */
-@media (max-width: 480px) {
-  .page-title {
-    font-size: 1.125rem;
-  }
-
-  .settings-card {
-    padding: 0.75rem;
-    border-radius: 8px;
-  }
-
-  .setting-row {
-    padding: 0.75rem 0;
-  }
-
-  .text-input {
-    font-size: 0.8125rem;
-    padding: 0.375rem 0.5rem;
   }
 }
 </style>
