@@ -10,7 +10,7 @@
 import { ref, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { FOOTER_KEY } from "./footer";
+import { FOOTER_KEY, addMessage } from "./footer";
 
 /**
  * 软件包操作钩子
@@ -44,14 +44,9 @@ export function usePackageActions(
     loadingKeys.value.delete(`${pkgname}:${action}`);
   }
 
-  /** 显示错误信息（3秒后自动清除） */
+  /** 显示错误信息（记录到日志面板） */
   function showError(msg: string) {
-    footer.infoText = `错误: ${msg}`;
-    setTimeout(() => {
-      if (footer.infoText.startsWith("错误:")) {
-        footer.infoText = "";
-      }
-    }, 5000);
+    addMessage(footer, "error", msg);
   }
 
   async function syncFromAur(selectedPkgnames: Set<string>) {

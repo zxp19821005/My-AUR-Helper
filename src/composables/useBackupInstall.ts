@@ -6,10 +6,12 @@
  * - 安装备份包（sudo pacman -U）
  * - sudoers 配置检测与提示
  */
-import { ref } from "vue";
+import { ref, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import { FOOTER_KEY, addMessage } from "./footer";
 
 export function useBackupInstall() {
+  const footer = inject(FOOTER_KEY)!;
   const installing = ref(false);
   const sudoersAvailable = ref<boolean | null>(null);
   const sudoersCommand = ref("");
@@ -74,10 +76,10 @@ export function useBackupInstall() {
   async function doInstall(fullPath: string, pkgname: string) {
     installing.value = true;
     try {
-      const output = await invoke<string>("install_backup_package", { fullPath });
-      alert(`${pkgname} 安装成功！\n\n${output}`);
+      await invoke<string>("install_backup_package", { fullPath });
+      addMessage(footer, "success", `${pkgname} 安装成功`);
     } catch (e) {
-      alert(`${pkgname} 安装失败: ${e}`);
+      addMessage(footer, "error", `${pkgname} 安装失败: ${e}`);
     } finally {
       installing.value = false;
       showSudoersPrompt.value = false;
@@ -119,9 +121,9 @@ export function useBackupInstall() {
     installing.value = false;
     const msg = `批量安装完成：成功 ${successCount} 个，失败 ${failCount} 个`;
     if (errors.length > 0) {
-      alert(`${msg}\n\n错误:\n${errors.join("\n")}`);
+      addMessage(footer, "warning", `${msg}，错误: ${errors.join("; ")}`);
     } else {
-      alert(msg);
+      addMessage(footer, "success", msg);
     }
   }
 

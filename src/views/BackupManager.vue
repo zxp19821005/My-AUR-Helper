@@ -10,13 +10,16 @@
   - sudoers 配置检测与提示弹窗
 -->
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onMounted, ref, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { useBackupList, fmtEpoch } from "../composables/useBackupList";
 import { useBackupInstall } from "../composables/useBackupInstall";
+import { FOOTER_KEY, addMessage } from "../composables/footer";
 import PageToolbar from "../components/PageToolbar.vue";
 import { Trash2, Scan, Copy, Info, Download, X } from "@lucide/vue";
 import type { DeduplicateResult } from "../types";
+
+const footer = inject(FOOTER_KEY)!;
 
 const {
   searchQuery, selectedIds, loading, pageData,
@@ -59,11 +62,11 @@ async function handleClearTable() {
   loading.value = true;
   try {
     const count = await invoke<number>("clear_backup_software");
-    alert(`已清空备份表，删除 ${count} 条记录`);
+    addMessage(footer, "success", `已清空备份表，删除 ${count} 条记录`);
     await fetchEntries();
     await loadSubdirectories();
   } catch (e) {
-    alert(`清空失败: ${e}`);
+    addMessage(footer, "error", `清空失败: ${e}`);
   } finally {
     loading.value = false;
   }
@@ -71,17 +74,17 @@ async function handleClearTable() {
 
 async function handleScanDirectory() {
   if (!backupPath.value) {
-    alert("请先在设置中配置备份目录");
+    addMessage(footer, "warning", "请先在设置中配置备份目录");
     return;
   }
   scanning.value = true;
   try {
     const count = await invoke<number>("scan_backup_directory", { backupPath: backupPath.value });
-    alert(`扫描完成，新增 ${count} 条备份记录`);
+    addMessage(footer, "success", `扫描完成，新增 ${count} 条备份记录`);
     await fetchEntries();
     await loadSubdirectories();
   } catch (e) {
-    alert(`扫描失败: ${e}`);
+    addMessage(footer, "error", `扫描失败: ${e}`);
   } finally {
     scanning.value = false;
   }
@@ -89,7 +92,7 @@ async function handleScanDirectory() {
 
 async function handleDeduplicate() {
   if (!backupPath.value) {
-    alert("请先在设置中配置备份目录");
+    addMessage(footer, "warning", "请先在设置中配置备份目录");
     return;
   }
   if (!confirm("确定要执行软件去重吗？将删除每个包的旧版本文件和数据库记录。")) return;
@@ -98,13 +101,13 @@ async function handleDeduplicate() {
     const result = await invoke<DeduplicateResult>("deduplicate_backups", { backupPath: backupPath.value });
     const msg = `去重完成：删除 ${result.removed_files} 个文件，${result.removed_records} 条记录`;
     if (result.errors.length > 0) {
-      alert(`${msg}\n\n错误:\n${result.errors.join("\n")}`);
+      addMessage(footer, "warning", `${msg}，错误: ${result.errors.join("; ")}`);
     } else {
-      alert(msg);
+      addMessage(footer, "success", msg);
     }
     await fetchEntries();
   } catch (e) {
-    alert(`去重失败: ${e}`);
+    addMessage(footer, "error", `去重失败: ${e}`);
   } finally {
     loading.value = false;
   }
@@ -115,10 +118,11 @@ async function rowDelete(id: number, filename: string) {
   loading.value = true;
   try {
     await invoke("delete_backup", { id, backupPath: backupPath.value });
+    addMessage(footer, "success", `已删除备份文件 ${filename}`);
     await fetchEntries();
     await loadSubdirectories();
   } catch (e) {
-    alert(`删除失败: ${e}`);
+    addMessage(footer, "error", `删除失败: ${e}`);
   } finally {
     loading.value = false;
   }
@@ -127,7 +131,7 @@ async function rowDelete(id: number, filename: string) {
 function deleteSelected() {
   if (selectedIds.value.size === 0) return;
   if (!confirm(`确定要删除选中的 ${selectedIds.value.size} 个备份记录吗？`)) return;
-  alert("批量删除功能开发中");
+  addMessage(footer, "info", "批量删除功能开发中");
 }
 
 function handleBatchInstall() {

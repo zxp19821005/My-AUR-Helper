@@ -38,11 +38,15 @@ onMounted(async () => {
   isPopupWindow.value = win.label === "settings" || win.label === "enums" || win.label === "logs";
 });
 
-/** 监听路由变化 */
+/** 监听路由变化 - 重置分页/信息文本/进度，保留消息日志 */
 watch(
   () => route.path,
   (path) => {
+    const savedMessages = [...footerState.messages];
+    const savedExpanded = footerState.logPanelExpanded;
     Object.assign(footerState, defaultFooterState());
+    footerState.messages = savedMessages;
+    footerState.logPanelExpanded = savedExpanded;
     const routeLabels: Record<string, string> = {
       "/": "仪表盘",
       "/packages": "软件管理",

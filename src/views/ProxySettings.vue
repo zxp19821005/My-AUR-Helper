@@ -15,7 +15,7 @@
 import { ref, onMounted, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { ProxyInfo } from "../types";
-import { FOOTER_KEY } from "../composables/footer";
+import { FOOTER_KEY, addMessage } from "../composables/footer";
 import PageToolbar from "../components/PageToolbar.vue";
 
 const footer = inject(FOOTER_KEY)!;
@@ -49,9 +49,9 @@ async function fetchSources() {
   try {
     const count = await invoke<number>("fetch_proxy_sources");
     await loadProxies();
-    alert(`获取到 ${count} 个代理源`);
+    addMessage(footer, "success", `获取到 ${count} 个代理源`);
   } catch (e) {
-    alert("获取失败: " + String(e));
+    addMessage(footer, "error", `获取失败: ${e}`);
   } finally {
     fetching.value = false;
   }
@@ -68,9 +68,9 @@ async function toggleProxy(proxy: ProxyInfo) {
       proxyId: proxy.proxy_id,
       isActive: !proxy.is_active,
     });
-    proxy.is_active = !proxy.is_active;  // 本地同步更新状态
+    proxy.is_active = !proxy.is_active;
   } catch (e) {
-    alert("操作失败: " + String(e));
+    addMessage(footer, "error", `操作失败: ${e}`);
   }
 }
 </script>

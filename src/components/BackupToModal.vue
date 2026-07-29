@@ -7,8 +7,9 @@
   - 显示备份进度和结果
 -->
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import { FOOTER_KEY, addMessage } from "../composables/footer";
 
 const props = defineProps<{
   show: boolean;
@@ -22,6 +23,7 @@ const emit = defineEmits<{
   (e: "success", result: [number, string[]]): void;
 }>();
 
+const footer = inject(FOOTER_KEY)!;
 const backupToSubdirectory = ref("");
 const backingUp = ref(false);
 
@@ -31,7 +33,7 @@ function handleClose() {
 
 async function handleBackupTo() {
   if (!backupToSubdirectory.value && props.subdirectories.length > 0) {
-    alert("请选择一个备份子目录");
+    addMessage(footer, "warning", "请选择一个备份子目录");
     return;
   }
   backingUp.value = true;
@@ -44,7 +46,7 @@ async function handleBackupTo() {
     emit("success", result);
     emit("close");
   } catch (e) {
-    alert(`备份失败: ${e}`);
+    addMessage(footer, "error", `备份失败: ${e}`);
   } finally {
     backingUp.value = false;
   }

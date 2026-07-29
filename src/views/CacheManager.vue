@@ -9,22 +9,26 @@
   - 单行操作：删除缓存
 -->
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { useCacheList, formatSize } from "../composables/useCacheList";
 import { loadEnabledCacheDirs } from "../composables/useCacheDirs";
+import { FOOTER_KEY, addMessage } from "../composables/footer";
 import PageToolbar from "../components/PageToolbar.vue";
 import BackupToModal from "../components/BackupToModal.vue";
 import { Trash2, Scan, Copy, GitBranch } from "@lucide/vue";
 import type { DeduplicateResult } from "../types";
 
+const footer = inject(FOOTER_KEY)!;
+
 const {
   searchQuery,
   selectedIds,
   loading,
-  entries,
+  filteredEntries,
   pageSize,
   currentPage,
+  loadEntries,
   fetchEntries,
   toggleSelect,
   toggleSelectAll,
@@ -43,7 +47,8 @@ const sourceDirs = computed(() => {
 });
 
 const selectedFilenames = computed(() => {
-  return entries.value
+  // 选中索引是相对于「目录筛选后列表」的全局行号，需与勾选逻辑保持同一数据源
+  return filteredByDir.value
     .filter((_, i) => selectedIds.value.has(i))
     .map((e) => e.filename);
 });
@@ -70,8 +75,9 @@ onMounted(async () => {
 });
 
 const filteredByDir = computed(() => {
-  if (!sourceDirFilter.value) return entries.value;
-  return entries.value.filter((e) => e.source_dir === sourceDirFilter.value);
+  // 基于搜索过滤后的列表再按来源目录筛选，保证搜索框对表格生效
+  if (!sourceDirFilter.value) return filteredEntries.value;
+  return filteredEntries.value.filter((e) => e.source_dir === sourceDirFilter.value);
 });
 
 const displayData = computed(() => {
@@ -82,6 +88,8 @@ const displayData = computed(() => {
 function updateFilter(dir: string) {
   sourceDirFilter.value = dir;
   currentPage.value = 1;
+  // 数据源变化后原选中行号不再有效，清空选择
+  selectedIds.value = new Set();
 }
 
 async function handleScan() {
@@ -90,7 +98,7 @@ async function handleScan() {
     await fetchEntries();
   } catch (e) {
     console.error("[缓存管理] 扫描失败:", e);
-    alert(`扫描缓存目录失败: ${e}`);
+    addMessage(footer, "error", `扫描缓存目录失败: ${e}`);
   } finally {
     scanning.value = false;
   }
@@ -101,9 +109,10 @@ async function handleClearTable() {
   loading.value = true;
   try {
     const count = await invoke<number>("clear_cache_software");
-    alert(`已清空缓存表，删除 ${count} 条记录`);
+    await loadEntries();
+    addMessage(footer, "success", `已清空缓存表，删除 ${count} 条记录`);
   } catch (e) {
-    alert(`清空失败: ${e}`);
+    addMessage(footer, "error", `清空失败: ${e}`);
   } finally {
     loading.value = false;
   }
@@ -111,7 +120,7 @@ async function handleClearTable() {
 
 async function handleDedup() {
   if (!backupPath.value) {
-    alert("未设置备份目录，请先在设置中配置备份目录");
+    addMessage(footer, "warning", "未设置备份目录，请先在设置中配置备份目录");
     return;
   }
   if (!confirm("确定要对备份目录进行去重吗？将删除旧版本文件。")) return;
@@ -120,12 +129,14 @@ async function handleDedup() {
     const result = await invoke<DeduplicateResult>("deduplicate_backups", {
       backupPath: backupPath.value,
     });
-    alert(
-      `去重完成\n\n删除文件: ${result.removed_files} 个\n删除记录: ${result.removed_records} 条` +
-        (result.errors.length > 0 ? `\n\n错误:\n${result.errors.join("\n")}` : "")
-    );
+    const msg = `去重完成：删除 ${result.removed_files} 个文件，${result.removed_records} 条记录`;
+    if (result.errors.length > 0) {
+      addMessage(footer, "warning", `${msg}，错误: ${result.errors.join("; ")}`);
+    } else {
+      addMessage(footer, "success", msg);
+    }
   } catch (e) {
-    alert(`去重失败: ${e}`);
+    addMessage(footer, "error", `去重失败: ${e}`);
   } finally {
     loading.value = false;
   }
@@ -133,11 +144,11 @@ async function handleDedup() {
 
 async function handleBackupNewVersion() {
   if (selectedIds.value.size === 0) {
-    alert("请先选择要备份的缓存包");
+    addMessage(footer, "warning", "请先选择要备份的缓存包");
     return;
   }
   if (!backupPath.value) {
-    alert("未设置备份目录，请先在设置中配置备份目录");
+    addMessage(footer, "warning", "未设置备份目录，请先在设置中配置备份目录");
     return;
   }
   loading.value = true;
@@ -149,13 +160,15 @@ async function handleBackupNewVersion() {
         backupPath: backupPath.value,
       }
     );
-    const msg =
-      `备份完成\n\n成功: ${success} 个` +
-      (errors.length > 0 ? `\n\n详细:\n${errors.join("\n")}` : "");
-    alert(msg);
+    const msg = `备份完成：成功 ${success} 个` + (errors.length > 0 ? `，错误: ${errors.join("; ")}` : "");
+    if (errors.length > 0) {
+      addMessage(footer, "warning", msg);
+    } else {
+      addMessage(footer, "success", msg);
+    }
     selectedIds.value.clear();
   } catch (e) {
-    alert(`备份失败: ${e}`);
+    addMessage(footer, "error", `备份失败: ${e}`);
   } finally {
     loading.value = false;
   }
@@ -163,11 +176,11 @@ async function handleBackupNewVersion() {
 
 function openBackupToModal() {
   if (selectedIds.value.size === 0) {
-    alert("请先选择要备份的缓存包");
+    addMessage(footer, "warning", "请先选择要备份的缓存包");
     return;
   }
   if (!backupPath.value) {
-    alert("未设置备份目录，请先在设置中配置备份目录");
+    addMessage(footer, "warning", "未设置备份目录，请先在设置中配置备份目录");
     return;
   }
   showBackupToModal.value = true;
@@ -175,22 +188,24 @@ function openBackupToModal() {
 
 function handleBackupSuccess(result: [number, string[]]) {
   const [success, errors] = result;
-  const msg =
-    `备份完成\n\n成功: ${success} 个` +
-    (errors.length > 0 ? `\n\n详细:\n${errors.join("\n")}` : "");
-  alert(msg);
+  const msg = `备份完成：成功 ${success} 个` + (errors.length > 0 ? `，错误: ${errors.join("; ")}` : "");
+  if (errors.length > 0) {
+    addMessage(footer, "warning", msg);
+  } else {
+    addMessage(footer, "success", msg);
+  }
   selectedIds.value.clear();
 }
 
 function deleteSelected() {
   if (selectedIds.value.size === 0) return;
   if (!confirm(`确定要删除选中的 ${selectedIds.value.size} 个缓存文件吗？`)) return;
-  alert("批量删除功能开发中");
+  addMessage(footer, "info", "批量删除功能开发中");
 }
 
 function rowDelete(filename: string) {
   if (!confirm(`确定要删除缓存文件 ${filename} 吗？`)) return;
-  alert("删除功能开发中");
+  addMessage(footer, "info", "删除功能开发中");
 }
 </script>
 
