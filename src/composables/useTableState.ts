@@ -31,6 +31,8 @@ interface UseTableStateProps {
   searchQuery: string;
   searchFields: string[];
   rowKey: string;
+  currentPage?: number | (() => number | undefined);
+  totalRecords?: number;
 }
 
 export function useTableState(props: UseTableStateProps) {
@@ -40,13 +42,23 @@ export function useTableState(props: UseTableStateProps) {
     key: "",
     direction: null,
   });
+  const dataCache = ref(props.data);
+
+  watch(
+    () => props.data,
+    (newData) => {
+      dataCache.value = newData;
+      currentPage.value = 1;
+    },
+    { deep: true }
+  );
 
   const visibleColumns = computed(() =>
     props.columns.filter((col) => !col.hidden)
   );
 
   const filteredData = computed(() => {
-    let result = props.data;
+    let result = dataCache.value;
 
     if (props.searchQuery && props.searchFields.length > 0) {
       const query = props.searchQuery.toLowerCase();
@@ -227,11 +239,15 @@ export function useTableState(props: UseTableStateProps) {
   );
 
   watch(
-    () => props.data,
     () => {
-      currentPage.value = 1;
+      const cp = props.currentPage;
+      return typeof cp === "function" ? cp() : cp;
     },
-    { deep: true }
+    (newPage) => {
+      if (newPage != null && newPage !== currentPage.value) {
+        currentPage.value = newPage;
+      }
+    }
   );
 
   return {

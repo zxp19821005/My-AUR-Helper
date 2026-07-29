@@ -54,6 +54,9 @@ const {
   showDetailModal,
   detailPkgname,
   pageData,
+  pageSize,
+  currentPage,
+  filteredEntries,
   fetchView,
   openAddModal,
   openEditModal,
@@ -194,17 +197,20 @@ onMounted(async () => {
 
     <!-- 使用StandardizedTable替换原有表格 -->
     <StandardizedTable
+      :key="`table-${filteredEntries.length}`"
       :columns="columns"
-      :data="pageData"
-      :pageSize="50"
+      :data="filteredEntries"
+      :pageSize="pageSize"
       :searchQuery="searchQuery"
-      :searchFields="['pkgname']"
+      :searchFields="['pkgname', 'aur_version', 'upstream_version']"
+      :currentPage="currentPage"
       rowKey="pkgname"
       showCheckbox
       showIndex
       striped
       hoverable
       clickable
+      :showPagination="false"
       emptyText="暂无软件包"
       @selection-change="handleSelectionChange"
       @row-click="handleRowClick"
@@ -229,9 +235,19 @@ onMounted(async () => {
         {{ row.aur_version || "-" }}
       </template>
 
+      <!-- 自定义AUR最后提交列 -->
+      <template #cell-aur_last_updated="{ row }">
+        {{ fmtTimestamp(row.aur_last_updated) }}
+      </template>
+
       <!-- 自定义上游版本列 -->
       <template #cell-upstream_version="{ row }">
         {{ row.upstream_version || "-" }}
+      </template>
+
+      <!-- 自定义上游检查日期列 -->
+      <template #cell-upstream_last_checked="{ row }">
+        {{ fmtTimestamp(row.upstream_last_checked) }}
       </template>
 
       <!-- 操作列 -->

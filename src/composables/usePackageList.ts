@@ -121,16 +121,6 @@ export function usePackageList() {
   const filteredEntries = computed(() => {
     let result = entries.value;
 
-    // 搜索过滤
-    if (searchQuery.value) {
-      const q = searchQuery.value.toLowerCase();
-      result = result.filter((e) =>
-        e.pkgname.toLowerCase().includes(q) ||
-        (e.aur_version && e.aur_version.toLowerCase().includes(q)) ||
-        (e.upstream_version && e.upstream_version.toLowerCase().includes(q))
-      );
-    }
-
     // 快速筛选（OR 逻辑）
     result = result.filter(matchesQuickFilters);
 
@@ -252,12 +242,13 @@ export function usePackageList() {
 /**
  * 格式化时间戳为中文日期
  * @param ts - Unix 时间戳（秒）
- * @returns 格式化的日期字符串，如 "2024/01/15"
+ * @returns 格式化的日期字符串，如 "2024-01-15"
  */
 export function fmtTimestamp(ts: number | null): string {
   if (ts == null) return "-";
   const d = new Date(ts * 1000);
-  return d.toLocaleDateString("zh-CN", {
-    year: "numeric", month: "2-digit", day: "2-digit",
-  });
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }

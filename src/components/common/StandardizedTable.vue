@@ -63,6 +63,8 @@ interface Props {
   compact?: boolean;
   hoverable?: boolean;
   clickable?: boolean;
+  showPagination?: boolean;
+  currentPage?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -78,6 +80,7 @@ const props = withDefaults(defineProps<Props>(), {
   compact: false,
   hoverable: true,
   clickable: false,
+  showPagination: true,
 });
 
 const emit = defineEmits<{
@@ -101,6 +104,7 @@ const tableState = useTableState({
   searchQuery: props.searchQuery,
   searchFields: props.searchFields,
   rowKey: props.rowKey,
+  currentPage: () => props.currentPage,
 });
 
 const currentPage = computed(() => tableState.currentPage.value);
@@ -229,7 +233,7 @@ defineExpose({
     </div>
 
     <StandardizedTablePagination
-      v-if="totalRecords > 0 && props.pageSize > 0"
+      v-if="props.showPagination && totalRecords > 0 && props.pageSize > 0"
       :current-page="currentPage"
       :total-pages="totalPages"
       :total-records="totalRecords"

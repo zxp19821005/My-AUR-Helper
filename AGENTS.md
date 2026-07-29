@@ -205,11 +205,11 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 
 | 原文件 | 原行数 | 拆分后文件 | 新行数 | 拆分日期 | 状态 |
 |--------|--------|-----------|--------|---------|------|
-| `src/components/common/StandardizedTable.vue` | 718 | `StandardizedTable.vue` | 278 | 2026-07-29 | ✅ 完成 |
+| `src/components/common/StandardizedTable.vue` | 718 | `StandardizedTable.vue` | 282 | 2026-07-29 | ✅ 完成 |
 | | | `StandardizedTableHeader.vue` | 104 | | 新文件 |
 | | | `StandardizedTableRow.vue` | 108 | | 新文件 |
 | | | `StandardizedTablePagination.vue` | 150 | | 新文件 |
-| | | `composables/useTableState.ts` | 257 | | 新文件 |
+| | | `composables/useTableState.ts` | 273 | | 新文件 |
 | | | `assets/styles/table-styles.css` | 287 | | 全局样式 |
 | `src/views/PackageDetail.vue` | 643 | `PackageDetail.vue` | 277 | 2026-07-29 | ✅ 完成 |
 | | | `PackageBasicInfoCard.vue` | 145 | | 新文件 |
