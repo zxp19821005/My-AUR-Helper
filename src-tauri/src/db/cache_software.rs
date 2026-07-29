@@ -39,8 +39,8 @@ impl Database {
     /// @returns 新插入记录的 ID
     pub fn insert_cache_software(&self, cs: &CacheSoftware) -> AppResult<i64> {
         self.conn.execute(
-            "INSERT INTO cache_software (software_id, filename, name, epoch, version, pkgrel, arch, size, source_dir, cache_directory)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            "INSERT INTO cache_software (software_id, filename, name, epoch, version, pkgrel, arch, size, source_dir, cache_directory, full_path)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             rusqlite::params![
                 cs.software_id,
                 cs.filename,
@@ -51,7 +51,8 @@ impl Database {
                 cs.arch,
                 cs.size,
                 cs.source_dir,
-                cs.cache_directory
+                cs.cache_directory,
+                cs.full_path
             ],
         )?;
         Ok(self.conn.last_insert_rowid())
@@ -61,7 +62,7 @@ impl Database {
     /// @returns 所有缓存记录列表
     pub fn get_all_cache_software(&self) -> AppResult<Vec<CacheSoftware>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, software_id, filename, name, epoch, version, pkgrel, arch, size, source_dir, cache_directory
+            "SELECT id, software_id, filename, name, epoch, version, pkgrel, arch, size, source_dir, cache_directory, full_path, created_at, updated_at
              FROM cache_software ORDER BY name, version",
         )?;
         let rows = stmt.query_map([], |row| {
@@ -77,6 +78,9 @@ impl Database {
                 size: row.get(8)?,
                 source_dir: row.get(9).ok(),
                 cache_directory: row.get(10)?,
+                full_path: row.get(11)?,
+                created_at: row.get(12).ok(),
+                updated_at: row.get(13).ok(),
             })
         })?;
         let mut items = Vec::new();
@@ -111,6 +115,9 @@ impl Database {
                     source_dir: e.source_dir,
                     cache_directory: e.cache_directory,
                     software_id: e.software_id,
+                    full_path: e.full_path,
+                    created_at: e.created_at,
+                    updated_at: e.updated_at,
                 }
             })
             .collect())
@@ -160,7 +167,7 @@ impl Database {
         filename: &str,
     ) -> AppResult<Option<CacheSoftware>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, software_id, filename, name, epoch, version, pkgrel, arch, size, source_dir, cache_directory
+            "SELECT id, software_id, filename, name, epoch, version, pkgrel, arch, size, source_dir, cache_directory, full_path, created_at, updated_at
              FROM cache_software WHERE filename=?1",
         )?;
         let mut rows = stmt.query_map(rusqlite::params![filename], |row| {
@@ -176,6 +183,9 @@ impl Database {
                 size: row.get(8)?,
                 source_dir: row.get(9).ok(),
                 cache_directory: row.get(10)?,
+                full_path: row.get(11)?,
+                created_at: row.get(12).ok(),
+                updated_at: row.get(13).ok(),
             })
         })?;
         Ok(rows.next().transpose()?)
@@ -206,7 +216,7 @@ impl Database {
     ) -> AppResult<Vec<CacheSoftwareEntry>> {
         let like_pattern = format!("{}%-", pkgname);
         let mut stmt = self.conn.prepare(
-            "SELECT id, software_id, filename, name, epoch, version, pkgrel, arch, size, source_dir, cache_directory
+            "SELECT id, software_id, filename, name, epoch, version, pkgrel, arch, size, source_dir, cache_directory, full_path, created_at, updated_at
              FROM cache_software WHERE name = ?1 OR filename LIKE ?2 ORDER BY filename",
         )?;
         let rows = stmt.query_map(rusqlite::params![pkgname, like_pattern], |row| {
@@ -229,6 +239,9 @@ impl Database {
                 size: row.get(8)?,
                 source_dir: row.get(9).ok(),
                 cache_directory: row.get(10)?,
+                full_path: row.get(11)?,
+                created_at: row.get(12).ok(),
+                updated_at: row.get(13).ok(),
             })
         })?;
         let mut items = Vec::new();

@@ -4,6 +4,9 @@
  * 模块结构：
  * - connection.rs — Database 结构体定义、连接创建、表初始化和迁移
  * - schema.rs     — 表结构定义（CREATE TABLE）
+ * - migration_backup.rs — backup_software 表结构迁移
+ * - migration_cache.rs  — cache_software 表结构迁移
+ * - migration_proxy.rs  — proxies_info 和 proxies_test 表结构迁移
  * - seed.rs       — 默认数据初始化
  * - aur_info.rs   — AUR 包信息表 CRUD
  * - backup_software.rs — 备份记录表 CRUD
@@ -25,7 +28,10 @@ mod enum_licenses;
 mod enum_programming_languages;
 mod logs;
 mod migration_aur;
+mod migration_backup;
+mod migration_cache;
 mod migration_enum;
+mod migration_proxy;
 mod migration_software;
 mod migration_upstream;
 mod proxies_info;
@@ -35,5 +41,8 @@ mod seed;
 mod settings;
 mod software_info;
 mod upstream_info;
+
+#[cfg(test)]
+mod tests_cache_backup;
 
 pub use connection::Database;

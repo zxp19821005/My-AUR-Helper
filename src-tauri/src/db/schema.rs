@@ -60,10 +60,15 @@ impl Database {
                 pkgrel       TEXT NOT NULL DEFAULT '1',
                 arch         TEXT NOT NULL DEFAULT 'x86_64',
                 subdirectory TEXT,
-                full_path    TEXT NOT NULL DEFAULT ''
+                full_path    TEXT NOT NULL DEFAULT '',
+                created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
             );
 
-            -- 缓存软件包记录表
+            -- 缓存软件包记录表（基础字段与 backup_software 设计逻辑一致：
+            -- 唯一标识 id、版本信息 epoch/version/pkgrel、存储路径 full_path、
+            -- 创建时间 created_at、更新时间 updated_at；
+            -- 缓存业务特有字段：software_id/name/size/source_dir/cache_directory）
             CREATE TABLE IF NOT EXISTS cache_software (
                 id              INTEGER PRIMARY KEY AUTOINCREMENT,
                 software_id     INTEGER NOT NULL DEFAULT 0,
@@ -75,7 +80,10 @@ impl Database {
                 arch            TEXT NOT NULL DEFAULT 'x86_64',
                 size            INTEGER NOT NULL DEFAULT 0,
                 source_dir      TEXT,
-                cache_directory TEXT NOT NULL DEFAULT ''
+                cache_directory TEXT NOT NULL DEFAULT '',
+                full_path       TEXT NOT NULL DEFAULT '',
+                created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
             );
 
             -- 代理信息表

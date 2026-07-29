@@ -246,8 +246,13 @@ pub fn run() {
             // 代理管理
             commands::proxy::get_proxies,         // 获取所有代理列表
             commands::proxy::fetch_proxy_sources, // 从 Greasyfork 获取代理源
+            commands::proxy::download_proxy_file, // 下载代理文件
+            commands::proxy::parse_proxy_file,    // 解析代理文件
             commands::proxy::test_proxy,          // 测试代理延迟
+            commands::proxy::test_proxies_batch,  // 批量测试代理
+            commands::proxy::test_proxy_single,   // 单个测试代理
             commands::proxy::set_proxy_active,    // 设置代理启用状态
+            commands::proxy::delete_proxy,        // 删除代理
             // 系统命令（sysops 模块）
             commands::sysops::sys_command::get_package_version, // 获取已安装包的版本
             commands::sysops::sys_command::list_installed_packages, // 列出所有已安装包

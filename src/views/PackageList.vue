@@ -9,7 +9,7 @@
   - 支持筛选器：快速筛选（OR）+ 条件筛选（AND）
 -->
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onMounted, ref, computed } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { usePackageStore } from "../stores/packages";
 import { usePackageActions } from "../composables/packageActions";

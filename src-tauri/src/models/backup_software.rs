@@ -20,4 +20,10 @@ pub struct BackupSoftware {
     pub subdirectory: Option<String>,
     /// 完整文件路径（backup_dir/subdir/filename）
     pub full_path: String,
+    /// 记录创建时间（数据库默认 datetime('now')，插入时可为 None）
+    #[serde(default)]
+    pub created_at: Option<String>,
+    /// 记录更新时间（数据库默认 datetime('now')，插入时可为 None）
+    #[serde(default)]
+    pub updated_at: Option<String>,
 }

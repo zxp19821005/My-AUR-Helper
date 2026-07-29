@@ -26,4 +26,13 @@ pub struct CacheSoftwareEntry {
     pub cache_directory: String,
     /// 关联的软件包 ID（可为 0 表示未关联）
     pub software_id: i64,
+    /// 完整文件路径（cache_directory/filename）
+    #[serde(default)]
+    pub full_path: String,
+    /// 记录创建时间
+    #[serde(default)]
+    pub created_at: Option<String>,
+    /// 记录更新时间
+    #[serde(default)]
+    pub updated_at: Option<String>,
 }

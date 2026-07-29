@@ -12,4 +12,10 @@ pub struct BackupSoftwareEntry {
     pub arch: String,
     pub subdirectory: Option<String>,
     pub full_path: String,
+    /// 记录创建时间
+    #[serde(default)]
+    pub created_at: Option<String>,
+    /// 记录更新时间
+    #[serde(default)]
+    pub updated_at: Option<String>,
 }

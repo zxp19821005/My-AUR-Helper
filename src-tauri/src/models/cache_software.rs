@@ -26,4 +26,13 @@ pub struct CacheSoftware {
     pub source_dir: Option<String>,
     /// 缓存文件所在目录路径
     pub cache_directory: String,
+    /// 完整文件路径（cache_directory/filename，与 backup_software.full_path 对齐）
+    #[serde(default)]
+    pub full_path: String,
+    /// 记录创建时间（数据库默认 datetime('now')，插入时可为 None）
+    #[serde(default)]
+    pub created_at: Option<String>,
+    /// 记录更新时间（数据库默认 datetime('now')，插入时可为 None）
+    #[serde(default)]
+    pub updated_at: Option<String>,
 }

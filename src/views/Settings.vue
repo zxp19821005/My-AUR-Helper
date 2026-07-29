@@ -5,6 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { Setting } from "../types";
 import SettingsLogSection from "../components/SettingsLogSection.vue";
 import SettingsCacheSection from "../components/SettingsCacheSection.vue";
+import SettingsProxySection from "../components/SettingsProxySection.vue";
 import { useSettingsStore } from "../stores/settings";
 
 const route = useRoute();
@@ -154,6 +155,10 @@ function inputType(s: Setting): string {
 
     <div v-else-if="category === 'cache'">
       <SettingsCacheSection />
+    </div>
+
+    <div v-else-if="category === 'proxy'">
+      <SettingsProxySection />
     </div>
 
     <div v-else-if="filteredSettings.length === 0 && category !== 'general'" class="card">
