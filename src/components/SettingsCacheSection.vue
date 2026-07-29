@@ -6,12 +6,16 @@
   - 支持启用/禁用切换
   - 支持编辑、删除、添加缓存目录
 
+  依赖组件：
+  - SettingsCard: 通用设置卡片组件
+
   注意：使用 useCacheDirs composable 管理目录状态，避免重复代码
 -->
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { useCacheDirs, getDefaultCacheKey } from "../composables/useCacheDirs";
+import SettingsCard from "./SettingsCard.vue";
 
 const { cacheDirs, loading, message, load, saveCustom, showMessage } = useCacheDirs();
 
@@ -162,12 +166,7 @@ async function addCacheDir() {
 </script>
 
 <template>
-  <div class="card">
-    <h3 style="margin-bottom: 1rem">缓存目录配置</h3>
-    <p style="color: var(--text-secondary); font-size: 0.8125rem; margin-bottom: 1rem">
-      配置 AUR 助手的缓存目录路径。启用的目录将被扫描以查找缓存的软件包。
-    </p>
-
+  <SettingsCard title="缓存目录配置" description="配置 AUR 助手的缓存目录路径。启用的目录将被扫描以查找缓存的软件包。">
     <div v-if="message" class="message">{{ message }}</div>
 
     <div v-for="(dir, index) in cacheDirs" :key="index" class="cache-dir-row">
@@ -207,7 +206,7 @@ async function addCacheDir() {
     <button v-if="!showAddForm" class="btn btn-outline" style="margin-top: 1rem" @click="showAddForm = true">
       + 添加缓存目录
     </button>
-  </div>
+  </SettingsCard>
 </template>
 
 <style scoped>
@@ -269,9 +268,53 @@ async function addCacheDir() {
   cursor: not-allowed;
 }
 
+.text-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.btn {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
 .btn-sm {
   padding: 0.25rem 0.5rem;
   font-size: 0.75rem;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.btn-primary:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--bg-card);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .btn-outline {
@@ -290,8 +333,20 @@ async function addCacheDir() {
   color: var(--accent);
 }
 
+.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .btn-icon-info { color: var(--text-secondary); }
-.btn-icon-info:hover { color: var(--accent); }
+.btn-icon-info:hover { color: var(--accent); background-color: var(--hover-bg, rgba(128,128,128,0.1)); }
 .btn-icon-danger { color: var(--text-secondary); }
-.btn-icon-danger:hover { color: #e74c3c; }
+.btn-icon-danger:hover { color: #e74c3c; background-color: rgba(231,76,60,0.1); }
 </style>

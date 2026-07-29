@@ -6,10 +6,16 @@
   - 配置四类代理的测试 URL
   - 支持保存和重置为默认值
   - 输入合法性校验
+
+  依赖组件：
+  - SettingsCard: 通用设置卡片组件
+  - SettingRow: 通用设置行组件
 -->
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { useSettingsStore } from "../stores/settings";
+import SettingsCard from "./SettingsCard.vue";
+import SettingRow from "./SettingRow.vue";
 
 const settingsStore = useSettingsStore();
 
@@ -87,7 +93,6 @@ async function saveSetting(key: keyof typeof settings.value) {
 
 /** 保存所有设置 */
 async function saveAllSettings() {
-  // 验证所有 URL
   for (const [key, value] of Object.entries(settings.value)) {
     if (!isValidUrl(value)) {
       showMessage(`请输入有效的 ${key} URL 格式`, "error");
@@ -131,23 +136,14 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
 </script>
 
 <template>
-  <div class="card">
-    <h3 style="margin-bottom: 1rem">代理管理设置</h3>
-    <p style="color: var(--text-secondary); font-size: 0.8125rem; margin-bottom: 1rem">
-      配置代理文件下载地址和各类代理的测试地址。
-    </p>
-
+  <div>
     <div v-if="message" class="message" :class="`message-${messageType}`">
       {{ message }}
     </div>
 
-    <!-- 代理文件下载 URL -->
-    <div class="setting-row">
-      <div class="setting-label">
-        <strong>代理文件下载地址</strong>
-        <span class="setting-desc">用于下载代理规则 JS 文件</span>
-      </div>
-      <div class="setting-input-group">
+    <SettingsCard title="代理管理设置" description="配置代理文件下载地址和各类代理的测试地址。">
+      <!-- 代理文件下载 URL -->
+      <SettingRow label="代理文件下载地址" description="用于下载代理规则 JS 文件">
         <input
           v-model="settings.proxy_download_url"
           type="text"
@@ -157,16 +153,10 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
         <button class="btn-reset" @click="resetSingleSetting('proxy_download_url')" title="重置为默认值">
           重置
         </button>
-      </div>
-    </div>
+      </SettingRow>
 
-    <!-- 下载代理测试 URL -->
-    <div class="setting-row">
-      <div class="setting-label">
-        <strong>下载代理测试地址</strong>
-        <span class="setting-desc">用于测试下载代理的连通性</span>
-      </div>
-      <div class="setting-input-group">
+      <!-- 下载代理测试 URL -->
+      <SettingRow label="下载代理测试地址" description="用于测试下载代理的连通性">
         <input
           v-model="settings.proxy_test_download_url"
           type="text"
@@ -176,16 +166,10 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
         <button class="btn-reset" @click="resetSingleSetting('proxy_test_download_url')" title="重置为默认值">
           重置
         </button>
-      </div>
-    </div>
+      </SettingRow>
 
-    <!-- 克隆代理测试 URL -->
-    <div class="setting-row">
-      <div class="setting-label">
-        <strong>克隆代理测试地址</strong>
-        <span class="setting-desc">用于测试克隆代理的连通性</span>
-      </div>
-      <div class="setting-input-group">
+      <!-- 克隆代理测试 URL -->
+      <SettingRow label="克隆代理测试地址" description="用于测试克隆代理的连通性">
         <input
           v-model="settings.proxy_test_clone_url"
           type="text"
@@ -195,16 +179,10 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
         <button class="btn-reset" @click="resetSingleSetting('proxy_test_clone_url')" title="重置为默认值">
           重置
         </button>
-      </div>
-    </div>
+      </SettingRow>
 
-    <!-- RAW 代理测试 URL -->
-    <div class="setting-row">
-      <div class="setting-label">
-        <strong>RAW 代理测试地址</strong>
-        <span class="setting-desc">用于测试 RAW 代理的连通性</span>
-      </div>
-      <div class="setting-input-group">
+      <!-- RAW 代理测试 URL -->
+      <SettingRow label="RAW 代理测试地址" description="用于测试 RAW 代理的连通性">
         <input
           v-model="settings.proxy_test_raw_url"
           type="text"
@@ -214,16 +192,10 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
         <button class="btn-reset" @click="resetSingleSetting('proxy_test_raw_url')" title="重置为默认值">
           重置
         </button>
-      </div>
-    </div>
+      </SettingRow>
 
-    <!-- SSH 代理测试 URL -->
-    <div class="setting-row">
-      <div class="setting-label">
-        <strong>SSH 代理测试地址</strong>
-        <span class="setting-desc">用于测试 SSH 代理的连通性</span>
-      </div>
-      <div class="setting-input-group">
+      <!-- SSH 代理测试 URL -->
+      <SettingRow label="SSH 代理测试地址" description="用于测试 SSH 代理的连通性">
         <input
           v-model="settings.proxy_test_ssh_url"
           type="text"
@@ -233,18 +205,18 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
         <button class="btn-reset" @click="resetSingleSetting('proxy_test_ssh_url')" title="重置为默认值">
           重置
         </button>
-      </div>
-    </div>
+      </SettingRow>
 
-    <!-- 操作按钮 -->
-    <div class="setting-actions">
-      <button class="btn btn-primary" @click="saveAllSettings" :disabled="loading">
-        {{ loading ? "保存中..." : "保存所有设置" }}
-      </button>
-      <button class="btn btn-secondary" @click="resetToDefaults" :disabled="loading">
-        重置为默认值
-      </button>
-    </div>
+      <!-- 操作按钮 -->
+      <template #actions>
+        <button class="btn btn-primary" @click="saveAllSettings" :disabled="loading">
+          {{ loading ? "保存中..." : "保存所有设置" }}
+        </button>
+        <button class="btn btn-secondary" @click="resetToDefaults" :disabled="loading">
+          重置为默认值
+        </button>
+      </template>
+    </SettingsCard>
   </div>
 </template>
 
@@ -269,35 +241,6 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
 .message-warning {
   background-color: rgba(245, 158, 11, 0.1);
   color: #f59e0b;
-}
-
-.setting-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.setting-row:last-child {
-  border-bottom: none;
-}
-
-.setting-label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-
-.setting-desc {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-}
-
-.setting-input-group {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
 }
 
 .text-input {
@@ -375,37 +318,11 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
   cursor: not-allowed;
 }
 
-.setting-actions {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border);
-}
-
 /* 响应式设计 - 平板及以下 */
 @media (max-width: 768px) {
-  .setting-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
-  }
-
-  .setting-input-group {
-    width: 100%;
-  }
-
   .text-input {
     flex: 1;
     min-width: 0;
-    width: 100%;
-  }
-
-  .setting-actions {
-    flex-direction: column;
-  }
-
-  .setting-actions .btn {
     width: 100%;
   }
 }

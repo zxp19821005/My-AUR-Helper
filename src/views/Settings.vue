@@ -1,8 +1,25 @@
+<!--
+  Settings.vue - 设置页面主视图
+
+  功能：
+  - 根据路由参数显示不同分类的设置
+  - 支持通用设置、列表设置、AUR设置、检查器设置、备份设置、缓存设置、代理设置、日志设置
+  - 提供保存设置和重置功能
+
+  依赖组件：
+  - SettingsCard: 通用设置卡片组件
+  - SettingRow: 通用设置行组件
+  - SettingsLogSection: 日志设置组件
+  - SettingsCacheSection: 缓存设置组件
+  - SettingsProxySection: 代理设置组件
+-->
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
 import { useRoute } from "vue-router";
 import { invoke } from "@tauri-apps/api/core";
 import type { Setting } from "../types";
+import SettingsCard from "../components/SettingsCard.vue";
+import SettingRow from "../components/SettingRow.vue";
 import SettingsLogSection from "../components/SettingsLogSection.vue";
 import SettingsCacheSection from "../components/SettingsCacheSection.vue";
 import SettingsProxySection from "../components/SettingsProxySection.vue";
@@ -113,121 +130,122 @@ function inputType(s: Setting): string {
   <div>
     <h2 style="margin-bottom: 1.5rem; font-size: 1.25rem">{{ categoryLabels[category] || category }}</h2>
 
-    <div v-if="message" style="padding: 0.5rem 1rem; margin-bottom: 1rem; border-radius: 6px; background-color: rgba(76, 175, 125, 0.1); color: var(--success); font-size: 0.875rem">
+    <div v-if="message" class="message message-success">
       {{ message }}
     </div>
 
-    <div v-if="category === 'general'" class="card" style="margin-bottom: 1rem">
-      <h3 style="margin-bottom: 1rem">外观设置</h3>
-      <div class="setting-row">
-        <div class="setting-label">
-          <strong>主题</strong>
-          <span class="setting-desc">选择应用主题</span>
-        </div>
-        <div class="setting-input">
-          <select :value="theme" @change="saveTheme(($event.target as HTMLSelectElement).value)" class="select-input">
-            <option value="dark">深色</option>
-            <option value="light">浅色</option>
-          </select>
-        </div>
-      </div>
-      <div class="setting-row">
-        <div class="setting-label">
-          <strong>字体大小</strong>
-          <span class="setting-desc">调整界面文字大小</span>
-        </div>
-        <div class="setting-input">
-          <select :value="fontSize" @change="saveFontSize(($event.target as HTMLSelectElement).value)" class="select-input">
-            <option value="12">小 (12px)</option>
-            <option value="14">默认 (14px)</option>
-            <option value="16">大 (16px)</option>
-            <option value="18">特大 (18px)</option>
-          </select>
-        </div>
-      </div>
-    </div>
+    <!-- 加载中 -->
+    <SettingsCard v-if="loading" title="加载中">
+      <p style="color: var(--text-secondary)">正在加载设置...</p>
+    </SettingsCard>
 
-    <div v-if="loading" class="card">加载中...</div>
+    <!-- 通用设置 -->
+    <SettingsCard
+      v-else-if="category === 'general'"
+      title="外观设置"
+      description="选择应用主题和字体大小"
+    >
+      <SettingRow label="主题" description="选择应用主题">
+        <select :value="theme" @change="saveTheme(($event.target as HTMLSelectElement).value)" class="select-input">
+          <option value="dark">深色</option>
+          <option value="light">浅色</option>
+        </select>
+      </SettingRow>
 
-    <div v-else-if="category === 'log'">
-      <SettingsLogSection />
-    </div>
+      <SettingRow label="字体大小" description="调整界面文字大小">
+        <select :value="fontSize" @change="saveFontSize(($event.target as HTMLSelectElement).value)" class="select-input">
+          <option value="12">小 (12px)</option>
+          <option value="14">默认 (14px)</option>
+          <option value="16">大 (16px)</option>
+          <option value="18">特大 (18px)</option>
+        </select>
+      </SettingRow>
+    </SettingsCard>
 
-    <div v-else-if="category === 'cache'">
-      <SettingsCacheSection />
-    </div>
+    <!-- 日志设置 -->
+    <SettingsLogSection v-else-if="category === 'log'" />
 
-    <div v-else-if="category === 'proxy'">
-      <SettingsProxySection />
-    </div>
+    <!-- 缓存设置 -->
+    <SettingsCacheSection v-else-if="category === 'cache'" />
 
-    <div v-else-if="filteredSettings.length === 0 && category !== 'general'" class="card">
-      <p style="color: var(--text-secondary)">暂无设置项</p>
-    </div>
+    <!-- 代理设置 -->
+    <SettingsProxySection v-else-if="category === 'proxy'" />
 
-    <div v-else-if="filteredSettings.length > 0" class="card">
-      <div v-for="s in filteredSettings" :key="s.key" class="setting-row">
-        <div class="setting-label">
-          <strong>{{ s.description || s.key }}</strong>
-          <span class="setting-desc">{{ s.key }}</span>
-        </div>
-        <div class="setting-input password-wrapper" v-if="isTokenKey(s.key)">
-          <input
-            :type="inputType(s)"
-            :value="s.value"
-            @change="(e) => saveSetting(s.key, (e.target as HTMLInputElement).value)"
-            class="text-input"
-          />
-          <button class="toggle-password" @click="togglePassword(s.key)" type="button" :title="passwordVisible[s.key] ? '隐藏' : '显示'">
-            <svg v-if="passwordVisible[s.key]" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-              <circle cx="12" cy="12" r="3"/>
-            </svg>
-            <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-              <line x1="1" y1="1" x2="23" y2="23"/>
-            </svg>
-          </button>
-        </div>
-        <div class="setting-input" v-else>
+    <!-- 暂无设置 -->
+    <SettingsCard
+      v-else-if="filteredSettings.length === 0 && category !== 'general'"
+      title="暂无设置"
+    >
+      <p style="color: var(--text-secondary)">当前分类下暂无设置项</p>
+    </SettingsCard>
+
+    <!-- 动态设置 -->
+    <SettingsCard
+      v-else-if="filteredSettings.length > 0"
+      :title="categoryLabels[category] || category"
+    >
+      <SettingRow
+        v-for="s in filteredSettings"
+        :key="s.key"
+        :label="s.description || s.key"
+        :description="s.key"
+      >
+        <!-- Token 类型输入框 -->
+        <template v-if="isTokenKey(s.key)">
+          <div class="password-wrapper">
+            <input
+              :type="inputType(s)"
+              :value="s.value"
+              @change="(e) => saveSetting(s.key, (e.target as HTMLInputElement).value)"
+              class="text-input"
+            />
+            <button class="toggle-password" @click="togglePassword(s.key)" type="button" :title="passwordVisible[s.key] ? '隐藏' : '显示'">
+              <svg v-if="passwordVisible[s.key]" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                <line x1="1" y1="1" x2="23" y2="23"/>
+              </svg>
+            </button>
+          </div>
+        </template>
+        <!-- 普通输入框 -->
+        <template v-else>
           <input
             type="text"
             :value="s.value"
             @change="(e) => saveSetting(s.key, (e.target as HTMLInputElement).value)"
             class="text-input"
           />
-        </div>
-      </div>
-    </div>
+        </template>
+      </SettingRow>
+    </SettingsCard>
   </div>
 </template>
 
 <style scoped>
-.setting-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--border);
+.message {
+  padding: 0.5rem 1rem;
+  margin-bottom: 1rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
 }
 
-.setting-row:last-child {
-  border-bottom: none;
+.message-success {
+  background-color: rgba(76, 175, 125, 0.1);
+  color: var(--success);
 }
 
-.setting-label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
+.message-error {
+  background-color: rgba(231, 76, 60, 0.1);
+  color: #e74c3c;
 }
 
-.setting-desc {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-}
-
-.setting-input {
-  flex-shrink: 0;
+.message-warning {
+  background-color: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
 }
 
 .password-wrapper {
@@ -275,6 +293,11 @@ function inputType(s: Setting): string {
   background-repeat: no-repeat;
   background-position: right 0.5rem center;
   padding-right: 1.75rem;
+}
+
+.text-input:focus, .select-input:focus {
+  border-color: var(--accent);
+  outline: none;
 }
 
 .select-input option {
