@@ -6,7 +6,13 @@
   - 支持前后导航（上一个/下一个软件包）
   - 提供操作按钮：编辑、删除、更新 AUR、同步 PKGBUILD、检查更新
 
-  注意：复用 SoftwareInfoCard、SoftwareAurCard、SoftwareUpstreamCard 组件
+  使用组件：
+  - SoftwareInfoTable: 信息表格组件
+  - SoftwareStatusRow: 状态行组件
+  - SoftwareSideCards: 侧边信息卡片组件
+  - SoftwareInfoCard: 基本信息卡片
+  - SoftwareAurCard: AUR 信息卡片
+  - SoftwareUpstreamCard: 上游信息卡片
 -->
 <script setup lang="ts">
 import { ref, watch, onMounted } from "vue";
@@ -17,13 +23,9 @@ import SoftwareFormModal from "./SoftwareFormModal.vue";
 import FloatingNav from "./FloatingNav.vue";
 import DetailToolbar from "./DetailToolbar.vue";
 import SoftwareInfoCard from "./SoftwareInfoCard.vue";
-import SoftwareAurCard from "./SoftwareAurCard.vue";
-import SoftwareUpstreamCard from "./SoftwareUpstreamCard.vue";
-import {
-  formatLicense,
-  parseJsonList,
-  getLanguageNames,
-} from "../utils/format";
+import SoftwareInfoTable from "./SoftwareInfoTable.vue";
+import SoftwareStatusRow from "./SoftwareStatusRow.vue";
+import SoftwareSideCards from "./SoftwareSideCards.vue";
 
 const props = defineProps<{
   show: boolean;
@@ -147,7 +149,6 @@ async function checkUpdate() {
 async function handleDelete() {
   if (!detail.value?.software_id) return;
   if (!confirm(`确定要删除软件包 "${detail.value.pkgname}" 吗？`)) return;
-
   deleting.value = true;
   error.value = "";
   try {
@@ -198,105 +199,13 @@ watch(
             {{ detail.is_outdated ? "需更新" : "已最新" }}
           </span>
         </div>
-        <table class="info-table">
-          <tbody>
-            <tr>
-              <td class="label">运行时依赖</td>
-              <td class="value">{{ parseJsonList(detail.depends) }}</td>
-            </tr>
-            <tr>
-              <td class="label">构建依赖</td>
-              <td class="value">{{ parseJsonList(detail.makedepends) }}</td>
-            </tr>
-            <tr>
-              <td class="label">可选依赖</td>
-              <td class="value">{{ parseJsonList(detail.optdepends) }}</td>
-            </tr>
-            <tr>
-              <td class="label">编程语言</td>
-              <td class="value">
-                {{ getLanguageNames(detail.language_ids, languages) }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <div class="status-row">
-          <span class="status-item">
-            <span class="status-label">自动检查</span>
-            <span
-              :class="[
-                'status-value',
-                detail.auto_check_enabled ? 'enabled' : 'disabled',
-              ]"
-            >
-              {{ detail.auto_check_enabled ? "已启用" : "已禁用" }}
-            </span>
-          </span>
-          <span class="status-item">
-            <span class="status-label">测试版本</span>
-            <span
-              :class="[
-                'status-value',
-                detail.check_test_versions ? 'enabled' : 'disabled',
-              ]"
-            >
-              {{ detail.check_test_versions ? "已启用" : "已禁用" }}
-            </span>
-          </span>
-          <span class="status-item">
-            <span class="status-label">二进制文件</span>
-            <span
-              :class="[
-                'status-value',
-                detail.check_binary_files ? 'enabled' : 'disabled',
-              ]"
-            >
-              {{ detail.check_binary_files ? "已启用" : "已禁用" }}
-            </span>
-          </span>
-        </div>
 
+        <SoftwareInfoTable :detail="detail" :languages="languages" />
+        <SoftwareStatusRow :detail="detail" />
         <SoftwareInfoCard :detail="detail" />
       </div>
 
-      <div class="side-by-side">
-        <div class="section half-section">
-          <h4 class="section-title">AUR 信息（扩展）</h4>
-          <table class="info-table">
-            <tbody>
-              <tr>
-                <td class="label">AUR License</td>
-                <td class="value">
-                  {{ formatLicense(detail.aur_license_name) }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <SoftwareAurCard
-            :aur-version="detail.aur_version"
-            :aur-pkgdesc="detail.aur_pkgdesc"
-            :aur-last-updated="detail.aur_last_updated"
-          />
-        </div>
-
-        <div class="section half-section">
-          <h4 class="section-title">上游版本信息（扩展）</h4>
-          <table class="info-table">
-            <tbody>
-              <tr>
-                <td class="label">上游 License</td>
-                <td class="value">
-                  {{ formatLicense(detail.upstream_license_name) }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <SoftwareUpstreamCard
-            :upstream-version="detail.upstream_version"
-            :upstream-last-checked="detail.upstream_last_checked"
-          />
-        </div>
-      </div>
+      <SoftwareSideCards :detail="detail" />
     </div>
 
     <template #footer>
@@ -346,72 +255,30 @@ watch(
   overflow: visible;
 }
 
-.side-by-side {
+.badge-row {
   display: flex;
-  gap: 1rem;
-}
-.side-by-side .half-section {
-  flex: 1;
-  min-width: 0;
+  justify-content: center;
+  margin-bottom: 0.75rem;
 }
 
-.section-title {
-  font-size: 0.875rem;
+.status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 0.5rem;
 }
 
-.status-row {
-  display: flex;
-  gap: 1.25rem;
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--border);
+.status-badge.outdated {
+  background-color: var(--warning-bg);
+  color: var(--warning);
 }
 
-.status-item {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-}
-
-.status-label {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-}
-
-.status-value {
-  font-size: 0.75rem;
-  font-weight: 500;
-  padding: 0.125rem 0.5rem;
-  border-radius: 0.25rem;
-}
-
-.status-value.enabled {
+.status-badge.latest {
+  background-color: var(--success-bg);
   color: var(--success);
-  background: var(--success-bg);
 }
 
-.status-value.disabled {
-  color: var(--error);
-  background: var(--error-bg);
-}
-
-.info-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-.info-table .label {
-  width: 120px;
-  padding: 0.5rem 0;
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  vertical-align: top;
-}
-.info-table .value {
-  padding: 0.5rem 0;
-  font-size: 0.875rem;
-  color: var(--text-primary);
+.section {
+  margin-bottom: 1rem;
 }
 </style>

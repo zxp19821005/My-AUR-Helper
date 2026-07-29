@@ -224,6 +224,16 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/views/ProxySettings.vue` | 428 | `ProxySettings.vue` | 276 | 2026-07-29 | ✅ 完成 |
 | | | `ProxyToolbar.vue` | 120 | | 新文件 |
 | | | `ProxyRowActions.vue` | 52 | | 新文件 |
+| `src/components/BottomToolbar.vue` | 422 | `BottomToolbar.vue` | 160 | 2026-07-29 | ✅ 完成 |
+| | | `LogPanel.vue` | 208 | | 新文件 |
+| | | `PaginationControls.vue` | 92 | | 新文件 |
+| | | `ProgressBar.vue` | 60 | | 新文件 |
+| `src/components/SoftwareDetailModal.vue` | 417 | `SoftwareDetailModal.vue` | 283 | 2026-07-29 | ✅ 完成 |
+| | | `SoftwareInfoTable.vue` | 58 | | 新文件 |
+| | | `SoftwareStatusRow.vue` | 88 | | 新文件 |
+| | | `SoftwareSideCards.vue` | 91 | | 新文件 |
+| `src/components/common/StandardizedModal.vue` | 391 | `StandardizedModal.vue` | 189 | 2026-07-29 | ✅ 完成 |
+| | | `assets/styles/modal-styles.css` | 205 | | 全局样式 |
 
 <!-- ========== 开发命令：常用命令速查 ========== -->
 ## 开发命令
