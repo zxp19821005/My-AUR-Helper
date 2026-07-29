@@ -8,7 +8,7 @@
   - 输入合法性校验
 
   响应式设计：
-  - PC端：标签和输入框水平排列
+  - PC端：标签和输入框垂直排列，输入框占满宽度
   - 平板/手机端：垂直排列，输入框占满宽度
 -->
 <script setup lang="ts">
@@ -256,8 +256,10 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
 
 <style scoped>
 .proxy-settings {
+  display: block;
   width: 100%;
-  min-height: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .page-title {
@@ -300,6 +302,7 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
   border: 1px solid var(--border);
   padding: 1.5rem;
   width: 100%;
+  max-width: 100%;
   box-sizing: border-box;
 }
 
@@ -355,8 +358,7 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
   font-size: 0.875rem;
   font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
   transition: border-color 0.15s;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  box-sizing: border-box;
 }
 
 .text-input:focus {
@@ -376,6 +378,7 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
   font-size: 0.8125rem;
   transition: all 0.15s;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .btn-primary {
@@ -444,10 +447,6 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
   .setting-input-group {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .text-input {
-    width: 100%;
   }
 
   .btn-sm {
