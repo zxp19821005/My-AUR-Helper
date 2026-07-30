@@ -20,7 +20,7 @@
 import { watch, computed, ref } from "vue";
 import { useSoftwareForm, pkgTypes, checkerTypes } from "../../composables/useSoftwareForm";
 import { useLicenseSelect } from "../../composables/useLicenseSelect";
-import Modal from "../common/Modal.vue";
+import StandardizedModal from "../common/StandardizedModal.vue";
 
 const props = defineProps<{
   show: boolean;
@@ -80,7 +80,7 @@ async function handleSave() {
 </script>
 
 <template>
-  <Modal :show="show" :title="mode === 'add' ? '添加软件包' : '编辑软件包'" width="600px" @close="emit('close')">
+  <StandardizedModal :show="show" :title="mode === 'add' ? '添加软件包' : '编辑软件包'" width="600px" @close="emit('close')">
     <template #error v-if="error">{{ error }}</template>
     <div class="form-container">
       <div class="form-row-full">
@@ -173,7 +173,7 @@ async function handleSave() {
         {{ saving ? "保存中..." : "确认" }}
       </button>
     </template>
-  </Modal>
+  </StandardizedModal>
 </template>
 
 <style scoped>

@@ -8,7 +8,7 @@
 <script setup lang="ts">
 import { invoke } from "@tauri-apps/api/core";
 import type { SoftwareDetail } from "../../types";
-import StandardizedButton from "../base/StandardizedButton.vue";
+import { Edit, Trash2, RefreshCw, FileCode, GitBranch } from "@lucide/vue";
 
 const props = defineProps<{
   detail: SoftwareDetail | null;
@@ -98,49 +98,54 @@ async function checkUpdate() {
 <template>
   <div class="detail-footer">
     <div class="footer-actions">
-      <StandardizedButton
-        variant="outline"
-        size="md"
+      <button
+        class="toolbar-btn btn-blue"
         @click="emit('edit')"
+        title="编辑"
       >
-        编辑
-      </StandardizedButton>
+        <Edit :size="16" />
+        <span>编辑</span>
+      </button>
 
-      <StandardizedButton
-        variant="outline"
-        size="md"
-        :loading="updatingAur"
+      <button
+        class="toolbar-btn btn-purple"
+        :disabled="updatingAur"
         @click="updateAurInfo"
+        title="更新 AUR 信息"
       >
-        更新AUR
-      </StandardizedButton>
+        <GitBranch :size="16" :class="{ spinning: updatingAur }" />
+        <span>{{ updatingAur ? '更新中...' : 'AUR 信息' }}</span>
+      </button>
 
-      <StandardizedButton
-        variant="outline"
-        size="md"
-        :loading="updatingPkgbuild"
+      <button
+        class="toolbar-btn btn-teal"
+        :disabled="updatingPkgbuild"
         @click="updatePkgbuild"
+        title="同步 PKGBUILD"
       >
-        同步PKGBUILD
-      </StandardizedButton>
+        <FileCode :size="16" :class="{ spinning: updatingPkgbuild }" />
+        <span>{{ updatingPkgbuild ? '更新中...' : 'PKGBUILD' }}</span>
+      </button>
 
-      <StandardizedButton
-        variant="outline"
-        size="md"
-        :loading="checking"
+      <button
+        class="toolbar-btn btn-green"
+        :disabled="checking"
         @click="checkUpdate"
+        title="检查上游更新"
       >
-        检查上游
-      </StandardizedButton>
+        <RefreshCw :size="16" :class="{ spinning: checking }" />
+        <span>{{ checking ? '检查中...' : '检查上游' }}</span>
+      </button>
 
-      <StandardizedButton
-        variant="danger"
-        size="md"
-        :loading="deleting"
+      <button
+        class="toolbar-btn btn-red"
+        :disabled="deleting"
         @click="handleDelete"
+        title="删除"
       >
-        删除
-      </StandardizedButton>
+        <Trash2 :size="16" :class="{ spinning: deleting }" />
+        <span>{{ deleting ? '删除中...' : '删除' }}</span>
+      </button>
     </div>
   </div>
 </template>

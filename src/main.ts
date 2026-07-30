@@ -20,6 +20,8 @@ import "./assets/styles/layout-components.css";
 import "./assets/styles/table-styles.css";
 import "./assets/styles/modal-styles.css";
 import "./assets/styles/settings-styles.css";
+import "./assets/styles/toolbar-buttons.css";
+import "./assets/styles/filter-styles.css";
 
 // 应用保存的客户端设置
 // 这些设置存储在 localStorage 中，在应用启动时应用到文档

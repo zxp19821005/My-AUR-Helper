@@ -9,7 +9,6 @@
   使用组件：
   - StandardizedCard: 设置卡片容器
   - StandardizedInput: 输入框（支持密码显示/隐藏）
-  - StandardizedSelect: 下拉选择框
   - StandardizedMessage: 消息提示
 -->
 <script setup lang="ts">
@@ -25,7 +24,6 @@ import AppearanceSettings from "../components/settings/AppearanceSettings.vue";
 import { useSettingsStore } from "../stores/settings";
 import StandardizedCard from "../components/base/StandardizedCard.vue";
 import StandardizedInput from "../components/base/StandardizedInput.vue";
-import StandardizedSelect from "../components/base/StandardizedSelect.vue";
 import StandardizedMessage from "../components/base/StandardizedMessage.vue";
 
 const route = useRoute();
@@ -69,7 +67,6 @@ const filteredSettings = computed(() =>
 
 onMounted(async () => {
   await loadAll();
-  applySettings();
 });
 
 async function loadAll() {

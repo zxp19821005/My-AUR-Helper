@@ -84,6 +84,7 @@ const baseClasses = "inline-flex items-center gap-1 font-medium border rounded-f
         typeClasses[props.type]?.filled.split(' ')[0].replace('bg-', 'bg-'),
       ]"
     ></span>
-    <span>{{ props.text || $slots.default }}</span>
+    <span v-if="props.text">{{ props.text }}</span>
+    <span v-else><slot /></span>
   </span>
 </template>

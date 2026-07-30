@@ -52,7 +52,7 @@
 -->
 <script setup lang="ts">
 import { X } from "@lucide/vue";
-import { watch, onMounted, onUnmounted } from "vue";
+import { watch, computed, onMounted, onUnmounted } from "vue";
 
 const props = withDefaults(defineProps<{
   /** 是否显示 */
@@ -93,6 +93,9 @@ const emit = defineEmits<{
   "update:show": [value: boolean];
 }>();
 
+/** 预设宽度枚举，非预设值（如 "720px"）作为内联样式应用 */
+const presetWidths = ["sm", "md", "lg", "xl", "full"];
+const isPresetWidth = computed(() => presetWidths.includes(props.width));
 
 /** 关闭模态框 */
 function handleClose() {
@@ -141,9 +144,10 @@ onUnmounted(() => {
           ref="modalRef"
           class="modal"
           :class="[
-            `modal-${width}`,
+            isPresetWidth ? `modal-${width}` : '',
             { 'modal-draggable': draggable },
           ]"
+          :style="isPresetWidth ? {} : { maxWidth: width, minWidth: width }"
         >
           <!-- 头部 -->
           <div v-if="!hideHeader" class="modal-header">

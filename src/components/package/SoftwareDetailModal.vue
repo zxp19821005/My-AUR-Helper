@@ -11,14 +11,12 @@
   - SoftwareStatusRow: 状态行组件
   - SoftwareSideCards: 侧边信息卡片组件
   - SoftwareInfoCard: 基本信息卡片
-  - SoftwareAurCard: AUR 信息卡片
-  - SoftwareUpstreamCard: 上游信息卡片
 -->
 <script setup lang="ts">
 import { ref, watch, onMounted } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { SoftwareDetail, Language } from "../../types";
-import Modal from "../common/Modal.vue";
+import StandardizedModal from "../common/StandardizedModal.vue";
 import SoftwareFormModal from "./SoftwareFormModal.vue";
 import FloatingNav from "./FloatingNav.vue";
 import DetailToolbar from "./DetailToolbar.vue";
@@ -176,7 +174,7 @@ watch(
 </script>
 
 <template>
-  <Modal :show="show" width="720px" hide-header @close="emit('close')">
+  <StandardizedModal :show="show" width="720px" hide-header @close="emit('close')">
     <template #error v-if="error">{{ error }}</template>
 
     <div class="detail-header">
@@ -222,7 +220,7 @@ watch(
         @check-update="checkUpdate"
       />
     </template>
-  </Modal>
+  </StandardizedModal>
 
   <SoftwareFormModal
     :show="showEditModal"

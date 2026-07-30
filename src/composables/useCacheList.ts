@@ -147,7 +147,6 @@ export function useCacheList() {
       const data = await invoke<CacheSoftwareEntry[]>("list_cache_software");
       entries.value = data.map(fromCacheSoftwareEntry);
       selectedIds.value = new Set();
-      console.debug("[缓存管理] 从数据库加载到", entries.value.length, "条缓存记录");
     } finally {
       loading.value = false;
       syncToolbar();
@@ -164,7 +163,6 @@ export function useCacheList() {
       const scanned = await invoke<CachePackage[]>("scan_all_cache_dirs");
       entries.value = scanned.map(fromCachePackage);
       selectedIds.value = new Set();
-      console.debug("[缓存管理] 重新扫描磁盘完成，共", entries.value.length, "个包");
     } finally {
       loading.value = false;
       syncToolbar();

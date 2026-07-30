@@ -19,9 +19,9 @@ import { ref, computed, onMounted, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { useCacheList, formatSize } from "../composables/useCacheList";
 import { loadEnabledCacheDirs } from "../composables/useCacheDirs";
+import { useCacheBackupActions } from "../composables/useCacheBackupActions";
 import { FOOTER_KEY, addMessage } from "../composables/footer";
 import BackupToModal from "../components/backup/BackupToModal.vue";
-import type { DeduplicateResult } from "../types";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
 import CacheToolbar from "../components/cache/CacheToolbar.vue";
 import CacheRowActions from "../components/cache/CacheRowActions.vue";
@@ -44,7 +44,6 @@ const sourceDirFilter = ref("");
 const cacheDirs = ref<{ name: string; path: string }[]>([]);
 const backupPath = ref("");
 const backupSubdirectories = ref<string[]>([]);
-const showBackupToModal = ref(false);
 
 const sourceDirs = computed(() => {
   return cacheDirs.value.filter((d) => d.path);
@@ -55,6 +54,14 @@ const selectedFilenames = computed(() => {
     .filter((_, i) => selectedIds.value.has(i))
     .map((e) => e.filename);
 });
+
+const {
+  showBackupToModal,
+  handleDedup,
+  handleBackupNewVersion,
+  openBackupToModal,
+  handleBackupSuccess,
+} = useCacheBackupActions(footer, backupPath, selectedIds, selectedFilenames, loading);
 
 onMounted(async () => {
   try {
@@ -113,85 +120,6 @@ async function handleClearTable() {
   } finally {
     loading.value = false;
   }
-}
-
-async function handleDedup() {
-  if (!backupPath.value) {
-    addMessage(footer, "warning", "未设置备份目录，请先在设置中配置备份目录");
-    return;
-  }
-  if (!confirm("确定要对备份目录进行去重吗？将删除旧版本文件。")) return;
-  loading.value = true;
-  try {
-    const result = await invoke<DeduplicateResult>("deduplicate_backups", {
-      backupPath: backupPath.value,
-    });
-    const msg = `去重完成：删除 ${result.removed_files} 个文件，${result.removed_records} 条记录`;
-    if (result.errors.length > 0) {
-      addMessage(footer, "warning", `${msg}，错误: ${result.errors.join("; ")}`);
-    } else {
-      addMessage(footer, "success", msg);
-    }
-  } catch (e) {
-    addMessage(footer, "error", `去重失败: ${e}`);
-  } finally {
-    loading.value = false;
-  }
-}
-
-async function handleBackupNewVersion() {
-  if (selectedIds.value.size === 0) {
-    addMessage(footer, "warning", "请先选择要备份的缓存包");
-    return;
-  }
-  if (!backupPath.value) {
-    addMessage(footer, "warning", "未设置备份目录，请先在设置中配置备份目录");
-    return;
-  }
-  loading.value = true;
-  try {
-    const [success, errors] = await invoke<[number, string[]]>(
-      "backup_cache_to_existing",
-      {
-        filenames: selectedFilenames.value,
-        backupPath: backupPath.value,
-      }
-    );
-    const msg = `备份完成：成功 ${success} 个` + (errors.length > 0 ? `，错误: ${errors.join("; ")}` : "");
-    if (errors.length > 0) {
-      addMessage(footer, "warning", msg);
-    } else {
-      addMessage(footer, "success", msg);
-    }
-    selectedIds.value.clear();
-  } catch (e) {
-    addMessage(footer, "error", `备份失败: ${e}`);
-  } finally {
-    loading.value = false;
-  }
-}
-
-function openBackupToModal() {
-  if (selectedIds.value.size === 0) {
-    addMessage(footer, "warning", "请先选择要备份的缓存包");
-    return;
-  }
-  if (!backupPath.value) {
-    addMessage(footer, "warning", "未设置备份目录，请先在设置中配置备份目录");
-    return;
-  }
-  showBackupToModal.value = true;
-}
-
-function handleBackupSuccess(result: [number, string[]]) {
-  const [success, errors] = result;
-  const msg = `备份完成：成功 ${success} 个` + (errors.length > 0 ? `，错误: ${errors.join("; ")}` : "");
-  if (errors.length > 0) {
-    addMessage(footer, "warning", msg);
-  } else {
-    addMessage(footer, "success", msg);
-  }
-  selectedIds.value.clear();
 }
 
 function deleteSelected() {

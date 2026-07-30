@@ -2,13 +2,12 @@
   SoftwareSideCards.vue - 软件侧边信息卡片组件
 
   功能：
-  - 显示 AUR 信息和上游版本信息（左右并排）
+  - 显示 AUR 信息（AUR版本、AUR License、最后提交）
+  - 显示上游信息（上游版本、上游 License、上次检查）
 -->
 <script setup lang="ts">
 import type { SoftwareDetail } from "../../types";
-import SoftwareAurCard from "./SoftwareAurCard.vue";
-import SoftwareUpstreamCard from "./SoftwareUpstreamCard.vue";
-import { formatLicense } from "../../utils/format";
+import { formatLicense, formatTimestamp } from "../../utils/format";
 
 defineProps<{
   detail: SoftwareDetail;
@@ -18,40 +17,47 @@ defineProps<{
 <template>
   <div class="side-by-side">
     <div class="section half-section">
-      <h4 class="section-title">AUR 信息（扩展）</h4>
+      <h4 class="section-title">AUR 信息</h4>
       <table class="info-table">
         <tbody>
+          <tr>
+            <td class="label">AUR 版本</td>
+            <td class="value">{{ detail.aur_version || '—' }}</td>
+          </tr>
           <tr>
             <td class="label">AUR License</td>
             <td class="value">
               {{ formatLicense(detail.aur_license_name) }}
             </td>
           </tr>
+          <tr>
+            <td class="label">最后提交</td>
+            <td class="value">{{ formatTimestamp(detail.aur_last_updated) }}</td>
+          </tr>
         </tbody>
       </table>
-      <SoftwareAurCard
-        :aur-version="detail.aur_version"
-        :aur-pkgdesc="detail.aur_pkgdesc"
-        :aur-last-updated="detail.aur_last_updated"
-      />
     </div>
 
     <div class="section half-section">
-      <h4 class="section-title">上游版本信息（扩展）</h4>
+      <h4 class="section-title">上游信息</h4>
       <table class="info-table">
         <tbody>
+          <tr>
+            <td class="label">上游版本</td>
+            <td class="value">{{ detail.upstream_version || '—' }}</td>
+          </tr>
           <tr>
             <td class="label">上游 License</td>
             <td class="value">
               {{ formatLicense(detail.upstream_license_name) }}
             </td>
           </tr>
+          <tr>
+            <td class="label">上次检查</td>
+            <td class="value">{{ formatTimestamp(detail.upstream_last_checked) }}</td>
+          </tr>
         </tbody>
       </table>
-      <SoftwareUpstreamCard
-        :upstream-version="detail.upstream_version"
-        :upstream-last-checked="detail.upstream_last_checked"
-      />
     </div>
   </div>
 </template>

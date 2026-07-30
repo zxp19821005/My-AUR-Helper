@@ -18,6 +18,10 @@ defineProps<{
   <table class="info-table">
     <tbody>
       <tr>
+        <td class="label">包描述</td>
+        <td class="value">{{ detail.aur_pkgdesc || '—' }}</td>
+      </tr>
+      <tr>
         <td class="label">运行时依赖</td>
         <td class="value">{{ parseJsonList(detail.depends) }}</td>
       </tr>

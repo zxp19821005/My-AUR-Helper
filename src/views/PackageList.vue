@@ -13,6 +13,7 @@
   - StandardizedBadge: 状态徽章
   - PageToolbar: 页面工具栏
   - FilterBar: 筛选器
+  - PackageRowActions: 行操作按钮组
   - SoftwareFormModal: 软件表单弹窗
   - SoftwareDetailModal: 软件详情弹窗
 -->
@@ -28,16 +29,8 @@ import SoftwareFormModal from "../components/package/SoftwareFormModal.vue";
 import SoftwareDetailModal from "../components/package/SoftwareDetailModal.vue";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
 import StandardizedBadge from "../components/base/StandardizedBadge.vue";
-import {
-  RefreshCw,
-  Plus,
-  Trash2,
-  Eye,
-  Pencil,
-  Info,
-  Download,
-  Filter,
-} from "@lucide/vue";
+import PackageRowActions from "../components/package/PackageRowActions.vue";
+import { RefreshCw, Plus, Trash2, Info, Download, Filter } from "@lucide/vue";
 import type { ValidateResult } from "../types";
 import type { Column } from "../composables/useTableState";
 
@@ -88,11 +81,10 @@ async function handleValidateUrls() {
   validating.value = true;
   try {
     const pkgnameList = pageData.value.map((p) => p.pkgname);
-    const results = await invoke<ValidateResult[]>("validate_upstream_urls", {
+    await invoke<ValidateResult[]>("validate_upstream_urls", {
       pkgnameList: pkgnameList.length > 0 ? pkgnameList : null,
     });
     await fetchView();
-    console.log(`验证完成: ${results.length} 个软件包`);
   } catch (error) {
     console.error("验证失败:", error);
   } finally {
@@ -139,11 +131,8 @@ function handleRowClick(row: any) {
   openDetailModal(row.pkgname);
 }
 
-/** 处理选择变化 */
-function handleSelectionChange(selectedRows: any[]) {
-  // 更新选中状态（由StandardizedTable内部管理）
-  console.log(`已选中 ${selectedRows.length} 个软件包`);
-}
+/** 处理选择变化（选中状态由 StandardizedTable 内部管理） */
+function handleSelectionChange(_selectedRows: any[]) {}
 
 onMounted(async () => {
   await Promise.all([fetchView(), pkgStore.fetchPackages()]);
@@ -252,52 +241,16 @@ onMounted(async () => {
 
       <!-- 操作列 -->
       <template #actions="{ row }">
-        <button
-          class="btn-icon btn-icon-default"
-          @click.stop="openDetailModal(row.pkgname)"
-          title="查看详情"
-        >
-          <Eye :size="14" />
-        </button>
-        <button
-          class="btn-icon btn-icon-accent"
-          @click.stop="openEditModal(row.pkgname)"
-          title="软件编辑"
-        >
-          <Pencil :size="14" />
-        </button>
-        <button
-          class="btn-icon btn-icon-accent"
-          @click.stop="rowSyncFromAur(row.pkgname)"
-          :disabled="isRowLoading(row.pkgname, 'sync-aur')"
-          title="从AUR同步"
-        >
-          <RefreshCw :size="14" />
-        </button>
-        <button
-          class="btn-icon btn-icon-accent"
-          @click.stop="rowSyncFromPkgbuild(row.pkgname)"
-          :disabled="isRowLoading(row.pkgname, 'sync-pkgbuild')"
-          title="从PKGBUILD同步"
-        >
-          <Download :size="14" />
-        </button>
-        <button
-          class="btn-icon btn-icon-info"
-          @click.stop="rowCheckUpstream(row.pkgname)"
-          :disabled="isRowLoading(row.pkgname, 'check-upstream')"
-          title="更新上游信息"
-        >
-          <RefreshCw :size="14" />
-        </button>
-        <button
-          class="btn-icon btn-icon-danger"
-          @click.stop="rowDelete(row.pkgname, selectedPkgnames, setSelected)"
-          :disabled="isRowLoading(row.pkgname, 'delete')"
-          title="删除"
-        >
-          <Trash2 :size="14" />
-        </button>
+        <PackageRowActions
+          :pkgname="row.pkgname"
+          :is-row-loading="isRowLoading"
+          @view="openDetailModal"
+          @edit="openEditModal"
+          @sync-aur="rowSyncFromAur"
+          @sync-pkgbuild="rowSyncFromPkgbuild"
+          @check-upstream="rowCheckUpstream"
+          @delete="(pkgname) => rowDelete(pkgname, selectedPkgnames, setSelected)"
+        />
       </template>
     </StandardizedTable>
 

@@ -37,6 +37,15 @@ const defaults = {
   proxy_test_ssh_url: "ssh://git@ssh.github.com:443/zxp19821005/My_AUR_Files",
 };
 
+/** 设置项字段配置（label/description/placeholder 驱动模板渲染） */
+const fields = [
+  { key: "proxy_download_url", label: "代理文件下载地址", description: "用于下载代理规则 JS 文件", placeholder: "输入代理文件下载 URL" },
+  { key: "proxy_test_download_url", label: "下载代理测试地址", description: "用于测试下载代理的连通性", placeholder: "输入下载代理测试 URL" },
+  { key: "proxy_test_clone_url", label: "克隆代理测试地址", description: "用于测试克隆代理的连通性", placeholder: "输入克隆代理测试 URL" },
+  { key: "proxy_test_raw_url", label: "RAW 代理测试地址", description: "用于测试 RAW 代理的连通性", placeholder: "输入 RAW 代理测试 URL" },
+  { key: "proxy_test_ssh_url", label: "SSH 代理测试地址", description: "用于测试 SSH 代理的连通性", placeholder: "输入 SSH 代理测试 URL" },
+] as const;
+
 /** 加载状态 */
 const loading = ref(false);
 /** 消息提示 */
@@ -52,11 +61,9 @@ onMounted(async () => {
 async function loadSettings() {
   loading.value = true;
   try {
-    settings.value.proxy_download_url = await settingsStore.getSetting("proxy_download_url", defaults.proxy_download_url);
-    settings.value.proxy_test_download_url = await settingsStore.getSetting("proxy_test_download_url", defaults.proxy_test_download_url);
-    settings.value.proxy_test_clone_url = await settingsStore.getSetting("proxy_test_clone_url", defaults.proxy_test_clone_url);
-    settings.value.proxy_test_raw_url = await settingsStore.getSetting("proxy_test_raw_url", defaults.proxy_test_raw_url);
-    settings.value.proxy_test_ssh_url = await settingsStore.getSetting("proxy_test_ssh_url", defaults.proxy_test_ssh_url);
+    for (const { key } of fields) {
+      settings.value[key] = await settingsStore.getSetting(key, defaults[key]);
+    }
   } catch (e) {
     showMessage("加载设置失败: " + String(e), "error");
   } finally {
@@ -142,67 +149,19 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
     </div>
 
     <SettingsCard title="代理管理设置" description="配置代理文件下载地址和各类代理的测试地址。">
-      <!-- 代理文件下载 URL -->
-      <SettingRow label="代理文件下载地址" description="用于下载代理规则 JS 文件">
+      <SettingRow
+        v-for="f in fields"
+        :key="f.key"
+        :label="f.label"
+        :description="f.description"
+      >
         <input
-          v-model="settings.proxy_download_url"
+          v-model="settings[f.key]"
           type="text"
           class="text-input"
-          placeholder="输入代理文件下载 URL"
+          :placeholder="f.placeholder"
         />
-        <button class="btn-reset" @click="resetSingleSetting('proxy_download_url')" title="重置为默认值">
-          重置
-        </button>
-      </SettingRow>
-
-      <!-- 下载代理测试 URL -->
-      <SettingRow label="下载代理测试地址" description="用于测试下载代理的连通性">
-        <input
-          v-model="settings.proxy_test_download_url"
-          type="text"
-          class="text-input"
-          placeholder="输入下载代理测试 URL"
-        />
-        <button class="btn-reset" @click="resetSingleSetting('proxy_test_download_url')" title="重置为默认值">
-          重置
-        </button>
-      </SettingRow>
-
-      <!-- 克隆代理测试 URL -->
-      <SettingRow label="克隆代理测试地址" description="用于测试克隆代理的连通性">
-        <input
-          v-model="settings.proxy_test_clone_url"
-          type="text"
-          class="text-input"
-          placeholder="输入克隆代理测试 URL"
-        />
-        <button class="btn-reset" @click="resetSingleSetting('proxy_test_clone_url')" title="重置为默认值">
-          重置
-        </button>
-      </SettingRow>
-
-      <!-- RAW 代理测试 URL -->
-      <SettingRow label="RAW 代理测试地址" description="用于测试 RAW 代理的连通性">
-        <input
-          v-model="settings.proxy_test_raw_url"
-          type="text"
-          class="text-input"
-          placeholder="输入 RAW 代理测试 URL"
-        />
-        <button class="btn-reset" @click="resetSingleSetting('proxy_test_raw_url')" title="重置为默认值">
-          重置
-        </button>
-      </SettingRow>
-
-      <!-- SSH 代理测试 URL -->
-      <SettingRow label="SSH 代理测试地址" description="用于测试 SSH 代理的连通性">
-        <input
-          v-model="settings.proxy_test_ssh_url"
-          type="text"
-          class="text-input"
-          placeholder="输入 SSH 代理测试 URL"
-        />
-        <button class="btn-reset" @click="resetSingleSetting('proxy_test_ssh_url')" title="重置为默认值">
+        <button class="btn-reset" @click="resetSingleSetting(f.key)" title="重置为默认值">
           重置
         </button>
       </SettingRow>

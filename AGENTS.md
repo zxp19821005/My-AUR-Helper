@@ -170,7 +170,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/router/index.ts` | Vue Router 路由配置 |
 | `src/views/` | 页面组件（每个页面一个文件） |
 | `src/components/base/` | 基础UI组件（Button、Card、Input、Select、Message、StatCard、Badge） |
-| `src/components/common/` | 通用组件（DataTable、Modal、Pagination、ProgressBar、PageToolbar等） |
+| `src/components/common/` | 通用组件（StandardizedTable、StandardizedModal、PaginationControls、ProgressBar、PageToolbar等） |
 | `src/components/layout/` | 布局组件（Sidebar、TabBar、BottomToolbar、PopupLayout、LogPanel等） |
 | `src/components/package/` | 软件包相关组件（SoftwareDetailModal、InfoCard、AurCard、UpstreamCard等） |
 | `src/components/backup/` | 备份管理组件（BackupToolbar、RowActions、InfoDialog、SudoersDialog等） |
@@ -421,12 +421,12 @@ pub struct CheckResult {
 | `list_page_size_license` | 50 | License 管理页面每页行数 |
 | `list_page_size_language` | 50 | 编程语言管理页面每页行数 |
 
-**DataTable 组件**：通用数据表格组件（`src/components/DataTable.vue`），支持：
-- 列配置（字段名、标题、宽度、格式化函数）
+**StandardizedTable 组件**：通用数据表格组件（`src/components/common/StandardizedTable.vue`），支持：
+- 列配置（字段名、标题、宽度、格式化函数、排序）
 - 前端分页（通过 props 传入每页行数）
 - 搜索过滤
 - 行选择（单选/全选）
-- 自定义单元格插槽（`#cell-{key}`）
+- 自定义单元格插槽（`#cell-{key}`）和操作列插槽（`#actions`）
 
 ### software_info 表字段说明
 | 字段 | 类型 | 说明 |

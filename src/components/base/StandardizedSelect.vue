@@ -33,7 +33,7 @@
 <script setup lang="ts">
 import type { Component } from "vue";
 
-const props = withDefaults(defineProps<{
+withDefaults(defineProps<{
   /** 选中值 */
   modelValue?: string | number | null;
   /** 选项列表 */
