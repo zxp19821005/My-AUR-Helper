@@ -278,6 +278,3 @@ const columns = [
     />
   </div>
 </template>
-
-<style scoped>
-</style>
