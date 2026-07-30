@@ -24,11 +24,13 @@ import { FOOTER_KEY, addMessage } from "../composables/footer";
 import BackupToModal from "../components/backup/BackupToModal.vue";
 import PageToolbar from "../components/common/PageToolbar.vue";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
-import StandardizedSelect from "../components/base/StandardizedSelect.vue";
 import CacheRowActions from "../components/cache/CacheRowActions.vue";
-import { Trash2, Scan, Copy, GitBranch } from "@lucide/vue";
+import { Trash2, Scan, Copy, GitBranch, Filter, X } from "@lucide/vue";
 
 const footer = inject(FOOTER_KEY)!;
+
+const showFilterBar = ref(false);
+const activeFilterCount = computed(() => sourceDirFilter.value ? 1 : 0);
 
 const {
   searchQuery,
@@ -160,18 +162,15 @@ const columns = [
 <template>
   <div>
     <!-- 工具栏 -->
-    <PageToolbar v-model="searchQuery" @refresh="handleScan">
-      <template #right>
-        <StandardizedSelect
-          :modelValue="sourceDirFilter"
-          @update:modelValue="handleSourceDirFilterChange"
-          size="md"
-        >
-          <option value="">全部缓存目录</option>
-          <option v-for="dir in sourceDirs" :key="dir.name" :value="dir.name">
-            {{ dir.name }}
-          </option>
-        </StandardizedSelect>
+    <PageToolbar 
+      v-model="searchQuery" 
+      @refresh="handleScan"
+      :filter-active="activeFilterCount > 0"
+      @toggle-filter="showFilterBar = !showFilterBar"
+    >
+      <template #filter-icon>
+        <Filter :size="16" />
+        <span v-if="activeFilterCount > 0" class="filter-count-badge">{{ activeFilterCount }}</span>
       </template>
       <button class="btn-icon btn-icon-accent" :disabled="loading || scanning" @click="handleScan" title="扫描所有缓存目录">
         <Scan :size="16" />
@@ -192,6 +191,51 @@ const columns = [
         <Copy :size="16" />
       </button>
     </PageToolbar>
+
+    <!-- 筛选面板 -->
+    <Teleport to="body">
+      <div v-if="showFilterBar" class="filter-overlay" @click.self="showFilterBar = false">
+        <div class="filter-panel">
+          <div class="filter-header">
+            <div class="filter-title">
+              <Filter :size="16" />
+              <span>筛选条件</span>
+              <span v-if="activeFilterCount > 0" class="filter-badge">{{ activeFilterCount }}</span>
+            </div>
+            <button class="btn-icon btn-icon-default" @click="showFilterBar = false">
+              <X :size="16" />
+            </button>
+          </div>
+          <div class="filter-body">
+            <div class="filter-section">
+              <div class="filter-row">
+                <div class="filter-field">
+                  <label class="filter-field-label">缓存目录</label>
+                  <select 
+                    class="filter-select"
+                    :value="sourceDirFilter"
+                    @change="handleSourceDirFilterChange(($event.target as HTMLSelectElement).value)"
+                  >
+                    <option value="">全部缓存目录</option>
+                    <option v-for="dir in sourceDirs" :key="dir.name" :value="dir.name">
+                      {{ dir.name }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="filter-footer">
+            <button class="btn btn-secondary" @click="handleSourceDirFilterChange('')">
+              清空筛选
+            </button>
+            <button class="btn btn-primary" @click="showFilterBar = false">
+              应用筛选
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- 缓存表格 -->
     <StandardizedTable

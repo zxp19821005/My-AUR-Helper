@@ -4,15 +4,14 @@ import { Settings, List, ScrollText, Search, RefreshCw } from "@lucide/vue";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 const props = defineProps<{
-  /** 搜索关键词 */
   modelValue?: string;
+  filterActive?: boolean;
 }>();
 
 const emit = defineEmits<{
-  /** 搜索关键词变化 */
   (e: "update:modelValue", value: string): void;
-  /** 刷新数据 */
   (e: "refresh"): void;
+  (e: "toggle-filter"): void;
 }>();
 
 const searchText = ref(props.modelValue || "");
@@ -63,6 +62,14 @@ async function openSettings() {
     </div>
     <div class="toolbar-right">
       <slot name="right" />
+      <button
+        class="toolbar-icon-btn"
+        :class="{ 'btn-icon-warning': filterActive }"
+        @click="emit('toggle-filter')"
+        title="筛选"
+      >
+        <slot name="filter-icon" />
+      </button>
       <div class="toolbar-divider"></div>
       <div class="search-box">
         <Search :size="14" class="search-icon" />
@@ -131,6 +138,9 @@ async function openSettings() {
 .toolbar-icon-btn:hover {
   color: var(--text-primary);
   background-color: var(--bg-card);
+}
+.btn-icon-warning {
+  color: var(--color-warning) !important;
 }
 .search-box {
   display: flex;

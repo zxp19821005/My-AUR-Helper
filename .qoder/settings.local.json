@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git --no-pager diff --stat && git --no-pager diff)",
+      "Bash(cd /run/media/zxp/LocalBak/git/My-AUR-Helper && sed -n '185,325p' src/components/filter/FilterBar.vue | sed '1d;$d' > /tmp/filter-css-body.txt && wc -l /tmp/filter-css-body.txt)",
+      "Bash(cd /run/media/zxp/LocalBak/git/My-AUR-Helper && { printf '/**\\\\n * filter-styles.css - 筛选器组件样式\\\\n *\\\\n * 功能：\\\\n * - FilterBar 弹出面板（遮罩、面板、头部、徽章）\\\\n * - 快速筛选选项和条件筛选下拉框样式\\\\n *\\\\n * 使用场景：src/components/filter/FilterBar.vue\\\\n */\\\\n'; cat /tmp/filter-css-body.txt; } > src/assets/styles/filter-styles.css && wc -l src/assets/styles/filter-styles.css)",
+      "Bash(cd /run/media/zxp/LocalBak/git/My-AUR-Helper && \\(pnpm dev > /tmp/vite-dev.log 2>&1 &\\) && sleep 5 && curl -s \"http://localhost:1420/src/components/filter/FilterBar.vue?vue&type=style&index=0&scoped=21333b52&lang.css\" | head -5; echo \"---LOG---\"; grep -iE \"error|ready\" /tmp/vite-dev.log; pkill -f \"vite\" 2>/dev/null; true)",
+      "Bash(cd /run/media/zxp/LocalBak/git/My-AUR-Helper && \\(pnpm dev > /tmp/vite-dev.log 2>&1 &\\) && sleep 5 && curl -s \"http://localhost:1420/src/components/filter/FilterBar.vue?vue&type=style&index=0&scoped=21333b52&lang.css\" | head -8; echo \"---LOG---\"; grep -iE \"error|ready\" /tmp/vite-dev.log | head -5)"
+    ]
+  }
+}

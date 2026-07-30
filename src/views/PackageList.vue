@@ -141,17 +141,15 @@ onMounted(async () => {
 
 <template>
   <div>
-    <PageToolbar v-model="searchQuery" @refresh="fetchView">
-      <template #right>
-        <button
-          class="btn-icon"
-          :class="activeFilterCount > 0 ? 'btn-icon-warning' : 'btn-icon-default'"
-          @click="showFilterBar = !showFilterBar"
-          title="筛选"
-        >
-          <Filter :size="16" />
-          <span v-if="activeFilterCount > 0" class="filter-count-badge">{{ activeFilterCount }}</span>
-        </button>
+    <PageToolbar 
+      v-model="searchQuery" 
+      @refresh="fetchView"
+      :filter-active="activeFilterCount > 0"
+      @toggle-filter="showFilterBar = !showFilterBar"
+    >
+      <template #filter-icon>
+        <Filter :size="16" />
+        <span v-if="activeFilterCount > 0" class="filter-count-badge">{{ activeFilterCount }}</span>
       </template>
       <button class="btn-icon btn-icon-accent" @click="syncFromAur(selectedPkgnames)" :disabled="loading" title="从AUR同步">
         <RefreshCw :size="16" />
