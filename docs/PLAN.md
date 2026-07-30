@@ -25,10 +25,9 @@ Tauri 桌面应用，用于管理 AUR 软件包更新、本地备份和代理。
 5. **命名一致**: 文件名、函数名、组件名需与功能模块统一
 
 ### 拆分规则
-- `commands/software.rs` 按功能拆分: `software.rs`, `software_sync.rs`, `software_check.rs`
-- `commands/files.rs` 按功能拆分: `files.rs`, `files_scan.rs`
+- `commands/` 按职责分组: 顶层单文件命令 + `fileops/`（文件操作类）+ `sysops/`（系统操作类）
 - `db/mod.rs` 按表拆分: `db/software_info.rs`, `db/aur_info.rs` 等
-- Vue 组件拆分: 通用逻辑提取到 `composables/`，通用样式提取到全局 CSS
+- Vue 组件拆分: 通用逻辑提取到 `composables/`，通用样式提取到 `assets/styles/` 全局 CSS
 
 ## 当前进度
 
@@ -67,6 +66,13 @@ Tauri 桌面应用，用于管理 AUR 软件包更新、本地备份和代理。
   - [x] 创建 useBackupList composable
   - [x] 重写 BackupManager.vue（匹配 PackageList 布局）
   - [x] 更新 frontend types
+- [x] 前端组件目录模块化重组（2026-07-29）
+  - [x] components/ 按功能拆分为 10 个子目录
+  - [x] 样式集中到 assets/styles/
+- [x] 统一双组件体系与代码质量修复（2026-07-30）
+  - [x] 删除 Modal.vue / DataTable 系列，统一使用 Standardized 组件
+  - [x] 拆分超限文件（PackageList/CacheManager/FilterBar/SettingsProxySection）
+  - [x] 提取 toolbar-buttons.css / filter-styles.css
 - [ ] 重构数据库 schema
   - [x] 更新 DATABASE.md 设计文档
   - [ ] 重写 models/mod.rs
@@ -83,28 +89,29 @@ My-AUR-Helper/
 │   ├── ARCHITECTURE.md      # 系统架构设计
 │   ├── DATABASE.md          # 数据库设计
 │   ├── API.md               # Tauri Command API
+│   ├── COMPONENTS_GUIDE.md  # 前端组件使用指南
 │   └── PLAN.md              # 项目开发计划
-├── .opencode/               # opencode 配置
-│   └── rules/               # AI 编码规则
 ├── src/                     # Vue 前端
 │   ├── views/               # 页面组件 (10个)
-│   ├── components/          # 通用组件 (11个)
-│   ├── composables/         # 组合式函数 (2个)
-│   ├── stores/              # Pinia 状态 (2个)
+│   ├── components/          # 组件（按功能分 10 个子目录，50+ 文件）
+│   ├── composables/         # 组合式函数 (12个)
+│   ├── stores/              # Pinia 状态 (3个)
+│   ├── utils/               # 工具函数 (3个)
 │   ├── types/               # TypeScript 类型
-│   └── assets/              # 静态资源 (styles.css)
+│   └── assets/              # 静态资源（styles/ 集中管理组件样式）
 ├── src-tauri/               # Rust 后端
 │   ├── src/
-│   │   ├── lib.rs           # 库入口
+│   │   ├── lib.rs           # 库入口和命令注册
 │   │   ├── main.rs          # 程序入口
 │   │   ├── logger.rs        # 日志配置
-│   │   ├── models/          # 数据模型 (15个文件)
-│   │   ├── db/              # SQLite 数据库 (14个文件)
-│   │   ├── commands/        # Tauri IPC 命令 (12个文件)
-│   │   ├── checkers/        # 版本检查器 (8个文件)
+│   │   ├── errors/          # 统一错误类型 (6个文件)
+│   │   ├── models/          # 数据模型 (19个文件)
+│   │   ├── db/              # SQLite 数据库 (23个文件)
+│   │   ├── commands/        # Tauri IPC 命令（顶层 + fileops/ + sysops/）
+│   │   ├── checkers/        # 版本检查器（含 github/ 子模块）
+│   │   ├── versions/        # 版本处理（解析/标准化/比较）
 │   │   ├── aur/             # AUR 交互 (3个文件)
-│   │   ├── backup/          # 备份管理 (2个文件)
-│   │   └── proxy/           # 代理管理 (3个文件)
+│   │   └── proxy/           # 代理管理 (5个文件)
 │   ├── Cargo.toml
 │   └── tauri.conf.json
 └── package.json
@@ -130,17 +137,19 @@ My-AUR-Helper/
 ## 模块依赖关系
 
 ```
-Tauri Commands (commands/)
+Tauri Commands (commands/ = 顶层 + fileops/ + sysops/)
     ↓
   AUR 模块 (aur/) ← 代理模块 (proxy/)
     ↓
  检查器模块 (checkers/) ← 代理模块 (proxy/)
     ↓
-  备份模块 (backup/)
+ 版本处理模块 (versions/)
     ↓
    数据库模块 (db/) → SQLite
     ↓
-   日志模块 (log/) → 文件/控制台
+   日志模块 (logger) → 文件/控制台
+
+错误处理：所有模块统一使用 errors/ 的 AppError / AppResult
 ```
 
 ## 开发命令

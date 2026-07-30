@@ -32,21 +32,28 @@
 
 ### 拆分规则
 
-- `commands/software.rs` 按功能拆分: `software.rs`, `software_sync.rs`, `software_check.rs`
-- `commands/files.rs` 按功能拆分: `files.rs`, `files_scan.rs`
+- `commands/` 按职责分组: 顶层单文件命令 + `fileops/`（文件操作类）+ `sysops/`（系统操作类）
 - `db/mod.rs` 按表拆分: `db/software_info.rs`, `db/aur_info.rs` 等
-- Vue 组件拆分: 通用逻辑提取到 `composables/`，通用样式提取到全局 CSS
+- Vue 组件拆分: 通用逻辑提取到 `composables/`，通用样式提取到 `assets/styles/` 全局 CSS
 
 ## Rust 后端文件结构
 
 ```
 src-tauri/src/
-├── lib.rs                    # 库入口，Tauri Builder 配置 (262行)
+├── lib.rs                    # 库入口，Tauri Builder 配置和命令注册
 ├── main.rs                   # 程序入口
 ├── logger.rs                 # 日志配置
+├── errors/                   # 统一错误类型
+│   ├── mod.rs                # 错误模块导出
+│   ├── error_type.rs         # AppError 错误类型定义
+│   ├── db.rs                 # 数据库错误
+│   ├── file.rs               # 文件操作错误
+│   ├── network.rs            # 网络错误
+│   └── system.rs             # 系统命令错误
 ├── models/
 │   ├── mod.rs                # 数据模型导出
 │   ├── software_info.rs      # 软件包信息模型
+│   ├── software_detail.rs    # 软件包完整详情模型
 │   ├── software_list_entry.rs # 软件包列表展示模型
 │   ├── aur_info.rs           # AUR 信息模型
 │   ├── upstream_info.rs      # 上游版本信息模型（含 UpstreamUrlStatus 枚举）
@@ -56,6 +63,7 @@ src-tauri/src/
 │   ├── backup_software.rs    # 备份软件模型
 │   ├── backup_software_entry.rs # 备份软件包列表展示模型
 │   ├── cache_software.rs     # 缓存软件模型
+│   ├── cache_software_entry.rs # 缓存软件包列表展示模型
 │   ├── log_entry.rs          # 日志模型
 │   ├── setting.rs            # 设置模型
 │   ├── checker_type.rs       # 检查器类型枚举
@@ -63,113 +71,166 @@ src-tauri/src/
 │   ├── enum_license.rs       # 许可证枚举
 │   └── enum_programming_language.rs # 编程语言枚举
 ├── db/
-│   ├── mod.rs                # 数据库初始化和连接管理 (61行)
-│   ├── schema.rs             # 数据库 Schema 定义 (155行)
-│   ├── migration.rs          # 数据库迁移脚本
+│   ├── mod.rs                # 数据库模块声明和导出
+│   ├── connection.rs         # Database 结构体、连接创建、表初始化
+│   ├── schema.rs             # 数据库 Schema 定义
+│   ├── migration_aur.rs      # aur_info 表迁移
+│   ├── migration_software.rs # software_info 表迁移
+│   ├── migration_upstream.rs # upstream_info 表迁移
+│   ├── migration_backup.rs   # backup_software 表迁移
+│   ├── migration_cache.rs    # cache_software 表迁移
+│   ├── migration_proxy.rs    # proxies 表迁移
+│   ├── migration_enum.rs     # 枚举表迁移（licenses + languages）
 │   ├── seed.rs               # 初始数据填充
-│   ├── software_info.rs      # SoftwareInfo 表操作 (186行)
+│   ├── software_info.rs      # SoftwareInfo 表操作
 │   ├── aur_info.rs           # AurInfo 表操作
 │   ├── upstream_info.rs      # UpstreamInfo 表操作
 │   ├── proxies_info.rs       # ProxiesInfo 表操作
 │   ├── proxies_test.rs       # ProxiesTest 表操作
 │   ├── backup_software.rs    # BackupSoftware 表操作
 │   ├── cache_software.rs     # CacheSoftware 表操作
+│   ├── tests_cache_backup.rs # 缓存备份相关单元测试
 │   ├── logs.rs               # Logs 表操作
 │   ├── settings.rs           # Settings 表操作
 │   ├── enum_licenses.rs      # EnumLicenses 表操作
 │   └── enum_programming_languages.rs # EnumProgrammingLanguages 表操作
 ├── commands/
-│   ├── mod.rs                # 命令模块导出 (48行)
-│   ├── software.rs           # 软件包 CRUD 命令 (163行)
-│   ├── software_sync.rs      # AUR 同步命令（并行执行）(236行)
-│   ├── software_sync_upstream.rs # 上游版本检查命令（并行执行）(136行)
-│   ├── software_sync_utils.rs # 同步工具函数和类型 (68行)
-│   ├── software_sync_pkgbuild.rs # PKGBUILD 同步命令 (122行)
-│   ├── software_check.rs     # 软件包版本检查命令 (195行)
-│   ├── upstream_validate.rs  # 上游 URL 验证命令 (130行)
-│   ├── files.rs              # 文件操作命令 (221行)
-│   ├── files_scan.rs         # 包文件扫描命令 (85行)
-│   ├── backup.rs             # 备份管理命令（列表/清空/扫描/去重/删除）
-│   ├── proxy.rs              # 代理命令 (83行)
-│   ├── proxy_utils.rs        # 代理工具命令
-│   ├── sys_command.rs        # 系统命令 (183行)
-│   ├── scan.rs               # 目录扫描命令 (193行)
+│   ├── mod.rs                # 命令模块导出
+│   ├── software.rs           # 软件包 CRUD 命令
+│   ├── proxy.rs              # 代理命令
 │   ├── logs.rs               # 日志命令
 │   ├── settings.rs           # 设置命令
-│   └── enums.rs              # 枚举查询命令 (144行)
+│   ├── enums.rs              # 枚举查询命令
+│   ├── fileops/              # 文件操作类命令
+│   │   ├── mod.rs            # 模块声明和导出
+│   │   ├── scan.rs           # 包文件扫描命令
+│   │   ├── cache_dirs.rs     # 缓存目录通用工具
+│   │   ├── cache_scan.rs     # 缓存扫描命令
+│   │   ├── cache_backup.rs   # 缓存备份命令
+│   │   ├── backup_scan.rs    # 备份目录扫描命令
+│   │   ├── backup_dedup.rs   # 备份去重命令
+│   │   └── backup_execute.rs # 备份执行逻辑
+│   └── sysops/               # 系统操作类命令
+│       ├── mod.rs            # 模块声明和导出
+│       ├── sys_command.rs    # 系统命令（包版本查询等）
+│       ├── software_check.rs # 软件包版本检查命令
+│       ├── upstream_validate.rs # 上游 URL 验证命令
+│       ├── backup_basic.rs   # 备份基础操作（查询、清空、删除）
+│       ├── backup_install.rs # 备份包安装（pacman -Qip、sudoers、install）
+│       ├── proxy_utils.rs    # 代理工具命令
+│       └── software_sync/    # 软件包同步命令模块
+│           ├── mod.rs        # 模块声明和导出
+│           ├── aur.rs        # AUR 信息同步和更新命令
+│           ├── upstream.rs   # 上游版本并行检查命令
+│           ├── pkgbuild.rs   # PKGBUILD 文件同步命令
+│           └── utils.rs      # 同步工具函数
 ├── checkers/
-│   ├── mod.rs                # 检查器工厂函数 (31行)
-│   ├── trait_def.rs          # VersionChecker trait 定义
+│   ├── mod.rs                # 检查器模块入口和导出
+│   ├── factory.rs            # 检查器工厂函数（get_checker）
+│   ├── trait_def.rs          # VersionChecker trait 和 CheckResult 定义
 │   ├── github/               # GitHub 检查器模块（目录结构）
-│   │   ├── mod.rs            # 模块声明和导出 (8行)
-│   │   ├── tags.rs           # GitHub Tags 检查逻辑 (79行)
-│   │   ├── api.rs            # GitHub API 检查逻辑（releases, 资产过滤）(163行)
-│   │   ├── git_describe.rs   # Git Describe 格式化（-git 包版本）(149行)
-│   │   ├── tags_checker.rs   # GitHubTagsChecker 检查器实现 (75行)
-│   │   └── api_checker.rs    # GitHubAPIChecker 检查器实现 (82行)
+│   │   ├── mod.rs            # 模块声明和导出
+│   │   ├── tags_checker.rs   # GitHubTagsChecker 检查器实现
+│   │   ├── api_checker.rs    # GitHubAPIChecker 检查器实现
+│   │   ├── tags.rs           # Tags 分页获取和版本比较逻辑
+│   │   ├── release.rs        # Release API 调用（latest + 分页遍历）
+│   │   ├── binary_check.rs   # 二进制文件检查工具
+│   │   ├── repo_info.rs      # 仓库元信息获取（License + 编程语言）
+│   │   └── git_describe.rs   # Git Describe 格式化（-git 包专用）
 │   ├── gitee.rs              # Gitee 检查器
 │   ├── gitlab.rs             # GitLab 检查器
 │   ├── redirect.rs           # 重定向检查器
 │   ├── http.rs               # HTTP 页面解析检查器
 │   ├── manual.rs             # 手动检查器
 │   └── utils.rs              # 检查器工具函数
+├── versions/                 # 版本处理模块
+│   ├── mod.rs                # versions 模块入口
+│   ├── utils.rs              # 版本比较、排序、查找最新版本
+│   ├── aur.rs                # AUR 版本解析和标准化
+│   ├── upstream.rs           # 上游版本清洗和标准化
+│   ├── git_version.rs        # Git 版本格式处理
+│   ├── comparison.rs         # 版本比较算法（vercmp）
+│   ├── comparison/parser.rs  # 版本字符串解析器
+│   ├── comparison/tests.rs   # 版本比较单元测试
+│   └── rules.rs              # 版本清洗规则配置
 ├── aur/
 │   ├── mod.rs                # AUR 模块导出
-│   ├── rpc.rs                # AUR RPC API 请求 (118行)
-│   └── pkgbuild.rs           # PKGBUILD 文件解析 (186行)
-├── proxy/
-│   ├── mod.rs                # 代理模块导出
-│   ├── fetch.rs              # 代理获取 (146行)
-│   └── test.rs               # 代理测试
-└── backup/
-    ├── mod.rs                # 备份模块导出
-    └── execute.rs            # 备份执行逻辑 (123行)
+│   ├── rpc.rs                # AUR RPC API 请求
+│   └── pkgbuild.rs           # PKGBUILD 文件解析
+└── proxy/
+    ├── mod.rs                # 代理模块导出
+    ├── fetch.rs              # 代理获取
+    ├── download.rs           # 代理文件下载
+    ├── parse.rs              # 代理文件解析
+    └── test.rs               # 代理测试
 ```
 
 ## Vue 前端文件结构
 
 ```
 src/
-├── main.ts                   # 入口文件 (31行)
-├── App.vue                   # 根组件 (87行)
+├── main.ts                   # 入口文件（全局样式导入）
+├── App.vue                   # 根组件
 ├── router/
-│   └── index.ts              # 路由配置 (103行)
-├── views/                    # 页面组件
-│   ├── Dashboard.vue         # 仪表盘 (103行)
-│   ├── PackageList.vue       # 软件包列表 (290行)
-│   ├── PackageDetail.vue     # 软件包详情/编辑 (237行)
-│   ├── BackupManager.vue     # 备份管理 (85行)
-│   ├── CacheManager.vue      # 缓存管理 (86行)
-│   ├── ProxySettings.vue     # 代理设置 (148行)
-│   ├── LogViewer.vue         # 日志查看 (122行)
-│   ├── Settings.vue          # 应用设置 (266行)
-│   ├── LicenseManager.vue    # 许可证管理 (208行)
-│   └── LanguageManager.vue   # 编程语言管理 (241行)
-├── components/               # 通用组件
-│   ├── PageToolbar.vue       # 页面工具栏 (92行)
-│   ├── FilterBar.vue         # 筛选器组件 (220行)
-│   ├── Sidebar.vue           # 侧边栏 (198行)
-│   ├── BottomToolbar.vue     # 底部工具栏 (167行)
-│   ├── TabBar.vue            # 标签栏 (158行)
-│   ├── PopupLayout.vue       # 弹窗布局 (153行)
-│   ├── SoftwareFormModal.vue # 软件包添加/编辑弹窗 (179行)
-│   ├── SoftwareDetailModal.vue # 软件包详情弹窗 (233行)
-│   ├── SettingsPopup.vue     # 设置弹窗 (34行)
-│   ├── LogsPopup.vue         # 日志弹窗 (24行)
-│   └── EnumLayout.vue        # 枚举管理布局 (26行)
-├── composables/              # 组合式函数
-│   ├── footer.ts             # 底部工具栏状态 (23行)
-│   ├── packageActions.ts     # 软件包操作逻辑 (189行)
+│   └── index.ts              # 路由配置
+├── views/                    # 页面组件（10 个）
+│   ├── Dashboard.vue         # 仪表盘
+│   ├── PackageList.vue       # 软件包列表
+│   ├── PackageDetail.vue     # 软件包详情/编辑
+│   ├── BackupManager.vue     # 备份管理
+│   ├── CacheManager.vue      # 缓存管理
+│   ├── ProxySettings.vue     # 代理设置
+│   ├── LogViewer.vue         # 日志查看
+│   ├── Settings.vue          # 应用设置
+│   ├── LicenseManager.vue    # 许可证管理
+│   └── LanguageManager.vue   # 编程语言管理
+├── components/               # 组件（按功能模块分 10 个子目录）
+│   ├── base/                 # 基础UI组件（StandardizedButton/Card/Input/Select/Message/StatCard/Badge）
+│   ├── common/               # 通用组件（StandardizedTable 系列、StandardizedModal、PageToolbar、PaginationControls、ProgressBar）
+│   ├── layout/               # 布局组件（Sidebar、TabBar、BottomToolbar、LogPanel、PopupLayout、SettingsPopup、LogsPopup、EnumLayout）
+│   ├── package/              # 软件包组件（SoftwareDetailModal、SoftwareFormModal、PackageRowActions、各 InfoCard、DetailToolbar、FloatingNav 等）
+│   ├── backup/               # 备份组件（BackupToolbar、BackupRowActions、BackupInfoDialog、BackupSudoersDialog、BackupToModal）
+│   ├── cache/                # 缓存组件（CacheToolbar、CacheRowActions）
+│   ├── proxy/                # 代理组件（ProxyToolbar、ProxyRowActions）
+│   ├── settings/             # 设置组件（SettingsCard、SettingRow、AppearanceSettings、各配置 Section）
+│   ├── filter/               # 筛选组件（FilterBar）
+│   └── enum/                 # 枚举组件（LicenseFormModal、LanguageFormModal）
+├── composables/              # 组合式函数（12 个）
+│   ├── footer.ts             # 底部工具栏状态
+│   ├── packageActions.ts     # 软件包操作逻辑
 │   ├── usePackageList.ts     # 软件包列表页逻辑
 │   ├── useBackupList.ts      # 备份管理列表页逻辑
-│   └── useSoftwareForm.ts    # 软件包表单逻辑 (218行)
+│   ├── useBackupInstall.ts   # 备份包安装逻辑
+│   ├── useCacheList.ts       # 缓存管理列表页逻辑
+│   ├── useCacheBackupActions.ts # 缓存备份操作逻辑
+│   ├── useCacheDirs.ts       # 缓存目录管理
+│   ├── useProxyList.ts       # 代理列表页逻辑
+│   ├── useSoftwareForm.ts    # 软件包表单逻辑
+│   ├── useLicenseSelect.ts   # License 可搜索下拉框逻辑
+│   └── useTableState.ts      # 表格状态管理（StandardizedTable）
 ├── stores/                   # Pinia 状态管理
-│   ├── packages.ts           # 软件包状态 (57行)
-│   └── tabs.ts               # 标签页状态 (77行)
+│   ├── packages.ts           # 软件包状态
+│   ├── settings.ts           # 设置状态
+│   └── tabs.ts               # 标签页状态
+├── utils/
+│   ├── enums.ts              # 枚举常量和共享选项
+│   ├── format.ts             # 通用格式化工具
+│   └── icons.ts              # 图标映射
 ├── types/
-│   └── index.ts              # TypeScript 类型定义 (207行)
+│   └── index.ts              # TypeScript 类型定义
 └── assets/
-    └── styles.css            # 全局样式
+    ├── base.css              # 基础样式
+    ├── variables.css         # CSS 变量
+    ├── components.css        # 组件通用样式
+    ├── forms.css             # 表单样式
+    └── styles/               # 集中管理的组件样式
+        ├── base-components.css    # 基础组件样式
+        ├── layout-components.css  # 布局组件样式
+        ├── modal-styles.css       # 模态框样式
+        ├── table-styles.css       # 表格样式
+        ├── settings-styles.css    # 设置页面样式
+        ├── toolbar-buttons.css    # 工具栏按钮通用样式
+        └── filter-styles.css      # 筛选面板样式
 ```
 
 ## 系统架构图
@@ -198,8 +259,8 @@ src/
 │  │  └──────┬───────┘              │           ││
 │  │         ▼                      ▼           ││
 │  │  ┌──────────┐          ┌──────────────┐    ││
-│  │  │  db 模块  │          │  backup 模块  │    ││
-│  │  │ (SQLite)  │          │ (备份管理)    │    ││
+│  │  │  db 模块  │          │ versions 模块 │    ││
+│  │  │ (SQLite)  │          │  (版本处理)   │    ││
 │  │  └──────────┘          └──────────────┘    ││
 │  │         ▼                                   ││
 │  │  ┌──────────┐                               ││
@@ -214,16 +275,11 @@ src/
 
 ### commands/ — Tauri IPC 命令入口
 
-作为前后端通信桥梁，所有 `#[tauri::command]` 在此定义，参数/返回值自动序列化为 JSON。
+作为前后端通信桥梁，所有 `#[tauri::command]` 在此定义，参数/返回值自动序列化为 JSON。按职责分为三层：
 
-- `software.rs` — 软件包 CRUD 操作
-- `software_sync.rs` — AUR 同步（并行执行，tokio::spawn）
-- `software_sync_upstream.rs` — 上游版本检查（并行执行，tokio::spawn）
-- `software_sync_utils.rs` — 同步工具函数和类型定义
-- `software_sync_pkgbuild.rs` — PKGBUILD 解析和同步
-- `software_check.rs` — 单个/选中软件包上游版本检查
-- `files.rs` — 文件/目录操作
-- `files_scan.rs` — 包文件扫描和解析
+- 顶层单文件命令：`software.rs`（CRUD）、`proxy.rs`、`logs.rs`、`settings.rs`、`enums.rs`
+- `fileops/` — 文件操作类命令：包文件扫描、缓存扫描/备份、备份目录扫描/去重
+- `sysops/` — 系统操作类命令：系统命令、版本检查、上游 URL 验证、备份查询/安装、软件包同步（`software_sync/` 子模块，并行执行 tokio::spawn）
 
 ### models/ — 数据模型
 
@@ -243,7 +299,9 @@ src/
   - `tags_checker.rs`: GitHubTagsChecker 检查器实现
   - `api_checker.rs`: GitHubAPIChecker 检查器实现
   - `tags.rs`: Tags 分页获取和版本比较逻辑
-  - `api.rs`: Release API 调用和资产过滤逻辑
+  - `release.rs`: Release API 调用（latest + 分页遍历）
+  - `binary_check.rs`: 二进制文件检查工具
+  - `repo_info.rs`: 仓库元信息获取（License + 编程语言）
   - `git_describe.rs`: Git Describe 格式化（-git 包专用）
 - GiteeChecker: 通过 Gitee API
 - GitLabChecker: 通过 GitLab API
@@ -264,11 +322,23 @@ src/
 - 代理健康检测（延迟测试）
 - 按类型分类（download/clone/raw）
 
-### backup/ — 备份管理
+### versions/ — 版本处理
 
-- 扫描 pacman/paru/yay 缓存目录
-- 复制新版本 .pkg.tar.zst 到备份目录
-- 清理备份目录中的旧版本
+- AUR 版本解析（epoch、version、pkgrel）
+- 上游版本清洗和标准化（可配置规则）
+- 版本比较算法（ALPM/pacman vercmp）
+
+### errors/ — 统一错误类型
+
+- `AppError` 枚举按领域细分（数据库/文件/网络/系统）
+- 所有命令返回 `AppResult<T>`，错误自动序列化传递给前端
+
+### 备份与缓存管理（commands/fileops + commands/sysops）
+
+- 扫描 pacman/paru/yay 缓存目录（`fileops/cache_scan.rs`）
+- 复制新版本 .pkg.tar.zst 到备份目录（`fileops/cache_backup.rs`）
+- 备份目录扫描、去重（`fileops/backup_scan.rs`、`fileops/backup_dedup.rs`）
+- 备份记录查询/删除、备份包安装（`sysops/backup_basic.rs`、`sysops/backup_install.rs`）
 
 ## 检查器选择逻辑
 
