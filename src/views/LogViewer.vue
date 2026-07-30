@@ -9,20 +9,17 @@
 
   使用组件：
   - StandardizedTable: 表格组件
-  - StandardizedButton: 操作按钮
-  - StandardizedBadge: 状态徽章
-  - StandardizedMessage: 消息提示
+  - PageToolbar: 页面工具栏
   - StandardizedSelect: 级别筛选下拉框
-  - StandardizedInput: 搜索输入框
+  - StandardizedBadge: 状态徽章
 -->
 <script setup lang="ts">
 import { ref, onMounted, computed, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { FOOTER_KEY, addMessage } from "../composables/footer";
 import { Trash2 } from "@lucide/vue";
+import PageToolbar from "../components/common/PageToolbar.vue";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
-import StandardizedButton from "../components/base/StandardizedButton.vue";
-import StandardizedInput from "../components/base/StandardizedInput.vue";
 import StandardizedSelect from "../components/base/StandardizedSelect.vue";
 import StandardizedBadge from "../components/base/StandardizedBadge.vue";
 
@@ -112,19 +109,8 @@ const columns = [
 
 <template>
   <div>
-    <!-- 工具栏 -->
-    <div class="toolbar">
-      <div class="toolbar-left">
-        <span class="total-count">总计: {{ filteredLogs.length }}</span>
-      </div>
-      <div class="toolbar-right">
-        <StandardizedInput
-          v-model="searchQuery"
-          placeholder="搜索日志消息..."
-          size="md"
-          clearable
-        />
-
+    <PageToolbar v-model="searchQuery" @refresh="loadLogs">
+      <template #right>
         <StandardizedSelect
           v-model="levelFilter"
           size="md"
@@ -134,18 +120,16 @@ const columns = [
           <option value="warning">WARNING</option>
           <option value="error">ERROR</option>
         </StandardizedSelect>
-
-        <StandardizedButton
-          variant="danger"
-          size="md"
-          :loading="loading"
-          @click="clearLogs"
-        >
-          <Trash2 :size="16" />
-          清空日志
-        </StandardizedButton>
-      </div>
-    </div>
+      </template>
+      <button
+        class="btn-icon btn-icon-danger"
+        :disabled="loading"
+        @click="clearLogs"
+        title="清空日志"
+      >
+        <Trash2 :size="16" />
+      </button>
+    </PageToolbar>
 
     <!-- 日志表格 -->
     <StandardizedTable
@@ -181,31 +165,6 @@ const columns = [
 </template>
 
 <style scoped>
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-  flex-wrap: wrap;
-}
-
-.toolbar-left {
-  flex: 1;
-}
-
-.toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.total-count {
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-}
-
 .timestamp {
   color: var(--text-secondary);
   font-size: 0.8125rem;

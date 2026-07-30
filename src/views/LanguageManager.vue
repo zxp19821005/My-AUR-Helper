@@ -9,10 +9,8 @@
 
   使用组件：
   - StandardizedTable: 表格组件
-  - StandardizedButton: 操作按钮
-  - StandardizedMessage: 消息提示
-  - StandardizedInput: 搜索输入框
-  - StandardizedModal: 弹窗组件
+  - PageToolbar: 页面工具栏
+  - LanguageFormModal: 弹窗组件
 -->
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
@@ -20,10 +18,9 @@ import { invoke } from "@tauri-apps/api/core";
 import type { EnumProgrammingLanguage as ProgrammingLanguage } from "../types";
 import LanguageFormModal from "../components/enum/LanguageFormModal.vue";
 import { useSettingsStore } from "../stores/settings";
+import PageToolbar from "../components/common/PageToolbar.vue";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
-import StandardizedButton from "../components/base/StandardizedButton.vue";
-import StandardizedMessage from "../components/base/StandardizedMessage.vue";
-import StandardizedInput from "../components/base/StandardizedInput.vue";
+import { RefreshCw, Plus } from "@lucide/vue";
 
 const settingsStore = useSettingsStore();
 const languages = ref<ProgrammingLanguage[]>([]);
@@ -127,46 +124,23 @@ function handleRowClick(row: ProgrammingLanguage) {
 
 <template>
   <div>
-    <!-- 消息提示 -->
-    <StandardizedMessage
-      v-if="message"
-      type="success"
-      :message="message"
-      :duration="3000"
-      @close="message = ''"
-    />
-
-    <!-- 工具栏 -->
-    <div class="toolbar">
-      <div class="toolbar-left">
-        <span class="total-count">总计: {{ languages.length }}</span>
-      </div>
-      <div class="toolbar-right">
-        <StandardizedInput
-          v-model="searchQuery"
-          placeholder="搜索编程语言 (名称 / 简称)..."
-          size="md"
-          clearable
-        />
-
-        <StandardizedButton
-          variant="outline"
-          size="md"
-          :loading="syncing"
-          @click="syncFromGitHub"
-        >
-          {{ syncing ? "同步中..." : "从 GitHub 同步" }}
-        </StandardizedButton>
-
-        <StandardizedButton
-          variant="primary"
-          size="md"
-          @click="openAdd"
-        >
-          新增编程语言
-        </StandardizedButton>
-      </div>
-    </div>
+    <PageToolbar v-model="searchQuery" @refresh="loadLanguages">
+      <button
+        class="btn-icon btn-icon-accent"
+        :disabled="syncing"
+        @click="syncFromGitHub"
+        title="从 GitHub 同步"
+      >
+        <RefreshCw :size="16" :class="{ 'spinning': syncing }" />
+      </button>
+      <button
+        class="btn-icon btn-icon-success"
+        @click="openAdd"
+        title="新增编程语言"
+      >
+        <Plus :size="16" />
+      </button>
+    </PageToolbar>
 
     <!-- 编程语言表格 -->
     <StandardizedTable
@@ -185,21 +159,20 @@ function handleRowClick(row: ProgrammingLanguage) {
     >
       <!-- 操作列 -->
       <template #actions="{ row }">
-        <StandardizedButton
-          variant="outline"
-          size="sm"
+        <button
+          class="btn-icon btn-icon-default"
           @click.stop="openEdit(row)"
+          title="编辑"
         >
-          编辑
-        </StandardizedButton>
-
-        <StandardizedButton
-          variant="danger"
-          size="sm"
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+        </button>
+        <button
+          class="btn-icon btn-icon-danger"
           @click.stop="handleDelete(row)"
+          title="删除"
         >
-          删除
-        </StandardizedButton>
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+        </button>
       </template>
     </StandardizedTable>
 
@@ -215,28 +188,12 @@ function handleRowClick(row: ProgrammingLanguage) {
 </template>
 
 <style scoped>
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-  flex-wrap: wrap;
+.spinning {
+  animation: spin 1s linear infinite;
 }
 
-.toolbar-left {
-  flex: 1;
-}
-
-.toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.total-count {
-  color: var(--text-secondary);
-  font-size: 0.875rem;
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 </style>

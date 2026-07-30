@@ -9,7 +9,7 @@
   使用组件：
   - StandardizedCard: 设置卡片容器
   - StandardizedInput: 输入框（支持密码显示/隐藏）
-  - StandardizedMessage: 消息提示
+  - SettingRow: 设置行组件
 -->
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
@@ -24,7 +24,7 @@ import AppearanceSettings from "../components/settings/AppearanceSettings.vue";
 import { useSettingsStore } from "../stores/settings";
 import StandardizedCard from "../components/base/StandardizedCard.vue";
 import StandardizedInput from "../components/base/StandardizedInput.vue";
-import StandardizedMessage from "../components/base/StandardizedMessage.vue";
+import SettingRow from "../components/settings/SettingRow.vue";
 
 const route = useRoute();
 const settingsStore = useSettingsStore();
@@ -112,16 +112,9 @@ function inputType(s: Setting): string {
 <template>
   <div class="settings-container">
     <!-- 消息提示 -->
-    <StandardizedMessage
-      v-if="message"
-      type="success"
-      :message="message"
-      :duration="2000"
-      @close="message = ''"
-    />
-
-    <!-- 页面标题 -->
-    <h2 class="settings-title">{{ categoryLabels[category] || category }}</h2>
+    <div v-if="message" class="settings-message">
+      {{ message }}
+    </div>
 
     <!-- 加载中 -->
     <StandardizedCard v-if="loading" title="加载中">
@@ -160,13 +153,8 @@ function inputType(s: Setting): string {
       <div
         v-for="s in filteredSettings"
         :key="s.key"
-        class="setting-row"
       >
-        <div class="setting-info">
-          <h4>{{ s.description || s.key }}</h4>
-          <p>{{ s.key }}</p>
-        </div>
-        <div class="setting-control">
+        <SettingRow :label="s.description || s.key" :description="s.key">
           <!-- Token 类型输入框（带密码显示/隐藏） -->
           <template v-if="isTokenKey(s.key)">
             <div class="password-wrapper">
@@ -196,7 +184,7 @@ function inputType(s: Setting): string {
               @update:modelValue="(val) => saveSetting(s.key, val)"
             />
           </template>
-        </div>
+        </SettingRow>
       </div>
     </StandardizedCard>
   </div>
@@ -208,50 +196,18 @@ function inputType(s: Setting): string {
   min-width: 0;
 }
 
-.settings-title {
-  margin-bottom: 1.5rem;
-  font-size: 1.25rem;
+.settings-message {
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  background-color: rgba(76, 175, 125, 0.1);
+  color: var(--success);
+  border-radius: 8px;
+  font-size: 0.875rem;
 }
 
 .loading-text,
 .empty-text {
   color: var(--text-secondary);
-}
-
-.setting-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--border);
-  gap: 1rem;
-}
-
-.setting-row:last-child {
-  border-bottom: none;
-}
-
-.setting-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.setting-info h4 {
-  margin: 0 0 0.25rem 0;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.setting-info p {
-  margin: 0;
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-}
-
-.setting-control {
-  flex-shrink: 0;
-  min-width: 240px;
 }
 
 .password-wrapper {
