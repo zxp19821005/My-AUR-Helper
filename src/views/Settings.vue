@@ -194,6 +194,9 @@ function inputType(s: Setting): string {
 <style scoped>
 .settings-container {
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 .settings-row-wrapper {

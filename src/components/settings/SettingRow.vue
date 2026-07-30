@@ -47,8 +47,9 @@ defineProps<{
   display: flex;
   flex-direction: column;
   gap: 0.125rem;
-  flex: 1;
-  min-width: 200px;
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 240px;
 }
 
 .setting-label strong {
@@ -65,7 +66,7 @@ defineProps<{
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  flex: 2;
+  flex: 1 1 auto;
   min-width: 0;
 }
 

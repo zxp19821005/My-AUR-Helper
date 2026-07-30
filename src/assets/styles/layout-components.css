@@ -298,6 +298,7 @@
 
 .popup-content {
   flex: 1;
-  padding: 1.25rem;
+  padding: 1rem 1.25rem;
   overflow-y: auto;
+  min-width: 0;
 }

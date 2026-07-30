@@ -144,10 +144,11 @@ function navigate(path: string) {
   color: var(--accent);
 }
 
-/* 右侧内容区域 - 可滚动 */
+/* 右侧内容区域 - 可滚动，设置较小 padding 让卡片占满更多空间 */
 .popup-content {
   flex: 1;
-  padding: 1.5rem;
+  padding: 1rem 1.25rem;
   overflow-y: auto;
+  min-width: 0;
 }
 </style>
