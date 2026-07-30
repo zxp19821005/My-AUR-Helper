@@ -172,7 +172,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/components/base/` | 基础UI组件（Button、Card、Input、Select、Message、StatCard、Badge） |
 | `src/components/common/` | 通用组件（StandardizedTable、StandardizedModal、PaginationControls、ProgressBar、PageToolbar等） |
 | `src/components/layout/` | 布局组件（Sidebar、TabBar、BottomToolbar、PopupLayout、LogPanel等） |
-| `src/components/package/` | 软件包相关组件（SoftwareDetailModal、InfoCard、AurCard、UpstreamCard等） |
+| `src/components/package/` | 软件包相关组件（SoftwareDetailModal、SoftwareFormModal、PackageRowActions、各InfoCard等） |
 | `src/components/backup/` | 备份管理组件（BackupToolbar、RowActions、InfoDialog、SudoersDialog等） |
 | `src/components/cache/` | 缓存管理组件（CacheToolbar、CacheRowActions） |
 | `src/components/proxy/` | 代理管理组件（ProxyToolbar、ProxyRowActions） |
@@ -189,6 +189,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/composables/useBackupList.ts` | 备份管理列表页逻辑（分页、搜索、选择） |
 | `src/composables/useBackupInstall.ts` | 备份包安装逻辑（sudoers 检测、安装、包信息查询） |
 | `src/composables/useCacheList.ts` | 缓存管理列表页逻辑（分页、搜索、选择） |
+| `src/composables/useCacheBackupActions.ts` | 缓存备份操作逻辑（去重、备份新版本、备份到目录） |
 | `src/composables/useSoftwareForm.ts` | 软件包表单逻辑（验证、自动检测） |
 | `src/composables/useLicenseSelect.ts` | License 可搜索下拉框逻辑 |
 | `src/stores/` | Pinia 状态管理 |
@@ -199,6 +200,8 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/assets/styles/modal-styles.css` | 模态框样式 |
 | `src/assets/styles/table-styles.css` | 表格样式 |
 | `src/assets/styles/settings-styles.css` | 设置页面样式 |
+| `src/assets/styles/toolbar-buttons.css` | 工具栏按钮通用样式（toolbar-btn 及颜色变体） |
+| `src/assets/styles/filter-styles.css` | 筛选面板样式（FilterBar） |
 
 <!-- ========== 文件拆分记录：超限文件拆分历史 ========== -->
 ### 文件拆分记录
@@ -221,9 +224,10 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | | | `BackupRowActions.vue` | 54 | | 新文件 |
 | | | `BackupInfoDialog.vue` | 58 | | 新文件 |
 | | | `BackupSudoersDialog.vue` | 67 | | 新文件 |
-| `src/views/CacheManager.vue` | 435 | `CacheManager.vue` | 304 | 2026-07-29 | ⚠️ 待优化 |
+| `src/views/CacheManager.vue` | 435 | `CacheManager.vue` | 233 | 2026-07-30 | ✅ 完成 |
 | | | `CacheToolbar.vue` | 159 | | 新文件 |
 | | | `CacheRowActions.vue` | 29 | | 新文件 |
+| | | `composables/useCacheBackupActions.ts` | 124 | | 新文件 |
 | `src/views/ProxySettings.vue` | 428 | `ProxySettings.vue` | 276 | 2026-07-29 | ✅ 完成 |
 | | | `ProxyToolbar.vue` | 120 | | 新文件 |
 | | | `ProxyRowActions.vue` | 52 | | 新文件 |
@@ -237,6 +241,12 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | | | `SoftwareSideCards.vue` | 91 | | 新文件 |
 | `src/components/common/StandardizedModal.vue` | 391 | `StandardizedModal.vue` | 189 | 2026-07-29 | ✅ 完成 |
 | | | `assets/styles/modal-styles.css` | 205 | | 全局样式 |
+| `src/views/PackageList.vue` | 340 | `PackageList.vue` | 297 | 2026-07-30 | ✅ 完成 |
+| | | `PackageRowActions.vue` | 80 | | 新文件 |
+| `src/components/settings/SettingsProxySection.vue` | 329 | `SettingsProxySection.vue` | 288 | 2026-07-30 | ✅ 完成（配置数组化） |
+| `src/components/filter/FilterBar.vue` | 324 | `FilterBar.vue` | 186 | 2026-07-30 | ✅ 完成 |
+| | | `assets/styles/filter-styles.css` | 148 | | 全局样式 |
+| `src/components/package/DetailToolbar.vue` 等 | - | `assets/styles/toolbar-buttons.css` | 105 | 2026-07-30 | ✅ 完成（提取重复按钮样式） |
 
 <!-- ========== 前端重构记录：目录重组与样式提取 ========== -->
 ### 前端重构记录（2026-07-29）
@@ -282,6 +292,35 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 - 提取CSS样式文件：2 个（新增）
 
 **状态**：✅ 完成
+
+<!-- ========== 前端重构记录：组件体系统一与代码质量修复 ========== -->
+### 前端重构记录（2026-07-30）
+
+**重构目标**：统一双组件体系 + 修复代码质量问题 + 消除超限文件
+
+**重构内容**：
+1. **组件体系统一**：
+   - 删除 `common/Modal.vue`，两处使用者（SoftwareDetailModal、SoftwareFormModal）迁移到 `StandardizedModal`
+   - `StandardizedModal` 支持任意像素宽度（非预设值通过内联样式应用）
+   - 删除死代码 `DataTable.vue`、`DataTablePagination.vue`、`DataTableTypes.ts`（无任何使用者，统一使用 StandardizedTable）
+   - 删除未使用的 `SoftwareAurCard.vue`、`SoftwareUpstreamCard.vue`
+
+2. **超限文件拆分**：
+   - `PackageList.vue`（340→297 行）：提取 `PackageRowActions.vue`
+   - `CacheManager.vue`（305→233 行）：提取 `useCacheBackupActions.ts` composable
+   - `FilterBar.vue`（324→186 行）：样式提取到 `filter-styles.css`
+   - `SettingsProxySection.vue`（329→288 行）：代理 URL 字段配置数组化
+
+3. **重复样式提取**：
+   - 创建 `toolbar-buttons.css`：DetailToolbar 和 PackageDetailFooter 中约 90 行重复按钮样式合并
+   - `SoftwareSideCards.vue` 改用 `utils/format.ts` 的公共格式化函数
+
+4. **Bug 修复**：
+   - Settings.vue 移除未定义的 `applySettings()` 调用
+   - StandardizedBadge.vue 修复插槽渲染错误（`{{ $slots.default }}` → `<slot />`）
+   - 清理 console.log/console.debug 调试语句
+
+**状态**：✅ 完成（vue-tsc 与 pnpm build 全部通过）
 
 <!-- ========== 开发命令：常用命令速查 ========== -->
 ## 开发命令

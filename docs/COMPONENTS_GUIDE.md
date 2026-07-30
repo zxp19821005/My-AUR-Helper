@@ -669,49 +669,13 @@ background: #2a2d4a;
 
 ## 📝 迁移指南
 
-### 从旧组件迁移到新组件
+### 迁移状态
 
-#### DataTable → StandardizedTable
+✅ **迁移已完成（2026-07-30）**：旧组件 `DataTable.vue` 和 `Modal.vue` 已全部删除，项目统一使用 `StandardizedTable` 和 `StandardizedModal`。
 
-```vue
-<!-- 旧代码 -->
-<DataTable
-  :columns="columns"
-  :data="data"
-  :pageSize="pageSize"
-/>
-
-<!-- 新代码 -->
-<StandardizedTable
-  :columns="columns"
-  :data="data"
-  :pageSize="pageSize"
-  striped
-  hoverable
-/>
-```
-
-#### Modal → StandardizedModal
-
-```vue
-<!-- 旧代码 -->
-<Modal
-  :show="showModal"
-  title="标题"
-  @close="showModal = false"
-/>
-
-<!-- 新代码 -->
-<StandardizedModal
-  v-model:show="showModal"
-  title="标题"
-  width="md"
->
-  <template #footer>
-    <button @click="showModal = false">关闭</button>
-  </template>
-</StandardizedModal>
-```
+**说明**：
+- `StandardizedModal` 的 `width` 支持预设值（`sm`/`md`/`lg`/`xl`/`full`）和任意像素值（如 `"720px"`，通过内联样式应用）
+- 新增代码请直接使用 Standardized 系列组件
 
 ---
 
@@ -748,5 +712,5 @@ background: #2a2d4a;
 
 ---
 
-**最后更新**: 2026-07-29
+**最后更新**: 2026-07-30
 **维护者**: AI Assistant
