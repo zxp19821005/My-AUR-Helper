@@ -245,7 +245,6 @@ defineExpose({
 
 .input-field {
   flex: 1;
-  width: 100%;
   border: none;
   background: none;
   color: var(--text-primary);

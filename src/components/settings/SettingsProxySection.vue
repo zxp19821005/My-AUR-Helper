@@ -209,7 +209,8 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
   background-color: var(--bg-primary);
   color: var(--text-primary);
   font-size: 0.875rem;
-  min-width: 240px;
+  min-width: 0;
+  flex: 1;
 }
 
 .text-input:focus {

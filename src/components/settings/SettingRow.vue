@@ -67,18 +67,15 @@ defineProps<{
   gap: 0.5rem;
   flex: 2;
   min-width: 0;
-  width: 100%;
 }
 
 .setting-input :deep(.input-wrapper) {
-  width: 100%;
   min-width: 0;
   flex: 1;
 }
 
 .setting-input :deep(.input-field) {
   min-width: 0;
-  width: 100%;
   flex: 1;
 }
 
