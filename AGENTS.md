@@ -467,6 +467,12 @@ pub struct CheckResult {
 - 行选择（单选/全选）
 - 自定义单元格插槽（`#cell-{key}`）和操作列插槽（`#actions`）
 
+**⚠️ 使用注意事项（重要）**：
+- 必须使用 `filteredEntries`（经过筛选的完整数据）而不是 `pageData`（分页后的数据），否则会导致数据不显示
+- 必须添加动态 `:key` 确保响应性，如 `:key="\`table-${filteredEntries.length}\`"`
+- 建议添加 `:showPagination="false"` 禁用内置分页，改用底部工具栏进行分页控制
+- 必须从 composable 中解构 `filteredEntries`、`pageSize`、`currentPage` 等响应式变量
+
 ### software_info 表字段说明
 | 字段 | 类型 | 说明 |
 |------|------|------|

@@ -89,11 +89,6 @@ const filteredByDir = computed(() => {
   return filteredEntries.value.filter((e) => e.source_dir === sourceDirFilter.value);
 });
 
-const displayData = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value;
-  return filteredByDir.value.slice(start, start + pageSize.value);
-});
-
 function handleSourceDirFilterChange(dir: string | number) {
   sourceDirFilter.value = String(dir);
   currentPage.value = 1;
@@ -239,13 +234,17 @@ const columns = [
 
     <!-- 缓存表格 -->
     <StandardizedTable
+      :key="`table-${filteredEntries.length}`"
       :columns="columns"
-      :data="displayData"
+      :data="filteredEntries"
+      :pageSize="pageSize"
+      :currentPage="currentPage"
       rowKey="filename"
       showCheckbox
       showIndex
       striped
       hoverable
+      :showPagination="false"
       emptyText="暂无缓存数据"
       @selection-change="handleSelectionChange"
     >

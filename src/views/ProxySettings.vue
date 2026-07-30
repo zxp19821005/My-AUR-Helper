@@ -35,7 +35,9 @@ const {
   searchQuery,
   selectedIds,
   loading,
-  pageData,
+  filteredEntries,
+  pageSize,
+  currentPage,
   typeFilter,
   testingIds,
   fetchEntries,
@@ -272,13 +274,17 @@ const columns = [
 
     <!-- 代理表格 -->
     <StandardizedTable
+      :key="`table-${filteredEntries.length}`"
       :columns="columns"
-      :data="pageData"
+      :data="filteredEntries"
+      :pageSize="pageSize"
+      :currentPage="currentPage"
       rowKey="proxy_id"
       showCheckbox
       showIndex
       striped
       hoverable
+      :showPagination="false"
       emptyText="暂无代理数据"
       @selection-change="handleSelectionChange"
     >

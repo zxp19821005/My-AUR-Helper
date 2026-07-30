@@ -35,7 +35,8 @@ const showFilterBar = ref(false);
 const activeFilterCount = computed(() => subdirectoryFilter.value ? 1 : 0);
 
 const {
-  searchQuery, selectedIds, loading, pageData,
+  searchQuery, selectedIds, loading,
+  filteredEntries, pageSize, currentPage,
   subdirectoryFilter, subdirectories,
   fetchEntries, syncToolbar,
 } = useBackupList();
@@ -148,13 +149,13 @@ function deleteSelected() {
 }
 
 function handleBatchInstall() {
-  batchInstall(selectedIds.value, pageData.value);
+  batchInstall(selectedIds.value, filteredEntries.value);
 }
 
 function handleSelectionChange(selectedRows: any[]) {
   const newSelected = new Set<number>();
-  selectedRows.forEach((row) => {
-    const idx = pageData.value.findIndex((e) => e.id === row.id);
+  selectedRows.forEach((row: any) => {
+    const idx = filteredEntries.value.findIndex((e: any) => e.id === row.id);
     if (idx !== -1) newSelected.add(idx);
   });
   selectedIds.value = newSelected;
@@ -246,13 +247,17 @@ const columns = [
 
     <!-- 备份表格 -->
     <StandardizedTable
+      :key="`table-${filteredEntries.length}`"
       :columns="columns"
-      :data="pageData"
+      :data="filteredEntries"
+      :pageSize="pageSize"
+      :currentPage="currentPage"
       rowKey="id"
       showCheckbox
       showIndex
       striped
       hoverable
+      :showPagination="false"
       emptyText="暂无备份数据"
       @selection-change="handleSelectionChange"
     >
