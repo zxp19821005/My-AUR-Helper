@@ -34,7 +34,7 @@ defineProps<{
 .setting-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  width: 100%;
   padding: 0.75rem 0;
   border-bottom: 1px solid var(--border);
 }
@@ -47,7 +47,8 @@ defineProps<{
   display: flex;
   flex-direction: column;
   gap: 0.125rem;
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 200px;
 }
 
 .setting-label strong {
@@ -64,7 +65,21 @@ defineProps<{
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  flex-shrink: 0;
+  flex: 2;
+  min-width: 0;
+  width: 100%;
+}
+
+.setting-input :deep(.input-wrapper) {
+  width: 100%;
+  min-width: 0;
+  flex: 1;
+}
+
+.setting-input :deep(.input-field) {
+  min-width: 0;
+  width: 100%;
+  flex: 1;
 }
 
 /* 响应式设计 - 平板及以下 */

@@ -153,6 +153,7 @@ function inputType(s: Setting): string {
       <div
         v-for="s in filteredSettings"
         :key="s.key"
+        class="settings-row-wrapper"
       >
         <SettingRow :label="s.description || s.key" :description="s.key">
           <!-- Token 类型输入框（带密码显示/隐藏） -->
@@ -193,7 +194,10 @@ function inputType(s: Setting): string {
 <style scoped>
 .settings-container {
   width: 100%;
-  min-width: 0;
+}
+
+.settings-row-wrapper {
+  width: 100%;
 }
 
 .settings-message {

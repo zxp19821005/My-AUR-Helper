@@ -6,7 +6,7 @@
   - 字体大小选择
 -->
 <script setup lang="ts">
-import StandardizedCard from "../base/StandardizedCard.vue";
+import SettingsCard from "./SettingsCard.vue";
 import StandardizedSelect from "../base/StandardizedSelect.vue";
 
 const props = defineProps<{
@@ -40,9 +40,9 @@ function handleFontSizeChange(value: string | number) {
 </script>
 
 <template>
-  <StandardizedCard
+  <SettingsCard
     title="外观设置"
-    subtitle="选择应用主题和字体大小"
+    description="选择应用主题和字体大小"
   >
     <div class="setting-row">
       <div class="setting-info">
@@ -75,7 +75,7 @@ function handleFontSizeChange(value: string | number) {
         <option value="18">特大 (18px)</option>
       </StandardizedSelect>
     </div>
-  </StandardizedCard>
+  </SettingsCard>
 </template>
 
 <style scoped>
@@ -94,7 +94,7 @@ function handleFontSizeChange(value: string | number) {
 
 .setting-info {
   flex: 1;
-  min-width: 0;
+  min-width: 120px;
 }
 
 .setting-info h4 {

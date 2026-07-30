@@ -40,12 +40,14 @@ const props = defineProps({
 
 <style scoped>
 .standardized-card {
+  width: 100%;
   background: var(--bg-card);
   border-radius: 8px;
   border: 1px solid var(--border);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   padding: 1.25rem;
   transition: all 0.2s;
+  box-sizing: border-box;
 }
 
 .standardized-card:hover {

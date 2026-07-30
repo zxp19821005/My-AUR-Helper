@@ -255,8 +255,8 @@
 
 .popup-layout {
   display: flex;
-  flex-direction: column;
-  min-height: 100vh;
+  flex-direction: row;
+  height: 100vh;
   background-color: var(--bg-primary);
 }
 
