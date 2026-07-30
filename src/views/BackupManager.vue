@@ -2,7 +2,7 @@
   BackupManager.vue - 备份管理页面
 
   功能：
-  - 显示备份文件列表（含软件包名称、文件名、版本、架构等）
+  - 显示备份文件列表（含软件包名称、版本、架构等）
   - 支持搜索、分页、多选
   - 子目录筛选下拉框
   - 批量操作：清空备份表、扫描备份目录、软件去重、批量安装备份包
@@ -163,7 +163,6 @@ function handleSelectionChange(selectedRows: any[]) {
 
 const columns = [
   { key: "pkgname", title: "包名" },
-  { key: "filename", title: "文件名" },
   { key: "epoch", title: "Epoch" },
   { key: "pkgver", title: "版本" },
   { key: "pkgrel", title: "PkgRel" },
@@ -265,10 +264,6 @@ const columns = [
         <strong>{{ row.pkgname }}</strong>
       </template>
 
-      <template #cell-filename="{ row }">
-        <span class="cell-filename">{{ row.filename }}</span>
-      </template>
-
       <template #cell-epoch="{ row }">
         {{ fmtEpoch(row.epoch) }}
       </template>
@@ -311,12 +306,4 @@ const columns = [
 </template>
 
 <style scoped>
-.cell-filename {
-  max-width: 300px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-secondary);
-  font-size: 0.8125rem;
-}
 </style>

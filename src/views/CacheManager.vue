@@ -3,7 +3,7 @@
 
   功能：
   - 扫描所有启用的缓存目录中的 .pkg.tar.zst 包文件
-  - 显示扫描结果（表格形式，支持分页、搜索、选择）
+  - 显示扫描结果（表格形式，支持分页、搜索、选择，不含文件名列）
   - 按缓存目录筛选
   - 批量操作：清空缓存表、去重、备份新版、备份到、删除缓存
   - 单行操作：删除缓存
@@ -145,7 +145,6 @@ function handleSelectionChange(selectedRows: any[]) {
 
 const columns = [
   { key: "pkgname", title: "包名" },
-  { key: "filename", title: "文件名" },
   { key: "version", title: "版本" },
   { key: "pkgrel", title: "PkgRel" },
   { key: "arch", title: "架构" },
@@ -252,10 +251,6 @@ const columns = [
         <strong>{{ row.pkgname }}</strong>
       </template>
 
-      <template #cell-filename="{ row }">
-        <span class="cell-filename">{{ row.filename }}</span>
-      </template>
-
       <template #cell-size="{ row }">
         {{ formatSize(row.size) }}
       </template>
@@ -285,12 +280,4 @@ const columns = [
 </template>
 
 <style scoped>
-.cell-filename {
-  max-width: 280px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-secondary);
-  font-size: 0.8125rem;
-}
 </style>

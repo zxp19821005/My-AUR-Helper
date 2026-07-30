@@ -10,7 +10,6 @@
 
   使用组件：
   - StandardizedTable: 数据表格
-  - StandardizedBadge: 状态徽章
   - PageToolbar: 页面工具栏
   - FilterBar: 筛选器
   - PackageRowActions: 行操作按钮组
@@ -28,7 +27,6 @@ import FilterBar from "../components/filter/FilterBar.vue";
 import SoftwareFormModal from "../components/package/SoftwareFormModal.vue";
 import SoftwareDetailModal from "../components/package/SoftwareDetailModal.vue";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
-import StandardizedBadge from "../components/base/StandardizedBadge.vue";
 import PackageRowActions from "../components/package/PackageRowActions.vue";
 import { RefreshCw, Plus, Trash2, Info, Download, Filter } from "@lucide/vue";
 import type { ValidateResult } from "../types";
@@ -207,14 +205,6 @@ onMounted(async () => {
         <strong :class="{ 'pkg-outdated': row.is_outdated }">
           {{ row.pkgname }}
         </strong>
-        <StandardizedBadge
-          v-if="row.is_outdated"
-          type="warning"
-          text="需更新"
-          size="sm"
-          variant="soft"
-          class="ml-2"
-        />
       </template>
 
       <!-- 自定义AUR版本列 -->
@@ -272,10 +262,6 @@ onMounted(async () => {
 <style scoped>
 .pkg-outdated {
   color: var(--warning);
-}
-
-.ml-2 {
-  margin-left: 0.5rem;
 }
 
 .filter-count-badge {
