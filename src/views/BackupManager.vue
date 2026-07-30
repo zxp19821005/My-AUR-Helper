@@ -22,11 +22,13 @@ import { useBackupList, fmtEpoch } from "../composables/useBackupList";
 import { useBackupInstall } from "../composables/useBackupInstall";
 import { FOOTER_KEY, addMessage } from "../composables/footer";
 import type { DeduplicateResult } from "../types";
+import PageToolbar from "../components/common/PageToolbar.vue";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
-import BackupToolbar from "../components/backup/BackupToolbar.vue";
+import StandardizedSelect from "../components/base/StandardizedSelect.vue";
 import BackupRowActions from "../components/backup/BackupRowActions.vue";
 import BackupInfoDialog from "../components/backup/BackupInfoDialog.vue";
 import BackupSudoersDialog from "../components/backup/BackupSudoersDialog.vue";
+import { Trash2, Scan, Copy, Download } from "@lucide/vue";
 
 const footer = inject(FOOTER_KEY)!;
 
@@ -170,20 +172,33 @@ const columns = [
 <template>
   <div>
     <!-- 工具栏 -->
-    <BackupToolbar
-      v-model:search-query="searchQuery"
-      v-model:subdirectory-filter="subdirectoryFilter"
-      :subdirectories="subdirectories"
-      :loading="loading"
-      :scanning="scanning"
-      :selected-count="selectedIds.size"
-      :installing="installing"
-      @clear-table="handleClearTable"
-      @scan-directory="handleScanDirectory"
-      @deduplicate="handleDeduplicate"
-      @batch-install="handleBatchInstall"
-      @delete-selected="deleteSelected"
-    />
+    <PageToolbar v-model="searchQuery" @refresh="fetchEntries">
+      <template #right>
+        <StandardizedSelect
+          :modelValue="subdirectoryFilter"
+          @update:modelValue="subdirectoryFilter = String($event)"
+          size="md"
+        >
+          <option value="">全部子目录</option>
+          <option v-for="dir in subdirectories" :key="dir" :value="dir">{{ dir }}</option>
+        </StandardizedSelect>
+      </template>
+      <button class="btn-icon btn-icon-danger" :disabled="loading" @click="handleClearTable" title="清空备份表">
+        <Trash2 :size="16" />
+      </button>
+      <button class="btn-icon btn-icon-accent" :disabled="loading || scanning" @click="handleScanDirectory" title="扫描备份目录">
+        <Scan :size="16" />
+      </button>
+      <button class="btn-icon btn-icon-info" :disabled="loading" @click="handleDeduplicate" title="软件去重">
+        <Copy :size="16" />
+      </button>
+      <button class="btn-icon btn-icon-success" :disabled="selectedIds.size === 0 || installing" @click="handleBatchInstall" title="批量安装备份包">
+        <Download :size="16" />
+      </button>
+      <button class="btn-icon btn-icon-danger" :disabled="selectedIds.size === 0" @click="deleteSelected" title="删除选中">
+        <Trash2 :size="16" />
+      </button>
+    </PageToolbar>
 
     <!-- 备份表格 -->
     <StandardizedTable

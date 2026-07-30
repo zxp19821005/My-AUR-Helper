@@ -16,14 +16,16 @@
 <script setup lang="ts">
 import { onMounted, ref, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
-import { useProxyList } from "../composables/useProxyList";
+import { useProxyList, PROXY_TYPE_OPTIONS } from "../composables/useProxyList";
 import { FOOTER_KEY, addMessage } from "../composables/footer";
 import type { ProxyTestResult } from "../composables/useProxyList";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
 import StandardizedMessage from "../components/base/StandardizedMessage.vue";
 import StandardizedBadge from "../components/base/StandardizedBadge.vue";
-import ProxyToolbar from "../components/proxy/ProxyToolbar.vue";
+import StandardizedSelect from "../components/base/StandardizedSelect.vue";
+import PageToolbar from "../components/common/PageToolbar.vue";
 import ProxyRowActions from "../components/proxy/ProxyRowActions.vue";
+import { Trash2, Download, FileCode, Zap } from "@lucide/vue";
 
 const footer = inject(FOOTER_KEY)!;
 
@@ -198,18 +200,31 @@ const columns = [
     />
 
     <!-- 工具栏 -->
-    <ProxyToolbar
-      v-model:search-query="searchQuery"
-      v-model:type-filter="typeFilter"
-      :loading="loading"
-      :downloading="downloading"
-      :parsing="parsing"
-      :selected-count="selectedIds.size"
-      @download-proxy-file="handleDownloadProxyFile"
-      @parse-proxy-file="handleParseProxyFile"
-      @test-proxies="handleTestProxies"
-      @delete-selected="handleDeleteSelected"
-    />
+    <PageToolbar v-model="searchQuery" @refresh="fetchEntries">
+      <template #right>
+        <StandardizedSelect
+          :modelValue="typeFilter"
+          @update:modelValue="typeFilter = String($event) as any"
+          size="md"
+        >
+          <option v-for="opt in PROXY_TYPE_OPTIONS" :key="opt.value" :value="opt.value">
+            {{ opt.label }}
+          </option>
+        </StandardizedSelect>
+      </template>
+      <button class="btn-icon btn-icon-accent" :disabled="downloading" @click="handleDownloadProxyFile" title="获取代理文件">
+        <Download :size="16" />
+      </button>
+      <button class="btn-icon btn-icon-info" :disabled="parsing" @click="handleParseProxyFile" title="解析代理文件">
+        <FileCode :size="16" />
+      </button>
+      <button class="btn-icon btn-icon-success" :disabled="loading" @click="handleTestProxies" title="代理测试">
+        <Zap :size="16" />
+      </button>
+      <button class="btn-icon btn-icon-danger" :disabled="selectedIds.size === 0" @click="handleDeleteSelected" title="删除选中">
+        <Trash2 :size="16" />
+      </button>
+    </PageToolbar>
 
     <!-- 代理表格 -->
     <StandardizedTable

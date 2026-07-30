@@ -22,9 +22,11 @@ import { loadEnabledCacheDirs } from "../composables/useCacheDirs";
 import { useCacheBackupActions } from "../composables/useCacheBackupActions";
 import { FOOTER_KEY, addMessage } from "../composables/footer";
 import BackupToModal from "../components/backup/BackupToModal.vue";
+import PageToolbar from "../components/common/PageToolbar.vue";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
-import CacheToolbar from "../components/cache/CacheToolbar.vue";
+import StandardizedSelect from "../components/base/StandardizedSelect.vue";
 import CacheRowActions from "../components/cache/CacheRowActions.vue";
+import { Trash2, Scan, Copy, GitBranch } from "@lucide/vue";
 
 const footer = inject(FOOTER_KEY)!;
 
@@ -158,21 +160,38 @@ const columns = [
 <template>
   <div>
     <!-- 工具栏 -->
-    <CacheToolbar
-      v-model:search-query="searchQuery"
-      :source-dir-filter="sourceDirFilter"
-      :source-dirs="sourceDirs"
-      :loading="loading"
-      :scanning="scanning"
-      :selected-count="selectedIds.size"
-      @update:source-dir-filter="handleSourceDirFilterChange"
-      @scan="handleScan"
-      @clear-table="handleClearTable"
-      @delete-selected="deleteSelected"
-      @dedup="handleDedup"
-      @backup-new-version="handleBackupNewVersion"
-      @backup-to="openBackupToModal"
-    />
+    <PageToolbar v-model="searchQuery" @refresh="handleScan">
+      <template #right>
+        <StandardizedSelect
+          :modelValue="sourceDirFilter"
+          @update:modelValue="handleSourceDirFilterChange"
+          size="md"
+        >
+          <option value="">全部缓存目录</option>
+          <option v-for="dir in sourceDirs" :key="dir.name" :value="dir.name">
+            {{ dir.name }}
+          </option>
+        </StandardizedSelect>
+      </template>
+      <button class="btn-icon btn-icon-accent" :disabled="loading || scanning" @click="handleScan" title="扫描所有缓存目录">
+        <Scan :size="16" />
+      </button>
+      <button class="btn-icon btn-icon-danger" :disabled="loading" @click="handleClearTable" title="清空缓存表">
+        <Trash2 :size="16" />
+      </button>
+      <button class="btn-icon btn-icon-danger" :disabled="selectedIds.size === 0" @click="deleteSelected" title="删除选中">
+        <Trash2 :size="16" />
+      </button>
+      <button class="btn-icon btn-icon-info" :disabled="loading" @click="handleDedup" title="去重（保留最新版本）">
+        <GitBranch :size="16" />
+      </button>
+      <button class="btn-icon btn-icon-success" :disabled="loading || selectedIds.size === 0" @click="handleBackupNewVersion" title="备份新版（备份到已有位置）">
+        <Copy :size="16" />
+      </button>
+      <button class="btn-icon btn-icon-success" :disabled="loading || selectedIds.size === 0" @click="openBackupToModal" title="备份到（选择子目录）">
+        <Copy :size="16" />
+      </button>
+    </PageToolbar>
 
     <!-- 缓存表格 -->
     <StandardizedTable
