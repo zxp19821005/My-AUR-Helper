@@ -38,9 +38,10 @@ impl Database {
     /// @returns 新插入记录的 ID
     pub fn insert_backup_software(&self, bs: &BackupSoftware) -> AppResult<i64> {
         self.conn.execute(
-            "INSERT INTO backup_software (filename, epoch, pkgver, pkgrel, arch, subdirectory, full_path)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            "INSERT INTO backup_software (name, filename, epoch, pkgver, pkgrel, arch, subdirectory, full_path)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             rusqlite::params![
+                bs.name,
                 bs.filename,
                 bs.epoch,
                 bs.pkgver,
@@ -57,21 +58,20 @@ impl Database {
     /// @returns 所有备份记录列表
     pub fn get_all_backup_software(&self) -> AppResult<Vec<BackupSoftware>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, filename, epoch, pkgver, pkgrel, arch, subdirectory, full_path, created_at, updated_at
+            "SELECT id, name, filename, epoch, pkgver, pkgrel, arch, subdirectory, full_path
              FROM backup_software ORDER BY filename",
         )?;
         let rows = stmt.query_map([], |row| {
             Ok(BackupSoftware {
                 id: Some(row.get(0)?),
-                filename: row.get(1)?,
-                epoch: row.get(2)?,
-                pkgver: row.get(3)?,
-                pkgrel: row.get(4)?,
-                arch: row.get(5)?,
-                subdirectory: row.get(6).ok(),
-                full_path: row.get(7)?,
-                created_at: row.get(8).ok(),
-                updated_at: row.get(9).ok(),
+                name: row.get(1)?,
+                filename: row.get(2)?,
+                epoch: row.get(3)?,
+                pkgver: row.get(4)?,
+                pkgrel: row.get(5)?,
+                arch: row.get(6)?,
+                subdirectory: row.get(7).ok(),
+                full_path: row.get(8)?,
             })
         })?;
         let mut items = Vec::new();
@@ -92,6 +92,7 @@ impl Database {
                 BackupSoftwareEntry {
                     id: e.id.unwrap_or(0),
                     pkgname,
+                    name: e.name,
                     filename: e.filename,
                     epoch: e.epoch,
                     pkgver: e.pkgver,
@@ -99,8 +100,6 @@ impl Database {
                     arch: e.arch,
                     subdirectory: e.subdirectory,
                     full_path: e.full_path,
-                    created_at: e.created_at,
-                    updated_at: e.updated_at,
                 }
             })
             .collect())
@@ -150,21 +149,20 @@ impl Database {
         filename: &str,
     ) -> AppResult<Option<BackupSoftware>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, filename, epoch, pkgver, pkgrel, arch, subdirectory, full_path, created_at, updated_at
+            "SELECT id, name, filename, epoch, pkgver, pkgrel, arch, subdirectory, full_path
              FROM backup_software WHERE filename=?1",
         )?;
         let mut rows = stmt.query_map(rusqlite::params![filename], |row| {
             Ok(BackupSoftware {
                 id: Some(row.get(0)?),
-                filename: row.get(1)?,
-                epoch: row.get(2)?,
-                pkgver: row.get(3)?,
-                pkgrel: row.get(4)?,
-                arch: row.get(5)?,
-                subdirectory: row.get(6).ok(),
-                full_path: row.get(7)?,
-                created_at: row.get(8).ok(),
-                updated_at: row.get(9).ok(),
+                name: row.get(1)?,
+                filename: row.get(2)?,
+                epoch: row.get(3)?,
+                pkgver: row.get(4)?,
+                pkgrel: row.get(5)?,
+                arch: row.get(6)?,
+                subdirectory: row.get(7).ok(),
+                full_path: row.get(8)?,
             })
         })?;
         Ok(rows.next().transpose()?)
@@ -195,24 +193,23 @@ impl Database {
     ) -> AppResult<Vec<BackupSoftwareEntry>> {
         let like_pattern = format!("{}%-", pkgname);
         let mut stmt = self.conn.prepare(
-            "SELECT id, filename, epoch, pkgver, pkgrel, arch, subdirectory, full_path, created_at, updated_at
+            "SELECT id, name, filename, epoch, pkgver, pkgrel, arch, subdirectory, full_path
              FROM backup_software WHERE filename LIKE ?1 ORDER BY filename",
         )?;
         let rows = stmt.query_map(rusqlite::params![like_pattern], |row| {
-            let filename: String = row.get(1)?;
+            let filename: String = row.get(2)?;
             let pkgname = extract_pkgname(&filename);
             Ok(BackupSoftwareEntry {
                 id: row.get(0)?,
                 pkgname,
+                name: row.get(1)?,
                 filename,
-                epoch: row.get(2)?,
-                pkgver: row.get(3)?,
-                pkgrel: row.get(4)?,
-                arch: row.get(5)?,
-                subdirectory: row.get(6).ok(),
-                full_path: row.get(7)?,
-                created_at: row.get(8).ok(),
-                updated_at: row.get(9).ok(),
+                epoch: row.get(3)?,
+                pkgver: row.get(4)?,
+                pkgrel: row.get(5)?,
+                arch: row.get(6)?,
+                subdirectory: row.get(7).ok(),
+                full_path: row.get(8)?,
             })
         })?;
         let mut items = Vec::new();

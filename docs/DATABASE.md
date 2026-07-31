@@ -52,28 +52,42 @@
 │ last_updated │  │url_status    │
 │ depends      │  └──────────────┘
 │ makedepends  │
-│ optdepends   │  ┌──────────────┐
-└──────────────┘  │backup_software│
-                  │ id (PK)      │
-┌──────────────┐  │software_id(FK)│
-│proxies_info  │  │ filename     │
-│──────────────│  │ epoch        │
-│proxy_id (PK) │  │ pkgrel       │
-│ proxy_name   │  │ arch         │
-│ proxy_type   │  │ subdirectory │
-│ url          │  └──────────────┘
+│ optdepends   │  ┌──────────────────┐
+└──────────────┘  │ backup_software  │
+                  │──────────────────│
+                  │ id (PK)          │
+                  │ name             │
+                  │ filename         │
+                  │ epoch            │
+                  │ pkgver           │
+                  │ pkgrel           │
+                  │ arch             │
+                  │ subdirectory     │
+                  │ full_path        │
+                  └──────────────────┘
+                  ┌──────────────────┐
+                  │ cache_software   │
+                  │──────────────────│
+                  │ id (PK)          │
+                  │ name             │
+                  │ filename         │
+                  │ epoch            │
+                  │ pkgver           │
+                  │ pkgrel           │
+                  │ arch             │
+                  │ cache_directory  │
+                  │ full_path        │
+                  └──────────────────┘
+
+┌──────────────┐
+│proxies_info  │
+│──────────────│
+│proxy_id (PK) │
+│ proxy_name   │
+│ proxy_type   │
+│ url          │
 │ is_active    │
-└──────┬───────┘  ┌──────────────┐
-       │          │cache_software│
-       │          │──────────────│
-       │          │ id (PK)      │
-       │          │software_id(FK)│
-       │          │ filename     │
-       │          │ epoch        │
-       │          │ pkgrel       │
-       │          │ arch         │
-       │          │cache_directory│
-       │          └──────────────┘
+└──────┬───────┘
        │
        ▼
 ┌──────────────┐
@@ -152,12 +166,14 @@ AUR 软件包详细信息，通过 AUR RPC 接口获取。
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | id | INTEGER PK | 自增主键 |
-| software_id | INTEGER FK | 关联 software_info.software_id |
+| name | TEXT | 软件包名称 |
 | filename | TEXT | 文件名 (如 gitify-bin-1.0.0-1-x86_64.pkg.tar.zst) |
 | epoch | INTEGER | epoch (默认 0) |
+| pkgver | TEXT | 版本号 |
 | pkgrel | TEXT | pkgrel |
 | arch | TEXT | 架构 (x86_64/aarch64/any) |
 | subdirectory | TEXT | 所在子目录 |
+| full_path | TEXT | 完整文件路径 |
 
 <!-- cache_software：本地缓存文件信息 -->
 ### cache_software
@@ -166,12 +182,14 @@ AUR 软件包详细信息，通过 AUR RPC 接口获取。
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | id | INTEGER PK | 自增主键 |
-| software_id | INTEGER FK | 关联 software_info.software_id |
+| name | TEXT | 软件包名称 |
 | filename | TEXT | 文件名 |
 | epoch | INTEGER | epoch (默认 0) |
+| pkgver | TEXT | 版本号 |
 | pkgrel | TEXT | pkgrel |
 | arch | TEXT | 架构 |
 | cache_directory | TEXT | 缓存目录路径 |
+| full_path | TEXT | 完整文件路径 |
 
 <!-- proxies_info：代理源信息，可能来自 Greasyfork 脚本 -->
 ### proxies_info

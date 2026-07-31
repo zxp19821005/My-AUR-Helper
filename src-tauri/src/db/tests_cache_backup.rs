@@ -20,22 +20,17 @@ fn setup_db() -> Database {
 }
 
 /// 构造一条测试用缓存记录
-fn sample_cache(filename: &str, name: &str, version: &str, dir: &str) -> CacheSoftware {
+fn sample_cache(filename: &str, name: &str, pkgver: &str, dir: &str) -> CacheSoftware {
     CacheSoftware {
         id: None,
-        software_id: 0,
-        filename: filename.to_string(),
         name: name.to_string(),
+        filename: filename.to_string(),
         epoch: 0,
-        version: version.to_string(),
+        pkgver: pkgver.to_string(),
         pkgrel: "1".to_string(),
         arch: "x86_64".to_string(),
-        size: 1024,
-        source_dir: Some("系统缓存".to_string()),
         cache_directory: dir.to_string(),
         full_path: format!("{}/{}", dir, filename),
-        created_at: None,
-        updated_at: None,
     }
 }
 
@@ -46,16 +41,15 @@ fn test_schema_consistency_between_cache_and_backup() {
     let cache_cols = db.get_table_columns("cache_software").unwrap();
     let backup_cols = db.get_table_columns("backup_software").unwrap();
 
-    // 两表共有的基础字段：唯一标识、文件名、版本信息、存储路径、创建/更新时间
+    // 两表共有的基础字段：唯一标识、名称、文件名、版本信息、存储路径
     for col in [
         "id",
+        "name",
         "filename",
         "epoch",
         "pkgrel",
         "arch",
         "full_path",
-        "created_at",
-        "updated_at",
     ] {
         assert!(
             cache_cols.contains(&col.to_string()),
@@ -71,11 +65,7 @@ fn test_schema_consistency_between_cache_and_backup() {
 
     // 缓存业务特有字段
     for col in [
-        "software_id",
-        "name",
-        "version",
-        "size",
-        "source_dir",
+        "pkgver",
         "cache_directory",
     ] {
         assert!(
@@ -99,7 +89,7 @@ fn test_schema_consistency_between_cache_and_backup() {
 #[test]
 fn test_migrate_cache_software_from_old_schema() {
     let db = Database::new(Path::new(":memory:")).expect("创建内存数据库失败");
-    // 模拟上一版本的 11 列表结构（无 full_path/created_at/updated_at）
+    // 模拟上一版本的表结构（含多余字段）
     db.conn
         .execute_batch(
             "CREATE TABLE cache_software (
@@ -113,7 +103,9 @@ fn test_migrate_cache_software_from_old_schema() {
                 arch            TEXT NOT NULL DEFAULT 'x86_64',
                 size            INTEGER NOT NULL DEFAULT 0,
                 source_dir      TEXT,
-                cache_directory TEXT NOT NULL DEFAULT ''
+                cache_directory TEXT NOT NULL DEFAULT '',
+                created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
             );
             INSERT INTO cache_software (software_id, filename, name, epoch, version, pkgrel, arch, size, source_dir, cache_directory)
             VALUES (0, 'foo-bin-1.0.0-1-x86_64.pkg.tar.zst', 'foo-bin', 0, '1.0.0', '1', 'x86_64', 2048, '系统缓存', '/var/cache/pacman/pkg');",
@@ -123,29 +115,35 @@ fn test_migrate_cache_software_from_old_schema() {
     db.initialize().expect("迁移旧表失败");
 
     let cols = db.get_table_columns("cache_software").unwrap();
-    for col in ["full_path", "created_at", "updated_at"] {
-        assert!(cols.contains(&col.to_string()), "迁移后缺少字段 {}", col);
+    // 迁移后不应包含这些多余字段
+    for col in ["software_id", "size", "source_dir", "created_at", "updated_at", "version"] {
+        assert!(
+            !cols.contains(&col.to_string()),
+            "迁移后仍包含多余字段 {}",
+            col
+        );
     }
+    // 应包含 name 和 pkgver 字段且在 filename 前
+    assert!(cols.contains(&"name".to_string()), "迁移后缺少字段 name");
+    assert!(cols.contains(&"pkgver".to_string()), "迁移后缺少字段 pkgver");
 
     // 旧数据保留且 full_path 回填为 cache_directory/filename
     let entries = db.get_all_cache_software().unwrap();
     assert_eq!(entries.len(), 1);
     let e = &entries[0];
     assert_eq!(e.name, "foo-bin");
-    assert_eq!(e.version, "1.0.0");
+    assert_eq!(e.pkgver, "1.0.0");
     assert_eq!(
         e.full_path,
         "/var/cache/pacman/pkg/foo-bin-1.0.0-1-x86_64.pkg.tar.zst"
     );
-    assert!(e.created_at.is_some(), "created_at 未回填");
-    assert!(e.updated_at.is_some(), "updated_at 未回填");
 }
 
-/// 验证旧版本 backup_software 表迁移后补齐时间戳字段且数据保留
+/// 验证旧版本 backup_software 表迁移后补齐 name 字段且移除时间戳字段、数据保留
 #[test]
 fn test_migrate_backup_software_from_old_schema() {
     let db = Database::new(Path::new(":memory:")).expect("创建内存数据库失败");
-    // 模拟上一版本的 8 列表结构（无 created_at/updated_at）
+    // 模拟上一版本的表结构（无 name，有时间戳）
     db.conn
         .execute_batch(
             "CREATE TABLE backup_software (
@@ -156,19 +154,28 @@ fn test_migrate_backup_software_from_old_schema() {
                 pkgrel       TEXT NOT NULL DEFAULT '1',
                 arch         TEXT NOT NULL DEFAULT 'x86_64',
                 subdirectory TEXT,
-                full_path    TEXT NOT NULL DEFAULT ''
+                full_path    TEXT NOT NULL DEFAULT '',
+                created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
             );
-            INSERT INTO backup_software (filename, epoch, pkgver, pkgrel, arch, subdirectory, full_path)
-            VALUES ('foo-1.0.0-1-x86_64.pkg.tar.zst', 0, '1.0.0', '1', 'x86_64', 'sub', '/backup/sub/foo-1.0.0-1-x86_64.pkg.tar.zst');",
+            INSERT INTO backup_software (filename, epoch, pkgver, pkgrel, arch, subdirectory, full_path, created_at, updated_at)
+            VALUES ('foo-1.0.0-1-x86_64.pkg.tar.zst', 0, '1.0.0', '1', 'x86_64', 'sub', '/backup/sub/foo-1.0.0-1-x86_64.pkg.tar.zst', datetime('now'), datetime('now'));",
         )
         .unwrap();
 
     db.initialize().expect("迁移旧表失败");
 
     let cols = db.get_table_columns("backup_software").unwrap();
+    // 迁移后不应包含时间戳字段
     for col in ["created_at", "updated_at"] {
-        assert!(cols.contains(&col.to_string()), "迁移后缺少字段 {}", col);
+        assert!(
+            !cols.contains(&col.to_string()),
+            "迁移后仍包含多余字段 {}",
+            col
+        );
     }
+    // 应包含 name 字段
+    assert!(cols.contains(&"name".to_string()), "迁移后缺少字段 name");
 
     // 旧数据保留且 full_path 不被覆盖
     let entries = db.get_all_backup_software().unwrap();
@@ -176,8 +183,6 @@ fn test_migrate_backup_software_from_old_schema() {
     let e = &entries[0];
     assert_eq!(e.pkgver, "1.0.0");
     assert_eq!(e.full_path, "/backup/sub/foo-1.0.0-1-x86_64.pkg.tar.zst");
-    assert!(e.created_at.is_some(), "created_at 未回填");
-    assert!(e.updated_at.is_some(), "updated_at 未回填");
 }
 
 /// 验证缓存管理页面数据源：插入后 get_all_cache_entries 可读取全部存量数据
@@ -207,13 +212,11 @@ fn test_cache_entries_page_load_data_source() {
         .iter()
         .find(|e| e.pkgname == "bar")
         .expect("缺少 bar 记录");
-    assert_eq!(bar.version, "2.0.0");
+    assert_eq!(bar.pkgver, "2.0.0");
     assert_eq!(
         bar.full_path,
         "/var/cache/pacman/pkg/bar-2.0.0-1-x86_64.pkg.tar.zst"
     );
-    assert!(bar.created_at.is_some(), "created_at 应由数据库默认值填充");
-    assert!(bar.updated_at.is_some(), "updated_at 应由数据库默认值填充");
 
     // name 为空的记录从文件名解析出包名
     assert!(

@@ -33,10 +33,11 @@ defineProps<{
 <style scoped>
 .setting-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   width: 100%;
   padding: 0.75rem 0;
   border-bottom: 1px solid var(--border);
+  gap: 1rem;
 }
 
 .setting-row:last-child {
@@ -47,9 +48,10 @@ defineProps<{
   display: flex;
   flex-direction: column;
   gap: 0.125rem;
-  flex: 0 0 auto;
-  min-width: 0;
-  max-width: 240px;
+  flex: 0 0 200px;
+  min-width: 150px;
+  max-width: 300px;
+  overflow: hidden;
 }
 
 .setting-label strong {

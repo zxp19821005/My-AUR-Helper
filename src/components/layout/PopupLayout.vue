@@ -88,6 +88,7 @@ function navigate(path: string) {
 .popup-layout {
   display: flex;
   height: 100vh;
+  width: 100%;
   background-color: var(--bg-primary);
 }
 

@@ -13,26 +13,14 @@ pub struct CacheSoftwareEntry {
     /// 版本 epoch 号
     pub epoch: i64,
     /// 版本号
-    pub version: String,
+    pub pkgver: String,
     /// 包发布号（pkgrel）
     pub pkgrel: String,
     /// 目标架构（如 x86_64）
     pub arch: String,
-    /// 文件大小（字节）
-    pub size: i64,
-    /// 来源缓存目录名称
-    pub source_dir: Option<String>,
     /// 缓存文件所在目录路径
     pub cache_directory: String,
-    /// 关联的软件包 ID（可为 0 表示未关联）
-    pub software_id: i64,
     /// 完整文件路径（cache_directory/filename）
     #[serde(default)]
     pub full_path: String,
-    /// 记录创建时间
-    #[serde(default)]
-    pub created_at: Option<String>,
-    /// 记录更新时间
-    #[serde(default)]
-    pub updated_at: Option<String>,
 }

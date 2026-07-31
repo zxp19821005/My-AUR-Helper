@@ -12,7 +12,7 @@
   - SettingRow: 设置行组件
 -->
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, nextTick } from "vue";
 import { useRoute } from "vue-router";
 import { invoke } from "@tauri-apps/api/core";
 import { Eye, EyeOff } from "@lucide/vue";
@@ -67,6 +67,7 @@ const filteredSettings = computed(() =>
 
 onMounted(async () => {
   await loadAll();
+  initTextareas();
 });
 
 async function loadAll() {
@@ -106,6 +107,24 @@ function isTokenKey(key: string): boolean {
 function inputType(s: Setting): string {
   if (!isTokenKey(s.key)) return "text";
   return passwordVisible.value[s.key] ? "text" : "password";
+}
+
+/** 自动调整 textarea 高度 */
+function autoResize(event: Event) {
+  const el = event.target as HTMLTextAreaElement;
+  el.style.height = "auto";
+  el.style.height = el.scrollHeight + "px";
+}
+
+/** 初始化所有 textarea 高度 */
+function initTextareas() {
+  nextTick(() => {
+    document.querySelectorAll(".settings-textarea").forEach((el) => {
+      const ta = el as HTMLTextAreaElement;
+      ta.style.height = "auto";
+      ta.style.height = ta.scrollHeight + "px";
+    });
+  });
 }
 </script>
 
@@ -176,14 +195,14 @@ function inputType(s: Setting): string {
               </button>
             </div>
           </template>
-          <!-- 普通输入框 -->
+          <!-- 普通输入框 - 使用 textarea 支持多行显示 -->
           <template v-else>
-            <StandardizedInput
-              type="text"
-              :modelValue="s.value"
-              size="md"
-              @update:modelValue="(val) => saveSetting(s.key, val)"
-            />
+            <textarea
+              :value="s.value"
+              class="settings-textarea"
+              rows="1"
+              @input="saveSetting(s.key, ($event.target as HTMLTextAreaElement).value); autoResize($event)"
+            ></textarea>
           </template>
         </SettingRow>
       </div>
@@ -194,9 +213,10 @@ function inputType(s: Setting): string {
 <style scoped>
 .settings-container {
   width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  overflow-y: auto;
 }
 
 .settings-row-wrapper {
@@ -247,5 +267,31 @@ function inputType(s: Setting): string {
 .toggle-password:hover {
   color: var(--text-primary);
   background-color: var(--hover-bg, rgba(128, 128, 128, 0.1));
+}
+
+.settings-textarea {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: none;
+  overflow: hidden;
+  min-height: 2.5rem;
+  word-break: break-all;
+}
+
+.settings-textarea:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.15);
+}
+
+.settings-textarea::placeholder {
+  color: var(--text-muted);
 }
 </style>

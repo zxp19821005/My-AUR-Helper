@@ -12,7 +12,7 @@
   - SettingRow: 通用设置行组件
 -->
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, nextTick } from "vue";
 import { useSettingsStore } from "../../stores/settings";
 import SettingsCard from "./SettingsCard.vue";
 import SettingRow from "./SettingRow.vue";
@@ -55,7 +55,26 @@ const messageType = ref<"success" | "error" | "warning">("success");
 
 onMounted(async () => {
   await loadSettings();
+  initTextareas();
 });
+
+/** 自动调整 textarea 高度 */
+function autoResize(event: Event) {
+  const el = event.target as HTMLTextAreaElement;
+  el.style.height = "auto";
+  el.style.height = el.scrollHeight + "px";
+}
+
+/** 初始化所有 textarea 高度 */
+function initTextareas() {
+  nextTick(() => {
+    document.querySelectorAll(".proxy-section-root .text-input").forEach((el) => {
+      const ta = el as HTMLTextAreaElement;
+      ta.style.height = "auto";
+      ta.style.height = ta.scrollHeight + "px";
+    });
+  });
+}
 
 /** 加载设置 */
 async function loadSettings() {
@@ -143,7 +162,7 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
 </script>
 
 <template>
-  <div>
+  <div class="proxy-section-root">
     <div v-if="message" class="message" :class="`message-${messageType}`">
       {{ message }}
     </div>
@@ -155,15 +174,18 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
         :label="f.label"
         :description="f.description"
       >
-        <input
-          v-model="settings[f.key]"
-          type="text"
-          class="text-input"
-          :placeholder="f.placeholder"
-        />
-        <button class="btn-reset" @click="resetSingleSetting(f.key)" title="重置为默认值">
-          重置
-        </button>
+        <div class="input-row">
+          <textarea
+            v-model="settings[f.key]"
+            class="text-input"
+            :placeholder="f.placeholder"
+            rows="1"
+            @input="autoResize($event)"
+          ></textarea>
+          <button class="btn-reset" @click="resetSingleSetting(f.key)" title="重置为默认值">
+            重置
+          </button>
+        </div>
       </SettingRow>
 
       <!-- 操作按钮 -->
@@ -180,6 +202,10 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
 </template>
 
 <style scoped>
+.proxy-section-root {
+  width: 100%;
+}
+
 .message {
   padding: 0.5rem 1rem;
   margin-bottom: 1rem;
@@ -202,6 +228,14 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
   color: #f59e0b;
 }
 
+.input-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .text-input {
   padding: 0.375rem 0.5rem;
   border-radius: 6px;
@@ -209,8 +243,13 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
   background-color: var(--bg-primary);
   color: var(--text-primary);
   font-size: 0.875rem;
+  flex: 1 1 auto;
   min-width: 0;
-  flex: 1;
+  resize: none;
+  overflow: hidden;
+  font-family: inherit;
+  line-height: 1.5;
+  word-break: break-all;
 }
 
 .text-input:focus {
@@ -232,6 +271,7 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
   font-size: 0.75rem;
   transition: all 0.15s;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .btn-reset:hover {
@@ -280,10 +320,12 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
 
 /* 响应式设计 - 平板及以下 */
 @media (max-width: 768px) {
-  .text-input {
-    flex: 1;
-    min-width: 0;
-    width: 100%;
+  .input-row {
+    flex-direction: column;
+  }
+
+  .btn-reset {
+    align-self: flex-start;
   }
 }
 </style>

@@ -82,15 +82,12 @@ pub async fn scan_all_cache_dirs(
         log::info!("[缓存管理] 正在扫描目录: {} ({})", dir.name, dir.path);
 
         match super::scan::scan_pkg_files(&dir.path).await {
-            Ok(mut packages) => {
+            Ok(packages) => {
                 log::info!(
                     "[缓存管理] 扫描 {} 完成，找到 {} 个包",
                     dir.name,
                     packages.len()
                 );
-                for pkg in packages.iter_mut() {
-                    pkg.source_dir = Some(dir.name.clone());
-                }
                 all_packages.push((dir.path.clone(), packages));
             }
             Err(e) => {
@@ -123,23 +120,18 @@ pub async fn scan_all_cache_dirs(
                     .unwrap_or(0);
                 let cs = CacheSoftware {
                     id: None,
-                    software_id: 0,
-                    filename: pkg.filename.clone(),
                     name: pkg.name.clone(),
+                    filename: pkg.filename.clone(),
                     epoch,
-                    version: pkg.version.clone(),
+                    pkgver: pkg.version.clone(),
                     pkgrel: pkg.pkgrel.clone(),
                     arch: pkg.arch.clone(),
-                    size: pkg.size as i64,
-                    source_dir: pkg.source_dir.clone(),
                     cache_directory: cache_directory.clone(),
                     // 完整存储路径 = 缓存目录 + 文件名（与 backup_software.full_path 对齐）
                     full_path: std::path::Path::new(cache_directory)
                         .join(&pkg.filename)
                         .to_string_lossy()
                         .to_string(),
-                    created_at: None,
-                    updated_at: None,
                 };
                 match db.insert_cache_software(&cs) {
                     Ok(_) => inserted += 1,

@@ -23,9 +23,6 @@ pub struct PkgFileInfo {
     pub version: String,
     pub pkgrel: String,
     pub arch: String,
-    pub size: u64,
-    /// 来源目录名称（缓存扫描时使用）
-    pub source_dir: Option<String>,
 }
 
 // ════════════════════════════════════════════════════════════
@@ -41,11 +38,7 @@ pub async fn scan_pkg_files(directory: &str) -> AppResult<Vec<PkgFileInfo>> {
         if path.is_file() {
             let filename = path.file_name().unwrap().to_string_lossy().to_string();
             if let Some(pkg) = parse_pkg_filename(&filename) {
-                if let Ok(meta) = fs::metadata(&path).await {
-                    let mut info = pkg;
-                    info.size = meta.len();
-                    result.push(info);
-                }
+                result.push(pkg);
             }
         }
     }
@@ -85,8 +78,6 @@ fn parse_pkg_filename(filename: &str) -> Option<PkgFileInfo> {
         version,
         pkgrel,
         arch,
-        size: 0,
-        source_dir: None,
     })
 }
 

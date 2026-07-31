@@ -188,11 +188,9 @@ export interface CachePackage {
   filename: string;
   name: string;
   epoch: string | null;
-  version: string;
+  pkgver: string;
   pkgrel: string;
   arch: string;
-  size: number;
-  source_dir: string | null;
 }
 
 /** 缓存软件包列表展示条目（从数据库 cache_software 读取，后端 CacheSoftwareEntry 映射） */
@@ -206,31 +204,22 @@ export interface CacheSoftwareEntry {
   /** 版本 epoch */
   epoch: number;
   /** 版本号 */
-  version: string;
+  pkgver: string;
   /** 包发布号 */
   pkgrel: string;
   /** 目标架构 */
   arch: string;
-  /** 文件大小（字节） */
-  size: number;
-  /** 来源缓存目录名称 */
-  source_dir: string | null;
   /** 缓存目录完整路径 */
   cache_directory: string;
-  /** 关联的软件包 ID（0 表示未关联） */
-  software_id: number;
   /** 完整文件路径（cache_directory/filename） */
   full_path: string;
-  /** 记录创建时间 */
-  created_at: string | null;
-  /** 记录更新时间 */
-  updated_at: string | null;
 }
 
 /** 备份软件包列表展示条目（含软件包名称） */
 export interface BackupSoftwareEntry {
   id: number;
   pkgname: string;
+  name: string;
   filename: string;
   epoch: number;
   pkgver: string;
@@ -238,10 +227,6 @@ export interface BackupSoftwareEntry {
   arch: string;
   subdirectory: string | null;
   full_path: string;
-  /** 记录创建时间 */
-  created_at: string | null;
-  /** 记录更新时间 */
-  updated_at: string | null;
 }
 
 /** 备份去重结果 */

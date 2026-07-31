@@ -41,10 +41,13 @@ defineProps<{
 <style scoped>
 .settings-card {
   width: 100%;
+  flex: 1;
   background-color: var(--bg-card);
   border-radius: 12px;
   border: 1px solid var(--border);
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
 .settings-card-header {
@@ -67,6 +70,9 @@ defineProps<{
 
 .settings-card-body {
   padding: 1rem 1.5rem 1.5rem 1.5rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .settings-card-actions {

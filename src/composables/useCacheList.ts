@@ -14,7 +14,7 @@ import type { CachePackage, CacheSoftwareEntry } from "../types";
 
 /**
  * 列表展示时使用的统一条目类型（兼容两种数据源）
- * - 从数据库读取：字段 id/software_id/pkgname/cache_directory 有值
+ * - 从数据库读取：字段 id/pkgname/cache_directory 有值
  * - 从磁盘扫描（PkgFileInfo）：用 name 当 pkgname，epoch 为字符串或 null
  */
 export interface CacheListEntry {
@@ -27,15 +27,13 @@ export interface CacheListEntry {
   /** epoch */
   epoch: number;
   /** 版本号 */
-  version: string;
+  pkgver: string;
   /** pkgrel */
   pkgrel: string;
   /** 架构 */
   arch: string;
-  /** 文件大小（字节） */
-  size: number;
-  /** 来源缓存目录名称 */
-  source_dir: string | null;
+  /** 缓存目录完整路径 */
+  cache_directory: string;
 }
 
 export function useCacheList() {
@@ -67,11 +65,10 @@ export function useCacheList() {
       pkgname: p.name || pkgFromFilename(p.filename),
       filename: p.filename,
       epoch,
-      version: p.version,
+      pkgver: p.pkgver,
       pkgrel: p.pkgrel,
       arch: p.arch,
-      size: p.size,
-      source_dir: p.source_dir,
+      cache_directory: "",
     };
   }
 
@@ -82,11 +79,10 @@ export function useCacheList() {
       pkgname: e.pkgname || pkgFromFilename(e.filename),
       filename: e.filename,
       epoch: e.epoch,
-      version: e.version,
+      pkgver: e.pkgver,
       pkgrel: e.pkgrel,
       arch: e.arch,
-      size: e.size,
-      source_dir: e.source_dir,
+      cache_directory: e.cache_directory,
     };
   }
 

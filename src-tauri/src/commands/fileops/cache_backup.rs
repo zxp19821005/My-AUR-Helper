@@ -94,6 +94,7 @@ pub async fn backup_cache_to_existing(
                             // 插入备份记录
                             let bs = BackupSoftware {
                                 id: None,
+                                name: pkgname.clone(),
                                 filename: filename.clone(),
                                 epoch: 0,
                                 pkgver: String::new(),
@@ -101,8 +102,6 @@ pub async fn backup_cache_to_existing(
                                 arch: String::new(),
                                 subdirectory: Some(subdirectory.to_string()),
                                 full_path: target_file.to_string_lossy().to_string(),
-                                created_at: None,
-                                updated_at: None,
                             };
                             let db = state.db.lock().map_err(|e| {
                                 crate::errors::AppError::DatabaseError(format!(
@@ -189,8 +188,10 @@ pub async fn backup_cache_to_subdirectory(
                 match tokio::fs::copy(&src_path, &target_file).await {
                     Ok(_) => {
                         // 插入备份记录
+                        let pkgname = extract_pkgname_from_cache(filename).unwrap_or_default();
                         let bs = BackupSoftware {
                             id: None,
+                            name: pkgname,
                             filename: filename.clone(),
                             epoch: 0,
                             pkgver: String::new(),
@@ -202,8 +203,6 @@ pub async fn backup_cache_to_subdirectory(
                                 Some(subdirectory.clone())
                             },
                             full_path: target_file.to_string_lossy().to_string(),
-                            created_at: None,
-                            updated_at: None,
                         };
                         let db = state.db.lock().map_err(|e| {
                             crate::errors::AppError::DatabaseError(format!(

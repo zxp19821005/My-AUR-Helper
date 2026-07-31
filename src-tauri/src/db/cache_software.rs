@@ -9,7 +9,7 @@
  * - delete_cache_software_batch: 批量删除缓存记录
  * - delete_cache_software: 删除单条缓存记录
  * - get_cache_software_by_filename: 按文件名查找缓存记录
- * - get_cache_source_dirs: 获取所有不重复的来源缓存目录
+ * - get_cache_directories: 获取所有不重复的缓存目录
  */
 use crate::errors::AppResult;
 
@@ -39,18 +39,15 @@ impl Database {
     /// @returns 新插入记录的 ID
     pub fn insert_cache_software(&self, cs: &CacheSoftware) -> AppResult<i64> {
         self.conn.execute(
-            "INSERT INTO cache_software (software_id, filename, name, epoch, version, pkgrel, arch, size, source_dir, cache_directory, full_path)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            "INSERT INTO cache_software (name, filename, epoch, pkgver, pkgrel, arch, cache_directory, full_path)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             rusqlite::params![
-                cs.software_id,
-                cs.filename,
                 cs.name,
+                cs.filename,
                 cs.epoch,
-                cs.version,
+                cs.pkgver,
                 cs.pkgrel,
                 cs.arch,
-                cs.size,
-                cs.source_dir,
                 cs.cache_directory,
                 cs.full_path
             ],
@@ -62,25 +59,20 @@ impl Database {
     /// @returns 所有缓存记录列表
     pub fn get_all_cache_software(&self) -> AppResult<Vec<CacheSoftware>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, software_id, filename, name, epoch, version, pkgrel, arch, size, source_dir, cache_directory, full_path, created_at, updated_at
-             FROM cache_software ORDER BY name, version",
+            "SELECT id, name, filename, epoch, pkgver, pkgrel, arch, cache_directory, full_path
+             FROM cache_software ORDER BY name, pkgver",
         )?;
         let rows = stmt.query_map([], |row| {
             Ok(CacheSoftware {
                 id: Some(row.get(0)?),
-                software_id: row.get(1)?,
+                name: row.get(1)?,
                 filename: row.get(2)?,
-                name: row.get(3)?,
-                epoch: row.get(4)?,
-                version: row.get(5)?,
-                pkgrel: row.get(6)?,
-                arch: row.get(7)?,
-                size: row.get(8)?,
-                source_dir: row.get(9).ok(),
-                cache_directory: row.get(10)?,
-                full_path: row.get(11)?,
-                created_at: row.get(12).ok(),
-                updated_at: row.get(13).ok(),
+                epoch: row.get(3)?,
+                pkgver: row.get(4)?,
+                pkgrel: row.get(5)?,
+                arch: row.get(6)?,
+                cache_directory: row.get(7)?,
+                full_path: row.get(8)?,
             })
         })?;
         let mut items = Vec::new();
@@ -108,16 +100,11 @@ impl Database {
                     pkgname,
                     filename: e.filename,
                     epoch: e.epoch,
-                    version: e.version,
+                    pkgver: e.pkgver,
                     pkgrel: e.pkgrel,
                     arch: e.arch,
-                    size: e.size,
-                    source_dir: e.source_dir,
                     cache_directory: e.cache_directory,
-                    software_id: e.software_id,
                     full_path: e.full_path,
-                    created_at: e.created_at,
-                    updated_at: e.updated_at,
                 }
             })
             .collect())
@@ -167,37 +154,32 @@ impl Database {
         filename: &str,
     ) -> AppResult<Option<CacheSoftware>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, software_id, filename, name, epoch, version, pkgrel, arch, size, source_dir, cache_directory, full_path, created_at, updated_at
+            "SELECT id, name, filename, epoch, pkgver, pkgrel, arch, cache_directory, full_path
              FROM cache_software WHERE filename=?1",
         )?;
         let mut rows = stmt.query_map(rusqlite::params![filename], |row| {
             Ok(CacheSoftware {
                 id: Some(row.get(0)?),
-                software_id: row.get(1)?,
+                name: row.get(1)?,
                 filename: row.get(2)?,
-                name: row.get(3)?,
-                epoch: row.get(4)?,
-                version: row.get(5)?,
-                pkgrel: row.get(6)?,
-                arch: row.get(7)?,
-                size: row.get(8)?,
-                source_dir: row.get(9).ok(),
-                cache_directory: row.get(10)?,
-                full_path: row.get(11)?,
-                created_at: row.get(12).ok(),
-                updated_at: row.get(13).ok(),
+                epoch: row.get(3)?,
+                pkgver: row.get(4)?,
+                pkgrel: row.get(5)?,
+                arch: row.get(6)?,
+                cache_directory: row.get(7)?,
+                full_path: row.get(8)?,
             })
         })?;
         Ok(rows.next().transpose()?)
     }
 
-    /// 获取所有不重复的来源缓存目录名称列表
-    /// @returns 来源目录名称列表（不含空值）
-    pub fn get_cache_source_dirs(&self) -> AppResult<Vec<String>> {
+    /// 获取所有不重复的缓存目录名称列表
+    /// @returns 缓存目录名称列表（不含空值）
+    pub fn get_cache_directories(&self) -> AppResult<Vec<String>> {
         let mut stmt = self.conn.prepare(
-            "SELECT DISTINCT source_dir FROM cache_software
-             WHERE source_dir IS NOT NULL AND source_dir != ''
-             ORDER BY source_dir",
+            "SELECT DISTINCT cache_directory FROM cache_software
+             WHERE cache_directory IS NOT NULL AND cache_directory != ''
+             ORDER BY cache_directory",
         )?;
         let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
         let mut items = Vec::new();
@@ -216,12 +198,12 @@ impl Database {
     ) -> AppResult<Vec<CacheSoftwareEntry>> {
         let like_pattern = format!("{}%-", pkgname);
         let mut stmt = self.conn.prepare(
-            "SELECT id, software_id, filename, name, epoch, version, pkgrel, arch, size, source_dir, cache_directory, full_path, created_at, updated_at
+            "SELECT id, name, filename, epoch, pkgver, pkgrel, arch, cache_directory, full_path
              FROM cache_software WHERE name = ?1 OR filename LIKE ?2 ORDER BY filename",
         )?;
         let rows = stmt.query_map(rusqlite::params![pkgname, like_pattern], |row| {
             let filename: String = row.get(2)?;
-            let name: String = row.get(3)?;
+            let name: String = row.get(1)?;
             let pkgname = if name.is_empty() {
                 extract_pkgname(&filename)
             } else {
@@ -229,19 +211,14 @@ impl Database {
             };
             Ok(CacheSoftwareEntry {
                 id: row.get(0)?,
-                software_id: row.get(1)?,
                 pkgname,
                 filename,
-                epoch: row.get(4)?,
-                version: row.get(5)?,
-                pkgrel: row.get(6)?,
-                arch: row.get(7)?,
-                size: row.get(8)?,
-                source_dir: row.get(9).ok(),
-                cache_directory: row.get(10)?,
-                full_path: row.get(11)?,
-                created_at: row.get(12).ok(),
-                updated_at: row.get(13).ok(),
+                epoch: row.get(3)?,
+                pkgver: row.get(4)?,
+                pkgrel: row.get(5)?,
+                arch: row.get(6)?,
+                cache_directory: row.get(7)?,
+                full_path: row.get(8)?,
             })
         })?;
         let mut items = Vec::new();

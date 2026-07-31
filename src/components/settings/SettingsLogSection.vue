@@ -91,6 +91,9 @@ async function saveLogCount(value: string) {
   color: var(--text-primary);
   font-size: 0.875rem;
   min-width: 240px;
+  max-width: 100%;
+  flex: 1 1 0;
+  width: 0;
   appearance: none;
   -webkit-appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239a9cb8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");

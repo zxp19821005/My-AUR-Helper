@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub struct BackupSoftwareEntry {
     pub id: i64,
     pub pkgname: String,
+    pub name: String,
     pub filename: String,
     pub epoch: i64,
     pub pkgver: String,
@@ -12,10 +13,4 @@ pub struct BackupSoftwareEntry {
     pub arch: String,
     pub subdirectory: Option<String>,
     pub full_path: String,
-    /// 记录创建时间
-    #[serde(default)]
-    pub created_at: Option<String>,
-    /// 记录更新时间
-    #[serde(default)]
-    pub updated_at: Option<String>,
 }

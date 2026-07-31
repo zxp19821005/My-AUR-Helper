@@ -86,23 +86,31 @@
 }
 
 /* ========== 设置页面通用输入框 ========== */
-.settings-input {
+.settings-input,
+.text-input {
   padding: 0.375rem 0.5rem;
   border-radius: 6px;
   border: 1px solid var(--border);
   background-color: var(--bg-primary);
   color: var(--text-primary);
   font-size: 0.875rem;
+  min-width: 0;
 }
 
-.settings-input:disabled {
+.settings-input:disabled,
+.text-input:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.settings-input:focus {
+.settings-input:focus,
+.text-input:focus {
   border-color: var(--accent);
   outline: none;
+}
+
+.text-input::placeholder {
+  color: var(--text-muted);
 }
 
 /* ========== 设置页面按钮 ========== */

@@ -90,7 +90,7 @@ pub async fn scan_backup_directory(
             crate::errors::AppError::DatabaseError(format!("获取数据库锁失败: {}", e))
         })?;
 
-        for (filename, _name, epoch, version, pkgrel, arch, subdirectory, full_path) in
+        for (filename, name, epoch, version, pkgrel, arch, subdirectory, full_path) in
             &scanned_files
         {
             if let Ok(Some(_existing)) = db.get_backup_software_by_filename(filename) {
@@ -99,6 +99,7 @@ pub async fn scan_backup_directory(
 
             let bs = BackupSoftware {
                 id: None,
+                name: name.clone(),
                 filename: filename.clone(),
                 epoch: *epoch,
                 pkgver: version.clone(),
@@ -106,8 +107,6 @@ pub async fn scan_backup_directory(
                 arch: arch.clone(),
                 subdirectory: subdirectory.clone(),
                 full_path: full_path.clone(),
-                created_at: None,
-                updated_at: None,
             };
 
             match db.insert_backup_software(&bs) {

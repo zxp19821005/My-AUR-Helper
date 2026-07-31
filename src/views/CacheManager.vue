@@ -17,7 +17,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
-import { useCacheList, formatSize } from "../composables/useCacheList";
+import { useCacheList } from "../composables/useCacheList";
 import { loadEnabledCacheDirs } from "../composables/useCacheDirs";
 import { useCacheBackupActions } from "../composables/useCacheBackupActions";
 import { FOOTER_KEY, addMessage } from "../composables/footer";
@@ -86,7 +86,7 @@ onMounted(async () => {
 
 const filteredByDir = computed(() => {
   if (!sourceDirFilter.value) return filteredEntries.value;
-  return filteredEntries.value.filter((e) => e.source_dir === sourceDirFilter.value);
+  return filteredEntries.value.filter((e) => e.cache_directory === sourceDirFilter.value);
 });
 
 function handleSourceDirFilterChange(dir: string | number) {
@@ -145,11 +145,10 @@ function handleSelectionChange(selectedRows: any[]) {
 
 const columns = [
   { key: "pkgname", title: "包名" },
-  { key: "version", title: "版本" },
+  { key: "pkgver", title: "版本" },
   { key: "pkgrel", title: "PkgRel" },
   { key: "arch", title: "架构" },
-  { key: "size", title: "大小" },
-  { key: "source_dir", title: "来源目录" },
+  { key: "cache_directory", title: "缓存目录" },
 ];
 </script>
 
@@ -251,12 +250,8 @@ const columns = [
         <strong>{{ row.pkgname }}</strong>
       </template>
 
-      <template #cell-size="{ row }">
-        {{ formatSize(row.size) }}
-      </template>
-
-      <template #cell-source_dir="{ row }">
-        {{ row.source_dir || "-" }}
+      <template #cell-cache_directory="{ row }">
+        {{ row.cache_directory || "-" }}
       </template>
 
       <template #actions="{ row }">

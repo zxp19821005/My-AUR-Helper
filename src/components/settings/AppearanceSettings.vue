@@ -93,8 +93,9 @@ function handleFontSizeChange(value: string | number) {
 }
 
 .setting-info {
-  flex: 1;
+  flex: 0 0 200px;
   min-width: 120px;
+  max-width: 300px;
 }
 
 .setting-info h4 {
