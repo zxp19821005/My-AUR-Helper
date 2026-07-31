@@ -144,10 +144,7 @@ const columns = [
   <div>
     <PageToolbar v-model="searchQuery" @refresh="loadLogs">
       <template #right>
-        <StandardizedSelect
-          v-model="levelFilter"
-          size="md"
-        >
+        <StandardizedSelect v-model="levelFilter" size="md">
           <option value="">全部级别</option>
           <option value="信息">INFO</option>
           <option value="警告">WARNING</option>
@@ -203,82 +200,18 @@ const columns = [
       hoverable
       emptyText="暂无日志数据"
     >
-      <!-- 时间列 -->
       <template #cell-timestamp="{ row }">
-        <span class="timestamp">{{ row.timestamp }}</span>
+        <span class="log-timestamp">{{ row.timestamp }}</span>
       </template>
-
-      <!-- 级别列 -->
       <template #cell-level="{ row }">
-        <StandardizedBadge
-          :text="row.level"
-          :type="getLevelType(row.level)"
-          size="sm"
-        />
+        <StandardizedBadge :text="row.level" :type="getLevelType(row.level)" size="sm" />
       </template>
-
-      <!-- 模块列 -->
       <template #cell-module="{ row }">
-        <span class="module">{{ row.module || '-' }}</span>
+        <span class="log-module">{{ row.module || '-' }}</span>
       </template>
-
-      <!-- 消息列 -->
       <template #cell-message="{ row }">
-        <span class="message">{{ row.message }}</span>
+        <span class="log-message">{{ row.message }}</span>
       </template>
     </StandardizedTable>
   </div>
 </template>
-
-<style scoped>
-.log-status {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.5rem 0;
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-}
-
-.status-item {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-}
-
-.status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: var(--text-muted);
-}
-
-.status-dot.active {
-  background-color: var(--color-success);
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-
-.timestamp {
-  color: var(--text-secondary);
-  font-size: 0.8125rem;
-  font-family: monospace;
-  white-space: nowrap;
-}
-
-.module {
-  color: var(--text-secondary);
-  font-size: 0.8125rem;
-  font-family: monospace;
-}
-
-.message {
-  color: var(--text-primary);
-  font-size: 0.875rem;
-  word-break: break-word;
-}
-</style>
