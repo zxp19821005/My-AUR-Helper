@@ -62,6 +62,18 @@ impl Database {
                 "log",
             ),
             (
+                "log_dir",
+                "",
+                "日志文件存储目录（留空则使用默认配置目录下的 logs 子目录）",
+                "log",
+            ),
+            (
+                "log_prefix",
+                "applog",
+                "日志文件名前缀（完整文件名为 前缀-YYYY-MM-DD.log）",
+                "log",
+            ),
+            (
                 "github_token",
                 "",
                 "GitHub Personal Access Token（用于提高 API 速率限制）",

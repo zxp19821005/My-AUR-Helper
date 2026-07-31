@@ -13,7 +13,6 @@
  * - cache_software.rs  — 缓存记录表 CRUD
  * - enum_licenses.rs   — License 枚举表 CRUD
  * - enum_programming_languages.rs — 编程语言枚举表 CRUD
- * - logs.rs       — 日志表 CRUD
  * - proxies_info.rs   — 代理信息表 CRUD
  * - proxies_test.rs   — 代理测试表 CRUD
  * - settings.rs   — 设置表 CRUD
@@ -26,11 +25,11 @@ mod cache_software;
 mod connection;
 mod enum_licenses;
 mod enum_programming_languages;
-mod logs;
 mod migration_aur;
 mod migration_backup;
 mod migration_cache;
 mod migration_enum;
+mod migration_logs;
 mod migration_proxy;
 mod migration_software;
 mod migration_upstream;

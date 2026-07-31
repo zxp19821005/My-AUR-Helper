@@ -2,22 +2,16 @@
   LogViewer.vue - 日志查看器页面
 
   功能：
-  - 显示应用日志列表（时间、级别、消息）
-  - 支持搜索、分页
-  - 支持按级别筛选
-  - 支持清空日志
-
-  使用组件：
-  - StandardizedTable: 表格组件
-  - PageToolbar: 页面工具栏
-  - StandardizedSelect: 级别筛选下拉框
-  - StandardizedBadge: 状态徽章
+  - 从日志文件读取并显示应用日志（时间、级别、模块、消息）
+  - 支持搜索、按级别筛选
+  - 支持清空当天日志
+  - 自动刷新（每 5 秒）
 -->
 <script setup lang="ts">
-import { ref, onMounted, computed, inject } from "vue";
+import { ref, onMounted, onUnmounted, computed, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { FOOTER_KEY, addMessage } from "../composables/footer";
-import { Trash2 } from "@lucide/vue";
+import { Trash2, RefreshCw, Pause, Play } from "@lucide/vue";
 import PageToolbar from "../components/common/PageToolbar.vue";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
 import StandardizedSelect from "../components/base/StandardizedSelect.vue";
@@ -26,9 +20,9 @@ import StandardizedBadge from "../components/base/StandardizedBadge.vue";
 const footer = inject(FOOTER_KEY)!;
 
 interface LogEntry {
-  id: number;
   timestamp: string;
   level: string;
+  module: string;
   message: string;
 }
 
@@ -36,16 +30,47 @@ const logs = ref<LogEntry[]>([]);
 const loading = ref(false);
 const searchQuery = ref("");
 const levelFilter = ref("");
-const pageSize = ref(50);
+const autoRefresh = ref(true);
+const refreshInterval = ref<number | null>(null);
 
 onMounted(async () => {
   await loadLogs();
+  startAutoRefresh();
 });
+
+onUnmounted(() => {
+  stopAutoRefresh();
+});
+
+function startAutoRefresh() {
+  stopAutoRefresh();
+  if (autoRefresh.value) {
+    refreshInterval.value = window.setInterval(() => {
+      loadLogs();
+    }, 5000);
+  }
+}
+
+function stopAutoRefresh() {
+  if (refreshInterval.value !== null) {
+    clearInterval(refreshInterval.value);
+    refreshInterval.value = null;
+  }
+}
+
+function toggleAutoRefresh() {
+  autoRefresh.value = !autoRefresh.value;
+  if (autoRefresh.value) {
+    startAutoRefresh();
+  } else {
+    stopAutoRefresh();
+  }
+}
 
 async function loadLogs() {
   loading.value = true;
   try {
-    logs.value = await invoke<LogEntry[]>("get_logs");
+    logs.value = await invoke<LogEntry[]>("get_logs", { limit: 500 });
   } catch (e) {
     addMessage(footer, "error", `加载日志失败: ${e}`);
   } finally {
@@ -54,12 +79,12 @@ async function loadLogs() {
 }
 
 async function clearLogs() {
-  if (!confirm("确定要清空所有日志吗？")) return;
+  if (!confirm("确定要清空当天日志吗？")) return;
   loading.value = true;
   try {
     await invoke("clear_logs");
-    addMessage(footer, "success", "已清空日志");
-    logs.value = [];
+    addMessage(footer, "success", "已清空当天日志");
+    await loadLogs();
   } catch (e) {
     addMessage(footer, "error", `清空日志失败: ${e}`);
   } finally {
@@ -78,7 +103,8 @@ const filteredLogs = computed(() => {
     result = result.filter(
       (log) =>
         log.message.toLowerCase().includes(query) ||
-        log.timestamp.toLowerCase().includes(query)
+        log.timestamp.toLowerCase().includes(query) ||
+        log.module.toLowerCase().includes(query)
     );
   }
   return result;
@@ -87,13 +113,19 @@ const filteredLogs = computed(() => {
 /** 获取级别对应的徽章类型 */
 function getLevelType(level: string): "info" | "success" | "warning" | "danger" {
   switch (level.toLowerCase()) {
-    case "info":
-      return "info";
+    case "错误":
+    case "error":
+      return "danger";
+    case "警告":
     case "warn":
     case "warning":
       return "warning";
-    case "error":
-      return "danger";
+    case "信息":
+    case "info":
+      return "info";
+    case "调试":
+    case "debug":
+      return "info";
     default:
       return "info";
   }
@@ -103,6 +135,7 @@ function getLevelType(level: string): "info" | "success" | "warning" | "danger" 
 const columns = [
   { key: "timestamp", title: "时间" },
   { key: "level", title: "级别" },
+  { key: "module", title: "模块" },
   { key: "message", title: "消息" },
 ];
 </script>
@@ -116,27 +149,55 @@ const columns = [
           size="md"
         >
           <option value="">全部级别</option>
-          <option value="info">INFO</option>
-          <option value="warning">WARNING</option>
-          <option value="error">ERROR</option>
+          <option value="信息">INFO</option>
+          <option value="警告">WARNING</option>
+          <option value="错误">ERROR</option>
+          <option value="调试">DEBUG</option>
         </StandardizedSelect>
+        <button
+          class="btn-icon btn-icon-secondary"
+          :disabled="loading"
+          @click="toggleAutoRefresh"
+          :title="autoRefresh ? '暂停自动刷新' : '启用自动刷新'"
+        >
+          <Pause v-if="autoRefresh" :size="16" />
+          <Play v-else :size="16" />
+        </button>
+        <button
+          class="btn-icon btn-icon-secondary"
+          :disabled="loading"
+          @click="loadLogs"
+          title="手动刷新"
+        >
+          <RefreshCw :size="16" />
+        </button>
+        <button
+          class="btn-icon btn-icon-danger"
+          :disabled="loading"
+          @click="clearLogs"
+          title="清空当天日志"
+        >
+          <Trash2 :size="16" />
+        </button>
       </template>
-      <button
-        class="btn-icon btn-icon-danger"
-        :disabled="loading"
-        @click="clearLogs"
-        title="清空日志"
-      >
-        <Trash2 :size="16" />
-      </button>
     </PageToolbar>
+
+    <!-- 状态提示 -->
+    <div class="log-status">
+      <span class="status-item">
+        <span class="status-dot" :class="{ active: autoRefresh }"></span>
+        {{ autoRefresh ? '自动刷新中（每5秒）' : '已暂停自动刷新' }}
+      </span>
+      <span class="status-item">
+        共 {{ filteredLogs.length }} 条日志
+      </span>
+    </div>
 
     <!-- 日志表格 -->
     <StandardizedTable
       :columns="columns"
       :data="filteredLogs"
-      :pageSize="pageSize"
-      rowKey="id"
+      rowKey="timestamp"
       showIndex
       striped
       hoverable
@@ -156,6 +217,11 @@ const columns = [
         />
       </template>
 
+      <!-- 模块列 -->
+      <template #cell-module="{ row }">
+        <span class="module">{{ row.module || '-' }}</span>
+      </template>
+
       <!-- 消息列 -->
       <template #cell-message="{ row }">
         <span class="message">{{ row.message }}</span>
@@ -165,7 +231,46 @@ const columns = [
 </template>
 
 <style scoped>
+.log-status {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--text-muted);
+}
+
+.status-dot.active {
+  background-color: var(--color-success);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 .timestamp {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-family: monospace;
+  white-space: nowrap;
+}
+
+.module {
   color: var(--text-secondary);
   font-size: 0.8125rem;
   font-family: monospace;

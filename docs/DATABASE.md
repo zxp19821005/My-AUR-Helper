@@ -236,18 +236,6 @@ AUR 软件包详细信息，通过 AUR RPC 接口获取。
 | name | TEXT UNIQUE | 语言名称 (如 "Rust", "Python") |
 | short_name | TEXT | 简称 (如 "rs", "py") |
 
-<!-- logs：应用运行时日志，用于调试和审计 -->
-### logs
-应用日志表。
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | INTEGER PK | 自增主键 |
-| level | TEXT | 日志级别 (ERROR/WARN/INFO/DEBUG) |
-| message | TEXT | 日志消息 |
-| module | TEXT NULL | 模块名 |
-| created_at | TEXT | 创建时间 |
-
 <!-- settings：键值对形式的应用配置 -->
 ### settings
 应用设置表。
@@ -260,3 +248,22 @@ AUR 软件包详细信息，通过 AUR RPC 接口获取。
 | description | TEXT | 描述 |
 | category | TEXT | 分类 |
 | created_at | TEXT | 创建时间 |
+
+### 日志存储
+
+应用日志不再存储于数据库，而是写入文件系统。日志文件采用按日期分割的方式存储，格式为 `{log_prefix}-YYYY-MM-DD.log`。
+
+**默认配置：**
+- 日志目录：`~/.config/com.zxp19821005.aur-helper/logs`（可通过 `log_dir` 设置项自定义）
+- 文件名前缀：`applog`（可通过 `log_prefix` 设置项自定义）
+- 单文件大小上限：10 MB（`log_max_size`，超过后自动轮转）
+- 保留文件数量：7 个（`log_max_files`，超过后自动删除最旧文件）
+
+**相关设置项（存储于 settings 表）：**
+
+| 设置键 | 默认值 | 说明 |
+|--------|--------|------|
+| log_dir | （空，使用默认目录） | 日志文件存储目录 |
+| log_prefix | applog | 日志文件名前缀 |
+| log_max_size | 10485760 | 单个日志文件大小上限（字节） |
+| log_max_files | 7 | 保留的日志文件最大数量 |

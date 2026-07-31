@@ -113,15 +113,6 @@ impl Database {
                 short_name  TEXT
             );
 
-            -- 日志表
-            CREATE TABLE IF NOT EXISTS logs (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                level      TEXT NOT NULL,
-                message    TEXT NOT NULL,
-                module     TEXT,
-                created_at TEXT NOT NULL DEFAULT (datetime('now'))
-            );
-
             -- 设置表
             CREATE TABLE IF NOT EXISTS settings (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -138,7 +129,6 @@ impl Database {
             CREATE INDEX IF NOT EXISTS idx_backup_software_filename ON backup_software(filename);
             CREATE INDEX IF NOT EXISTS idx_cache_software_name ON cache_software(name);
             CREATE INDEX IF NOT EXISTS idx_proxies_test_proxy ON proxies_test(proxy_id);
-            CREATE INDEX IF NOT EXISTS idx_logs_created ON logs(created_at);
             CREATE INDEX IF NOT EXISTS idx_settings_category ON settings(category);
             ",
         )?;

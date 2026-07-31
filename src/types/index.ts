@@ -135,20 +135,18 @@ export interface EnumProgrammingLanguage {
 }
 
 /**
- * 日志条目
+ * 日志条目（从文件解析）
  * 存储应用日志信息，用于调试和问题排查
  */
 export interface LogEntry {
-  /** 日志 ID - 数据库主键 */
-  id: number | null;
+  /** 时间戳 */
+  timestamp: string;
   /** 日志级别 - INFO/WARN/ERROR/DEBUG */
   level: string;
+  /** 日志模块 - 产生日志的代码模块名 */
+  module: string;
   /** 日志消息 - 具体的日志内容 */
   message: string;
-  /** 日志模块 - 产生日志的代码模块名 */
-  module: string | null;
-  /** 创建时间 - ISO 格式时间字符串 */
-  created_at: string;
 }
 
 /**

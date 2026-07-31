@@ -80,7 +80,11 @@ pub fn run() {
             })?;
 
             // 读取日志设置并初始化日志轮转系统
-            let logs_dir = config_dir.join("logs");
+            let log_dir = get_setting_string(&database, "log_dir", "")
+                .is_empty()
+                .then(|| config_dir.join("logs"))
+                .unwrap_or_else(|| PathBuf::from(get_setting_string(&database, "log_dir", "")));
+            let log_prefix = get_setting_string(&database, "log_prefix", "applog");
             let log_max_size: u64 = get_setting_string(&database, "log_max_size", "10485760")
                 .parse()
                 .unwrap_or(10485760);
@@ -88,10 +92,12 @@ pub fn run() {
                 .parse()
                 .unwrap_or(7);
             logger::update_log_settings(log_max_size, log_max_files);
-            let rotating_logger = logger::RotatingLogger::new(logs_dir, "applog".to_string());
+            let rotating_logger = logger::RotatingLogger::new(log_dir.clone(), log_prefix.clone());
             rotating_logger.init().expect("初始化日志记录器失败");
             log::info!(
-                "日志系统已初始化，最大大小: {}KB, 最大文件数: {}",
+                "日志系统已初始化，目录: {}, 前缀: {}, 最大大小: {}KB, 最大文件数: {}",
+                log_dir.display(),
+                log_prefix,
                 log_max_size / 1024,
                 log_max_files
             );

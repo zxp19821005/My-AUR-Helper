@@ -36,6 +36,7 @@ impl Database {
         self.migrate_backup_software()?;
         self.migrate_cache_software()?;
         self.migrate_proxies()?;
+        self.migrate_drop_logs_table()?;
         self.seed_defaults()?;
         self.ensure_no_fk_constraints()?;
         Ok(())
@@ -50,7 +51,6 @@ impl Database {
             "proxies_info",
             "backup_software",
             "cache_software",
-            "logs",
             "settings",
             "enum_licenses",
             "enum_programming_languages",

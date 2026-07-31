@@ -13,7 +13,6 @@ mod cache_software_entry; // 缓存软件包列表展示模型
 mod checker_type; // 检查器类型枚举
 mod enum_license; // License 枚举模型
 mod enum_programming_language; // 编程语言枚举模型
-mod log_entry; // 日志条目模型
 mod package_type; // 包类型枚举
 mod proxy_info; // 代理信息模型
 mod proxy_test; // 代理测试结果模型
@@ -32,7 +31,6 @@ pub use cache_software_entry::CacheSoftwareEntry;
 pub use checker_type::CheckerType;
 pub use enum_license::EnumLicense;
 pub use enum_programming_language::EnumProgrammingLanguage;
-pub use log_entry::LogEntry;
 pub use package_type::PackageType;
 pub use proxy_info::ProxyInfo;
 pub use proxy_test::ProxyTest;
