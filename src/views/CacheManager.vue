@@ -5,7 +5,7 @@
   - 扫描所有启用的缓存目录中的 .pkg.tar.zst 包文件
   - 显示扫描结果（表格形式，支持分页、搜索、选择，不含文件名列）
   - 按缓存目录筛选
-  - 批量操作：清空缓存表、去重、备份新版（自动比较版本）、备份到、删除缓存
+  - 批量操作：清空缓存表、去重、备份新版（自动比较版本）、备份到、删除缓存、缓存清理
   - 单行操作：删除缓存
 
   使用组件：
@@ -20,12 +20,13 @@ import { invoke } from "@tauri-apps/api/core";
 import { useCacheList } from "../composables/useCacheList";
 import { loadEnabledCacheDirs } from "../composables/useCacheDirs";
 import { useCacheBackupActions } from "../composables/useCacheBackupActions";
+import { useCacheCleanup } from "../composables/useCacheCleanup";
 import { FOOTER_KEY, addMessage } from "../composables/footer";
 import BackupToModal from "../components/backup/BackupToModal.vue";
 import PageToolbar from "../components/common/PageToolbar.vue";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
 import CacheRowActions from "../components/cache/CacheRowActions.vue";
-import { Trash2, Scan, Copy, GitBranch, Filter, X } from "@lucide/vue";
+import { Trash2, Scan, Copy, GitBranch, Filter, X, Trash } from "@lucide/vue";
 
 const footer = inject(FOOTER_KEY)!;
 
@@ -67,6 +68,15 @@ const {
   handleBackupSuccess,
 } = useCacheBackupActions(footer, backupPath, selectedIds, selectedFilenames, loading);
 
+const {
+  loading: cleanupLoading,
+  sudoersCommand,
+  showSudoersPrompt,
+  checkSudoersConfig,
+  handleFullCleanup,
+  closeSudoersPrompt,
+} = useCacheCleanup();
+
 onMounted(async () => {
   try {
     cacheDirs.value = await loadEnabledCacheDirs();
@@ -82,6 +92,8 @@ onMounted(async () => {
   try {
     backupSubdirectories.value = await invoke<string[]>("list_backup_subdirectories");
   } catch { /* ignore */ }
+  // 检测缓存清理 sudoers 配置
+  await checkSudoersConfig();
 });
 
 const filteredByDir = computed(() => {
@@ -150,6 +162,15 @@ const columns = [
   { key: "arch", title: "架构" },
   { key: "cache_directory", title: "缓存目录" },
 ];
+
+async function copySudoersCommand() {
+  try {
+    await navigator.clipboard.writeText(sudoersCommand.value);
+    addMessage(footer, "success", "sudoers 配置命令已复制到剪贴板");
+  } catch {
+    addMessage(footer, "error", "复制命令失败，请手动复制");
+  }
+}
 </script>
 
 <template>
@@ -182,6 +203,9 @@ const columns = [
       </button>
       <button class="btn-icon btn-icon-success" :disabled="loading || selectedIds.size === 0" @click="openBackupToModal" title="备份到（选择子目录）">
         <Copy :size="16" />
+      </button>
+      <button class="btn-icon btn-icon-danger" :disabled="loading || cleanupLoading" @click="handleFullCleanup" title="缓存清理（清理系统缓存和自定义缓存目录）">
+        <Trash :size="16" />
       </button>
     </PageToolbar>
 
@@ -271,5 +295,140 @@ const columns = [
       @close="showBackupToModal = false"
       @success="handleBackupSuccess"
     />
+
+    <!-- sudoers 配置提示弹窗 -->
+    <Teleport to="body">
+      <div v-if="showSudoersPrompt" class="modal-overlay" @click.self="closeSudoersPrompt">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>需要配置 sudoers 免密权限</h3>
+            <button class="btn-icon btn-icon-default" @click="closeSudoersPrompt">
+              <X :size="16" />
+            </button>
+          </div>
+          <div class="modal-body">
+            <p>缓存清理功能需要 root 权限来清理系统缓存 /var/cache/pacman/pkg。</p>
+            <p>请在终端中执行以下命令来配置免密权限：</p>
+            <pre class="sudoers-command">{{ sudoersCommand }}</pre>
+            <p class="hint">配置完成后，请重新启动应用。</p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" @click="closeSudoersPrompt">取消</button>
+            <button class="btn btn-primary" @click="copySudoersCommand">复制命令</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
+
+<style scoped>
+/* sudoers 提示弹窗样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: var(--bg-primary);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.modal-body {
+  padding: 1.25rem;
+}
+
+.modal-body p {
+  margin: 0 0 0.75rem 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.modal-body p:last-of-type {
+  margin-bottom: 0;
+}
+
+.sudoers-command {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem;
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0.75rem 0;
+}
+
+.hint {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.btn {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+
+.btn-secondary {
+  background-color: var(--bg-secondary);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+.btn-secondary:hover {
+  background-color: var(--bg-tertiary);
+}
+
+.btn-primary {
+  background-color: var(--accent);
+  color: white;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+}
+</style>

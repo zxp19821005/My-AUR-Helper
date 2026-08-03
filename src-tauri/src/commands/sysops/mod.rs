@@ -8,6 +8,7 @@
  * - software_check: 版本检查（上游版本检查、批量检查）
  * - software_sync: 软件包同步（AUR 同步、上游检查、PKGBUILD 同步）
  * - upstream_validate: 上游 URL 验证（批量验证 URL 可达性）
+ * - cache_cleanup: 缓存清理（系统缓存、自定义缓存目录）
  *
  * 模块设计原则：
  * - mod.rs 仅负责模块声明和导出，不包含具体实现
@@ -36,10 +37,17 @@ pub mod software_sync;
 /// 上游 URL 验证（批量验证 URL 可达性）
 pub mod upstream_validate;
 
+/// 缓存清理（系统缓存、自定义缓存目录）
+pub mod cache_cleanup;
+
 // 公开导出 Tauri 命令函数，供 lib.rs 注册使用
 pub use backup_basic::{clear_backup_software, delete_backup, list_backup_software};
 pub use backup_install::{
     check_sudoers_config, get_package_file_info, get_sudoers_command, install_backup_package,
+};
+pub use cache_cleanup::{
+    check_cache_cleanup_sudoers, clean_custom_cache_dirs, clean_system_cache,
+    get_cache_cleanup_sudoers_command,
 };
 pub use software_check::{check_selected_upstream, check_upstream_version};
 pub use software_sync::{check_all_upstream, sync_from_aur, sync_from_pkgbuild, update_aur_info};

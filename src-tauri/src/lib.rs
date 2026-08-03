@@ -276,6 +276,11 @@ pub fn run() {
             // 系统命令（sysops 模块）
             commands::sysops::sys_command::get_package_version, // 获取已安装包的版本
             commands::sysops::sys_command::list_installed_packages, // 列出所有已安装包
+            // 缓存清理（sysops 模块）
+            commands::sysops::cache_cleanup::clean_system_cache, // 清理系统缓存
+            commands::sysops::cache_cleanup::clean_custom_cache_dirs, // 清理自定义缓存目录
+            commands::sysops::cache_cleanup::check_cache_cleanup_sudoers, // 检测缓存清理 sudoers 配置
+            commands::sysops::cache_cleanup::get_cache_cleanup_sudoers_command, // 获取缓存清理 sudoers 配置命令
             // 日志管理
             commands::logs::get_logs,     // 获取日志列表
             commands::logs::get_new_logs, // 增量获取日志
