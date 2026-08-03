@@ -2,14 +2,10 @@
  * cache_cleanup.rs - 缓存清理命令
  *
  * 功能：
- * - clean_system_cache: 清理系统缓存 /var/cache/pacman/pkg（删除未安装的包文件）
+ * - clean_system_cache: 清理系统缓存 /var/cache/pacman/pkg（删除所有文件和目录）
  * - clean_custom_cache_dirs: 清理自定义 AUR 软件助手缓存目录（删除构建目录，保留隐藏文件）
  * - check_cache_cleanup_sudoers: 检测缓存清理 sudoers 配置
  * - get_cache_cleanup_sudoers_command: 获取缓存清理 sudoers 配置命令
- *
- * 参考 paru -Scc 的行为：
- * - 系统缓存：只清理未安装的包文件
- * - AUR 缓存：清理构建目录，保留隐藏文件和 VCS 源
  */
 use log::info;
 use tauri::State;
@@ -19,7 +15,7 @@ use crate::AppState;
 
 /// 清理系统缓存 /var/cache/pacman/pkg
 ///
-/// 只清理未安装的包文件（参考 pacman -Scc 的行为）
+/// 删除目录中的所有文件和目录（包括 download-* 目录）
 /// 需要 root 权限
 #[tauri::command]
 pub async fn clean_system_cache() -> AppResult<String> {
@@ -31,119 +27,34 @@ pub async fn clean_system_cache() -> AppResult<String> {
         return Ok("系统缓存目录不存在，跳过清理".to_string());
     }
 
-    // 获取已安装的包列表
-    let installed_output = tokio::process::Command::new("pacman")
-        .args(["-Qq"])
+    // 使用 find 命令删除所有内容（处理 glob 和特殊字符）
+    let output = tokio::process::Command::new("sudo")
+        .args([
+            "find",
+            "/var/cache/pacman/pkg/",
+            "-mindepth",
+            "1",
+            "-delete",
+        ])
         .output()
         .await
-        .map_err(|e| {
-            crate::errors::AppError::SystemCommand(format!("获取已安装包列表失败: {}", e))
-        })?;
+        .map_err(|e| crate::errors::AppError::SystemCommand(format!("执行清理失败: {}", e)))?;
 
-    if !installed_output.status.success() {
-        return Err(crate::errors::AppError::SystemCommand(
-            "获取已安装包列表失败".to_string(),
-        ));
-    }
-
-    let installed_pkgs: Vec<String> = String::from_utf8_lossy(&installed_output.stdout)
-        .lines()
-        .map(|s| s.to_string())
-        .collect();
-
-    info!("[缓存清理] 已安装包数量: {}", installed_pkgs.len());
-
-    // 读取缓存目录
-    let mut entries = tokio::fs::read_dir(path)
-        .await
-        .map_err(|e| crate::errors::AppError::SystemCommand(format!("读取缓存目录失败: {}", e)))?;
-
-    let mut removed_count = 0;
-    let mut errors = Vec::new();
-
-    while let Some(entry) = entries
-        .next_entry()
-        .await
-        .map_err(|e| crate::errors::AppError::SystemCommand(format!("读取目录项失败: {}", e)))?
-    {
-        let filename = entry.file_name().to_string_lossy().to_string();
-
-        // 只处理 .pkg.tar.zst 文件
-        if !filename.ends_with(".pkg.tar.zst") {
-            continue;
-        }
-
-        // 从文件名提取包名（格式：name-version-pkgrel-arch.pkg.tar.zst）
-        let pkgname = extract_pkgname_from_filename(&filename);
-        if let Some(name) = pkgname {
-            // 如果包已安装，跳过（保留已安装包的缓存）
-            if installed_pkgs.contains(&name) {
-                log::debug!("[缓存清理] 保留已安装包的缓存: {}", filename);
-                continue;
-            }
-        }
-
-        // 删除未安装包的缓存文件（需要 sudo 权限）
-        let file_path = entry.path();
-        let output = tokio::process::Command::new("sudo")
-            .args(["rm", "-f", &file_path.to_string_lossy()])
-            .output()
-            .await;
-
-        match output {
-            Ok(output) if output.status.success() => {
-                log::debug!("[缓存清理] 已删除: {}", file_path.display());
-                removed_count += 1;
-            }
-            Ok(output) => {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                errors.push(format!(
-                    "删除 {} 失败: {}",
-                    file_path.display(),
-                    stderr.trim()
-                ));
-            }
-            Err(e) => {
-                errors.push(format!("删除 {} 失败: {}", file_path.display(), e));
-            }
-        }
-    }
-
-    let msg = if errors.is_empty() {
-        format!(
-            "系统缓存清理完成，删除 {} 个未安装包的缓存文件",
-            removed_count
-        )
+    if output.status.success() {
+        info!("[缓存清理] 系统缓存清理完成");
+        Ok("系统缓存清理完成".to_string())
     } else {
-        format!(
-            "系统缓存清理完成，删除 {} 个文件，{} 个错误",
-            removed_count,
-            errors.len()
-        )
-    };
-
-    info!("[缓存清理] {}", msg);
-    Ok(msg)
-}
-
-/// 从 .pkg.tar.zst 文件名中提取包名
-fn extract_pkgname_from_filename(filename: &str) -> Option<String> {
-    // 文件名格式：name-version-pkgrel-arch.pkg.tar.zst
-    let base = filename.strip_suffix(".pkg.tar.zst")?;
-    let parts: Vec<&str> = base.rsplitn(3, '-').collect();
-    if parts.len() < 3 {
-        return None;
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(crate::errors::AppError::SystemCommand(format!(
+            "清理系统缓存失败: {}",
+            stderr.trim()
+        )))
     }
-    // parts[0] = arch, parts[1] = pkgrel, parts[2] = name-version
-    let name_ver = parts[2];
-    let dash_pos = name_ver.rfind('-')?;
-    let name = name_ver[..dash_pos].to_string();
-    Some(name)
 }
 
 /// 清理自定义 AUR 软件助手缓存目录
 ///
-/// 只删除构建目录内容，保留隐藏文件和文件夹（参考 paru -Scc 的行为）
+/// 只删除构建目录内容，保留隐藏文件和文件夹
 #[tauri::command]
 pub async fn clean_custom_cache_dirs(state: State<'_, AppState>) -> AppResult<String> {
     info!("[缓存清理] 开始清理自定义缓存目录");
@@ -268,21 +179,21 @@ pub async fn get_cache_cleanup_sudoers_command() -> AppResult<String> {
         Ok(output) if output.status.success() => {
             let content = String::from_utf8_lossy(&output.stdout);
 
-            if content.contains("/usr/bin/rm -rf /var/cache/pacman/pkg/*") {
+            if content.contains("/usr/bin/find /var/cache/pacman/pkg/") {
                 // 已包含缓存清理规则
                 return Ok("sudoers 配置已包含缓存清理规则，无需重复配置".to_string());
             }
 
             // 文件存在但不包含缓存清理规则，追加规则
             Ok(format!(
-                "echo \"{} ALL=(ALL) NOPASSWD: /usr/bin/rm -rf /var/cache/pacman/pkg/*\" | sudo tee -a /etc/sudoers.d/aur-helper-backup",
+                "echo \"{} ALL=(ALL) NOPASSWD: /usr/bin/find /var/cache/pacman/pkg/* -mindepth 1 -delete\" | sudo tee -a /etc/sudoers.d/aur-helper-backup",
                 username
             ))
         }
         _ => {
             // 文件不存在，创建新的配置文件
             Ok(format!(
-                "echo \"{} ALL=(ALL) NOPASSWD: /usr/bin/pacman -U *, /usr/bin/rm -rf /var/cache/pacman/pkg/*\" | sudo tee /etc/sudoers.d/aur-helper-backup",
+                "echo \"{} ALL=(ALL) NOPASSWD: /usr/bin/pacman -U *, /usr/bin/find /var/cache/pacman/pkg/* -mindepth 1 -delete\" | sudo tee /etc/sudoers.d/aur-helper-backup",
                 username
             ))
         }
