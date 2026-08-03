@@ -119,38 +119,19 @@ pub async fn clean_custom_cache_dirs(state: State<'_, AppState>) -> AppResult<St
 
 /// 检测缓存清理 sudoers 配置是否可用
 ///
-/// 使用 sudo cat 读取 /etc/sudoers.d/aur-helper-backup 文件，检查是否包含当前用户的缓存清理免密规则
+/// 使用 sudo -n true 检测是否可以免密执行 sudo 命令
 #[tauri::command]
 pub async fn check_cache_cleanup_sudoers() -> AppResult<bool> {
-    // 获取当前用户名
-    let output = tokio::process::Command::new("whoami")
-        .output()
-        .await
-        .map_err(|e| crate::errors::AppError::SystemCommand(format!("获取用户名失败: {}", e)))?;
-    let username = String::from_utf8_lossy(&output.stdout).trim().to_string();
-
-    // 使用 sudo cat 读取 sudoers 文件（普通用户无权直接读取）
-    let sudoers_path = "/etc/sudoers.d/aur-helper-backup";
+    // 使用 sudo -n true 检测是否可以免密执行 sudo
+    // -n 参数表示不提示输入密码，如果需要密码会立即返回失败
     let output = tokio::process::Command::new("sudo")
-        .args(["cat", sudoers_path])
+        .args(["-n", "true"])
         .output()
         .await;
 
     match output {
-        Ok(output) if output.status.success() => {
-            let content = String::from_utf8_lossy(&output.stdout);
-
-            // 检查是否包含当前用户名的 NOPASSWD 规则
-            let user_pattern = format!("{} ALL=(ALL) NOPASSWD:", username);
-            if !content.contains(&user_pattern) {
-                return Ok(false);
-            }
-
-            // 检查是否包含缓存清理的命令（/usr/bin/rm -rf /var/cache/pacman/pkg/*）
-            // 注意：sudoers 文件中可能有多个命令用逗号分隔
-            Ok(content.contains("/usr/bin/rm -rf /var/cache/pacman/pkg/*"))
-        }
-        _ => Ok(false), // 文件不存在或读取失败，需要配置
+        Ok(output) => Ok(output.status.success()),
+        Err(_) => Ok(false),
     }
 }
 
