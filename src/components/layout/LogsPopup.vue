@@ -1,24 +1,39 @@
 <!--
-  LogsPopup.vue - 日志弹出窗口组件
+  LogsPopup.vue - 日志查看弹出窗口组件
 
   功能：
-  - 提供日志查看窗口的布局和菜单配置
-  - 使用 PopupLayout 通用组件
-
-  菜单项：
-  - 日志查看：查看应用运行日志
+  - 提供日志查看窗口的布局（无左侧导航栏）
+  - 直接显示日志查看内容
+  - 包含底部工具栏（分页、进度条等）
 -->
 <script setup lang="ts">
-import { ScrollText } from "@lucide/vue";      // Lucide 图标
-import PopupLayout from "./PopupLayout.vue";    // 通用弹出窗口布局组件
-
-/** 日志菜单项配置 - 定义左侧导航菜单 */
-const menuItems = [
-  { path: "/logs", label: "日志查看", icon: ScrollText },  // 日志查看入口
-];
+import BottomToolbar from "./BottomToolbar.vue";
 </script>
 
 <template>
-  <!-- 使用 PopupLayout 通用布局，传入标题、图标和菜单配置 -->
-  <PopupLayout title="日志" :icon="ScrollText" :menuItems="menuItems" />
+  <div class="logs-popup-layout">
+    <!-- 内容区域 -->
+    <main class="logs-popup-content">
+      <RouterView />
+    </main>
+
+    <!-- 底部工具栏 - 分页、进度条等 -->
+    <BottomToolbar />
+  </div>
 </template>
+
+<style scoped>
+.logs-popup-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+  background-color: var(--bg-primary);
+}
+
+.logs-popup-content {
+  flex: 1;
+  overflow-y: auto;
+  min-width: 0;
+}
+</style>

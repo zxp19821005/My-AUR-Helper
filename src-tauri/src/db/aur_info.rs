@@ -18,8 +18,14 @@ impl Database {
                 depends=excluded.depends, makedepends=excluded.makedepends, \
                 optdepends=excluded.optdepends, out_of_date=excluded.out_of_date",
             rusqlite::params![
-                info.software_id, info.pkgdesc, info.aur_version, info.license_id,
-                info.last_updated, info.depends, info.makedepends, info.optdepends,
+                info.software_id,
+                info.pkgdesc,
+                info.aur_version,
+                info.license_id,
+                info.last_updated,
+                info.depends,
+                info.makedepends,
+                info.optdepends,
                 info.out_of_date.map(|b| b as i32),
             ],
         )?;
@@ -33,7 +39,7 @@ impl Database {
         let mut stmt = self.conn.prepare(
             "SELECT software_id, pkgdesc, aur_version, license_id, \
              CAST(last_updated AS INTEGER), depends, makedepends, optdepends, out_of_date \
-             FROM aur_info WHERE software_id=?1"
+             FROM aur_info WHERE software_id=?1",
         )?;
         let mut rows = stmt.query_map(rusqlite::params![software_id], |row| {
             Ok(AurInfo {

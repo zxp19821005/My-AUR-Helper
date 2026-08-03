@@ -15,10 +15,10 @@
 use log::{error, info};
 use tauri::State;
 
+use super::super::proxy_utils::{build_client, get_active_proxy};
 use super::utils::{
     build_checker_settings, get_setting_opt, parse_u32, parse_u64, UpstreamCheckResult,
 };
-use super::super::proxy_utils::{build_client, get_active_proxy};
 use crate::errors::AppResult;
 use crate::AppState;
 

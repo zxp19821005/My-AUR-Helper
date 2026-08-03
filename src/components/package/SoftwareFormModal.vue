@@ -58,11 +58,20 @@ const {
   filteredLicenses,
   selectLicense,
   getSelectedLicenseLabel,
+  setupClickOutsideListener,
+  removeClickOutsideListener,
 } = useLicenseSelect(licenses, computed(() => form.value.license_ids), searchableSelectRef);
 
 watch(
   () => props.show,
-  (val) => { if (val) init(props.mode, props.pkgname); }
+  (val) => {
+    if (val) {
+      init(props.mode, props.pkgname);
+      setupClickOutsideListener();
+    } else {
+      removeClickOutsideListener();
+    }
+  }
 );
 
 watch(

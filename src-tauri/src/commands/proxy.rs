@@ -121,7 +121,8 @@ pub async fn test_proxies_batch(
         let proxies = if let Some(ids) = proxy_ids {
             // 测试指定的代理
             let all_proxies = db.get_all_proxies()?;
-            all_proxies.into_iter()
+            all_proxies
+                .into_iter()
                 .filter(|p| ids.contains(&p.proxy_id.unwrap_or(0)))
                 .collect()
         } else {
@@ -145,7 +146,9 @@ pub async fn test_proxies_batch(
             &proxy.url,
             &proxy.proxy_type,
             Some(&test_url),
-        ).await {
+        )
+        .await
+        {
             Ok(latency) => ProxyTestResult {
                 proxy_id,
                 success: true,
@@ -181,9 +184,12 @@ pub async fn test_proxy_single(
     let (proxy, test_urls) = {
         let db = state.db.lock()?;
         let proxies = db.get_all_proxies()?;
-        let proxy = proxies.into_iter()
+        let proxy = proxies
+            .into_iter()
             .find(|p| p.proxy_id == Some(proxy_id))
-            .ok_or_else(|| crate::errors::AppError::PackageNotFound(format!("代理 {} 不存在", proxy_id)))?;
+            .ok_or_else(|| {
+                crate::errors::AppError::PackageNotFound(format!("代理 {} 不存在", proxy_id))
+            })?;
         let test_urls = get_test_urls(&db);
         (proxy, test_urls)
     };
@@ -192,27 +198,25 @@ pub async fn test_proxy_single(
 
     // 测试代理
     let client = reqwest::Client::new();
-    let result = match proxy::test_proxy_by_type(
-        &client,
-        &proxy.url,
-        &proxy.proxy_type,
-        Some(&test_url),
-    ).await {
-        Ok(latency) => ProxyTestResult {
-            proxy_id,
-            success: true,
-            latency: Some(latency),
-            error: None,
-            test_url,
-        },
-        Err(e) => ProxyTestResult {
-            proxy_id,
-            success: false,
-            latency: None,
-            error: Some(e.to_string()),
-            test_url,
-        },
-    };
+    let result =
+        match proxy::test_proxy_by_type(&client, &proxy.url, &proxy.proxy_type, Some(&test_url))
+            .await
+        {
+            Ok(latency) => ProxyTestResult {
+                proxy_id,
+                success: true,
+                latency: Some(latency),
+                error: None,
+                test_url,
+            },
+            Err(e) => ProxyTestResult {
+                proxy_id,
+                success: false,
+                latency: None,
+                error: Some(e.to_string()),
+                test_url,
+            },
+        };
 
     info!("代理 {} 测试完成: {}", proxy_id, result.success);
     Ok(result)
@@ -249,19 +253,29 @@ struct TestUrls {
 /// 获取测试 URL 配置
 fn get_test_urls(db: &crate::db::Database) -> TestUrls {
     TestUrls {
-        download: db.get_setting("proxy_test_download_url")
+        download: db
+            .get_setting("proxy_test_download_url")
             .unwrap_or(None)
             .map(|s| s.value)
-            .unwrap_or_else(|| "https://github.com/zxp19821005/My_AUR_Files/releases/latest/download/README.md".to_string()),
-        clone: db.get_setting("proxy_test_clone_url")
+            .unwrap_or_else(|| {
+                "https://github.com/zxp19821005/My_AUR_Files/releases/latest/download/README.md"
+                    .to_string()
+            }),
+        clone: db
+            .get_setting("proxy_test_clone_url")
             .unwrap_or(None)
             .map(|s| s.value)
             .unwrap_or_else(|| "https://github.com/zxp19821005/My_AUR_Files.git".to_string()),
-        raw: db.get_setting("proxy_test_raw_url")
+        raw: db
+            .get_setting("proxy_test_raw_url")
             .unwrap_or(None)
             .map(|s| s.value)
-            .unwrap_or_else(|| "https://raw.githubusercontent.com/zxp19821005/My_AUR_Files/main/README.md".to_string()),
-        ssh: db.get_setting("proxy_test_ssh_url")
+            .unwrap_or_else(|| {
+                "https://raw.githubusercontent.com/zxp19821005/My_AUR_Files/main/README.md"
+                    .to_string()
+            }),
+        ssh: db
+            .get_setting("proxy_test_ssh_url")
             .unwrap_or(None)
             .map(|s| s.value)
             .unwrap_or_else(|| "ssh://git@ssh.github.com:443/zxp19821005/My_AUR_Files".to_string()),

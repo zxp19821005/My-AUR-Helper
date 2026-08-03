@@ -72,18 +72,28 @@ pub fn run() {
             std::fs::create_dir_all(&app_dir)
                 .map_err(|e| errors::AppError::FileOperation(format!("创建配置目录失败: {}", e)))?;
             let db_path = app_dir.join("my_aur_helper.db"); // 数据库文件路径
-            let database = db::Database::new(&db_path).map_err(|e| {
-                errors::AppError::DatabaseError(format!("数据库初始化失败: {}", e))
-            })?;
+            let database = db::Database::new(&db_path)
+                .map_err(|e| errors::AppError::DatabaseError(format!("数据库初始化失败: {}", e)))?;
             database.initialize().map_err(|e| {
                 errors::AppError::DatabaseError(format!("数据库表结构初始化失败: {}", e))
             })?;
 
             // 读取日志设置并初始化日志轮转系统
-            let log_dir = get_setting_string(&database, "log_dir", "")
-                .is_empty()
-                .then(|| config_dir.join("logs"))
-                .unwrap_or_else(|| PathBuf::from(get_setting_string(&database, "log_dir", "")));
+            let log_dir_raw = get_setting_string(&database, "log_dir", "");
+            let log_dir = if log_dir_raw.is_empty() {
+                config_dir.join("logs")
+            } else {
+                // 展开 ~ 为主目录路径
+                if log_dir_raw == "~" || log_dir_raw.starts_with("~/") {
+                    if let Some(home) = dirs::home_dir() {
+                        home.join(&log_dir_raw[2..])
+                    } else {
+                        PathBuf::from(&log_dir_raw)
+                    }
+                } else {
+                    PathBuf::from(&log_dir_raw)
+                }
+            };
             let log_prefix = get_setting_string(&database, "log_prefix", "applog");
             let log_max_size: u64 = get_setting_string(&database, "log_max_size", "10485760")
                 .parse()
@@ -94,6 +104,8 @@ pub fn run() {
             logger::update_log_settings(log_max_size, log_max_files);
             let rotating_logger = logger::RotatingLogger::new(log_dir.clone(), log_prefix.clone());
             rotating_logger.init().expect("初始化日志记录器失败");
+            // 设置全局 AppHandle 用于日志事件推送
+            logger::set_app_handle(app.handle().clone());
             log::info!(
                 "日志系统已初始化，目录: {}, 前缀: {}, 最大大小: {}KB, 最大文件数: {}",
                 log_dir.display(),
@@ -123,13 +135,15 @@ pub fn run() {
 
                 // 创建托盘图标
                 let _tray = TrayIconBuilder::new()
-                    .icon(app.default_window_icon()
-                        .map(|icon| icon.clone())
-                        .unwrap_or_else(|| {
-                            log::warn!("默认图标加载失败，使用系统默认图标");
-                            // 创建一个 1x1 的透明图标作为备用
-                            tauri::image::Image::new(&[0u8, 0, 0, 0], 1, 1)
-                        }))
+                    .icon(
+                        app.default_window_icon()
+                            .map(|icon| icon.clone())
+                            .unwrap_or_else(|| {
+                                log::warn!("默认图标加载失败，使用系统默认图标");
+                                // 创建一个 1x1 的透明图标作为备用
+                                tauri::image::Image::new(&[0u8, 0, 0, 0], 1, 1)
+                            }),
+                    )
                     .menu(&menu) // 绑定菜单
                     .tooltip("My AUR Helper") // 鼠标悬停提示
                     // 菜单事件处理
@@ -247,7 +261,7 @@ pub fn run() {
             commands::sysops::backup_basic::delete_backup,        // 删除单个备份
             commands::sysops::backup_install::get_package_file_info, // 获取包文件信息
             commands::sysops::backup_install::check_sudoers_config, // 检测 sudoers 配置
-            commands::sysops::backup_install::get_sudoers_command,  // 获取 sudoers 配置命令
+            commands::sysops::backup_install::get_sudoers_command, // 获取 sudoers 配置命令
             commands::sysops::backup_install::install_backup_package, // 安装备份包
             // 代理管理
             commands::proxy::get_proxies,         // 获取所有代理列表
@@ -263,8 +277,9 @@ pub fn run() {
             commands::sysops::sys_command::get_package_version, // 获取已安装包的版本
             commands::sysops::sys_command::list_installed_packages, // 列出所有已安装包
             // 日志管理
-            commands::logs::get_logs,   // 获取日志列表
-            commands::logs::clear_logs, // 清空日志
+            commands::logs::get_logs,     // 获取日志列表
+            commands::logs::get_new_logs, // 增量获取日志
+            commands::logs::clear_logs,   // 清空日志
             // 设置管理
             commands::settings::get_settings,       // 获取所有设置
             commands::settings::get_setting,        // 获取单个设置

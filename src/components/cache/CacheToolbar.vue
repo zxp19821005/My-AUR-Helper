@@ -99,9 +99,8 @@ const emit = defineEmits<{
         variant="outline"
         size="sm"
         :loading="loading"
-        :disabled="selectedCount === 0"
         @click="emit('backup-new-version')"
-        title="备份新版（备份到已有位置）"
+        title="备份新版（自动比较版本，将更新的包备份到已有位置）"
       >
         <Copy :size="16" />
       </StandardizedButton>

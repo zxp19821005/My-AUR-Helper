@@ -35,7 +35,13 @@ impl Database {
         let has_updated_at = columns.contains(&"updated_at".to_string());
 
         // 所有目标字段齐全且无历史遗留字段时跳过迁移
-        if !has_software_id && has_name && has_pkgver && has_full_path && !has_created_at && !has_updated_at {
+        if !has_software_id
+            && has_name
+            && has_pkgver
+            && has_full_path
+            && !has_created_at
+            && !has_updated_at
+        {
             return Ok(());
         }
 

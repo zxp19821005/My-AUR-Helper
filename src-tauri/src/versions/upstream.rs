@@ -32,7 +32,9 @@ fn re_release_suffix() -> &'static Regex {
 /// 预编译正则：匹配构建元数据
 fn re_build_metadata() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| Regex::new(r"\+[a-zA-Z0-9.-]+$").expect("静态正则表达式编译失败: build_metadata"))
+    RE.get_or_init(|| {
+        Regex::new(r"\+[a-zA-Z0-9.-]+$").expect("静态正则表达式编译失败: build_metadata")
+    })
 }
 
 impl UpstreamVersion {

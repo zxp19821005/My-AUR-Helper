@@ -1,16 +1,18 @@
 /**
- * logger.rs - 日志写入模块
+ * logger.rs - 日志系统模块
  *
  * 功能：
  * - 提供带日志轮转的文件日志记录器（RotatingLogger）
  * - 支持按日期分割文件、大小超限自动轮转、旧文件自动清理
  * - 实现 log crate 的 Log trait，作为全局日志记录器
+ * - 通过 Tauri 事件系统实时推送日志到前端
  */
 use log::{Level, LevelFilter, Log, Metadata, Record, SetLoggerError};
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex as StdMutex;
+use tauri::{AppHandle, Emitter};
 
 /// 日志轮转配置
 #[derive(Debug, Clone, Copy)]
@@ -46,6 +48,33 @@ pub fn update_log_settings(max_size: u64, max_files: usize) {
 /// 获取当前日志配置
 pub fn get_log_settings() -> LogSettings {
     LOG_SETTINGS.lock().map(|s| *s).unwrap_or_default()
+}
+
+/// 全局 Tauri AppHandle（用于事件推送）
+static APP_HANDLE: StdMutex<Option<AppHandle>> = StdMutex::new(None);
+
+/// 设置全局 AppHandle
+pub fn set_app_handle(app: AppHandle) {
+    if let Ok(mut handle) = APP_HANDLE.lock() {
+        *handle = Some(app);
+    }
+}
+
+/// 推送日志事件到前端
+fn emit_log_event(level: &str, module: &str, message: &str, timestamp: &str) {
+    if let Ok(handle_guard) = APP_HANDLE.lock() {
+        if let Some(app) = handle_guard.as_ref() {
+            let _ = app.emit(
+                "log-entry",
+                serde_json::json!({
+                    "timestamp": timestamp,
+                    "level": level,
+                    "module": module,
+                    "message": message,
+                }),
+            );
+        }
+    }
 }
 
 /// 带日志轮转的文件日志记录器
@@ -151,21 +180,22 @@ impl Log for RotatingLogger {
         let now = chrono::Local::now();
         let date = now.format("%Y-%m-%d").to_string();
         let level = match record.level() {
-            Level::Error => "错误",
-            Level::Warn => "警告",
-            Level::Info => "信息",
-            Level::Debug => "调试",
-            Level::Trace => "跟踪",
+            Level::Error => "ERROR",
+            Level::Warn => "WARN",
+            Level::Info => "INFO",
+            Level::Debug => "DEBUG",
+            Level::Trace => "TRACE",
         };
-        let msg = format!(
-            "{} - {}: [{}] {}",
-            now.format("%Y-%m-%d %H:%M:%S%.3f"),
-            level,
-            record.target(),
-            record.args()
-        );
+        let timestamp = now.format("%Y-%m-%d %H:%M:%S%.3f").to_string();
+        let module = record.target().to_string();
+        let message = record.args().to_string();
+
+        let msg = format!("{} - {}: [{}] {}", timestamp, level, module, message);
 
         println!("{}", msg);
+
+        // 推送日志事件到前端
+        emit_log_event(level, &module, &message, &timestamp);
 
         let settings = get_log_settings();
         let mut state = match self.state.lock() {

@@ -37,9 +37,11 @@ pub mod software_sync;
 pub mod upstream_validate;
 
 // 公开导出 Tauri 命令函数，供 lib.rs 注册使用
+pub use backup_basic::{clear_backup_software, delete_backup, list_backup_software};
+pub use backup_install::{
+    check_sudoers_config, get_package_file_info, get_sudoers_command, install_backup_package,
+};
+pub use software_check::{check_selected_upstream, check_upstream_version};
+pub use software_sync::{check_all_upstream, sync_from_aur, sync_from_pkgbuild, update_aur_info};
 pub use sys_command::{get_package_version, list_installed_packages};
-pub use backup_install::{get_package_file_info, check_sudoers_config, get_sudoers_command, install_backup_package};
-pub use backup_basic::{list_backup_software, clear_backup_software, delete_backup};
-pub use software_check::{check_upstream_version, check_selected_upstream};
-pub use software_sync::{sync_from_aur, update_aur_info, sync_from_pkgbuild, check_all_upstream};
 pub use upstream_validate::validate_upstream_urls;

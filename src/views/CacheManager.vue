@@ -5,7 +5,7 @@
   - 扫描所有启用的缓存目录中的 .pkg.tar.zst 包文件
   - 显示扫描结果（表格形式，支持分页、搜索、选择，不含文件名列）
   - 按缓存目录筛选
-  - 批量操作：清空缓存表、去重、备份新版、备份到、删除缓存
+  - 批量操作：清空缓存表、去重、备份新版（自动比较版本）、备份到、删除缓存
   - 单行操作：删除缓存
 
   使用组件：
@@ -177,7 +177,7 @@ const columns = [
       <button class="btn-icon btn-icon-info" :disabled="loading" @click="handleDedup" title="去重（保留最新版本）">
         <GitBranch :size="16" />
       </button>
-      <button class="btn-icon btn-icon-success" :disabled="loading || selectedIds.size === 0" @click="handleBackupNewVersion" title="备份新版（备份到已有位置）">
+      <button class="btn-icon btn-icon-success" :disabled="loading" @click="handleBackupNewVersion" title="备份新版（自动比较版本，将更新的包备份到已有位置）">
         <Copy :size="16" />
       </button>
       <button class="btn-icon btn-icon-success" :disabled="loading || selectedIds.size === 0" @click="openBackupToModal" title="备份到（选择子目录）">

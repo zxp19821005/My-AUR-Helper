@@ -33,7 +33,10 @@ pub async fn parse_proxy_file() -> AppResult<Vec<ProxyInfo>> {
 
     // 检查文件是否存在
     if !file_path.exists() {
-        return Err(AppError::FileNotFound(format!("代理文件不存在: {:?}", file_path)));
+        return Err(AppError::FileNotFound(format!(
+            "代理文件不存在: {:?}",
+            file_path
+        )));
     }
 
     // 读取文件内容

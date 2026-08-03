@@ -13,9 +13,8 @@
   - logs: 日志窗口
 -->
 <script setup lang="ts">
-import { ref, watch, onMounted, reactive, provide } from "vue";
+import { ref, watch, reactive, provide, computed } from "vue";
 import { useRoute } from "vue-router";
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import Sidebar from "./components/layout/Sidebar.vue";
 import TabBar from "./components/layout/TabBar.vue";
 import BottomToolbar from "./components/layout/BottomToolbar.vue";
@@ -27,16 +26,13 @@ const route = useRoute();
 const tabStore = useTabStore();
 
 const sidebarCollapsed = ref(true);
-const isPopupWindow = ref(false);
+// 通过路由路径判断是否为弹出窗口（更可靠）
+const popupPaths = ["/settings", "/enums", "/logs"];
+const isPopupWindow = computed(() => popupPaths.some(p => route.path.startsWith(p)));
 
 /** 底部工具栏状态 - 通过 provide/inject 共享 */
 const footerState = reactive<FooterState>(defaultFooterState());
 provide(FOOTER_KEY, footerState);
-
-onMounted(async () => {
-  const win = getCurrentWebviewWindow();
-  isPopupWindow.value = win.label === "settings" || win.label === "enums" || win.label === "logs";
-});
 
 /** 监听路由变化 - 重置分页/信息文本/进度，保留消息日志 */
 watch(

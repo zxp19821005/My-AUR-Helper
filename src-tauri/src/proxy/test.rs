@@ -44,8 +44,14 @@ pub async fn test_proxy_by_type(
     match proxy_type {
         ProxyType::Download => {
             // 下载代理：使用 HEAD 请求测试
-            let url = test_url.unwrap_or("https://github.com/zxp19821005/My_AUR_Files/releases/latest/download/README.md");
-            let full_url = format!("{}/{}", proxy_url.trim_end_matches('/'), url.trim_start_matches('/'));
+            let url = test_url.unwrap_or(
+                "https://github.com/zxp19821005/My_AUR_Files/releases/latest/download/README.md",
+            );
+            let full_url = format!(
+                "{}/{}",
+                proxy_url.trim_end_matches('/'),
+                url.trim_start_matches('/')
+            );
             let start = std::time::Instant::now();
             let resp = client.head(&full_url).send().await?;
             let latency = start.elapsed().as_millis() as i64;
@@ -61,7 +67,11 @@ pub async fn test_proxy_by_type(
         ProxyType::Clone => {
             // 克隆代理：使用 HEAD 请求测试
             let url = test_url.unwrap_or("https://github.com/zxp19821005/My_AUR_Files.git");
-            let full_url = format!("{}/{}", proxy_url.trim_end_matches('/'), url.trim_start_matches('/'));
+            let full_url = format!(
+                "{}/{}",
+                proxy_url.trim_end_matches('/'),
+                url.trim_start_matches('/')
+            );
             let start = std::time::Instant::now();
             let resp = client.head(&full_url).send().await?;
             let latency = start.elapsed().as_millis() as i64;
@@ -76,8 +86,14 @@ pub async fn test_proxy_by_type(
         }
         ProxyType::Raw => {
             // RAW 代理：使用 GET 请求测试
-            let url = test_url.unwrap_or("https://raw.githubusercontent.com/zxp19821005/My_AUR_Files/main/README.md");
-            let full_url = format!("{}/{}", proxy_url.trim_end_matches('/'), url.trim_start_matches('/'));
+            let url = test_url.unwrap_or(
+                "https://raw.githubusercontent.com/zxp19821005/My_AUR_Files/main/README.md",
+            );
+            let full_url = format!(
+                "{}/{}",
+                proxy_url.trim_end_matches('/'),
+                url.trim_start_matches('/')
+            );
             let start = std::time::Instant::now();
             let resp = client.get(&full_url).send().await?;
             let latency = start.elapsed().as_millis() as i64;

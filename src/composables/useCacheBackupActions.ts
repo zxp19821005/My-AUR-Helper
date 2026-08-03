@@ -3,7 +3,7 @@
  *
  * 功能：
  * - 备份目录去重（deduplicate_backups）
- * - 备份新版到已有目录（backup_cache_to_existing）
+ * - 备份新版到已有目录（backup_cache_to_existing）- 自动比较版本，将更新的包备份到已有位置
  * - 备份到子目录弹窗的打开与结果处理
  *
  * 使用场景：CacheManager.vue 页面
@@ -18,8 +18,8 @@ import type { DeduplicateResult } from "../types";
  *
  * @param footer 底部状态栏状态（用于消息提示）
  * @param backupPath 备份目录路径
- * @param selectedIds 选中行索引集合
- * @param selectedFilenames 选中的缓存文件名列表
+ * @param selectedIds 选中行索引集合（用于备份到功能）
+ * @param _selectedFilenames 选中的缓存文件名列表（用于备份到功能，备份新版功能不需要）
  * @param loading 页面加载状态
  * @returns 备份操作函数和弹窗显示状态
  */
@@ -27,7 +27,7 @@ export function useCacheBackupActions(
   footer: FooterState,
   backupPath: Ref<string>,
   selectedIds: Ref<Set<number>>,
-  selectedFilenames: Ref<string[]>,
+  _selectedFilenames: Ref<string[]>,
   loading: Ref<boolean>
 ) {
   /** 是否显示"备份到"弹窗 */
@@ -58,12 +58,16 @@ export function useCacheBackupActions(
     }
   }
 
-  /** 将选中的缓存包备份到已有备份目录 */
+  /**
+   * 自动比较版本，将缓存中更新的包备份到已有备份目录
+   *
+   * 工作流程：
+   * 1. 扫描所有缓存目录
+   * 2. 获取所有备份记录
+   * 3. 对于每个备份记录，检查是否有对应的缓存包
+   * 4. 如果缓存包版本比备份包版本更新，则复制到备份目录
+   */
   async function handleBackupNewVersion() {
-    if (selectedIds.value.size === 0) {
-      addMessage(footer, "warning", "请先选择要备份的缓存包");
-      return;
-    }
     if (!backupPath.value) {
       addMessage(footer, "warning", "未设置备份目录，请先在设置中配置备份目录");
       return;
@@ -73,12 +77,10 @@ export function useCacheBackupActions(
       const [success, errors] = await invoke<[number, string[]]>(
         "backup_cache_to_existing",
         {
-          filenames: selectedFilenames.value,
           backupPath: backupPath.value,
         }
       );
       notifyBackupResult(success, errors);
-      selectedIds.value.clear();
     } catch (e) {
       addMessage(footer, "error", `备份失败: ${e}`);
     } finally {

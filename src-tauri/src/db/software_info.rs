@@ -76,11 +76,9 @@ impl Database {
             "SELECT software_id, pkgname, upstream_url, package_type_id, checker_type_id, \
              is_outdated, check_test_versions, check_binary_files, auto_check_enabled, \
              language_id, version_extract_regex \
-             FROM software_info ORDER BY pkgname"
+             FROM software_info ORDER BY pkgname",
         )?;
-        let rows = stmt.query_map([], |row| {
-            Self::row_to_software_info(row)
-        })?;
+        let rows = stmt.query_map([], |row| Self::row_to_software_info(row))?;
         let mut items = Vec::new();
         for row in rows {
             items.push(row?);
@@ -93,7 +91,7 @@ impl Database {
             "SELECT software_id, pkgname, upstream_url, package_type_id, checker_type_id, \
              is_outdated, check_test_versions, check_binary_files, auto_check_enabled, \
              language_id, version_extract_regex \
-             FROM software_info WHERE pkgname=?1"
+             FROM software_info WHERE pkgname=?1",
         )?;
         let mut rows = stmt.query_map(rusqlite::params![pkgname], |row| {
             Self::row_to_software_info(row)
@@ -130,7 +128,7 @@ impl Database {
              language_id, version_extract_regex \
              FROM software_info \
              WHERE pkgname LIKE ?1 ESCAPE '\\' OR upstream_url LIKE ?1 ESCAPE '\\' \
-             ORDER BY pkgname"
+             ORDER BY pkgname",
         )?;
         let rows = stmt.query_map(rusqlite::params![pattern], |row| {
             Self::row_to_software_info(row)

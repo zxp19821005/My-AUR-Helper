@@ -5,6 +5,7 @@
  * - clear_cache_software: 清空 cache_software 表
  * - list_cache_software: 直接从 cache_software 表读取所有记录（用于页面初始加载）
  * - scan_all_cache_dirs: 扫描所有启用的缓存目录，写入 cache_software 表
+ * - scan_cache_dir: 扫描单个缓存目录，返回缓存记录列表（用于备份新版比较）
  */
 use tauri::State;
 
@@ -152,4 +153,59 @@ pub async fn scan_all_cache_dirs(
         .collect();
     log::info!("[缓存管理] 扫描任务完成，共返回 {} 个包", result.len());
     Ok(result)
+}
+
+/// 扫描单个缓存目录，返回缓存记录列表
+///
+/// 用于备份新版功能，比较缓存包和备份包的版本
+///
+/// # 参数
+/// - `dir`: 缓存目录配置（包含 name 和 path）
+///
+/// # 返回
+/// - 缓存记录列表（包含版本信息）
+pub async fn scan_cache_dir(
+    dir: &super::cache_dirs::CacheDir,
+) -> AppResult<Vec<CacheSoftwareEntry>> {
+    let path = std::path::Path::new(&dir.path);
+    if !path.exists() {
+        log::warn!("[缓存管理] 缓存目录不存在: {} ({})", dir.name, dir.path);
+        return Ok(Vec::new());
+    }
+
+    log::debug!("[缓存管理] 正在扫描目录: {} ({})", dir.name, dir.path);
+
+    let packages = super::scan::scan_pkg_files(&dir.path).await?;
+    log::debug!(
+        "[缓存管理] 扫描 {} 完成，找到 {} 个包",
+        dir.name,
+        packages.len()
+    );
+
+    let entries: Vec<CacheSoftwareEntry> = packages
+        .into_iter()
+        .map(|pkg| {
+            let epoch: i64 = pkg
+                .epoch
+                .as_ref()
+                .and_then(|s| s.parse::<i64>().ok())
+                .unwrap_or(0);
+            CacheSoftwareEntry {
+                id: 0,
+                pkgname: pkg.name.clone(),
+                filename: pkg.filename.clone(),
+                epoch,
+                pkgver: pkg.version.clone(),
+                pkgrel: pkg.pkgrel.clone(),
+                arch: pkg.arch.clone(),
+                cache_directory: dir.path.clone(),
+                full_path: std::path::Path::new(&dir.path)
+                    .join(&pkg.filename)
+                    .to_string_lossy()
+                    .to_string(),
+            }
+        })
+        .collect();
+
+    Ok(entries)
 }

@@ -6,7 +6,7 @@
  * - 控制下拉框开关和外部点击关闭
  * - 提供选中 License 的显示标签
  */
-import { ref, computed, onMounted, onUnmounted, type Ref } from "vue";
+import { ref, computed, type Ref } from "vue";
 import type { License } from "../types";
 
 export function useLicenseSelect(
@@ -81,13 +81,13 @@ export function useLicenseSelect(
     }
   }
 
-  onMounted(() => {
+  function setupClickOutsideListener() {
     document.addEventListener("click", handleClickOutside);
-  });
+  }
 
-  onUnmounted(() => {
+  function removeClickOutsideListener() {
     document.removeEventListener("click", handleClickOutside);
-  });
+  }
 
   return {
     licenseSearch,
@@ -95,5 +95,7 @@ export function useLicenseSelect(
     filteredLicenses,
     selectLicense,
     getSelectedLicenseLabel,
+    setupClickOutsideListener,
+    removeClickOutsideListener,
   };
 }

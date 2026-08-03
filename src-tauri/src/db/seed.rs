@@ -130,6 +130,12 @@ impl Database {
                 "编程语言管理列表每页显示行数",
                 "list",
             ),
+            (
+                "list_page_size_log",
+                "12",
+                "日志查看列表每页显示行数",
+                "list",
+            ),
             // 缓存目录配置
             (
                 "cache_dir_system",

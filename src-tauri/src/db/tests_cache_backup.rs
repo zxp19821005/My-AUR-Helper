@@ -64,10 +64,7 @@ fn test_schema_consistency_between_cache_and_backup() {
     }
 
     // 缓存业务特有字段
-    for col in [
-        "pkgver",
-        "cache_directory",
-    ] {
+    for col in ["pkgver", "cache_directory"] {
         assert!(
             cache_cols.contains(&col.to_string()),
             "cache_software 缺少特有字段 {}",
@@ -116,7 +113,14 @@ fn test_migrate_cache_software_from_old_schema() {
 
     let cols = db.get_table_columns("cache_software").unwrap();
     // 迁移后不应包含这些多余字段
-    for col in ["software_id", "size", "source_dir", "created_at", "updated_at", "version"] {
+    for col in [
+        "software_id",
+        "size",
+        "source_dir",
+        "created_at",
+        "updated_at",
+        "version",
+    ] {
         assert!(
             !cols.contains(&col.to_string()),
             "迁移后仍包含多余字段 {}",
@@ -125,7 +129,10 @@ fn test_migrate_cache_software_from_old_schema() {
     }
     // 应包含 name 和 pkgver 字段且在 filename 前
     assert!(cols.contains(&"name".to_string()), "迁移后缺少字段 name");
-    assert!(cols.contains(&"pkgver".to_string()), "迁移后缺少字段 pkgver");
+    assert!(
+        cols.contains(&"pkgver".to_string()),
+        "迁移后缺少字段 pkgver"
+    );
 
     // 旧数据保留且 full_path 回填为 cache_directory/filename
     let entries = db.get_all_cache_software().unwrap();

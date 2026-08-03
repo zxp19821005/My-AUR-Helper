@@ -20,8 +20,7 @@ const logPrefix = ref("applog");
 const loading = ref(true);
 
 const defaultLogDir = computed(() => {
-  const home = process.env.HOME || "~";
-  return `${home}/.config/com.zxp19821005.aur-helper/logs`;
+  return "~/.config/com.zxp19821005.aur-helper/logs";
 });
 
 const displayLogDir = computed(() => {

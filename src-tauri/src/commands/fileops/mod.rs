@@ -38,10 +38,14 @@ pub mod backup_scan;
 pub mod backup_dedup;
 
 // 公开导出 Tauri 命令函数，供 lib.rs 注册使用
-pub use scan::scan_pkg_files_cmd;
-pub use cache_dirs::{expand_tilde, extract_pkgname_from_cache, find_cache_file, get_cache_dirs, CacheDir};
-pub use cache_scan::{clear_cache_software, list_cache_software, scan_all_cache_dirs};
-pub use cache_backup::{backup_cache_to_existing, backup_cache_to_subdirectory};
+pub use backup_dedup::{deduplicate_backups, parse_pkg_filename, DeduplicateResult};
 pub use backup_execute::{run_backup, BackupConfig, BackupResult};
-pub use backup_scan::{scan_backup_directory, list_backup_subdirectories};
-pub use backup_dedup::{deduplicate_backups, DeduplicateResult, parse_pkg_filename};
+pub use backup_scan::{list_backup_subdirectories, scan_backup_directory};
+pub use cache_backup::{backup_cache_to_existing, backup_cache_to_subdirectory};
+pub use cache_dirs::{
+    expand_tilde, extract_pkgname_from_cache, find_cache_file, get_cache_dirs, CacheDir,
+};
+pub use cache_scan::{
+    clear_cache_software, list_cache_software, scan_all_cache_dirs, scan_cache_dir,
+};
+pub use scan::scan_pkg_files_cmd;

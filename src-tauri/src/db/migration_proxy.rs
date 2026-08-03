@@ -57,7 +57,11 @@ impl Database {
         );";
 
         let proxy_name_expr = if has_proxy_name { "proxy_name" } else { "''" };
-        let proxy_type_expr = if has_proxy_type { "proxy_type" } else { "'download'" };
+        let proxy_type_expr = if has_proxy_type {
+            "proxy_type"
+        } else {
+            "'download'"
+        };
         let url_expr = if has_url { "url" } else { "''" };
         let is_active_expr = if has_is_active { "is_active" } else { "1" };
 
@@ -124,9 +128,21 @@ impl Database {
         );";
 
         let proxy_id_expr = if has_proxy_id { "proxy_id" } else { "0" };
-        let test_time_expr = if has_test_time { "test_time" } else { "datetime('now')" };
-        let avg_latency_expr = if has_avg_latency { "avg_latency" } else { "NULL" };
-        let success_count_expr = if has_success_count { "success_count" } else { "0" };
+        let test_time_expr = if has_test_time {
+            "test_time"
+        } else {
+            "datetime('now')"
+        };
+        let avg_latency_expr = if has_avg_latency {
+            "avg_latency"
+        } else {
+            "NULL"
+        };
+        let success_count_expr = if has_success_count {
+            "success_count"
+        } else {
+            "0"
+        };
         let fail_count_expr = if has_fail_count { "fail_count" } else { "0" };
 
         let insert_sql = format!(

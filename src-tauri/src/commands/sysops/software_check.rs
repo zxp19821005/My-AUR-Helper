@@ -9,11 +9,9 @@ use chrono::Utc;
 use log::{debug, error, info};
 use tauri::State;
 
-use crate::checkers::{self, CheckOptions, CheckResult};
 use super::proxy_utils::{build_client, get_active_proxy};
-use super::software_sync::utils::{
-    build_checker_settings, get_setting_opt, parse_u32, parse_u64,
-};
+use super::software_sync::utils::{build_checker_settings, get_setting_opt, parse_u32, parse_u64};
+use crate::checkers::{self, CheckOptions, CheckResult};
 use crate::errors::{AppError, AppResult};
 use crate::models::*;
 use crate::versions;

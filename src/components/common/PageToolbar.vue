@@ -24,34 +24,44 @@ watch(searchText, (val) => {
   }, 500);
 });
 
-async function openEnums() {
-  const existing = await WebviewWindow.getByLabel("enums");
+async function openWindow(label: string, url: string, title: string) {
+  const existing = await WebviewWindow.getByLabel(label);
   if (existing) {
-    try { if (await existing.isVisible()) { existing.setFocus(); return; } } catch {}
+    try {
+      // 检查窗口是否仍然有效且可见
+      if (await existing.isVisible()) {
+        await existing.setFocus();
+        return;
+      }
+      // 窗口存在但不可见（最小化），恢复它
+      await existing.show();
+      await existing.setFocus();
+      return;
+    } catch {
+      // 窗口已关闭/销毁，忽略错误，继续创建新窗口
+    }
   }
-  new WebviewWindow("enums", {
-    url: "/enums", title: "枚举值管理", width: 900, height: 600, resizable: true, center: true,
+  // 创建新窗口
+  new WebviewWindow(label, {
+    url,
+    title,
+    width: 900,
+    height: 600,
+    resizable: true,
+    center: true,
   });
+}
+
+async function openEnums() {
+  await openWindow("enums", "/enums", "枚举值管理");
 }
 
 async function openLogs() {
-  const existing = await WebviewWindow.getByLabel("logs");
-  if (existing) {
-    try { if (await existing.isVisible()) { existing.setFocus(); return; } } catch {}
-  }
-  new WebviewWindow("logs", {
-    url: "/logs", title: "日志", width: 900, height: 600, resizable: true, center: true,
-  });
+  await openWindow("logs", "/logs", "日志");
 }
 
 async function openSettings() {
-  const existing = await WebviewWindow.getByLabel("settings");
-  if (existing) {
-    try { if (await existing.isVisible()) { existing.setFocus(); return; } } catch {}
-  }
-  new WebviewWindow("settings", {
-    url: "/settings", title: "设置", width: 900, height: 600, resizable: true, center: true,
-  });
+  await openWindow("settings", "/settings", "设置");
 }
 </script>
 

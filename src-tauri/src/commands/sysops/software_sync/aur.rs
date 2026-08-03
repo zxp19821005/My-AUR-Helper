@@ -13,11 +13,11 @@
 use log::{debug, info};
 use tauri::State;
 
+use super::super::proxy_utils::{build_client, get_active_proxy};
 use super::utils::{
     detect_package_defaults, get_setting_opt, parse_aur_fields, parse_u32, parse_u64, AurSyncResult,
 };
 use crate::aur;
-use super::super::proxy_utils::{build_client, get_active_proxy};
 use crate::errors::{AppError, AppResult};
 use crate::models::*;
 use crate::AppState;
