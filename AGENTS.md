@@ -122,6 +122,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/commands/cache_backup/dirs.rs` | 缓存目录通用工具（CacheDir、路径展开、包名解析、启用目录获取） |
 | `src-tauri/src/commands/cache_backup/backup.rs` | 备份命令（备份到已有目录/备份到子目录） |
 | `src-tauri/src/commands/cache_backup/scan.rs` | 扫描命令（清空缓存表/扫描所有缓存目录） |
+| `src-tauri/src/commands/sysops/cache_cleanup.rs` | 缓存清理命令（系统缓存、自定义缓存目录、sudoers 配置） |
 | `src-tauri/src/commands/software_sync/` | 软件包同步命令模块（目录结构） |
 | `src-tauri/src/commands/software_sync/mod.rs` | 模块声明和导出（不含具体实现） |
 | `src-tauri/src/commands/software_sync/aur.rs` | AUR 信息同步和更新命令（复用 parse_aur_fields） |
@@ -190,6 +191,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/composables/useBackupInstall.ts` | 备份包安装逻辑（sudoers 检测、安装、包信息查询） |
 | `src/composables/useCacheList.ts` | 缓存管理列表页逻辑（分页、搜索、选择） |
 | `src/composables/useCacheBackupActions.ts` | 缓存备份操作逻辑（去重、备份新版本、备份到目录） |
+| `src/composables/useCacheCleanup.ts` | 缓存清理操作逻辑（系统缓存、自定义缓存目录、sudoers 检测） |
 | `src/composables/useSoftwareForm.ts` | 软件包表单逻辑（验证、自动检测） |
 | `src/composables/useLicenseSelect.ts` | License 可搜索下拉框逻辑 |
 | `src/stores/` | Pinia 状态管理 |
