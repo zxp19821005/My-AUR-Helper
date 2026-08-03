@@ -119,7 +119,7 @@ pub async fn clean_custom_cache_dirs(state: State<'_, AppState>) -> AppResult<St
 
 /// 检测缓存清理 sudoers 配置是否可用
 ///
-/// 检查 /etc/sudoers.d/aur-helper-backup 文件是否包含当前用户的缓存清理免密规则
+/// 检查 /etc/sudoers.d/aur-helper-backup 文件是否存在且包含当前用户的缓存清理免密规则
 #[tauri::command]
 pub async fn check_cache_cleanup_sudoers() -> AppResult<bool> {
     // 获取当前用户名
@@ -133,12 +133,15 @@ pub async fn check_cache_cleanup_sudoers() -> AppResult<bool> {
     let sudoers_path = "/etc/sudoers.d/aur-helper-backup";
     match tokio::fs::read_to_string(sudoers_path).await {
         Ok(content) => {
-            // 检查是否包含缓存清理的免密规则
-            let expected_pattern = format!(
-                "{} ALL=(ALL) NOPASSWD: /usr/bin/rm -rf /var/cache/pacman/pkg/*",
-                username
-            );
-            Ok(content.contains(&expected_pattern))
+            // 检查是否包含当前用户名的 NOPASSWD 规则
+            let user_pattern = format!("{} ALL=(ALL) NOPASSWD:", username);
+            if !content.contains(&user_pattern) {
+                return Ok(false);
+            }
+
+            // 检查是否包含缓存清理的命令（/usr/bin/rm -rf /var/cache/pacman/pkg/*）
+            // 注意：sudoers 文件中可能有多个命令用逗号分隔
+            Ok(content.contains("/usr/bin/rm -rf /var/cache/pacman/pkg/*"))
         }
         Err(_) => Ok(false), // 文件不存在，需要配置
     }
@@ -147,6 +150,7 @@ pub async fn check_cache_cleanup_sudoers() -> AppResult<bool> {
 /// 获取缓存清理 sudoers 配置命令
 ///
 /// 生成一个 sudoers 配置命令，允许当前用户免密执行缓存清理
+/// 如果文件已存在，会追加缓存清理规则
 #[tauri::command]
 pub async fn get_cache_cleanup_sudoers_command() -> AppResult<String> {
     let output = tokio::process::Command::new("whoami")
@@ -156,9 +160,31 @@ pub async fn get_cache_cleanup_sudoers_command() -> AppResult<String> {
 
     let username = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
-    // 生成包含多个命令的 sudoers 配置
-    Ok(format!(
-        "echo \"{} ALL=(ALL) NOPASSWD: /usr/bin/pacman -U *, /usr/bin/rm -rf /var/cache/pacman/pkg/*\" | sudo tee /etc/sudoers.d/aur-helper-backup",
-        username
-    ))
+    // 检查文件是否已存在
+    let sudoers_path = "/etc/sudoers.d/aur-helper-backup";
+    let file_exists = tokio::fs::read_to_string(sudoers_path).await.is_ok();
+
+    if file_exists {
+        // 文件已存在，检查是否已包含缓存清理规则
+        let content = tokio::fs::read_to_string(sudoers_path)
+            .await
+            .unwrap_or_default();
+
+        if content.contains("/usr/bin/rm -rf /var/cache/pacman/pkg/*") {
+            // 已包含缓存清理规则
+            return Ok("sudoers 配置已包含缓存清理规则，无需重复配置".to_string());
+        }
+
+        // 文件存在但不包含缓存清理规则，追加规则
+        Ok(format!(
+            "echo \"{} ALL=(ALL) NOPASSWD: /usr/bin/rm -rf /var/cache/pacman/pkg/*\" | sudo tee -a /etc/sudoers.d/aur-helper-backup",
+            username
+        ))
+    } else {
+        // 文件不存在，创建新的配置文件
+        Ok(format!(
+            "echo \"{} ALL=(ALL) NOPASSWD: /usr/bin/pacman -U *, /usr/bin/rm -rf /var/cache/pacman/pkg/*\" | sudo tee /etc/sudoers.d/aur-helper-backup",
+            username
+        ))
+    }
 }
