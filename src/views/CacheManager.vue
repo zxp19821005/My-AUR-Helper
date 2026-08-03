@@ -72,7 +72,6 @@ const {
   loading: cleanupLoading,
   sudoersCommand,
   showSudoersPrompt,
-  checkSudoersConfig,
   handleFullCleanup,
   closeSudoersPrompt,
 } = useCacheCleanup();
@@ -92,8 +91,6 @@ onMounted(async () => {
   try {
     backupSubdirectories.value = await invoke<string[]>("list_backup_subdirectories");
   } catch { /* ignore */ }
-  // 检测缓存清理 sudoers 配置
-  await checkSudoersConfig();
 });
 
 const filteredByDir = computed(() => {

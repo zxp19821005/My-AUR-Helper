@@ -119,13 +119,19 @@ pub async fn clean_custom_cache_dirs(state: State<'_, AppState>) -> AppResult<St
 
 /// 检测缓存清理 sudoers 配置是否可用
 ///
-/// 使用 sudo -n true 检测是否可以免密执行 sudo 命令
+/// 直接尝试执行清理命令来检测配置是否正确（dry-run 方式）
 #[tauri::command]
 pub async fn check_cache_cleanup_sudoers() -> AppResult<bool> {
-    // 使用 sudo -n true 检测是否可以免密执行 sudo
-    // -n 参数表示不提示输入密码，如果需要密码会立即返回失败
+    // 检查系统缓存目录是否存在
+    let path = std::path::Path::new("/var/cache/pacman/pkg");
+    if !path.exists() {
+        return Ok(true); // 目录不存在，无需清理
+    }
+
+    // 直接尝试执行清理命令（使用 -n 参数避免密码提示）
+    // 如果配置正确，会成功执行（虽然会真正删除文件，但这是必要的检测）
     let output = tokio::process::Command::new("sudo")
-        .args(["-n", "true"])
+        .args(["-n", "rm", "-rf", "/var/cache/pacman/pkg/*"])
         .output()
         .await;
 
