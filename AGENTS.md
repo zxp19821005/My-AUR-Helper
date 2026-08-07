@@ -475,6 +475,13 @@ pub struct CheckResult {
 - 建议添加 `:showPagination="false"` 禁用内置分页，改用底部工具栏进行分页控制
 - 必须从 composable 中解构 `filteredEntries`、`pageSize`、`currentPage` 等响应式变量
 
+### CSS z-index 层级规范（重要）
+- **工具栏（.page-toolbar）**：`z-index: 1001`（`position: relative`）
+- **筛选遮罩层（.filter-overlay）**：`z-index: 1000`（`position: fixed`）
+- **模态框遮罩层（.modal-overlay）**：`z-index: 1000`（`position: fixed`）
+- 工具栏必须高于筛选遮罩层和模态框遮罩层，否则遮罩层打开时工具栏按钮会被拦截
+- 修改筛选遮罩层或模态框遮罩层的 z-index 时，必须确保工具栏保持更高层级
+
 ### software_info 表字段说明
 | 字段 | 类型 | 说明 |
 |------|------|------|
@@ -498,6 +505,16 @@ pub struct CheckResult {
 - 所有命令必须在 `lib.rs` 中注册
 - 命令参数使用 `#[command]` 宏声明
 - 敏感操作需要额外权限验证
+
+### Tauri v2 窗口事件（重要）
+- **正确事件名称**：`"tauri://close-requested"`（不是 `"close"`）
+- Tauri v2 的 `TauriEvent` 枚举定义了以下窗口事件：
+  - `WINDOW_CLOSE_REQUESTED = "tauri://close-requested"` — 用户请求关闭窗口
+  - `WINDOW_DESTROYED = "tauri://destroyed"` — 窗口已销毁
+- **不要使用 `win.once("close", ...)`**，Tauri v2 没有 `"close"` 事件
+- **窗口关闭行为**：当前 Rust 后端的 `on_window_event` 对所有窗口执行 `window.hide()` + `api.prevent_close()`（当 `close_action == "minimize_to_tray"` 时），这意味着弹出窗口关闭时只是被隐藏，而不是销毁
+- **检测窗口是否存在**：使用 `WebviewWindow.getByLabel(label)` 获取窗口引用，然后调用 `show()` 恢复隐藏的窗口
+- **参考实现**：`src/components/common/PageToolbar.vue` 的 `openWindow` 函数
 
 <!-- ========== Git 提交规范：代码版本控制规则 ========== -->
 ## Git 提交规范

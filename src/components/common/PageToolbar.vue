@@ -46,18 +46,11 @@ async function openWindow(label: string, url: string, title: string) {
     const existing = await WebviewWindow.getByLabel(label);
     if (existing) {
       try {
-        const visible = await existing.isVisible();
-        if (visible) {
-          await existing.setFocus();
-          return;
-        }
         await existing.show();
-        await existing.setFocus();
-        if (await existing.isVisible()) {
-          return;
-        }
+        existing.setFocus().catch(() => {});
+        return;
       } catch {
-        // 窗口已销毁，继续创建新窗口
+        // show 失败，窗口可能已销毁，继续创建新窗口
       }
     }
   } catch {
@@ -78,16 +71,16 @@ async function openWindow(label: string, url: string, title: string) {
   }
 }
 
-async function openEnums() {
-  await openWindow("enums", "/enums", "枚举值管理");
+function openEnums() {
+  openWindow("enums", "/enums", "枚举值管理");
 }
 
-async function openLogs() {
-  await openWindow("logs", "/logs", "日志");
+function openLogs() {
+  openWindow("logs", "/logs", "日志");
 }
 
-async function openSettings() {
-  await openWindow("settings", "/settings", "设置");
+function openSettings() {
+  openWindow("settings", "/settings", "设置");
 }
 </script>
 
@@ -155,6 +148,8 @@ async function openSettings() {
   border-bottom: 1px solid var(--border);
   background-color: var(--bg-primary);
   min-height: 44px;
+  position: relative;
+  z-index: 1001;
 }
 .toolbar-left {
   display: flex;
