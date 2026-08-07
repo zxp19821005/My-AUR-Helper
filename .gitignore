@@ -6,4 +6,5 @@ src-tauri/target/
 .opencode/
 .qoder/
 .trae/
+.workbuddy/
 pnpm-lock.yaml

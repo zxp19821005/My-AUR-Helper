@@ -10,7 +10,7 @@
   - SoftwareInfoTable: 信息表格组件
   - SoftwareStatusRow: 状态行组件
   - SoftwareSideCards: 侧边信息卡片组件
-  - SoftwareInfoCard: 基本信息卡片
+  - （已移除冗余中间卡片，严格品字形结构：上区通用信息 + 左下 AUR + 右下上游）
 -->
 <script setup lang="ts">
 import { ref, watch, onMounted } from "vue";
@@ -20,7 +20,6 @@ import StandardizedModal from "../common/StandardizedModal.vue";
 import SoftwareFormModal from "./SoftwareFormModal.vue";
 import FloatingNav from "./FloatingNav.vue";
 import DetailToolbar from "./DetailToolbar.vue";
-import SoftwareInfoCard from "./SoftwareInfoCard.vue";
 import SoftwareInfoTable from "./SoftwareInfoTable.vue";
 import SoftwareStatusRow from "./SoftwareStatusRow.vue";
 import SoftwareSideCards from "./SoftwareSideCards.vue";
@@ -200,8 +199,9 @@ watch(
 
         <SoftwareInfoTable :detail="detail" :languages="languages" />
         <SoftwareStatusRow :detail="detail" />
-        <SoftwareInfoCard :detail="detail" />
       </div>
+
+      <div class="section-divider"></div>
 
       <SoftwareSideCards :detail="detail" />
     </div>
@@ -277,6 +277,11 @@ watch(
 }
 
 .section {
+  margin-bottom: 1rem;
+}
+
+.section-divider {
+  border-top: 1px solid var(--border);
   margin-bottom: 1rem;
 }
 </style>

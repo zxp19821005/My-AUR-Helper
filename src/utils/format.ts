@@ -5,9 +5,8 @@
  * - 格式化时间戳
  * - 格式化 License JSON 字符串
  * - 解析 JSON 数组字符串为逗号分隔的列表
- * - 获取包类型、检查器类型的显示名称
+ * - 根据语言 ID 列表获取语言名称列表
  */
-import { pkgTypeOptions, checkerTypeOptions } from "./enums";
 
 /**
  * 格式化 Unix 时间戳为日期字符串
@@ -57,28 +56,6 @@ export function parseJsonList(val: string | null | undefined): string {
   } catch {
     return val;
   }
-}
-
-/**
- * 获取包类型的显示名称
- *
- * @param id 包类型 ID
- * @returns 显示名称，未知 ID 返回 "未知"
- */
-export function getPkgTypeName(id: number | null | undefined): string {
-  if (id == null) return "未知";
-  return pkgTypeOptions.find((t) => t.id === id)?.label || "未知";
-}
-
-/**
- * 获取检查器类型的显示名称
- *
- * @param id 检查器类型 ID
- * @returns 显示名称，未知 ID 返回 "未知"
- */
-export function getCheckerTypeName(id: number | null | undefined): string {
-  if (id == null) return "未知";
-  return checkerTypeOptions.find((c) => c.id === id)?.label || "未知";
 }
 
 /**
