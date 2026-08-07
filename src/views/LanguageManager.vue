@@ -2,10 +2,9 @@
   LanguageManager.vue - 编程语言管理页面
 
   功能：
-  - 显示编程语言列表（名称、描述）
+  - 显示编程语言列表（名称、简称）
   - 支持搜索、分页
   - 支持添加、编辑、删除语言
-  - 支持从 GitHub 同步
 
   使用组件：
   - StandardizedTable: 表格组件
@@ -20,11 +19,10 @@ import LanguageFormModal from "../components/enum/LanguageFormModal.vue";
 import { useSettingsStore } from "../stores/settings";
 import PageToolbar from "../components/common/PageToolbar.vue";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
-import { RefreshCw, Plus } from "@lucide/vue";
+import { Plus } from "@lucide/vue";
 
 const settingsStore = useSettingsStore();
 const languages = ref<ProgrammingLanguage[]>([]);
-const syncing = ref(false);
 const message = ref("");
 const searchQuery = ref("");
 
@@ -45,23 +43,9 @@ onMounted(async () => {
 
 async function loadLanguages() {
   try {
-    languages.value = await invoke<ProgrammingLanguage[]>("get_programming_languages");
+    languages.value = await invoke<ProgrammingLanguage[]>("get_languages");
   } catch (e) {
     message.value = "加载失败: " + String(e);
-  }
-}
-
-async function syncFromGitHub() {
-  syncing.value = true;
-  message.value = "";
-  try {
-    const count = await invoke<number>("sync_programming_languages_from_github");
-    message.value = `已同步 ${count} 个编程语言`;
-    await loadLanguages();
-  } catch (e) {
-    message.value = "同步失败: " + String(e);
-  } finally {
-    syncing.value = false;
   }
 }
 
@@ -79,18 +63,13 @@ function openEdit(lang: ProgrammingLanguage) {
 
 async function handleSave(data: { id: number | null; name: string; short_name: string }) {
   try {
-    if (modalMode.value === "add") {
-      await invoke("add_programming_language", {
-        name: data.name.trim(),
-        shortName: data.short_name.trim(),
-      });
-    } else {
-      await invoke("update_programming_language", {
+    await invoke("upsert_language", {
+      language: {
         id: data.id,
         name: data.name.trim(),
-        shortName: data.short_name.trim(),
-      });
-    }
+        short_name: data.short_name.trim(),
+      },
+    });
     showModal.value = false;
     message.value = modalMode.value === "add" ? "已添加编程语言" : "已更新编程语言";
     await loadLanguages();
@@ -102,7 +81,7 @@ async function handleSave(data: { id: number | null; name: string; short_name: s
 async function handleDelete(lang: ProgrammingLanguage) {
   if (!confirm(`确定要删除编程语言 "${lang.name}" 吗？`)) return;
   try {
-    await invoke("delete_programming_language", { id: lang.id });
+    await invoke("delete_language", { name: lang.name });
     message.value = "已删除编程语言";
     await loadLanguages();
   } catch (e) {
@@ -125,14 +104,6 @@ function handleRowClick(row: ProgrammingLanguage) {
 <template>
   <div>
     <PageToolbar v-model="searchQuery" @refresh="loadLanguages">
-      <button
-        class="btn-icon btn-icon-accent"
-        :disabled="syncing"
-        @click="syncFromGitHub"
-        title="从 GitHub 同步"
-      >
-        <RefreshCw :size="16" :class="{ 'spinning': syncing }" />
-      </button>
       <button
         class="btn-icon btn-icon-success"
         @click="openAdd"
@@ -188,12 +159,4 @@ function handleRowClick(row: ProgrammingLanguage) {
 </template>
 
 <style scoped>
-.spinning {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
 </style>
