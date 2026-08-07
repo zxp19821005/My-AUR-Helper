@@ -27,9 +27,9 @@ export interface Column {
 interface UseTableStateProps {
   columns: Column[];
   data: any[] | (() => any[]);
-  pageSize: number;
-  searchQuery: string;
-  searchFields: string[];
+  pageSize: number | (() => number);
+  searchQuery: string | (() => string);
+  searchFields: string[] | (() => string[]);
   rowKey: string;
   currentPage?: number | (() => number | undefined);
   totalRecords?: number;
@@ -47,6 +47,18 @@ export function useTableState(props: UseTableStateProps) {
     return typeof props.data === "function" ? props.data() : props.data;
   });
 
+  const resolvedSearchQuery = computed(() => {
+    return typeof props.searchQuery === "function" ? props.searchQuery() : props.searchQuery;
+  });
+
+  const resolvedSearchFields = computed(() => {
+    return typeof props.searchFields === "function" ? props.searchFields() : props.searchFields;
+  });
+
+  const resolvedPageSize = computed(() => {
+    return typeof props.pageSize === "function" ? props.pageSize() : props.pageSize;
+  });
+
   watch(
     resolvedData,
     () => {
@@ -62,10 +74,10 @@ export function useTableState(props: UseTableStateProps) {
   const filteredData = computed(() => {
     let result = resolvedData.value;
 
-    if (props.searchQuery && props.searchFields.length > 0) {
-      const query = props.searchQuery.toLowerCase();
+    if (resolvedSearchQuery.value && resolvedSearchFields.value.length > 0) {
+      const query = resolvedSearchQuery.value.toLowerCase();
       result = result.filter((row) =>
-        props.searchFields.some((field) => {
+        resolvedSearchFields.value.some((field) => {
           const value = row[field];
           if (value == null) return false;
           return String(value).toLowerCase().includes(query);
@@ -100,14 +112,14 @@ export function useTableState(props: UseTableStateProps) {
   const totalRecords = computed(() => filteredData.value.length);
 
   const totalPages = computed(() => {
-    if (props.pageSize <= 0) return 1;
-    return Math.ceil(totalRecords.value / props.pageSize);
+    if (resolvedPageSize.value <= 0) return 1;
+    return Math.ceil(totalRecords.value / resolvedPageSize.value);
   });
 
   const pageData = computed(() => {
-    if (props.pageSize <= 0) return filteredData.value;
-    const start = (currentPage.value - 1) * props.pageSize;
-    return filteredData.value.slice(start, start + props.pageSize);
+    if (resolvedPageSize.value <= 0) return filteredData.value;
+    const start = (currentPage.value - 1) * resolvedPageSize.value;
+    return filteredData.value.slice(start, start + resolvedPageSize.value);
   });
 
   const isAllSelected = computed(() => {
@@ -226,19 +238,13 @@ export function useTableState(props: UseTableStateProps) {
     emitSortChange("", null);
   }
 
-  watch(
-    () => props.searchQuery,
-    () => {
-      currentPage.value = 1;
-    }
-  );
+  watch(resolvedSearchQuery, () => {
+    currentPage.value = 1;
+  });
 
-  watch(
-    () => props.pageSize,
-    () => {
-      currentPage.value = 1;
-    }
-  );
+  watch(resolvedPageSize, () => {
+    currentPage.value = 1;
+  });
 
   watch(
     () => {
