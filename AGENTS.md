@@ -506,6 +506,15 @@ pub struct CheckResult {
 - 命令参数使用 `#[command]` 宏声明
 - 敏感操作需要额外权限验证
 
+### 前端窗口操作所需权限（重要）
+单独打开/激活 Tauri 子窗口（`WebviewWindow`）时，前端调用的每个窗口方法都必须在
+`capabilities/default.json` 中授予对应权限，否则命令会被 Tauri 拒绝并抛错：
+- `core:window:allow-set-focus` — 调用 `setFocus()`
+- `core:window:allow-show` — 调用 `show()` 重新显示已隐藏的窗口
+- `core:window:allow-unminimize` — 调用 `unminimize()` 恢复最小化的窗口
+- `core:webview:allow-create-webview-window` — 调用 `new WebviewWindow()` 创建新窗口
+- 以上权限已包含在默认配置中。缺少其中任意一项都会导致窗口激活逻辑失效。
+
 ### Tauri v2 窗口事件（重要）
 - **正确事件名称**：`"tauri://close-requested"`（不是 `"close"`）
 - Tauri v2 的 `TauriEvent` 枚举定义了以下窗口事件：
@@ -514,6 +523,7 @@ pub struct CheckResult {
 - **不要使用 `win.once("close", ...)`**，Tauri v2 没有 `"close"` 事件
 - **窗口关闭行为**：当前 Rust 后端的 `on_window_event` 对所有窗口执行 `window.hide()` + `api.prevent_close()`（当 `close_action == "minimize_to_tray"` 时），这意味着弹出窗口关闭时只是被隐藏，而不是销毁
 - **检测窗口是否存在**：使用 `WebviewWindow.getByLabel(label)` 获取窗口引用，然后调用 `show()` 恢复隐藏的窗口
+- **重新激活（修复重复点击失效）**：在窗口已存在时，应先 `unminimize()`（若被最小化）再 `show()` + `setFocus()`；此流程依赖 `allow-show` / `allow-unminimize` / `allow-set-focus` 权限。历史上曾因缺少 `allow-show`，`show()` 抛错导致误入“重新创建”分支，而重复 label 的 `new WebviewWindow` 错误是异步事件（`tauri://error`），外部 `try/catch` 捕获不到，表现为第二次点击静默失效。补上权限并加固 `openWindow` 后修复。
 - **参考实现**：`src/components/common/PageToolbar.vue` 的 `openWindow` 函数
 
 <!-- ========== Git 提交规范：代码版本控制规则 ========== -->
