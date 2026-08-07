@@ -17,4 +17,6 @@ pub struct ProxyTest {
     pub success_count: i64,
     /// 失败测试次数
     pub fail_count: i64,
+    /// 最后一次测试状态：success / fail（None 表示未测试）
+    pub last_test_status: Option<String>,
 }

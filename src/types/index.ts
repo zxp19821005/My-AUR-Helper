@@ -99,7 +99,7 @@ export interface UpstreamInfo {
 export interface ProxyInfo {
   /** 代理 ID - 数据库主键，新建时为 null */
   proxy_id: number | null;
-  /** 代理名称 - 显示名称 */
+  /** 代理名称 - 显示名称（默认从 URL 域名提取，支持手动编辑覆盖） */
   proxy_name: string;
   /** 代理类型 - download/clone/raw/ssh */
   proxy_type: ProxyType;
@@ -107,6 +107,14 @@ export interface ProxyInfo {
   url: string;
   /** 是否启用 - 是否激活此代理 */
   is_active: boolean;
+  /** 成功测试次数 - 来自最新测试记录 */
+  success_count: number;
+  /** 失败测试次数 - 来自最新测试记录 */
+  fail_count: number;
+  /** 平均延迟(ms) - 来自最新测试记录 */
+  avg_latency: number | null;
+  /** 最后测试状态 - 'success' | 'fail'，来自最新测试记录，null 表示未测试 */
+  last_test_status?: string | null;
 }
 
 /** License 类型别名 - 指向完整的 EnumLicense 接口 */

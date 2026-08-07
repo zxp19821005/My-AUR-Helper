@@ -11,5 +11,5 @@ mod test; // 代理延迟测试子模块
 
 pub use download::download_proxy_file; // 导出代理文件下载函数
 pub use fetch::{fetch_proxy_list_from_userscript, FetchedProxy}; // 导出代理获取函数和数据结构
-pub use parse::parse_proxy_file; // 导出代理文件解析函数
-pub use test::{test_proxy_by_type, test_proxy_latency}; // 导出代理延迟测试函数
+pub use parse::{extract_proxy_name, normalize_proxy_url, parse_proxy_file}; // 导出代理文件解析函数和名称提取工具
+pub use test::test_proxy_by_type; // 导出代理延迟测试函数

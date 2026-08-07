@@ -12,6 +12,33 @@ import { useSettingsStore } from "../stores/settings";
 import { FOOTER_KEY } from "./footer";
 import type { ProxyInfo, ProxyType } from "../types";
 
+/** 从 URL 提取代理显示名称（域名部分） */
+export function extractProxyName(url: string): string {
+  try {
+    if (url.includes("://")) {
+      const domain = url.split("://")[1]?.split("/")[0];
+      if (domain) return domain;
+    }
+  } catch { /* ignore */ }
+  return url;
+}
+
+/** 判断代理名称是否有效（非空、非 SVG/数组垃圾数据） */
+export function isValidProxyName(name: string): boolean {
+  if (!name || name.trim().length === 0) return false;
+  if (name.startsWith("<") || name.startsWith("[")) return false;
+  if (name.length > 200) return false;
+  return true;
+}
+
+/** 获取代理显示名称（优先使用存储名称，无效时从 URL 提取） */
+export function getProxyDisplayName(proxy: ProxyInfo): string {
+  if (isValidProxyName(proxy.proxy_name)) {
+    return proxy.proxy_name;
+  }
+  return extractProxyName(proxy.url);
+}
+
 /** 代理类型选项 */
 export const PROXY_TYPE_OPTIONS: { label: string; value: ProxyType | "" }[] = [
   { label: "全部类型", value: "" },
@@ -61,7 +88,8 @@ export function useProxyList() {
       result = result.filter((e) =>
         e.proxy_name.toLowerCase().includes(q) ||
         e.url.toLowerCase().includes(q) ||
-        e.proxy_type.toLowerCase().includes(q)
+        e.proxy_type.toLowerCase().includes(q) ||
+        extractProxyName(e.url).toLowerCase().includes(q)
       );
     }
     return result;
@@ -139,6 +167,26 @@ export function useProxyList() {
     }
   }
 
+  /** 更新代理信息（编辑名称/URL/类型） */
+  async function updateProxy(proxyId: number, updates: Partial<ProxyInfo>) {
+    const proxy = entries.value.find((p) => p.proxy_id === proxyId);
+    if (!proxy) throw new Error("代理不存在");
+    try {
+      await invoke("update_proxy", {
+        proxyId,
+        proxyName: updates.proxy_name ?? proxy.proxy_name,
+        url: updates.url ?? proxy.url,
+        proxyType: updates.proxy_type ?? proxy.proxy_type,
+      });
+      // 更新本地数据
+      if (updates.proxy_name !== undefined) proxy.proxy_name = updates.proxy_name;
+      if (updates.url !== undefined) proxy.url = updates.url;
+      if (updates.proxy_type !== undefined) proxy.proxy_type = updates.proxy_type;
+    } catch (e) {
+      throw e;
+    }
+  }
+
   /** 删除代理 */
   async function deleteProxy(proxyId: number) {
     try {
@@ -163,9 +211,19 @@ export function useProxyList() {
     }
   }
 
-  /** 设置测试结果 */
+  /** 设置测试结果（同时更新本地条目数据） */
   function setTestResult(proxyId: number, result: ProxyTestResult) {
     testResults.value.set(proxyId, result);
+    // 同步更新对应条目的持久化测试统计
+    const entry = entries.value.find((e) => e.proxy_id === proxyId);
+    if (entry) {
+      entry.avg_latency = result.latency;
+      if (result.success) {
+        entry.success_count = (entry.success_count || 0) + 1;
+      } else {
+        entry.fail_count = (entry.fail_count || 0) + 1;
+      }
+    }
     // 触发响应式更新
     testResults.value = new Map(testResults.value);
   }
@@ -215,5 +273,9 @@ export function useProxyList() {
     getTestStatusText,
     getTestStatusClass,
     syncToolbar,
+    updateProxy,
+    extractProxyName,
+    isValidProxyName,
+    getProxyDisplayName,
   };
 }

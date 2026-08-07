@@ -5,13 +5,23 @@ use crate::models::*; // 数据模型
 use super::Database; // 数据库结构体
 
 impl Database {
+    /// 插入或更新代理测试结果（保留最新记录）
+    /// @param test - 代理测试信息
+    pub fn insert_or_update_proxy_test(&self, test: &ProxyTest) -> AppResult<i64> {
+        self.conn.execute(
+            "INSERT INTO proxies_test (proxy_id, test_time, avg_latency, success_count, fail_count, last_test_status) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            rusqlite::params![test.proxy_id, test.test_time, test.avg_latency, test.success_count, test.fail_count, test.last_test_status],
+        )?;
+        Ok(self.conn.last_insert_rowid())
+    }
+
     /// 插入代理测试结果记录
     /// @param test - 代理测试信息
     /// @returns 新插入记录的 ID
     pub fn insert_proxy_test(&self, test: &ProxyTest) -> AppResult<i64> {
         self.conn.execute(
-            "INSERT INTO proxies_test (proxy_id, test_time, avg_latency, success_count, fail_count) VALUES (?1, ?2, ?3, ?4, ?5)",
-            rusqlite::params![test.proxy_id, test.test_time, test.avg_latency, test.success_count, test.fail_count],
+            "INSERT INTO proxies_test (proxy_id, test_time, avg_latency, success_count, fail_count, last_test_status) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            rusqlite::params![test.proxy_id, test.test_time, test.avg_latency, test.success_count, test.fail_count, test.last_test_status],
         )?;
         Ok(self.conn.last_insert_rowid())
     }
@@ -21,7 +31,7 @@ impl Database {
     /// @returns 该代理的测试记录列表
     pub fn get_proxy_tests(&self, proxy_id: i64) -> AppResult<Vec<ProxyTest>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, proxy_id, test_time, avg_latency, success_count, fail_count FROM proxies_test WHERE proxy_id=?1 ORDER BY test_time DESC"
+            "SELECT id, proxy_id, test_time, avg_latency, success_count, fail_count, last_test_status FROM proxies_test WHERE proxy_id=?1 ORDER BY test_time DESC"
         )?;
         let rows = stmt.query_map(rusqlite::params![proxy_id], |row| {
             Ok(ProxyTest {
@@ -31,6 +41,7 @@ impl Database {
                 avg_latency: row.get(3)?,
                 success_count: row.get(4)?,
                 fail_count: row.get(5)?,
+                last_test_status: row.get(6)?,
             })
         })?;
         let mut items = Vec::new();
@@ -45,7 +56,7 @@ impl Database {
     /// @returns 可选的最近一次测试记录
     pub fn get_latest_proxy_test(&self, proxy_id: i64) -> AppResult<Option<ProxyTest>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, proxy_id, test_time, avg_latency, success_count, fail_count FROM proxies_test WHERE proxy_id=?1 ORDER BY test_time DESC LIMIT 1"
+            "SELECT id, proxy_id, test_time, avg_latency, success_count, fail_count, last_test_status FROM proxies_test WHERE proxy_id=?1 ORDER BY test_time DESC LIMIT 1"
         )?;
         let mut rows = stmt.query_map(rusqlite::params![proxy_id], |row| {
             Ok(ProxyTest {
@@ -55,6 +66,7 @@ impl Database {
                 avg_latency: row.get(3)?,
                 success_count: row.get(4)?,
                 fail_count: row.get(5)?,
+                last_test_status: row.get(6)?,
             })
         })?;
         Ok(rows.next().transpose()?)

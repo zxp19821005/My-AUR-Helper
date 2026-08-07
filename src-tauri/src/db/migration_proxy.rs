@@ -106,15 +106,27 @@ impl Database {
         let has_avg_latency = columns.contains(&"avg_latency".to_string());
         let has_success_count = columns.contains(&"success_count".to_string());
         let has_fail_count = columns.contains(&"fail_count".to_string());
+        let has_last_test_status = columns.contains(&"last_test_status".to_string());
 
         // 如果所有字段都已存在，跳过迁移
-        if has_proxy_id && has_test_time && has_avg_latency && has_success_count && has_fail_count {
+        if has_proxy_id
+            && has_test_time
+            && has_avg_latency
+            && has_success_count
+            && has_fail_count
+            && has_last_test_status
+        {
             return Ok(());
         }
 
         log::info!(
             "[migrate_proxies_test] 重建 proxies_test 表（字段齐全={}）",
-            has_proxy_id && has_test_time && has_avg_latency && has_success_count && has_fail_count
+            has_proxy_id
+                && has_test_time
+                && has_avg_latency
+                && has_success_count
+                && has_fail_count
+                && has_last_test_status
         );
 
         let new_schema = "CREATE TABLE proxies_test_new (
@@ -124,6 +136,7 @@ impl Database {
             avg_latency   INTEGER,
             success_count INTEGER NOT NULL DEFAULT 0,
             fail_count    INTEGER NOT NULL DEFAULT 0,
+            last_test_status TEXT,
             FOREIGN KEY (proxy_id) REFERENCES proxies_info(proxy_id) ON DELETE CASCADE
         );";
 
@@ -144,16 +157,23 @@ impl Database {
             "0"
         };
         let fail_count_expr = if has_fail_count { "fail_count" } else { "0" };
+        // 已有数据回填：有延迟即成功，无延迟即失败；新表该列默认 NULL（未测试）
+        let last_test_status_expr = if has_last_test_status {
+            "last_test_status"
+        } else {
+            "CASE WHEN avg_latency IS NOT NULL THEN 'success' ELSE 'fail' END"
+        };
 
         let insert_sql = format!(
-            "INSERT INTO proxies_test_new (id, proxy_id, test_time, avg_latency, success_count, fail_count)
-             SELECT id, {proxy_id}, {test_time}, {avg_latency}, {success_count}, {fail_count}
+            "INSERT INTO proxies_test_new (id, proxy_id, test_time, avg_latency, success_count, fail_count, last_test_status)
+             SELECT id, {proxy_id}, {test_time}, {avg_latency}, {success_count}, {fail_count}, {last_test_status}
              FROM proxies_test;",
             proxy_id = proxy_id_expr,
             test_time = test_time_expr,
             avg_latency = avg_latency_expr,
             success_count = success_count_expr,
-            fail_count = fail_count_expr
+            fail_count = fail_count_expr,
+            last_test_status = last_test_status_expr
         );
 
         self.conn.execute_batch("PRAGMA foreign_keys=OFF;")?;

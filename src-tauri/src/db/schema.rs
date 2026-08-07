@@ -96,6 +96,7 @@ impl Database {
                 avg_latency   INTEGER,
                 success_count INTEGER NOT NULL DEFAULT 0,
                 fail_count    INTEGER NOT NULL DEFAULT 0,
+                last_test_status TEXT,
                 FOREIGN KEY (proxy_id) REFERENCES proxies_info(proxy_id) ON DELETE CASCADE
             );
 

@@ -234,8 +234,12 @@
 
 ### test_proxies_batch
 批量测试代理。
-- 参数: 见 `proxy.rs`（代理 ID 列表）
+- 参数: 见 `proxy.rs`（代理 ID 列表，传 `null` 测试全部）
 - 返回: `ProxyTestResult[]`
+- 行为说明:
+  - **有界并发**: 内部用信号量将同时进行的测试限制为 `MAX_PROXY_TEST_CONCURRENCY`(默认 8)，避免一次性发起全部请求打满连接池。
+  - **请求超时**: 单次测试客户端设 10s 整体超时（`proxy::test::TEST_TIMEOUT`），超时统一映射为 `NetworkTimeout` 错误，防止慢代理（连接被接受但不响应）拖垮整批。
+  - 结果按完成顺序返回，前端按 `proxy_id` 映射展示，顺序无关。
 
 ### test_proxy_single
 单个测试代理并写入结果。

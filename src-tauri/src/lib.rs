@@ -272,7 +272,9 @@ pub fn run() {
             commands::proxy::test_proxies_batch,  // 批量测试代理
             commands::proxy::test_proxy_single,   // 单个测试代理
             commands::proxy::set_proxy_active,    // 设置代理启用状态
+            commands::proxy::update_proxy,        // 更新代理信息（编辑名称/URL/类型）
             commands::proxy::delete_proxy,        // 删除代理
+            commands::proxy::clear_proxy_tables,  // 清空代理表
             // 系统命令（sysops 模块）
             commands::sysops::sys_command::get_package_version, // 获取已安装包的版本
             commands::sysops::sys_command::list_installed_packages, // 列出所有已安装包
