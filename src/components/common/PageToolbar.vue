@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
-import { Settings, List, ScrollText, Search, RefreshCw } from "@lucide/vue";
+import { Settings, List, ScrollText, Search, RefreshCw, X } from "@lucide/vue";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 const props = defineProps<{
@@ -23,6 +23,21 @@ watch(searchText, (val) => {
     emit("update:modelValue", val);
   }, 500);
 });
+
+watch(
+  () => props.modelValue,
+  (val) => {
+    if (val !== searchText.value) {
+      searchText.value = val || "";
+    }
+  }
+);
+
+function clearSearch() {
+  searchText.value = "";
+  if (debounceTimer) clearTimeout(debounceTimer);
+  emit("update:modelValue", "");
+}
 
 async function openWindow(label: string, url: string, title: string) {
   const existing = await WebviewWindow.getByLabel(label);
@@ -89,6 +104,14 @@ async function openSettings() {
           class="search-input"
           placeholder="搜索..."
         />
+        <button
+          v-if="searchText"
+          class="search-clear-btn"
+          @click="clearSearch"
+          title="清除搜索"
+        >
+          <X :size="12" />
+        </button>
       </div>
       <button class="toolbar-icon-btn" @click="openEnums" title="枚举值管理">
         <List :size="18" />
@@ -179,5 +202,22 @@ async function openSettings() {
 }
 .search-input::placeholder {
   color: var(--text-muted);
+}
+.search-clear-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.search-clear-btn:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-hover);
 }
 </style>
