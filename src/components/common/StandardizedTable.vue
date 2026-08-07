@@ -99,7 +99,7 @@ function emitSelectionChange() {
 
 const tableState = useTableState({
   columns: props.columns,
-  data: props.data,
+  data: () => props.data,
   pageSize: props.pageSize,
   searchQuery: props.searchQuery,
   searchFields: props.searchFields,

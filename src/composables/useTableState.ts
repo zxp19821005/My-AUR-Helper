@@ -26,7 +26,7 @@ export interface Column {
 
 interface UseTableStateProps {
   columns: Column[];
-  data: any[];
+  data: any[] | (() => any[]);
   pageSize: number;
   searchQuery: string;
   searchFields: string[];
@@ -42,12 +42,14 @@ export function useTableState(props: UseTableStateProps) {
     key: "",
     direction: null,
   });
-  const dataCache = ref(props.data);
+
+  const resolvedData = computed(() => {
+    return typeof props.data === "function" ? props.data() : props.data;
+  });
 
   watch(
-    () => props.data,
-    (newData) => {
-      dataCache.value = newData;
+    resolvedData,
+    () => {
       currentPage.value = 1;
     },
     { deep: true }
@@ -58,7 +60,7 @@ export function useTableState(props: UseTableStateProps) {
   );
 
   const filteredData = computed(() => {
-    let result = dataCache.value;
+    let result = resolvedData.value;
 
     if (props.searchQuery && props.searchFields.length > 0) {
       const query = props.searchQuery.toLowerCase();
