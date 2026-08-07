@@ -157,6 +157,3 @@ function handleRowClick(row: ProgrammingLanguage) {
     />
   </div>
 </template>
-
-<style scoped>
-</style>
