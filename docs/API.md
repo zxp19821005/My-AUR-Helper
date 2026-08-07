@@ -78,21 +78,25 @@
 从 AUR 同步当前用户维护的软件包列表（并行执行）。
 - 参数: 无
 - 返回: `number` (同步数量)
+- 说明: 只更新 `aur_info` 表（描述、版本、依赖等），不更新 `software_info` 表。用户手动设置的上游URL、检查器类型、包类型等字段不会被覆盖。
 
 ### update_aur_info
 更新软件包的 AUR 信息（批量查询，遵守 aur_batch_size / aur_batch_interval 设置）。
 - 参数: `{ pkgname_list?: string[] }` (为空时更新所有)
 - 返回: `number` (更新数量)
+- 说明: 只更新 `aur_info` 表，不更新 `software_info` 表。
 
 ### sync_from_pkgbuild
 从本地 PKGBUILD 文件同步软件包信息。
 - 参数: `{ pkgname?: string }` (为空时同步所有)
 - 返回: `number` (同步数量)
+- 说明: 保留用户手动设置的字段（`upstream_url`、`version_extract_regex`、`language_ids`），仅在字段为空时用 PKGBUILD 解析值填充。`package_type_id`、`checker_type_id`、`check_test_versions`、`check_binary_files`、`auto_check_enabled` 始终使用 PKGBUILD 解析值。
 
 ### check_all_upstream
 并行检查所有软件包的上游版本。
 - 参数: 无
 - 返回: `[string, string][]` (包名与检查结果)
+- 说明: 只有当用户没有手动设置语言列表时，才用自动检测到的语言列表填充 `language_ids` 字段。
 
 ## 版本检查 (commands/sysops/software_check.rs)
 
@@ -100,11 +104,13 @@
 检查单个软件包的上游版本。
 - 参数: `{ pkgname: string }`
 - 返回: `string` (检查结果消息)
+- 说明: 只有当用户没有手动设置语言列表时，才用自动检测到的语言列表填充 `language_ids` 字段。
 
 ### check_selected_upstream
 检查选中的软件包上游版本。
 - 参数: `{ pkgname_list: string[] }`
 - 返回: `[string, string][]` (包名与检查结果)
+- 说明: 只有当用户没有手动设置语言列表时，才用自动检测到的语言列表填充 `language_ids` 字段。
 
 ## 上游 URL 验证 (commands/sysops/upstream_validate.rs)
 

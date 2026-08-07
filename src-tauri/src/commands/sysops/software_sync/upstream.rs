@@ -166,12 +166,17 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
                 );
             }
 
-            // 更新软件的语言 ID 列表
-            if let Err(e) = db.update_software_languages(result.software_id, &language_ids) {
-                error!(
-                    "[版本检查] 更新 {} 的 languages 失败: {}",
-                    result.pkgname, e
-                );
+            // 只有当用户没有手动设置语言列表时，才用自动检测到的语言列表填充
+            let existing_sw = db.get_software_by_name(&result.pkgname)?;
+            if let Some(ref sw) = existing_sw {
+                if sw.language_ids.is_empty() && !language_ids.is_empty() {
+                    if let Err(e) = db.update_software_languages(result.software_id, &language_ids) {
+                        error!(
+                            "[版本检查] 更新 {} 的 languages 失败: {}",
+                            result.pkgname, e
+                        );
+                    }
+                }
             }
 
             let upstream_info = crate::models::UpstreamInfo {

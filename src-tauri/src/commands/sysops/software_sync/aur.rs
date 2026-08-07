@@ -9,14 +9,15 @@
  * 2. 通过 AUR RPC API 批量查询软件包信息
  * 3. 在内存中收集所有同步结果
  * 4. 批量写入数据库，减少锁竞争
+ *
+ * 注意：AUR 同步只更新 aur_info 表（描述、版本、依赖等），不更新 software_info 表。
+ * software_info 的字段（上游URL、检查器类型、包类型等）只在用户手动设置时更新。
  */
 use log::{debug, info};
 use tauri::State;
 
 use super::super::proxy_utils::{build_client, get_active_proxy};
-use super::utils::{
-    detect_package_defaults, get_setting_opt, parse_aur_fields, parse_u32, parse_u64, AurSyncResult,
-};
+use super::utils::{get_setting_opt, parse_aur_fields, parse_u32, parse_u64, AurSyncResult};
 use crate::aur;
 use crate::errors::{AppError, AppResult};
 use crate::models::*;
@@ -95,13 +96,8 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
             let sw = db.get_software_by_name(pkgname)?;
             if let Some(existing) = sw {
                 if let Some(sid) = existing.software_id {
-                    let (package_type, checker_type, check_test_versions, check_binary_files) =
-                        detect_package_defaults(&existing.pkgname);
-                    let need_update = existing.checker_type_id != checker_type
-                        || existing.package_type_id != package_type
-                        || existing.check_test_versions != check_test_versions
-                        || existing.check_binary_files != check_binary_files;
-
+                    // AUR 同步只更新 aur_info 表，不更新 software_info 表
+                    // software_info 的字段（上游URL、检查器类型、包类型等）只在用户手动设置时更新
                     sync_results.push(AurSyncResult {
                         pkgname: pkgname.clone(),
                         software_id: sid,
@@ -114,11 +110,11 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
                         makedepends: fields.makedepends,
                         optdepends: fields.optdepends,
                         out_of_date: fields.out_of_date,
-                        package_type,
-                        checker_type,
-                        check_test_versions,
-                        check_binary_files,
-                        need_update_software: need_update,
+                        package_type: existing.package_type_id,
+                        checker_type: existing.checker_type_id,
+                        check_test_versions: existing.check_test_versions,
+                        check_binary_files: existing.check_binary_files,
+                        need_update_software: false,
                     });
                 }
             }
@@ -130,18 +126,7 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
     let mut count = 0i64;
     let mut errors = Vec::new();
     for result in &sync_results {
-        if result.need_update_software {
-            if let Ok(Some(mut sw)) = db.get_software_by_name(&result.pkgname) {
-                sw.checker_type_id = result.checker_type.clone();
-                sw.package_type_id = result.package_type.clone();
-                sw.check_test_versions = result.check_test_versions;
-                sw.check_binary_files = result.check_binary_files;
-                if let Err(e) = db.upsert_software(&sw) {
-                    errors.push(format!("更新 {} 的软件信息失败: {}", result.pkgname, e));
-                }
-            }
-        }
-
+        // AUR 同步只更新 aur_info 表，不更新 software_info 表
         let aur_info = AurInfo {
             software_id: result.software_id,
             pkgdesc: result.desc.clone(),

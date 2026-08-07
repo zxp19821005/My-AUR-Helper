@@ -8,8 +8,21 @@
  * 1. 从配置读取 AUR 软件包目录路径
  * 2. 遍历目录下的所有子目录（每个子目录代表一个软件包）
  * 3. 对每个子目录调用 aur::read_pkgbuild 解析 PKGBUILD 文件
- * 4. 将解析结果写入数据库
- * 5. 通过 Tauri emit 推送进度事件到前端
+ * 4. 查询数据库中已有的记录，保留用户手动设置的字段
+ * 5. 将解析结果写入数据库
+ * 6. 通过 Tauri emit 推送进度事件到前端
+ *
+ * 注意：以下字段始终使用 PKGBUILD 解析值（可从 PKGBUILD 准确推断）：
+ * - package_type_id（包类型）
+ * - checker_type_id（检查器类型）
+ * - check_test_versions（检查测试版本）
+ * - check_binary_files（检查二进制文件）
+ * - auto_check_enabled（自动检查）
+ *
+ * 以下字段优先保留用户设置，仅在为空时用 PKGBUILD 解析值填充：
+ * - upstream_url（上游 URL）
+ * - version_extract_regex（版本提取正则）
+ * - language_ids（编程语言列表）
  */
 use log::{error, info};
 use tauri::{Emitter, State};
@@ -89,8 +102,8 @@ pub async fn sync_from_pkgbuild(
         );
 
         match aur::read_pkgbuild(&pkg_path).await {
-            Ok(Some((sw, _))) => {
-                let pkg_type = match sw.package_type_id.as_id() {
+            Ok(Some((parsed_sw, _))) => {
+                let pkg_type = match parsed_sw.package_type_id.as_id() {
                     2 => "二进制包",
                     3 => "Git",
                     4 => "AppImage",
@@ -100,20 +113,46 @@ pub async fn sync_from_pkgbuild(
                     "[{}/{}] {} - 类型: {}, 自动检查: {}, 检查测试版: {}, 检查二进制: {}",
                     i + 1,
                     total,
-                    sw.pkgname,
+                    parsed_sw.pkgname,
                     pkg_type,
-                    sw.auto_check_enabled,
-                    sw.check_test_versions,
-                    sw.check_binary_files
+                    parsed_sw.auto_check_enabled,
+                    parsed_sw.check_test_versions,
+                    parsed_sw.check_binary_files
                 );
 
                 let db = state.db.lock()?;
-                if let Err(e) = db.upsert_software(&sw) {
+                // 查询数据库中已有的记录，保留用户手动设置的字段
+                let final_sw = match db.get_software_by_name(&parsed_sw.pkgname)? {
+                    Some(mut existing) => {
+                        // 保留用户手动设置的字段，仅在字段为空时用 PKGBUILD 解析值填充
+                        if existing.upstream_url.is_none() {
+                            existing.upstream_url = parsed_sw.upstream_url;
+                        }
+                        if existing.version_extract_regex.is_none() {
+                            existing.version_extract_regex = parsed_sw.version_extract_regex;
+                        }
+                        if existing.language_ids.is_empty() {
+                            existing.language_ids = parsed_sw.language_ids;
+                        }
+                        // 保留用户手动设置的检查选项
+                        // package_type_id、checker_type_id、check_test_versions、check_binary_files、auto_check_enabled
+                        // 始终使用 PKGBUILD 解析的值（因为这些值可以从 PKGBUILD 中准确推断）
+                        existing.package_type_id = parsed_sw.package_type_id;
+                        existing.checker_type_id = parsed_sw.checker_type_id;
+                        existing.check_test_versions = parsed_sw.check_test_versions;
+                        existing.check_binary_files = parsed_sw.check_binary_files;
+                        existing.auto_check_enabled = parsed_sw.auto_check_enabled;
+                        existing
+                    }
+                    None => parsed_sw, // 新包，直接使用解析结果
+                };
+
+                if let Err(e) = db.upsert_software(&final_sw) {
                     error!(
                         "[{}/{}] {} - 写入数据库失败: {}",
                         i + 1,
                         total,
-                        sw.pkgname,
+                        final_sw.pkgname,
                         e
                     );
                 }
@@ -124,7 +163,7 @@ pub async fn sync_from_pkgbuild(
                     serde_json::json!({
                         "current": i + 1,
                         "total": total,
-                        "pkgname": sw.pkgname,
+                        "pkgname": final_sw.pkgname,
                         "message": format!("[{}/{}] 已完成: {}", i + 1, total, dir_name),
                     }),
                 );

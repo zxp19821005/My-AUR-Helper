@@ -109,12 +109,22 @@ fn compare_and_update(
         pkgname
     );
 
-    // 更新软件的语言 ID 列表
-    db.update_software_languages(software_id, &language_ids)?;
-    debug!(
-        "[版本检查] {} step2: update_software_languages 成功",
-        pkgname
-    );
+    // 只有当用户没有手动设置语言列表时，才用自动检测到的语言列表填充
+    let existing_sw = db.get_software_by_name(pkgname)?;
+    if let Some(ref sw) = existing_sw {
+        if sw.language_ids.is_empty() && !language_ids.is_empty() {
+            db.update_software_languages(software_id, &language_ids)?;
+            debug!(
+                "[版本检查] {} step2: update_software_languages 成功（语言列表为空，自动填充）",
+                pkgname
+            );
+        } else {
+            debug!(
+                "[版本检查] {} step2: 跳过语言列表更新（已有用户设置: {:?}）",
+                pkgname, sw.language_ids
+            );
+        }
+    }
 
     let upstream_info = UpstreamInfo {
         software_id,

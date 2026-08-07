@@ -125,9 +125,9 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/commands/sysops/cache_cleanup.rs` | 缓存清理命令（系统缓存、自定义缓存目录、sudoers 配置） |
 | `src-tauri/src/commands/software_sync/` | 软件包同步命令模块（目录结构） |
 | `src-tauri/src/commands/software_sync/mod.rs` | 模块声明和导出（不含具体实现） |
-| `src-tauri/src/commands/software_sync/aur.rs` | AUR 信息同步和更新命令（复用 parse_aur_fields） |
-| `src-tauri/src/commands/software_sync/upstream.rs` | 上游版本并行检查命令 |
-| `src-tauri/src/commands/software_sync/pkgbuild.rs` | PKGBUILD 文件同步命令 |
+| `src-tauri/src/commands/software_sync/aur.rs` | AUR 信息同步命令（只更新 aur_info 表，不更新 software_info 表） |
+| `src-tauri/src/commands/software_sync/upstream.rs` | 上游版本并行检查命令（语言列表仅在为空时自动填充） |
+| `src-tauri/src/commands/software_sync/pkgbuild.rs` | PKGBUILD 文件同步命令（保留用户手动设置的字段） |
 | `src-tauri/src/commands/software_sync/utils.rs` | 同步工具函数（AurParsedFields、parse_aur_fields 通用 AUR JSON 解析） |
 | `src-tauri/src/checkers/` | 版本检查器模块 |
 | `src-tauri/src/checkers/mod.rs` | 检查器模块入口和导出 |
