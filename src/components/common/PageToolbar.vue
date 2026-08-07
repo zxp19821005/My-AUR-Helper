@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { inject, ref, watch } from "vue";
 import { Settings, List, ScrollText, Search, RefreshCw, X } from "@lucide/vue";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 
@@ -13,6 +13,8 @@ const emit = defineEmits<{
   (e: "refresh"): void;
   (e: "toggle-filter"): void;
 }>();
+
+const isPopupWindow = inject<boolean>("isPopupWindow", false);
 
 const searchText = ref(props.modelValue || "");
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -40,31 +42,40 @@ function clearSearch() {
 }
 
 async function openWindow(label: string, url: string, title: string) {
-  const existing = await WebviewWindow.getByLabel(label);
-  if (existing) {
-    try {
-      // 检查窗口是否仍然有效且可见
-      if (await existing.isVisible()) {
+  try {
+    const existing = await WebviewWindow.getByLabel(label);
+    if (existing) {
+      try {
+        const visible = await existing.isVisible();
+        if (visible) {
+          await existing.setFocus();
+          return;
+        }
+        await existing.show();
         await existing.setFocus();
-        return;
+        if (await existing.isVisible()) {
+          return;
+        }
+      } catch {
+        // 窗口已销毁，继续创建新窗口
       }
-      // 窗口存在但不可见（最小化），恢复它
-      await existing.show();
-      await existing.setFocus();
-      return;
-    } catch {
-      // 窗口已关闭/销毁，忽略错误，继续创建新窗口
     }
+  } catch {
+    // getByLabel 失败，继续创建新窗口
   }
-  // 创建新窗口
-  new WebviewWindow(label, {
-    url,
-    title,
-    width: 900,
-    height: 600,
-    resizable: true,
-    center: true,
-  });
+
+  try {
+    new WebviewWindow(label, {
+      url,
+      title,
+      width: 900,
+      height: 600,
+      resizable: true,
+      center: true,
+    });
+  } catch (error) {
+    console.error(`打开窗口 "${label}" 失败:`, error);
+  }
 }
 
 async function openEnums() {
@@ -113,7 +124,12 @@ async function openSettings() {
           <X :size="12" />
         </button>
       </div>
-      <button class="toolbar-icon-btn" @click="openEnums" title="枚举值管理">
+      <button
+        v-if="!isPopupWindow"
+        class="toolbar-icon-btn"
+        @click="openEnums"
+        title="枚举值管理"
+      >
         <List :size="18" />
       </button>
       <button class="toolbar-icon-btn" @click="openLogs" title="日志">

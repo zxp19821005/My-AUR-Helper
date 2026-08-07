@@ -15,35 +15,27 @@
   <PopupLayout title="设置" :icon="SettingsIcon" :menuItems="menuItems" />
 -->
 <script setup lang="ts">
-import { useRouter, useRoute } from "vue-router";      // 路由 API
-import type { Component } from "vue";                  // Vue 组件类型
+import { provide } from "vue";
+import { useRouter, useRoute } from "vue-router";
+import type { Component } from "vue";
 
-/** 菜单项配置接口 - 定义导航菜单项的属性 */
 interface MenuItem {
-  /** 路由路径 - 点击菜单跳转的目标 */
   path: string;
-  /** 显示标签 - 菜单项的文字说明 */
   label: string;
-  /** 图标组件 - Lucide 图标实例 */
   icon: Component;
 }
 
 defineProps<{
-  /** 窗口标题 - 显示在侧边栏顶部 */
   title: string;
-  /** 标题图标 - 显示在标题左侧 */
   icon: Component;
-  /** 导航菜单项 - 左侧菜单列表 */
   menuItems: MenuItem[];
 }>();
+
+provide("isPopupWindow", true);
 
 const router = useRouter();
 const route = useRoute();
 
-/**
- * 导航到指定路径
- * @param path - 目标路由路径
- */
 function navigate(path: string) {
   router.push(path);
 }

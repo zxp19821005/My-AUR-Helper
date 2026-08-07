@@ -11,15 +11,19 @@
   - StandardizedTable: 表格组件
   - PageToolbar: 页面工具栏
   - LicenseFormModal: 弹窗组件
+  - PaginationControls: 分页控件
 -->
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, computed, reactive, watch, onMounted } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { License } from "../types";
+import type { FooterState } from "../composables/footer";
+import { defaultFooterState } from "../composables/footer";
 import LicenseFormModal from "../components/enum/LicenseFormModal.vue";
 import { useSettingsStore } from "../stores/settings";
 import PageToolbar from "../components/common/PageToolbar.vue";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
+import PaginationControls from "../components/common/PaginationControls.vue";
 import { RefreshCw, Plus } from "@lucide/vue";
 
 const settingsStore = useSettingsStore();
@@ -27,6 +31,7 @@ const licenses = ref<License[]>([]);
 const syncing = ref(false);
 const message = ref("");
 const searchQuery = ref("");
+const currentPage = ref(1);
 
 const pageSize = ref(50);
 
@@ -37,6 +42,41 @@ const modalForm = ref({
   spdx_id: "",
   full_name: "",
 });
+
+const footer = reactive<FooterState>(defaultFooterState());
+
+const filteredEntries = computed(() => {
+  let result = licenses.value;
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase();
+    result = result.filter(
+      (l) =>
+        l.spdx_id.toLowerCase().includes(q) ||
+        l.full_name.toLowerCase().includes(q)
+    );
+  }
+  return result;
+});
+
+function goToPage(page: number) {
+  const totalPages = Math.ceil(filteredEntries.value.length / pageSize.value) || 1;
+  if (page < 1 || page > totalPages) return;
+  currentPage.value = page;
+}
+
+function syncToolbar() {
+  const total = filteredEntries.value.length;
+  footer.infoText = `共 ${total} 条`;
+  footer.showPagination = total > pageSize.value;
+  footer.totalRecords = total;
+  footer.currentPage = currentPage.value;
+  footer.pageSize = pageSize.value;
+  footer.onPageChange = goToPage;
+}
+
+watch(filteredEntries, syncToolbar, { immediate: true });
+watch(searchQuery, () => { currentPage.value = 1; });
+watch(currentPage, syncToolbar);
 
 onMounted(async () => {
   pageSize.value = await settingsStore.getSettingNumber("list_page_size_license", 50);
@@ -123,7 +163,7 @@ function handleRowClick(row: License) {
 </script>
 
 <template>
-  <div>
+  <div class="license-manager">
     <PageToolbar v-model="searchQuery" @refresh="loadLicenses">
       <button
         class="btn-icon btn-icon-accent"
@@ -145,15 +185,14 @@ function handleRowClick(row: License) {
     <!-- License 表格 -->
     <StandardizedTable
       :columns="columns"
-      :data="licenses"
+      :data="filteredEntries"
       :pageSize="pageSize"
-      :searchQuery="searchQuery"
-      :searchFields="['spdx_id', 'full_name']"
       rowKey="id"
       showIndex
       striped
       hoverable
       clickable
+      :showPagination="false"
       emptyText="暂无 License 数据，请从 SPDX 同步或手动添加。"
       @row-click="handleRowClick"
     >
@@ -176,6 +215,11 @@ function handleRowClick(row: License) {
       </template>
     </StandardizedTable>
 
+    <!-- 底部分页 -->
+    <div class="license-footer">
+      <PaginationControls :footer="footer" />
+    </div>
+
     <!-- 编辑弹窗 -->
     <LicenseFormModal
       :show="showModal"
@@ -188,10 +232,20 @@ function handleRowClick(row: License) {
 </template>
 
 <style scoped>
+.license-manager {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.license-footer {
+  display: flex;
+  justify-content: center;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border);
+}
 .spinning {
   animation: spin 1s linear infinite;
 }
-
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }

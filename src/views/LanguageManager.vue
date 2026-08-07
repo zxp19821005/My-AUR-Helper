@@ -10,21 +10,26 @@
   - StandardizedTable: 表格组件
   - PageToolbar: 页面工具栏
   - LanguageFormModal: 弹窗组件
+  - PaginationControls: 分页控件
 -->
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, computed, reactive, watch, onMounted } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { EnumProgrammingLanguage as ProgrammingLanguage } from "../types";
+import type { FooterState } from "../composables/footer";
+import { defaultFooterState } from "../composables/footer";
 import LanguageFormModal from "../components/enum/LanguageFormModal.vue";
 import { useSettingsStore } from "../stores/settings";
 import PageToolbar from "../components/common/PageToolbar.vue";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
+import PaginationControls from "../components/common/PaginationControls.vue";
 import { Plus } from "@lucide/vue";
 
 const settingsStore = useSettingsStore();
 const languages = ref<ProgrammingLanguage[]>([]);
 const message = ref("");
 const searchQuery = ref("");
+const currentPage = ref(1);
 
 const pageSize = ref(50);
 
@@ -35,6 +40,41 @@ const modalForm = ref({
   name: "",
   short_name: "",
 });
+
+const footer = reactive<FooterState>(defaultFooterState());
+
+const filteredEntries = computed(() => {
+  let result = languages.value;
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase();
+    result = result.filter(
+      (l) =>
+        l.name.toLowerCase().includes(q) ||
+        (l.short_name && l.short_name.toLowerCase().includes(q))
+    );
+  }
+  return result;
+});
+
+function goToPage(page: number) {
+  const totalPages = Math.ceil(filteredEntries.value.length / pageSize.value) || 1;
+  if (page < 1 || page > totalPages) return;
+  currentPage.value = page;
+}
+
+function syncToolbar() {
+  const total = filteredEntries.value.length;
+  footer.infoText = `共 ${total} 条`;
+  footer.showPagination = total > pageSize.value;
+  footer.totalRecords = total;
+  footer.currentPage = currentPage.value;
+  footer.pageSize = pageSize.value;
+  footer.onPageChange = goToPage;
+}
+
+watch(filteredEntries, syncToolbar, { immediate: true });
+watch(searchQuery, () => { currentPage.value = 1; });
+watch(currentPage, syncToolbar);
 
 onMounted(async () => {
   pageSize.value = await settingsStore.getSettingNumber("list_page_size_language", 50);
@@ -102,7 +142,7 @@ function handleRowClick(row: ProgrammingLanguage) {
 </script>
 
 <template>
-  <div>
+  <div class="language-manager">
     <PageToolbar v-model="searchQuery" @refresh="loadLanguages">
       <button
         class="btn-icon btn-icon-success"
@@ -116,16 +156,15 @@ function handleRowClick(row: ProgrammingLanguage) {
     <!-- 编程语言表格 -->
     <StandardizedTable
       :columns="columns"
-      :data="languages"
+      :data="filteredEntries"
       :pageSize="pageSize"
-      :searchQuery="searchQuery"
-      :searchFields="['name', 'short_name']"
       rowKey="id"
       showIndex
       striped
       hoverable
       clickable
-      emptyText="暂无编程语言数据，请从 GitHub 同步或手动添加。"
+      :showPagination="false"
+      emptyText="暂无编程语言数据，请手动添加。"
       @row-click="handleRowClick"
     >
       <!-- 操作列 -->
@@ -147,6 +186,11 @@ function handleRowClick(row: ProgrammingLanguage) {
       </template>
     </StandardizedTable>
 
+    <!-- 底部分页 -->
+    <div class="language-footer">
+      <PaginationControls :footer="footer" />
+    </div>
+
     <!-- 编辑弹窗 -->
     <LanguageFormModal
       :show="showModal"
@@ -157,3 +201,17 @@ function handleRowClick(row: ProgrammingLanguage) {
     />
   </div>
 </template>
+
+<style scoped>
+.language-manager {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.language-footer {
+  display: flex;
+  justify-content: center;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border);
+}
+</style>
