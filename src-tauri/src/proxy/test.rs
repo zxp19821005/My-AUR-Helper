@@ -33,7 +33,7 @@ fn create_test_client(proxy_id: i64, proxy_name: &str) -> AppResult<Client> {
                 "[代理#{} {}] 跟随重定向 -> {}",
                 proxy_id,
                 name,
-                attempt.url()
+                mask_url(&attempt.url().to_string())
             );
             attempt.follow()
         }))
@@ -60,6 +60,20 @@ fn extract_host(url: &str) -> String {
     s.to_string()
 }
 
+/// 脱敏日志中的 URL：剥离协议头与可能的 userinfo（user:pass@），
+/// 仅保留代理主机名 + 目标路径，避免把代理凭据或完整代理 URL 写入日志。
+fn mask_url(url: &str) -> String {
+    if let Some(i) = url.find("://") {
+        let rest = &url[i + 3..];
+        if let Some(j) = rest.find('/') {
+            let base = &rest[..j];
+            return format!("{}{}", extract_host(base), &rest[j..]);
+        }
+        return extract_host(rest);
+    }
+    extract_host(url)
+}
+
 /// 拼接测试 URL：{代理基址}/{真实下载地址}
 /// 仅当目标地址非空时才拼接，避免产生裸代理地址（如 https://cdn.xxx/）
 fn build_test_url(proxy_url: &str, target: &str) -> AppResult<String> {
@@ -83,7 +97,12 @@ async fn send_head(
     url: &str,
     err_prefix: &str,
 ) -> AppResult<i64> {
-    info!("[代理#{} {}] 测试地址: {}", proxy_id, proxy_name, url);
+    info!(
+        "[代理#{} {}] 测试地址: {}",
+        proxy_id,
+        proxy_name,
+        mask_url(url)
+    );
     let start = std::time::Instant::now();
     let resp = client.head(url).send().await?;
     let latency = start.elapsed().as_millis() as i64;
@@ -121,11 +140,11 @@ pub async fn test_proxy_by_type(
 ) -> AppResult<i64> {
     let client = create_test_client(proxy_id, proxy_name)?;
     debug!(
-        "[代理#{} {}] 开始测试（类型 {:?}），代理基址: {}",
+        "[代理#{} {}] 开始测试（类型 {:?}），代理主机: {}",
         proxy_id,
         proxy_name,
         proxy_type,
-        normalize_proxy_url(proxy_url)
+        extract_host(&normalize_proxy_url(proxy_url))
     );
     match proxy_type {
         ProxyType::Download => {

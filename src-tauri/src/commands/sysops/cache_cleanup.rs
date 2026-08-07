@@ -158,15 +158,28 @@ pub async fn check_cache_cleanup_sudoers() -> AppResult<bool> {
 
 /// 获取缓存清理 sudoers 配置命令
 ///
-/// 生成一个 sudoers 配置命令，允许当前用户免密执行缓存清理
+/// 生成一个 sudoers 配置命令，允许当前用户免密执行缓存清理。
+/// 其中 pacman -U 的免密范围限定到备份目录（而非通配 *），缩小提权面。
 #[tauri::command]
-pub async fn get_cache_cleanup_sudoers_command() -> AppResult<String> {
+pub async fn get_cache_cleanup_sudoers_command(state: State<'_, AppState>) -> AppResult<String> {
     let output = tokio::process::Command::new("whoami")
         .output()
         .await
         .map_err(|e| crate::errors::AppError::SystemCommand(format!("获取用户名失败: {}", e)))?;
 
     let username = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+    let backup_dir = {
+        let db = state.db.lock().map_err(|e| {
+            crate::errors::AppError::DatabaseError(format!("获取数据库锁失败: {}", e))
+        })?;
+        db.get_setting("backup_dir")
+            .ok()
+            .flatten()
+            .map(|s| s.value)
+            .filter(|v| !v.is_empty())
+            .unwrap_or_else(|| "/run/media/zxp/Backup/Linux/ZST".to_string())
+    };
 
     // 使用 sudo cat 检查文件是否已存在且包含缓存清理规则
     let sudoers_path = "/etc/sudoers.d/aur-helper-backup";
@@ -191,10 +204,10 @@ pub async fn get_cache_cleanup_sudoers_command() -> AppResult<String> {
             ))
         }
         _ => {
-            // 文件不存在，创建新的配置文件
+            // 文件不存在，创建新的配置文件（pacman -U 限定到备份目录）
             Ok(format!(
-                "echo \"{} ALL=(ALL) NOPASSWD: /usr/bin/pacman -U *, /usr/bin/find /var/cache/pacman/pkg/* -mindepth 1 -delete\" | sudo tee /etc/sudoers.d/aur-helper-backup",
-                username
+                "echo \"{} ALL=(ALL) NOPASSWD: /usr/bin/pacman -U {}/*, /usr/bin/find /var/cache/pacman/pkg/* -mindepth 1 -delete\" | sudo tee /etc/sudoers.d/aur-helper-backup",
+                username, backup_dir
             ))
         }
     }

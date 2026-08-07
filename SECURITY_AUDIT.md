@@ -19,6 +19,8 @@
 |----------|------|------|
 | 严重 (Critical) | 4 | ✅ 已修复 |
 | 中等 (Medium) | 4 | ✅ 已修复 |
+| 严重 (High, 2026-08-07 复查) | 1 | ✅ 已修复 |
+| 中等 (Medium, 2026-08-07 复查) | 1 | ✅ 已修复 |
 
 ### 严重问题修复详情
 
@@ -240,3 +242,57 @@ CSP 设置为 `null`，Webview 无内容安全策略保护。
 | 单元测试 | ✅ 通过 (42/42) |
 
 **总结：** 所有安全漏洞已成功修复。代码审计移除了未使用的危险命令（任意命令执行、无限制文件操作），修复了 SQL 注入模式，添加了 CSP 安全策略，减少了敏感信息日志泄露。剩余的17个维护警告为"不再维护"的提示，需等待上游依赖升级。
+
+---
+
+## 代码安全审计（2026-08-07 复查）
+
+在代理测试功能迭代中，复查发现两项遗漏的高/中危问题并已完成修复。
+
+### 问题 9: 备份包安装/查询路径未校验（路径遍历 → 任意 root 包安装 / 任意文件读取）
+
+| 项目 | 内容 |
+|------|------|
+| 文件 | `src-tauri/src/commands/sysops/backup_install.rs` |
+| 函数 | `install_backup_package(full_path)`、`get_package_file_info(full_path)` |
+| 严重程度 | High |
+| 影响 | 前端传入的 `full_path` 直接拼接进 `sudo pacman -U <path>` / `pacman -Qip <path>`，零路径校验。配合 sudoers 中 `NOPASSWD: /usr/bin/pacman -U *`，攻击者可借 IPC 传入任意 `.pkg.tar.zst` 以 root 安装恶意包，或通过 `pacman -Qip` 读取任意文件 |
+
+**修复方案：**
+- 新增 `validate_package_path`：要求绝对路径、合法 pacman 包扩展名（`.pkg.tar.zst/.pkg.tar.xz/.pkg.tar/.tar.zst/.tar.xz`）、规范化（解析符号链接与 `..`）后必须落在允许根目录（备份目录或 `/var/cache/pacman/pkg`）内。
+- 两个命令改为先校验再调用 pacman，并传入规范化后的安全路径。
+- 新增 4 个单元测试覆盖「根内放行 / 根外拒绝 / 非法扩展名拒绝 / 相对路径拒绝」。
+- 同步收紧 sudoers 生成：`get_sudoers_command` / `cache_cleanup` 的免密规则由通配 `pacman -U *` 改为限定到备份目录 `pacman -U <backup_dir>/*`（纵深防御）。
+
+### 问题 10: 代理测试日志泄露代理 URL（敏感信息日志回归）
+
+| 项目 | 内容 |
+|------|------|
+| 文件 | `src-tauri/src/proxy/test.rs` |
+| 严重程度 | Medium |
+| 影响 | 调试日志把完整测试 URL 与代理基址打印到日志，违反本审计已修复的第 7 项（代理 URL 禁止写入日志，可能含 `user:pass@` 凭据） |
+
+**修复方案：**
+- 新增 `mask_url`：剥离协议头与 userinfo，仅保留代理主机名 + 目标路径，保留重定向链路/状态码/延迟的调试价值但不泄露凭据。
+- 测试开始、测试地址、重定向三处日志统一改为脱敏输出；重定向目标同样脱敏处理。
+
+### 复查修复文件清单
+
+| 文件 | 修改内容 |
+|------|----------|
+| `src-tauri/src/commands/sysops/backup_install.rs` | 新增 `validate_package_path`/`read_backup_dir`；两命令加路径校验；sudoers 生成限定备份目录；补充 4 个单测 |
+| `src-tauri/src/commands/sysops/cache_cleanup.rs` | sudoers 生成中 `pacman -U *` 收紧到备份目录 |
+| `src-tauri/src/proxy/test.rs` | 新增 `mask_url`；三处日志脱敏，不再打印完整代理 URL |
+
+### 复查验证
+
+```
+✓ cargo check --tests - 编译成功
+✓ cargo test --lib - 58 个测试全部通过（含 4 个新增路径校验单测）
+```
+
+---
+
+## 待处理项（依赖层面的中等漏洞）
+
+GitHub Dependabot 提示仓库存在 1 个 moderate 级依赖漏洞（前端，需升级 vite 至 6.x 方可修复；属开发服务器相关问题，不影响生产构建）。相关 3 个前端漏洞已在 2026-07-14 审计中记录，建议在后续开发周期评估 vite 6.x 升级兼容性后再处理。
