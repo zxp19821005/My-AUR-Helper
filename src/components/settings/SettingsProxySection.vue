@@ -2,34 +2,29 @@
   SettingsProxySection.vue - 代理管理设置组件
 
   功能：
-  - 配置代理文件下载 URL
-  - 配置四类代理的测试 URL
-  - 支持保存和重置为默认值
-  - 输入合法性校验
+  - 配置代理文件下载 URL 与四类代理测试 URL
+  - 采用草稿模型：编辑仅修改本地 draft，点击「保存设置」才写入数据库
+  - 「重置设置」撤销未保存修改，恢复到上次保存值（未保存过时回退到默认值）
 
   依赖组件：
   - SettingsCard: 通用设置卡片组件
   - SettingRow: 通用设置行组件
+  - SettingsActionBar: 右下角保存/重置操作栏
 -->
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from "vue";
 import { useSettingsStore } from "../../stores/settings";
+import { useSettingsDraft } from "../../composables/useSettingsDraft";
 import SettingsCard from "./SettingsCard.vue";
 import SettingRow from "./SettingRow.vue";
+import SettingsActionBar from "./SettingsActionBar.vue";
 
 const settingsStore = useSettingsStore();
 
-/** 设置项 */
-const settings = ref({
-  proxy_download_url: "",
-  proxy_test_download_url: "",
-  proxy_test_clone_url: "",
-  proxy_test_raw_url: "",
-  proxy_test_ssh_url: "",
-});
+type ProxySettings = Record<string, string>;
 
-/** 默认值 */
-const defaults = {
+/** 默认值（数据库为空时作为基线） */
+const defaults: ProxySettings = {
   proxy_download_url: "https://update.greasyfork.org/scripts/412245/Github%20%E5%A2%9E%E5%BC%BA%20-%20%E9%AB%98%E9%80%9F%E4%B8%8B%E8%BD%BD.user.js",
   proxy_test_download_url: "https://github.com/zxp19821005/My_AUR_Files/releases/latest/download/README.md",
   proxy_test_clone_url: "https://github.com/zxp19821005/My_AUR_Files.git",
@@ -46,12 +41,17 @@ const fields = [
   { key: "proxy_test_ssh_url", label: "SSH 代理测试地址", description: "用于测试 SSH 代理的连通性", placeholder: "输入 SSH 代理测试 URL" },
 ] as const;
 
-/** 加载状态 */
+/** 草稿模型：初始为空，挂载后从数据库/默认值加载 */
+const { draft, dirty, saving, reset, commit } = useSettingsDraft<ProxySettings>({
+  proxy_download_url: "",
+  proxy_test_download_url: "",
+  proxy_test_clone_url: "",
+  proxy_test_raw_url: "",
+  proxy_test_ssh_url: "",
+});
+
 const loading = ref(false);
-/** 消息提示 */
 const message = ref("");
-/** 消息类型 */
-const messageType = ref<"success" | "error" | "warning">("success");
 
 onMounted(async () => {
   await loadSettings();
@@ -65,34 +65,39 @@ function autoResize(event: Event) {
   el.style.height = el.scrollHeight + "px";
 }
 
-/** 初始化所有 textarea 高度 */
 function initTextareas() {
   nextTick(() => {
-    document.querySelectorAll(".proxy-section-root .text-input").forEach((el) => {
-      const ta = el as HTMLTextAreaElement;
-      ta.style.height = "auto";
-      ta.style.height = ta.scrollHeight + "px";
-    });
+    document
+      .querySelectorAll(".proxy-section-root .text-input")
+      .forEach((el) => {
+        const ta = el as HTMLTextAreaElement;
+        ta.style.height = "auto";
+        ta.style.height = ta.scrollHeight + "px";
+      });
   });
 }
 
-/** 加载设置 */
+/** 加载设置（数据库值优先，缺失则用默认值作为基线） */
 async function loadSettings() {
   loading.value = true;
   try {
+    const loaded: ProxySettings = { ...defaults };
     for (const { key } of fields) {
-      settings.value[key] = await settingsStore.getSetting(key, defaults[key]);
+      loaded[key] = await settingsStore.getSetting(key, defaults[key]);
     }
+    draft.value = loaded;
+    commit();
   } catch (e) {
-    showMessage("加载设置失败: " + String(e), "error");
+    showMessage("加载设置失败: " + String(e));
   } finally {
     loading.value = false;
   }
 }
 
-/** 验证 URL 格式 */
-function isValidUrl(url: string): boolean {
+/** 验证 URL 格式（SSH 地址非标准 URL，单独放行） */
+function isValidUrl(url: string, key: string): boolean {
   if (!url) return false;
+  if (key === "proxy_test_ssh_url") return url.startsWith("ssh://");
   try {
     new URL(url);
     return true;
@@ -101,73 +106,41 @@ function isValidUrl(url: string): boolean {
   }
 }
 
-/** 保存单个设置 */
-async function saveSetting(key: keyof typeof settings.value) {
-  const value = settings.value[key];
-  if (!isValidUrl(value)) {
-    showMessage("请输入有效的 URL 格式", "error");
-    return;
-  }
-
+/** 保存到数据库 */
+async function handleSave() {
+  saving.value = true;
   try {
-    await settingsStore.setSetting(key, value);
-    showMessage("保存成功", "success");
-  } catch (e) {
-    showMessage("保存失败: " + String(e), "error");
-  }
-}
-
-/** 保存所有设置 */
-async function saveAllSettings() {
-  for (const [key, value] of Object.entries(settings.value)) {
-    if (!isValidUrl(value)) {
-      showMessage(`请输入有效的 ${key} URL 格式`, "error");
-      return;
+    for (const { key } of fields) {
+      if (!isValidUrl(draft.value[key], key)) {
+        showMessage(`请输入有效的 ${key} 地址`);
+        return;
+      }
     }
-  }
-
-  loading.value = true;
-  try {
-    for (const [key, value] of Object.entries(settings.value)) {
-      await settingsStore.setSetting(key, value);
+    for (const { key } of fields) {
+      await settingsStore.setSetting(key, draft.value[key]);
     }
-    showMessage("所有设置已保存", "success");
+    commit();
+    showMessage("已保存");
   } catch (e) {
-    showMessage("保存失败: " + String(e), "error");
+    showMessage("保存失败: " + String(e));
   } finally {
-    loading.value = false;
+    saving.value = false;
   }
 }
 
-/** 重置为默认值 */
-async function resetToDefaults() {
-  if (!confirm("确定要重置所有代理设置为默认值吗？")) return;
-
-  settings.value = { ...defaults };
-  await saveAllSettings();
-}
-
-/** 重置单个设置为默认值 */
-async function resetSingleSetting(key: keyof typeof defaults) {
-  settings.value[key] = defaults[key];
-  await saveSetting(key);
-}
-
-/** 显示消息 */
-function showMessage(text: string, type: "success" | "error" | "warning" = "success") {
+function showMessage(text: string) {
   message.value = text;
-  messageType.value = type;
-  setTimeout(() => (message.value = ""), 3000);
+  setTimeout(() => {
+    if (message.value === text) message.value = "";
+  }, 3000);
 }
 </script>
 
 <template>
   <div class="proxy-section-root">
-    <div v-if="message" class="message" :class="`message-${messageType}`">
-      {{ message }}
-    </div>
+    <div v-if="message" class="message">{{ message }}</div>
 
-    <SettingsCard title="代理管理设置" description="配置代理文件下载地址和各类代理的测试地址。">
+    <SettingsCard title="代理管理设置" description="配置代理文件下载地址和各类代理的测试地址。修改后点击右下角「保存设置」才会写入。">
       <SettingRow
         v-for="f in fields"
         :key="f.key"
@@ -176,28 +149,22 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
       >
         <div class="input-row">
           <textarea
-            v-model="settings[f.key]"
+            v-model="draft[f.key]"
             class="text-input"
             :placeholder="f.placeholder"
             rows="1"
             @input="autoResize($event)"
           ></textarea>
-          <button class="btn-reset" @click="resetSingleSetting(f.key)" title="重置为默认值">
-            重置
-          </button>
         </div>
       </SettingRow>
-
-      <!-- 操作按钮 -->
-      <template #actions>
-        <button class="btn btn-primary" @click="saveAllSettings" :disabled="loading">
-          {{ loading ? "保存中..." : "保存所有设置" }}
-        </button>
-        <button class="btn btn-secondary" @click="resetToDefaults" :disabled="loading">
-          重置为默认值
-        </button>
-      </template>
     </SettingsCard>
+
+    <SettingsActionBar
+      :dirty="dirty"
+      :saving="saving"
+      @save="handleSave"
+      @reset="reset"
+    />
   </div>
 </template>
 
@@ -211,21 +178,8 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
   margin-bottom: 1rem;
   border-radius: 6px;
   font-size: 0.875rem;
-}
-
-.message-success {
   background-color: rgba(76, 175, 125, 0.1);
   color: var(--success);
-}
-
-.message-error {
-  background-color: rgba(231, 76, 60, 0.1);
-  color: #e74c3c;
-}
-
-.message-warning {
-  background-color: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
 }
 
 .input-row {
@@ -261,71 +215,10 @@ function showMessage(text: string, type: "success" | "error" | "warning" = "succ
   color: var(--text-muted);
 }
 
-.btn-reset {
-  padding: 0.25rem 0.5rem;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 0.75rem;
-  transition: all 0.15s;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.btn-reset:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.btn {
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  cursor: pointer;
-  font-size: 0.8125rem;
-  transition: all 0.15s;
-  white-space: nowrap;
-}
-
-.btn-primary {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
-}
-
-.btn-primary:hover:not(:disabled) {
-  opacity: 0.9;
-}
-
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: var(--bg-card);
-}
-
-.btn-secondary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 /* 响应式设计 - 平板及以下 */
 @media (max-width: 768px) {
   .input-row {
     flex-direction: column;
-  }
-
-  .btn-reset {
-    align-self: flex-start;
   }
 }
 </style>

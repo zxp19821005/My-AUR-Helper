@@ -3,39 +3,23 @@
 
   功能：
   - 根据路由参数显示不同分类的设置
-  - 支持通用设置、列表设置、AUR设置、检查器设置、备份设置、缓存设置、代理设置、日志设置
-  - 提供保存设置和重置功能
+  - 分发到各自的设置分区组件（各分区内部实现草稿 + 保存/重置）
+  - 分类：通用(外观) / 列表 / AUR / 上游检查器 / 备份 / 缓存 / 代理 / 日志
 
-  使用组件：
-  - StandardizedCard: 设置卡片容器
-  - StandardizedInput: 输入框（支持密码显示/隐藏）
-  - SettingRow: 设置行组件
+  说明：
+  - 列表/AUR/检查器/备份 为动态键值设置，由 SettingsDynamicSection 统一渲染
+  - 其余为结构化的独立分区组件
 -->
 <script setup lang="ts">
-import { ref, onMounted, computed, nextTick } from "vue";
+import { computed } from "vue";
 import { useRoute } from "vue-router";
-import { invoke } from "@tauri-apps/api/core";
-import { Eye, EyeOff } from "@lucide/vue";
-import type { Setting } from "../types";
+import SettingsDynamicSection from "../components/settings/SettingsDynamicSection.vue";
 import SettingsLogSection from "../components/settings/SettingsLogSection.vue";
 import SettingsCacheSection from "../components/settings/SettingsCacheSection.vue";
 import SettingsProxySection from "../components/settings/SettingsProxySection.vue";
 import AppearanceSettings from "../components/settings/AppearanceSettings.vue";
-import { useSettingsStore } from "../stores/settings";
-import StandardizedCard from "../components/base/StandardizedCard.vue";
-import StandardizedInput from "../components/base/StandardizedInput.vue";
-import SettingRow from "../components/settings/SettingRow.vue";
 
 const route = useRoute();
-const settingsStore = useSettingsStore();
-
-const settings = ref<Setting[]>([]);
-const loading = ref(false);
-const message = ref("");
-const passwordVisible = ref<Record<string, boolean>>({});
-
-const theme = ref(localStorage.getItem("app-theme") || "dark");
-const fontSize = ref(localStorage.getItem("app-font-size") || "14");
 
 const categoryMap: Record<string, string> = {
   "/settings": "general",
@@ -49,164 +33,28 @@ const categoryMap: Record<string, string> = {
 };
 
 const category = computed(() => categoryMap[route.path] || "general");
-
-const categoryLabels: Record<string, string> = {
-  general: "通用设置",
-  list: "列表设置",
-  aur: "AUR 设置",
-  checker: "上游检查器设置",
-  backup: "备份管理设置",
-  cache: "缓存软件设置",
-  proxy: "代理管理设置",
-  log: "日志管理设置",
-};
-
-const filteredSettings = computed(() =>
-  settings.value.filter((s) => s.category === category.value)
-);
-
-onMounted(async () => {
-  await loadAll();
-  initTextareas();
-});
-
-async function loadAll() {
-  loading.value = true;
-  try {
-    settings.value = await invoke<Setting[]>("get_settings");
-  } catch (e) {
-    message.value = "加载失败: " + String(e);
-  } finally {
-    loading.value = false;
-  }
-}
-
-async function saveSetting(key: string, value: string) {
-  try {
-    await invoke("set_setting", { key, value });
-    const idx = settings.value.findIndex((s) => s.key === key);
-    if (idx >= 0) {
-      settings.value[idx] = { ...settings.value[idx], value };
-    }
-    await settingsStore.refreshSetting(key);
-    message.value = "已保存";
-    setTimeout(() => (message.value = ""), 2000);
-  } catch (e) {
-    message.value = "保存失败: " + String(e);
-  }
-}
-
-function togglePassword(key: string) {
-  passwordVisible.value[key] = !passwordVisible.value[key];
-}
-
-function isTokenKey(key: string): boolean {
-  return key.includes("token");
-}
-
-function inputType(s: Setting): string {
-  if (!isTokenKey(s.key)) return "text";
-  return passwordVisible.value[s.key] ? "text" : "password";
-}
-
-/** 自动调整 textarea 高度 */
-function autoResize(event: Event) {
-  const el = event.target as HTMLTextAreaElement;
-  el.style.height = "auto";
-  el.style.height = el.scrollHeight + "px";
-}
-
-/** 初始化所有 textarea 高度 */
-function initTextareas() {
-  nextTick(() => {
-    document.querySelectorAll(".settings-textarea").forEach((el) => {
-      const ta = el as HTMLTextAreaElement;
-      ta.style.height = "auto";
-      ta.style.height = ta.scrollHeight + "px";
-    });
-  });
-}
 </script>
 
 <template>
   <div class="settings-container">
-    <!-- 消息提示 -->
-    <div v-if="message" class="settings-message">
-      {{ message }}
-    </div>
+    <!-- 通用设置（外观） -->
+    <AppearanceSettings v-if="category === 'general'" />
 
-    <!-- 加载中 -->
-    <StandardizedCard v-if="loading" title="加载中">
-      <p class="loading-text">正在加载设置...</p>
-    </StandardizedCard>
-
-    <!-- 通用设置 -->
-    <AppearanceSettings
-      v-else-if="category === 'general'"
-      v-model:theme="theme"
-      v-model:font-size="fontSize"
+    <!-- 动态键值设置：列表 / AUR / 上游检查器 / 备份 -->
+    <SettingsDynamicSection
+      v-else-if="['list', 'aur', 'checker', 'backup'].includes(category)"
+      :key="category"
+      :category="category"
     />
 
-    <!-- 日志设置 -->
+    <!-- 日志管理设置 -->
     <SettingsLogSection v-else-if="category === 'log'" />
 
-    <!-- 缓存设置 -->
+    <!-- 缓存目录设置 -->
     <SettingsCacheSection v-else-if="category === 'cache'" />
 
-    <!-- 代理设置 -->
+    <!-- 代理管理设置 -->
     <SettingsProxySection v-else-if="category === 'proxy'" />
-
-    <!-- 暂无设置 -->
-    <StandardizedCard
-      v-else-if="filteredSettings.length === 0 && category !== 'general'"
-      title="暂无设置"
-    >
-      <p class="empty-text">当前分类下暂无设置项</p>
-    </StandardizedCard>
-
-    <!-- 动态设置 -->
-    <StandardizedCard
-      v-else-if="filteredSettings.length > 0"
-      :title="categoryLabels[category] || category"
-    >
-      <div
-        v-for="s in filteredSettings"
-        :key="s.key"
-        class="settings-row-wrapper"
-      >
-        <SettingRow :label="s.description || s.key" :description="s.key">
-          <!-- Token 类型输入框（带密码显示/隐藏） -->
-          <template v-if="isTokenKey(s.key)">
-            <div class="password-wrapper">
-              <StandardizedInput
-                :type="inputType(s) as any"
-                :modelValue="s.value"
-                size="md"
-                @update:modelValue="(val) => saveSetting(s.key, val)"
-              />
-              <button
-                class="toggle-password"
-                @click="togglePassword(s.key)"
-                type="button"
-                :title="passwordVisible[s.key] ? '隐藏' : '显示'"
-              >
-                <Eye v-if="passwordVisible[s.key]" :size="18" />
-                <EyeOff v-else :size="18" />
-              </button>
-            </div>
-          </template>
-          <!-- 普通输入框 - 使用 textarea 支持多行显示 -->
-          <template v-else>
-            <textarea
-              :value="s.value"
-              class="settings-textarea"
-              rows="1"
-              @input="saveSetting(s.key, ($event.target as HTMLTextAreaElement).value); autoResize($event)"
-            ></textarea>
-          </template>
-        </SettingRow>
-      </div>
-    </StandardizedCard>
   </div>
 </template>
 
@@ -217,81 +65,5 @@ function initTextareas() {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-}
-
-.settings-row-wrapper {
-  width: 100%;
-}
-
-.settings-message {
-  padding: 0.75rem 1rem;
-  margin-bottom: 1rem;
-  background-color: rgba(76, 175, 125, 0.1);
-  color: var(--success);
-  border-radius: 8px;
-  font-size: 0.875rem;
-}
-
-.loading-text,
-.empty-text {
-  color: var(--text-secondary);
-}
-
-.password-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.password-wrapper :deep(.standardized-input) {
-  padding-right: 2.5rem;
-}
-
-.toggle-password {
-  position: absolute;
-  right: 0.5rem;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-secondary);
-  padding: 0.25rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: all 0.15s;
-}
-
-.toggle-password:hover {
-  color: var(--text-primary);
-  background-color: var(--hover-bg, rgba(128, 128, 128, 0.1));
-}
-
-.settings-textarea {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: 0.875rem;
-  font-family: inherit;
-  line-height: 1.5;
-  resize: none;
-  overflow: hidden;
-  min-height: 2.5rem;
-  word-break: break-all;
-}
-
-.settings-textarea:focus {
-  border-color: var(--accent);
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.15);
-}
-
-.settings-textarea::placeholder {
-  color: var(--text-muted);
 }
 </style>
