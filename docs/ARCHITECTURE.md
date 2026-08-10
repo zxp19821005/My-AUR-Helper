@@ -359,4 +359,22 @@ src/
               → 检测 pkgver() 函数
               → 自动分配对应检查器
               → 兜底为 ManualChecker
+
+## 设置页交互模式
+
+所有设置分类（通用 / 列表 / AUR / 上游检查器 / 备份 / 缓存目录 / 代理 / 日志 / 外观）统一采用「本地草稿 + 右下角保存/重置」交互，避免逐项即时写库带来的误操作与一致性问题。
+
+### 核心设计
+- **草稿模型** (`src/composables/useSettingsDraft.ts`)：泛型 composable，对外暴露 `draft`（可编辑副本）、`saved`（上次已保存快照）、`dirty`（基于 `JSON.stringify` 比对）、`saving`、`reset()`（草稿回退到 `saved`）、`commit()`（`saved` 更新为当前 `draft`）。注意 `dirty` 类型标注为 `ComputedRef<boolean>`（勿用 `ReturnType<typeof computed>` 否则会触发 TS 符号缺失）。
+- **保存栏** (`src/components/settings/SettingsActionBar.vue`)：`position: fixed; right: 1.5rem; bottom: 4rem`（避让全局 `BottomToolbar` 约 44px），含「保存设置」(Save 图标) 与「重置设置」(RotateCcw 图标) 两个图标按钮，`dirty` 或 `saving` 为 true 时自动禁用。
+
+### 语义约定
+- 「保存设置」：把 `draft` 写入数据库（外观为 `localStorage`）后才生效。
+- 「重置设置」：撤销本次未保存修改，恢复到**上次已保存值**（非程序默认值）。代理页首次打开若数据库为空，会以默认代理 URL 作基线，故默认值不丢失。
+- 缓存目录为列表编辑器，其增删改 / 启用切换只改 `draft`，统一由保存栏写库；编辑态用 `editBackup` 支持单行「取消」撤销。
+
+### 组件职责
+- `src/views/Settings.vue`：纯分类分发器，按 `activeCategory` 渲染对应 Section，不再内联动态渲染或即时保存。
+- `src/components/settings/SettingsDynamicSection.vue`：处理通用/列表/AUR/上游检查器/备份等动态键值设置（按 `category` 过滤 `get_settings`）；修复了上游检查器 token 输入框外包 `.password-wrapper` 缺 `flex:1` 导致的过窄问题（已加 `flex:1 1 auto; min-width:0`）。
+- `SettingsProxySection` / `SettingsLogSection` / `SettingsCacheSection` / `AppearanceSettings`：各自改造为草稿模型；代理页已移除底部「保存所有设置」「重置为默认值」2 个多余按钮及每行「重置」按钮（由全局重置统一承担）。
 ```
