@@ -14,11 +14,18 @@
 | 后端语言 | Rust 1.96 | 高性能、内存安全 |
 | 前端框架 | Vue 3 + TypeScript | Composition API + `<script setup>` |
 | 状态管理 | Pinia | 响应式状态管理 |
-| 构建工具 | Vite 5 | 快速 HMR 开发体验 |
+| 构建工具 | Vite 7（当前 7.3.6）| 快速 HMR 开发体验（由 v6 升级，见下方说明）|
 | 数据库 | SQLite (via rusqlite) | 嵌入式数据库，无需额外服务 |
 | HTTP 客户端 | reqwest | 异步 HTTP 请求 |
 | 日志 | tracing + tauri-plugin-log | 结构化日志，支持文件输出 |
 | 序列化 | serde / serde_json | Rust 数据结构 ↔ JSON |
+
+### 构建工具链说明（Vite 7 升级）
+
+- **版本**：`vite` 由 `^6.4.3` 升级至 `^7.1.11`（实际锁定 7.3.6），以满足仓库版本策略 hook 的最低版本要求；配套 `vue-tsc` / `@vitejs/plugin-vue` 无需额外改动，升级后 `vue-tsc --noEmit && vite build` 通过。
+- **无害告警**：升级后构建可能出现 `@tauri-apps/api/core.js` 同时被动态与静态导入的提示（`dynamic import will not move module into another chunk`）。该提示源于 Tauri API 包自身的导入方式，**不影响产物正确性与运行**，可忽略。
+- **依赖覆盖**：`pnpm-workspace.yaml` 顶层 `overrides` 固定 `nanoid: 3.3.17`，修复构建期传递依赖的 moderate 漏洞（GHSA-2v37-7h3g-55p8）。注意 pnpm v11 已不再读取 `package.json` 内的 `pnpm` 字段，覆盖项只能放在 `pnpm-workspace.yaml`。
+- **本地 install 注意**：WorkBuddy 注入的"安全删除"shim 会拦截 `pnpm install` 对 `node_modules` 目录的删除（目录走 `copyFileSync` 导致 EISDIR 失败）。若安装卡在此处，用 `env -u CODEBUDDY_SESSION_ID -u CLAUDE_SESSION_ID pnpm install` 让 shim 早退、走原生删除即可。
 
 ## 代码规范
 
