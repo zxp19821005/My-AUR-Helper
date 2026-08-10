@@ -13,7 +13,7 @@
   - StandardizedModal: 模态框（编辑/详情）
 -->
 <script setup lang="ts">
-import { onMounted, ref, inject, computed } from "vue";
+import { onMounted, ref, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { useProxyList, PROXY_TYPE_OPTIONS, getProxyDisplayName } from "../composables/useProxyList";
 import { FOOTER_KEY, addMessage } from "../composables/footer";
@@ -24,12 +24,9 @@ import StandardizedMessage from "../components/base/StandardizedMessage.vue";
 import StandardizedBadge from "../components/base/StandardizedBadge.vue";
 import StandardizedModal from "../components/common/StandardizedModal.vue";
 import PageToolbar from "../components/common/PageToolbar.vue";
-import { Trash2, Download, FileCode, Zap, Filter, X, Info, Edit, TestTube } from "@lucide/vue";
+import { Trash2, Download, FileCode, Zap, Database, Info, Edit, TestTube } from "@lucide/vue";
 
 const footer = inject(FOOTER_KEY)!;
-
-const showFilterBar = ref(false);
-const activeFilterCount = computed(() => typeFilter.value ? 1 : 0);
 
 const {
   searchQuery,
@@ -285,12 +282,18 @@ const columns = [
     <PageToolbar 
       v-model="searchQuery" 
       @refresh="fetchEntries"
-      :filter-active="activeFilterCount > 0"
-      @toggle-filter="showFilterBar = !showFilterBar"
+      :show-filter-button="false"
     >
-      <template #filter-icon>
-        <Filter :size="16" />
-        <span v-if="activeFilterCount > 0" class="filter-count-badge">{{ activeFilterCount }}</span>
+      <template #filters>
+        <select
+          class="toolbar-filter-select"
+          :value="typeFilter"
+          @change="typeFilter = ($event.target as HTMLSelectElement).value as any"
+        >
+          <option v-for="opt in PROXY_TYPE_OPTIONS" :key="opt.value" :value="opt.value">
+            {{ opt.label }}
+          </option>
+        </select>
       </template>
       <button class="btn-icon btn-icon-danger" :disabled="clearing" @click="showClearConfirm = true" title="清空代理表">
         <Database :size="16" />
@@ -308,50 +311,6 @@ const columns = [
         <Trash2 :size="16" />
       </button>
     </PageToolbar>
-
-    <!-- 筛选面板 -->
-    <Teleport to="body">
-      <div v-if="showFilterBar" class="filter-overlay" @click.self="showFilterBar = false">
-        <div class="filter-panel">
-          <div class="filter-header">
-            <div class="filter-title">
-              <Filter :size="16" />
-              <span>筛选条件</span>
-              <span v-if="activeFilterCount > 0" class="filter-badge">{{ activeFilterCount }}</span>
-            </div>
-            <button class="btn-icon btn-icon-default" @click="showFilterBar = false">
-              <X :size="16" />
-            </button>
-          </div>
-          <div class="filter-body">
-            <div class="filter-section">
-              <div class="filter-row">
-                <div class="filter-field">
-                  <label class="filter-field-label">代理类型</label>
-                  <select 
-                    class="filter-select"
-                    :value="typeFilter"
-                    @change="typeFilter = ($event.target as HTMLSelectElement).value as any"
-                  >
-                    <option v-for="opt in PROXY_TYPE_OPTIONS" :key="opt.value" :value="opt.value">
-                      {{ opt.label }}
-                    </option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="filter-footer">
-            <button class="btn btn-secondary" @click="typeFilter = ''">
-              清空筛选
-            </button>
-            <button class="btn btn-primary" @click="showFilterBar = false">
-              应用筛选
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
 
     <!-- 代理表格 -->
     <StandardizedTable

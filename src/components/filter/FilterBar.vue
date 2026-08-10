@@ -3,14 +3,13 @@
 
   功能：
   - 提供快速筛选条件（OR 逻辑）：上游URL为空、AUR更新失败、上游更新失败、上游地址异常、License缺失
-  - 提供条件筛选（AND 逻辑）：软件包类型、检查器类型
+  - 条件筛选（AND 逻辑：软件包类型、检查器类型）已移至顶部工具栏，不在本面板展示
   - 筛选器以弹出面板形式展示，默认折叠
   - 通过 badge 显示活跃筛选条件数量
 -->
 <script setup lang="ts">
 import { Filter, X, Search } from "@lucide/vue";
 import type { FilterState } from "../../composables/usePackageList";
-import { packageTypeFilterOptions, checkerTypeFilterOptions } from "../../utils/enums";
 
 const props = defineProps<{
   filterState: FilterState;
@@ -54,25 +53,10 @@ const quickFilterOptions = [
   },
 ];
 
-function parseSelectValue(event: Event): number | null {
-  const value = (event.target as HTMLSelectElement).value;
-  return value === "" ? null : Number(value);
-}
-
 function toggleQuickFilter(key: keyof FilterState["quickFilters"]) {
   const newState = { ...props.filterState };
   newState.quickFilters = { ...newState.quickFilters };
   newState.quickFilters[key] = !newState.quickFilters[key];
-  emit("update:filterState", newState);
-}
-
-function updateConditionFilter(
-  key: "packageType" | "checkerType",
-  value: number | null
-) {
-  const newState = { ...props.filterState };
-  newState.conditionFilters = { ...newState.conditionFilters };
-  newState.conditionFilters[key] = value;
   emit("update:filterState", newState);
 }
 
@@ -127,44 +111,6 @@ function handleValidateUrls() {
             </div>
           </div>
 
-          <!-- 条件筛选 -->
-          <div class="filter-section">
-            <div class="filter-section-title">条件筛选（满足所有条件）</div>
-            <div class="filter-row">
-              <div class="filter-field">
-                <label class="filter-field-label">软件包类型</label>
-                <select
-                  class="filter-select"
-                  :value="filterState.conditionFilters.packageType"
-                  @change="updateConditionFilter('packageType', parseSelectValue($event))"
-                >
-                  <option
-                    v-for="opt in packageTypeFilterOptions"
-                    :key="opt.value ?? 'all'"
-                    :value="opt.value"
-                  >
-                    {{ opt.label }}
-                  </option>
-                </select>
-              </div>
-              <div class="filter-field">
-                <label class="filter-field-label">检查器类型</label>
-                <select
-                  class="filter-select"
-                  :value="filterState.conditionFilters.checkerType"
-                  @change="updateConditionFilter('checkerType', parseSelectValue($event))"
-                >
-                  <option
-                    v-for="opt in checkerTypeFilterOptions"
-                    :key="opt.value ?? 'all'"
-                    :value="opt.value"
-                  >
-                    {{ opt.label }}
-                  </option>
-                </select>
-              </div>
-            </div>
-          </div>
         </div>
 
         <div class="filter-footer">

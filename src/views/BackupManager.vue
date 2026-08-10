@@ -16,7 +16,7 @@
   - StandardizedModal: 弹窗组件
 -->
 <script setup lang="ts">
-import { onMounted, ref, inject, computed } from "vue";
+import { onMounted, ref, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { useBackupList, fmtEpoch } from "../composables/useBackupList";
 import { useBackupInstall } from "../composables/useBackupInstall";
@@ -27,17 +27,15 @@ import StandardizedTable from "../components/common/StandardizedTable.vue";
 import BackupRowActions from "../components/backup/BackupRowActions.vue";
 import BackupInfoDialog from "../components/backup/BackupInfoDialog.vue";
 import BackupSudoersDialog from "../components/backup/BackupSudoersDialog.vue";
-import { Trash2, Scan, Copy, Download, Filter, X } from "@lucide/vue";
+import { Trash2, Scan, Copy, Download } from "@lucide/vue";
 
 const footer = inject(FOOTER_KEY)!;
-
-const showFilterBar = ref(false);
-const activeFilterCount = computed(() => subdirectoryFilter.value ? 1 : 0);
 
 const {
   searchQuery, selectedIds, loading,
   filteredEntries, pageSize, currentPage,
   subdirectoryFilter, subdirectories,
+  archFilter, architectures,
   fetchEntries, syncToolbar,
 } = useBackupList();
 
@@ -177,12 +175,25 @@ const columns = [
     <PageToolbar 
       v-model="searchQuery" 
       @refresh="fetchEntries"
-      :filter-active="activeFilterCount > 0"
-      @toggle-filter="showFilterBar = !showFilterBar"
+      :show-filter-button="false"
     >
-      <template #filter-icon>
-        <Filter :size="16" />
-        <span v-if="activeFilterCount > 0" class="filter-count-badge">{{ activeFilterCount }}</span>
+      <template #filters>
+        <select
+          class="toolbar-filter-select"
+          :value="subdirectoryFilter"
+          @change="subdirectoryFilter = ($event.target as HTMLSelectElement).value"
+        >
+          <option value="">全部子目录</option>
+          <option v-for="dir in subdirectories" :key="dir" :value="dir">{{ dir }}</option>
+        </select>
+        <select
+          class="toolbar-filter-select"
+          :value="archFilter"
+          @change="archFilter = ($event.target as HTMLSelectElement).value"
+        >
+          <option value="">全部架构</option>
+          <option v-for="a in architectures" :key="a" :value="a">{{ a }}</option>
+        </select>
       </template>
       <button class="btn-icon btn-icon-danger" :disabled="loading" @click="handleClearTable" title="清空备份表">
         <Trash2 :size="16" />
@@ -200,49 +211,6 @@ const columns = [
         <Trash2 :size="16" />
       </button>
     </PageToolbar>
-
-    <!-- 筛选面板 -->
-    <Teleport to="body">
-      <div v-if="showFilterBar" class="filter-overlay" @click.self="showFilterBar = false">
-        <div class="filter-panel">
-          <div class="filter-header">
-            <div class="filter-title">
-              <Filter :size="16" />
-              <span>筛选条件</span>
-              <span v-if="activeFilterCount > 0" class="filter-badge">{{ activeFilterCount }}</span>
-            </div>
-            <button class="btn-icon btn-icon-default" @click="showFilterBar = false">
-              <X :size="16" />
-            </button>
-          </div>
-          <div class="filter-body">
-            <div class="filter-section">
-              <div class="filter-row">
-                <div class="filter-field">
-                  <label class="filter-field-label">子目录</label>
-                  <select 
-                    class="filter-select"
-                    :value="subdirectoryFilter"
-                    @change="subdirectoryFilter = ($event.target as HTMLSelectElement).value"
-                  >
-                    <option value="">全部子目录</option>
-                    <option v-for="dir in subdirectories" :key="dir" :value="dir">{{ dir }}</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="filter-footer">
-            <button class="btn btn-secondary" @click="subdirectoryFilter = ''">
-              清空筛选
-            </button>
-            <button class="btn btn-primary" @click="showFilterBar = false">
-              应用筛选
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
 
     <!-- 备份表格 -->
     <StandardizedTable

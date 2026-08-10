@@ -29,6 +29,7 @@ import SoftwareDetailModal from "../components/package/SoftwareDetailModal.vue";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
 import PackageRowActions from "../components/package/PackageRowActions.vue";
 import { RefreshCw, Plus, Trash2, Info, Download, Filter } from "@lucide/vue";
+import { packageTypeFilterOptions, checkerTypeFilterOptions } from "../utils/enums";
 import type { ValidateResult } from "../types";
 import type { Column } from "../composables/useTableState";
 
@@ -95,6 +96,20 @@ function handleFilterUpdate(newState: typeof filterState.value) {
   filterState.value = newState;
 }
 
+/** 解析下拉框值为条件筛选值（空字符串表示"全部" → null） */
+function parseSelectValue(event: Event): number | null {
+  const value = (event.target as HTMLSelectElement).value;
+  return value === "" ? null : Number(value);
+}
+
+/** 更新条件筛选（软件包类型 / 检查器类型），绑定到共享 filterState */
+function updateConditionFilter(key: "packageType" | "checkerType", value: number | null) {
+  filterState.value = {
+    ...filterState.value,
+    conditionFilters: { ...filterState.value.conditionFilters, [key]: value },
+  };
+}
+
 /** 表格列配置 */
 const columns: Column[] = [
   {
@@ -148,6 +163,37 @@ onMounted(async () => {
       <template #filter-icon>
         <Filter :size="16" />
         <span v-if="activeFilterCount > 0" class="filter-count-badge">{{ activeFilterCount }}</span>
+      </template>
+
+      <template #filters>
+        <div class="toolbar-filter-group">
+          <select
+            class="toolbar-filter-select"
+            :value="filterState.conditionFilters.packageType === null ? '' : filterState.conditionFilters.packageType"
+            @change="updateConditionFilter('packageType', parseSelectValue($event))"
+          >
+            <option
+              v-for="opt in packageTypeFilterOptions"
+              :key="opt.value ?? 'all'"
+              :value="opt.value === null ? '' : opt.value"
+            >
+              {{ opt.value === null ? '全部类型' : opt.label }}
+            </option>
+          </select>
+          <select
+            class="toolbar-filter-select"
+            :value="filterState.conditionFilters.checkerType === null ? '' : filterState.conditionFilters.checkerType"
+            @change="updateConditionFilter('checkerType', parseSelectValue($event))"
+          >
+            <option
+              v-for="opt in checkerTypeFilterOptions"
+              :key="opt.value ?? 'all'"
+              :value="opt.value === null ? '' : opt.value"
+            >
+              {{ opt.value === null ? '全部检查器' : opt.label }}
+            </option>
+          </select>
+        </div>
       </template>
       <button class="btn-icon btn-icon-accent" @click="syncFromAur(selectedPkgnames)" :disabled="loading" title="从AUR同步">
         <RefreshCw :size="16" />
@@ -262,6 +308,13 @@ onMounted(async () => {
 <style scoped>
 .pkg-outdated {
   color: var(--warning);
+}
+
+/* 顶部工具栏内联筛选（软件包类型 / 检查器类型） */
+.toolbar-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .filter-count-badge {

@@ -45,6 +45,14 @@ export function useCacheList() {
   const entries = ref<CacheListEntry[]>([]);
   const selectedIds = ref(new Set<number>());
   const searchQuery = ref("");
+  const sourceDirFilter = ref("");
+  const sourceDirs = ref<{ name: string; path: string }[]>([]);
+  const archFilter = ref("");
+  const architectures = computed(() => {
+    const set = new Set<string>();
+    for (const e of entries.value) if (e.arch) set.add(e.arch);
+    return Array.from(set).sort();
+  });
   const loading = ref(false);
 
   onMounted(async () => {
@@ -97,12 +105,21 @@ export function useCacheList() {
   }
 
   const filteredEntries = computed(() => {
-    if (!searchQuery.value) return entries.value;
-    const q = searchQuery.value.toLowerCase();
-    return entries.value.filter((e) =>
-      e.pkgname.toLowerCase().includes(q) ||
-      e.filename.toLowerCase().includes(q)
-    );
+    let result = entries.value;
+    if (sourceDirFilter.value) {
+      result = result.filter((e) => e.cache_directory === sourceDirFilter.value);
+    }
+    if (archFilter.value) {
+      result = result.filter((e) => e.arch === archFilter.value);
+    }
+    if (searchQuery.value) {
+      const q = searchQuery.value.toLowerCase();
+      result = result.filter((e) =>
+        e.pkgname.toLowerCase().includes(q) ||
+        e.filename.toLowerCase().includes(q)
+      );
+    }
+    return result;
   });
 
   const totalRecords = computed(() => filteredEntries.value.length);
@@ -128,6 +145,8 @@ export function useCacheList() {
 
   watch(totalRecords, syncToolbar);
   watch(searchQuery, () => { currentPage.value = 1; });
+  watch(sourceDirFilter, () => { currentPage.value = 1; });
+  watch(archFilter, () => { currentPage.value = 1; });
   watch(currentPage, (p) => {
     footer.currentPage = p;
     footer.onPageChange = goToPage;
@@ -198,6 +217,10 @@ export function useCacheList() {
     entries,
     selectedIds,
     searchQuery,
+    sourceDirFilter,
+    sourceDirs,
+    archFilter,
+    architectures,
     loading,
     filteredEntries,
     totalRecords,

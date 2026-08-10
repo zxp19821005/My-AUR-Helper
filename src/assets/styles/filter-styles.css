@@ -146,3 +146,26 @@
   border-top: 1px solid var(--border);
   justify-content: flex-end;
 }
+
+/* ── 顶部工具栏内联筛选下拉（软件/备份/缓存/代理管理页面共用） ── */
+.toolbar-filter-select {
+  height: 32px;
+  padding: 0 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+  min-width: 110px;
+}
+
+.toolbar-filter-select:focus {
+  border-color: var(--accent);
+}
+
+.toolbar-filter-select:hover {
+  border-color: var(--text-secondary);
+}

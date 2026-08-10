@@ -22,6 +22,12 @@ export function useBackupList() {
   const searchQuery = ref("");
   const subdirectoryFilter = ref("");
   const subdirectories = ref<string[]>([]);
+  const archFilter = ref("");
+  const architectures = computed(() => {
+    const set = new Set<string>();
+    for (const e of entries.value) if (e.arch) set.add(e.arch);
+    return Array.from(set).sort();
+  });
   const loading = ref(false);
 
   onMounted(async () => {
@@ -32,6 +38,9 @@ export function useBackupList() {
     let result = entries.value;
     if (subdirectoryFilter.value) {
       result = result.filter((e) => e.subdirectory === subdirectoryFilter.value);
+    }
+    if (archFilter.value) {
+      result = result.filter((e) => e.arch === archFilter.value);
     }
     if (searchQuery.value) {
       const q = searchQuery.value.toLowerCase();
@@ -67,6 +76,7 @@ export function useBackupList() {
   watch(totalRecords, syncToolbar);
   watch(searchQuery, () => { currentPage.value = 1; });
   watch(subdirectoryFilter, () => { currentPage.value = 1; });
+  watch(archFilter, () => { currentPage.value = 1; });
   watch(currentPage, (p) => {
     footer.currentPage = p;
     footer.onPageChange = goToPage;
@@ -107,6 +117,8 @@ export function useBackupList() {
     searchQuery,
     subdirectoryFilter,
     subdirectories,
+    archFilter,
+    architectures,
     loading,
     filteredEntries,
     totalRecords,

@@ -6,7 +6,11 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 const props = defineProps<{
   modelValue?: string;
   filterActive?: boolean;
+  /** 是否显示折叠筛选按钮（当所有筛选已内联到工具栏时为 false） */
+  showFilterButton?: boolean;
 }>();
+
+const showFilterButton = props.showFilterButton ?? true;
 
 const emit = defineEmits<{
   (e: "update:modelValue", value: string): void;
@@ -123,7 +127,9 @@ function openSettings() {
     </div>
     <div class="toolbar-right">
       <slot name="right" />
+      <slot name="filters" />
       <button
+        v-if="showFilterButton"
         class="toolbar-icon-btn"
         :class="{ 'btn-icon-warning': filterActive }"
         @click="emit('toggle-filter')"
@@ -131,7 +137,6 @@ function openSettings() {
       >
         <slot name="filter-icon" />
       </button>
-      <div class="toolbar-divider"></div>
       <div class="search-box">
         <Search :size="14" class="search-icon" />
         <input
@@ -149,6 +154,7 @@ function openSettings() {
           <X :size="12" />
         </button>
       </div>
+      <div class="toolbar-divider"></div>
       <button
         v-if="!isPopupWindow"
         class="toolbar-icon-btn"

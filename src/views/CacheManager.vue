@@ -26,12 +26,9 @@ import BackupToModal from "../components/backup/BackupToModal.vue";
 import PageToolbar from "../components/common/PageToolbar.vue";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
 import CacheRowActions from "../components/cache/CacheRowActions.vue";
-import { Trash2, Scan, Copy, GitBranch, Filter, X, Trash } from "@lucide/vue";
+import { Trash2, Scan, Copy, GitBranch, Trash } from "@lucide/vue";
 
 const footer = inject(FOOTER_KEY)!;
-
-const showFilterBar = ref(false);
-const activeFilterCount = computed(() => sourceDirFilter.value ? 1 : 0);
 
 const {
   searchQuery,
@@ -40,22 +37,20 @@ const {
   filteredEntries,
   pageSize,
   currentPage,
+  sourceDirFilter,
+  sourceDirs,
+  archFilter,
+  architectures,
   loadEntries,
   fetchEntries,
 } = useCacheList();
 
 const scanning = ref(false);
-const sourceDirFilter = ref("");
-const cacheDirs = ref<{ name: string; path: string }[]>([]);
 const backupPath = ref("");
 const backupSubdirectories = ref<string[]>([]);
 
-const sourceDirs = computed(() => {
-  return cacheDirs.value.filter((d) => d.path);
-});
-
 const selectedFilenames = computed(() => {
-  return filteredByDir.value
+  return filteredEntries.value
     .filter((_, i) => selectedIds.value.has(i))
     .map((e) => e.filename);
 });
@@ -78,7 +73,7 @@ const {
 
 onMounted(async () => {
   try {
-    cacheDirs.value = await loadEnabledCacheDirs();
+    sourceDirs.value = await loadEnabledCacheDirs();
   } catch (e) {
     console.error("加载缓存目录失败:", e);
   }
@@ -92,17 +87,6 @@ onMounted(async () => {
     backupSubdirectories.value = await invoke<string[]>("list_backup_subdirectories");
   } catch { /* ignore */ }
 });
-
-const filteredByDir = computed(() => {
-  if (!sourceDirFilter.value) return filteredEntries.value;
-  return filteredEntries.value.filter((e) => e.cache_directory === sourceDirFilter.value);
-});
-
-function handleSourceDirFilterChange(dir: string | number) {
-  sourceDirFilter.value = String(dir);
-  currentPage.value = 1;
-  selectedIds.value = new Set();
-}
 
 async function handleScan() {
   scanning.value = true;
@@ -144,7 +128,7 @@ function rowDelete(filename: string) {
 function handleSelectionChange(selectedRows: any[]) {
   const newSelected = new Set<number>();
   selectedRows.forEach((row) => {
-    const idx = filteredByDir.value.findIndex(
+    const idx = filteredEntries.value.findIndex(
       (e) => e.filename === row.filename
     );
     if (idx !== -1) newSelected.add(idx);
@@ -176,12 +160,27 @@ async function copySudoersCommand() {
     <PageToolbar 
       v-model="searchQuery" 
       @refresh="handleScan"
-      :filter-active="activeFilterCount > 0"
-      @toggle-filter="showFilterBar = !showFilterBar"
+      :show-filter-button="false"
     >
-      <template #filter-icon>
-        <Filter :size="16" />
-        <span v-if="activeFilterCount > 0" class="filter-count-badge">{{ activeFilterCount }}</span>
+      <template #filters>
+        <select
+          class="toolbar-filter-select"
+          :value="sourceDirFilter"
+          @change="sourceDirFilter = ($event.target as HTMLSelectElement).value"
+        >
+          <option value="">全部缓存目录</option>
+          <option v-for="dir in sourceDirs" :key="dir.name" :value="dir.name">
+            {{ dir.name }}
+          </option>
+        </select>
+        <select
+          class="toolbar-filter-select"
+          :value="archFilter"
+          @change="archFilter = ($event.target as HTMLSelectElement).value"
+        >
+          <option value="">全部架构</option>
+          <option v-for="a in architectures" :key="a" :value="a">{{ a }}</option>
+        </select>
       </template>
       <button class="btn-icon btn-icon-accent" :disabled="loading || scanning" @click="handleScan" title="扫描所有缓存目录">
         <Scan :size="16" />
@@ -205,51 +204,6 @@ async function copySudoersCommand() {
         <Trash :size="16" />
       </button>
     </PageToolbar>
-
-    <!-- 筛选面板 -->
-    <Teleport to="body">
-      <div v-if="showFilterBar" class="filter-overlay" @click.self="showFilterBar = false">
-        <div class="filter-panel">
-          <div class="filter-header">
-            <div class="filter-title">
-              <Filter :size="16" />
-              <span>筛选条件</span>
-              <span v-if="activeFilterCount > 0" class="filter-badge">{{ activeFilterCount }}</span>
-            </div>
-            <button class="btn-icon btn-icon-default" @click="showFilterBar = false">
-              <X :size="16" />
-            </button>
-          </div>
-          <div class="filter-body">
-            <div class="filter-section">
-              <div class="filter-row">
-                <div class="filter-field">
-                  <label class="filter-field-label">缓存目录</label>
-                  <select 
-                    class="filter-select"
-                    :value="sourceDirFilter"
-                    @change="handleSourceDirFilterChange(($event.target as HTMLSelectElement).value)"
-                  >
-                    <option value="">全部缓存目录</option>
-                    <option v-for="dir in sourceDirs" :key="dir.name" :value="dir.name">
-                      {{ dir.name }}
-                    </option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="filter-footer">
-            <button class="btn btn-secondary" @click="handleSourceDirFilterChange('')">
-              清空筛选
-            </button>
-            <button class="btn btn-primary" @click="showFilterBar = false">
-              应用筛选
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
 
     <!-- 缓存表格 -->
     <StandardizedTable
