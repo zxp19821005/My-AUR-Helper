@@ -103,8 +103,7 @@ async function checkUpdate() {
         @click="emit('edit')"
         title="编辑"
       >
-        <Edit :size="16" />
-        <span>编辑</span>
+        <Edit :size="18" />
       </button>
 
       <button
@@ -113,8 +112,7 @@ async function checkUpdate() {
         @click="updateAurInfo"
         title="更新 AUR 信息"
       >
-        <GitBranch :size="16" :class="{ spinning: updatingAur }" />
-        <span>{{ updatingAur ? '更新中...' : 'AUR 信息' }}</span>
+        <GitBranch :size="18" :class="{ spinning: updatingAur }" />
       </button>
 
       <button
@@ -123,8 +121,7 @@ async function checkUpdate() {
         @click="updatePkgbuild"
         title="同步 PKGBUILD"
       >
-        <FileCode :size="16" :class="{ spinning: updatingPkgbuild }" />
-        <span>{{ updatingPkgbuild ? '更新中...' : 'PKGBUILD' }}</span>
+        <FileCode :size="18" :class="{ spinning: updatingPkgbuild }" />
       </button>
 
       <button
@@ -133,8 +130,7 @@ async function checkUpdate() {
         @click="checkUpdate"
         title="检查上游更新"
       >
-        <RefreshCw :size="16" :class="{ spinning: checking }" />
-        <span>{{ checking ? '检查中...' : '检查上游' }}</span>
+        <RefreshCw :size="18" :class="{ spinning: checking }" />
       </button>
 
       <button
@@ -143,8 +139,7 @@ async function checkUpdate() {
         @click="handleDelete"
         title="删除"
       >
-        <Trash2 :size="16" :class="{ spinning: deleting }" />
-        <span>{{ deleting ? '删除中...' : '删除' }}</span>
+        <Trash2 :size="18" :class="{ spinning: deleting }" />
       </button>
     </div>
   </div>
@@ -165,17 +160,27 @@ async function checkUpdate() {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  justify-content: center;
   max-width: 900px;
   margin: 0 auto;
 }
 
+/* 纯图标按钮：固定方形、图标居中，去掉文字后的间距 */
+.footer-actions .toolbar-btn {
+  justify-content: center;
+  gap: 0;
+  padding: 0.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
 @media (max-width: 768px) {
   .footer-actions {
-    flex-direction: column;
+    justify-content: center;
   }
 
   .footer-actions > * {
-    width: 100%;
+    width: auto;
   }
 }
 </style>

@@ -58,6 +58,7 @@ pub async fn fetch_proxy_sources(state: State<'_, AppState>) -> AppResult<usize>
             fail_count: 0,
             avg_latency: None,
             last_test_status: None,
+            strip_target_protocol: p.strip_target_protocol,
         };
         let _ = db.insert_proxy(&proxy_info);
         count += 1;
@@ -109,7 +110,7 @@ pub async fn parse_proxy_file(state: State<'_, AppState>) -> AppResult<usize> {
 
 /// 测试代理延迟（按下载代理类型，使用真实的下载地址拼接规则）
 /// 注意：不记录代理 URL，防止凭据泄露
-#[tauri::command]
+    #[tauri::command]
 pub async fn test_proxy(_state: State<'_, AppState>, proxy_url: String) -> AppResult<i64> {
     debug!("正在测试代理延迟");
     let latency = proxy::test_proxy_by_type(
@@ -118,6 +119,7 @@ pub async fn test_proxy(_state: State<'_, AppState>, proxy_url: String) -> AppRe
         &proxy_url,
         &ProxyType::Download,
         None,
+        false, // 单 URL 测试为遗留入口，默认保留目标协议头
     )
     .await?;
     debug!("代理延迟: {}ms", latency);
@@ -175,6 +177,7 @@ pub async fn test_proxies_batch(
                 &proxy.url,
                 &proxy.proxy_type,
                 Some(&test_url),
+                proxy.strip_target_protocol,
             )
             .await
             {
@@ -249,6 +252,7 @@ pub async fn test_proxy_single(
         &proxy.url,
         &proxy.proxy_type,
         Some(&test_url),
+        proxy.strip_target_protocol,
     )
     .await
     {

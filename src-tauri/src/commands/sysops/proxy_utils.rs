@@ -3,7 +3,6 @@
  *
  * 提供 HTTP 客户端构建和代理获取功能
  */
-use log::info;
 use std::time::Duration;
 
 use crate::models::ProxyType;
@@ -88,9 +87,21 @@ pub fn build_client(timeout_secs: u64, proxy_url: Option<&str>) -> reqwest::Clie
 }
 
 /// 构建 HTTP 客户端（可配置是否跟随重定向）
+///
+/// 本函数的调用方（版本检查 / AUR 同步 / 枚举拉取）均为普通 API 请求，
+/// 一律直连，不再把数据库里的 GitHub 加速镜像当成正向代理强加给请求。
+///
+/// 原因：本项目的代理全部来自「GitHub 加速」用户脚本，均为 GitHub 镜像
+/// （反向代理），只能用于「主机替换」方式加速 GitHub 文件下载/克隆，
+/// 绝对不能作为正向代理接管 api.github.com、appversion.115.com、
+/// aur.archlinux.org 等请求——日志里 `proxy(cdn.crashmc.com) intercepts ...`
+/// 之后连接失败，正是这个原因。
+///
+/// 若系统/环境配置了真正的正向代理（http_proxy/https_proxy 等），
+/// reqwest 默认会自动读取并使用，无需在此手动设置。
 pub fn build_client_with_redirect(
     timeout_secs: u64,
-    proxy_url: Option<&str>,
+    _proxy_url: Option<&str>,
     follow_redirects: bool,
 ) -> reqwest::Client {
     let mut builder = reqwest::Client::builder().timeout(Duration::from_secs(timeout_secs));
@@ -99,15 +110,5 @@ pub fn build_client_with_redirect(
         builder = builder.redirect(reqwest::redirect::Policy::none());
     }
 
-    if let Some(url) = proxy_url {
-        if url.starts_with("http://") || url.starts_with("https://") {
-            info!("[HTTP代理] 使用代理");
-            if let Ok(proxy) = reqwest::Proxy::all(url) {
-                builder = builder.proxy(proxy);
-            }
-        } else if url.starts_with("socks5://") {
-            info!("[HTTP代理] SOCKS5代理不支持（需要启用 socks 特性），跳过");
-        }
-    }
     builder.build().unwrap_or_default()
 }

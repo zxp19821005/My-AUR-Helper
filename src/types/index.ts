@@ -115,6 +115,8 @@ export interface ProxyInfo {
   avg_latency: number | null;
   /** 最后测试状态 - 'success' | 'fail'，来自最新测试记录，null 表示未测试 */
   last_test_status?: string | null;
+  /** 目标协议头约定 - true 表示测试拼接时去除目标地址协议头（isteed 类），false 保留（crashmc 类） */
+  strip_target_protocol?: boolean;
 }
 
 /** License 类型别名 - 指向完整的 EnumLicense 接口 */

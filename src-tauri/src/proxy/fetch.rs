@@ -7,10 +7,11 @@ use crate::models::ProxyType;
 /// 从 userscript 获取的代理信息
 #[derive(Debug, Clone)]
 pub struct FetchedProxy {
-    pub url: String,                 // 代理 URL
+    pub url: String,                 // 代理 URL（已规整为源站基址）
     pub region: Option<String>,      // 代理所在区域
     pub description: Option<String>, // 代理描述
     pub proxy_type: ProxyType,       // 代理类型
+    pub strip_target_protocol: bool, // 目标协议头约定（解析时推断）
 }
 
 /// Greasyfork 上 GitHub 加速用户脚本的 URL
@@ -191,8 +192,8 @@ fn parse_proxy_entry(entry: &str) -> Option<FetchedProxy> {
     if parts.is_empty() {
         return None;
     }
-    // 去除引号和空白，并规整为干净的代理基址
-    let url = super::parse::normalize_proxy_url(
+    // 去除引号和空白，并规整为干净的源站基址，同时推断「目标协议头约定」
+    let (url, strip_target_protocol) = super::parse::normalize_proxy_url(
         &parts[0].trim().trim_matches('\'').trim_matches('"').to_string(),
     );
     let region = parts
@@ -210,5 +211,6 @@ fn parse_proxy_entry(entry: &str) -> Option<FetchedProxy> {
         region,
         description,
         proxy_type: ProxyType::Download, // 默认值，在 parse_userscript_arrays 中被覆盖
+        strip_target_protocol,
     })
 }

@@ -85,7 +85,8 @@ impl Database {
                 proxy_name  TEXT NOT NULL,
                 proxy_type  TEXT NOT NULL DEFAULT 'download',
                 url         TEXT NOT NULL UNIQUE,
-                is_active   INTEGER NOT NULL DEFAULT 1
+                is_active   INTEGER NOT NULL DEFAULT 1,
+                strip_target_protocol INTEGER NOT NULL DEFAULT 0
             );
 
             -- 代理测试结果表

@@ -321,6 +321,10 @@ src/
 - 从 Greasyfork userscript 中解析代理列表
 - 代理健康检测（延迟测试）
 - 按类型分类（download/clone/raw）
+- 解析时推断每个代理的「协议头约定」（`strip_target_protocol`）：
+  保留目标协议头（如 cdn.crashmc.com 类）或去除（如 cors.isteed.cc 类），
+  持久化到 `proxies_info` 表，测试拼接时按约定决定是否去掉目标地址的 `https://` 前缀，
+  规避双重拼接（如 `cdn.xxx/github.com/https://github.com`）
 
 ### versions/ — 版本处理
 

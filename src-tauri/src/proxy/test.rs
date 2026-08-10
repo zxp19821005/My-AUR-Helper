@@ -75,9 +75,15 @@ fn mask_url(url: &str) -> String {
 }
 
 /// 拼接测试 URL：{代理基址}/{真实下载地址}
-/// 仅当目标地址非空时才拼接，避免产生裸代理地址（如 https://cdn.xxx/）
-fn build_test_url(proxy_url: &str, target: &str) -> AppResult<String> {
-    let base = normalize_proxy_url(proxy_url);
+/// 仅当目标地址非空时才拼接，避免产生裸代理地址（如 https://cdn.xxx/）。
+/// @param strip_target_protocol - 为 true 时去除目标地址的协议头（如 cors.isteed.cc 类约定），
+///        否则保留（如 cdn.crashmc.com 类约定）。约定由解析时推断并持久化。
+fn build_test_url(
+    proxy_url: &str,
+    target: &str,
+    strip_target_protocol: bool,
+) -> AppResult<String> {
+    let base = normalize_proxy_url(proxy_url).0; // 规整为源站基址
     let target = target.trim();
     if target.is_empty() {
         return Err(AppError::NetworkError(
@@ -85,6 +91,14 @@ fn build_test_url(proxy_url: &str, target: &str) -> AppResult<String> {
         ));
     }
     let target = target.trim_start_matches('/');
+    // 按约定决定是否去除目标协议头
+    let target = if strip_target_protocol {
+        target
+            .replacen("https://", "", 1)
+            .replacen("http://", "", 1)
+    } else {
+        target.to_string()
+    };
     Ok(format!("{}/{}", base, target))
 }
 
@@ -130,6 +144,7 @@ async fn send_head(
 /// @param proxy_url - 代理 URL（会被规整为基址）
 /// @param proxy_type - 代理类型
 /// @param test_url - 测试目标地址（可选，为 None 时按类型使用默认下载地址）
+/// @param strip_target_protocol - 目标协议头约定（见 build_test_url）
 /// @returns 测试结果（延迟毫秒数）
 pub async fn test_proxy_by_type(
     proxy_id: i64,
@@ -137,6 +152,7 @@ pub async fn test_proxy_by_type(
     proxy_url: &str,
     proxy_type: &ProxyType,
     test_url: Option<&str>,
+    strip_target_protocol: bool,
 ) -> AppResult<i64> {
     let client = create_test_client(proxy_id, proxy_name)?;
     debug!(
@@ -144,7 +160,7 @@ pub async fn test_proxy_by_type(
         proxy_id,
         proxy_name,
         proxy_type,
-        extract_host(&normalize_proxy_url(proxy_url))
+        extract_host(&normalize_proxy_url(proxy_url).0)
     );
     match proxy_type {
         ProxyType::Download => {
@@ -152,13 +168,13 @@ pub async fn test_proxy_by_type(
             let target = test_url.unwrap_or(
                 "https://github.com/zxp19821005/My_AUR_Files/releases/latest/download/README.md",
             );
-            let full = build_test_url(proxy_url, target)?;
+            let full = build_test_url(proxy_url, target, strip_target_protocol)?;
             send_head(&client, proxy_id, proxy_name, &full, "下载代理测试失败").await
         }
         ProxyType::Clone => {
             // 克隆代理：代理基址 + 真实克隆地址
             let target = test_url.unwrap_or("https://github.com/zxp19821005/My_AUR_Files.git");
-            let full = build_test_url(proxy_url, target)?;
+            let full = build_test_url(proxy_url, target, strip_target_protocol)?;
             send_head(&client, proxy_id, proxy_name, &full, "克隆代理测试失败").await
         }
         ProxyType::Raw => {
@@ -166,13 +182,13 @@ pub async fn test_proxy_by_type(
             let target = test_url.unwrap_or(
                 "https://raw.githubusercontent.com/zxp19821005/My_AUR_Files/main/README.md",
             );
-            let full = build_test_url(proxy_url, target)?;
+            let full = build_test_url(proxy_url, target, strip_target_protocol)?;
             send_head(&client, proxy_id, proxy_name, &full, "RAW 代理测试失败").await
         }
         ProxyType::Ssh => {
             // SSH 代理本质走 git/ssh 协议，HTTP HEAD 无法直接验证，
             // 退回验证其 HTTPS 网关的连通性
-            let base = normalize_proxy_url(proxy_url);
+            let base = normalize_proxy_url(proxy_url).0;
             let gateway = format!("https://{}", extract_host(&base));
             send_head(&client, proxy_id, proxy_name, &gateway, "SSH 代理网关测试失败").await
         }
@@ -185,30 +201,35 @@ mod tests {
 
     #[test]
     fn normalize_strips_appended_download_suffix() {
+        // 后缀带协议头 → 源站基址 + 保留目标协议头约定(false)
         assert_eq!(
             normalize_proxy_url("https://cdn.akaere.online/https://github.com"),
-            "https://cdn.akaere.online"
+            ("https://cdn.akaere.online".to_string(), false)
         );
         // 兼容 ?https:// 形式的后缀（如 down.npee.cn）
         assert_eq!(
             normalize_proxy_url("https://down.npee.cn/?https://github.com"),
-            "https://down.npee.cn"
+            ("https://down.npee.cn".to_string(), false)
         );
+        // 干净源站 → 默认保留目标协议头
         assert_eq!(
             normalize_proxy_url("https://cdn.crashmc.com/"),
-            "https://cdn.crashmc.com"
+            ("https://cdn.crashmc.com".to_string(), false)
         );
+        // 后缀为裸主机（无协议头）→ 源站基址 + 去除目标协议头约定(true)
         assert_eq!(
-            normalize_proxy_url("https://cors.isteed.cc"),
-            "https://cors.isteed.cc"
+            normalize_proxy_url("https://cors.isteed.cc/github.com"),
+            ("https://cors.isteed.cc".to_string(), true)
         );
     }
 
     #[test]
     fn build_url_keeps_scheme_of_target() {
+        // crashmc 类约定：保留目标协议头
         let u = build_test_url(
             "https://cdn.crashmc.com/",
             "https://github.com/zxp19821005/My_AUR_Files/releases/latest/download/README.md",
+            false,
         )
         .unwrap();
         assert_eq!(
@@ -218,14 +239,29 @@ mod tests {
     }
 
     #[test]
+    fn build_url_strips_target_scheme_for_isteed() {
+        // isteed 类约定：去除目标协议头，得到 github.com/... 而非 https://github.com/...
+        let u = build_test_url(
+            "https://cors.isteed.cc/github.com",
+            "https://github.com/zxp19821005/My_AUR_Files/releases/latest/download/README.md",
+            true,
+        )
+        .unwrap();
+        assert_eq!(
+            u,
+            "https://cors.isteed.cc/github.com/zxp19821005/My_AUR_Files/releases/latest/download/README.md"
+        );
+    }
+
+    #[test]
     fn build_url_strips_leading_slash() {
-        let u = build_test_url("https://cdn.crashmc.com/", "/github.com/foo").unwrap();
+        let u = build_test_url("https://cdn.crashmc.com/", "/github.com/foo", false).unwrap();
         assert_eq!(u, "https://cdn.crashmc.com/github.com/foo");
     }
 
     #[test]
     fn build_url_rejects_empty_target() {
-        assert!(build_test_url("https://cdn.crashmc.com/", "").is_err());
+        assert!(build_test_url("https://cdn.crashmc.com/", "", false).is_err());
     }
 
     #[test]

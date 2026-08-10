@@ -77,6 +77,7 @@ defineProps<{
   font-weight: 600;
   color: var(--text-primary);
   margin: 0 0 0.5rem;
+  text-align: center;
 }
 
 .info-table {

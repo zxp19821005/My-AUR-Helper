@@ -28,4 +28,8 @@ pub struct ProxyInfo {
     /// 最后一次测试状态：success / fail（来自关联的 proxies_test 最新记录，None 表示未测试）
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_test_status: Option<String>,
+    /// 目标协议头约定：true 表示测试拼接时去除目标地址的 https://http://（如 cors.isteed.cc 类），
+    /// false 表示保留（如 cdn.crashmc.com 类）。由解析时从原始脚本条目推断并持久化。
+    #[serde(default)]
+    pub strip_target_protocol: bool,
 }

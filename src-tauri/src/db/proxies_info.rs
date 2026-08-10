@@ -10,8 +10,8 @@ impl Database {
     /// @returns 新插入记录的 ID（如果已存在则返回 0）
     pub fn insert_proxy(&self, proxy: &ProxyInfo) -> AppResult<i64> {
         self.conn.execute(
-            "INSERT OR IGNORE INTO proxies_info (proxy_name, proxy_type, url, is_active) VALUES (?1, ?2, ?3, ?4)",
-            rusqlite::params![proxy.proxy_name, proxy.proxy_type.as_str(), proxy.url, proxy.is_active as i32],
+            "INSERT OR IGNORE INTO proxies_info (proxy_name, proxy_type, url, is_active, strip_target_protocol) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![proxy.proxy_name, proxy.proxy_type.as_str(), proxy.url, proxy.is_active as i32, proxy.strip_target_protocol as i32],
         )?;
         Ok(self.conn.last_insert_rowid())
     }
@@ -24,7 +24,8 @@ impl Database {
              COALESCE(t.success_count, 0) as success_count, \
              COALESCE(t.fail_count, 0) as fail_count, \
              t.avg_latency, \
-             t.last_test_status \
+             t.last_test_status, \
+             p.strip_target_protocol \
              FROM proxies_info p \
              LEFT JOIN ( \
                  SELECT proxy_id, success_count, fail_count, avg_latency, last_test_status \
@@ -44,6 +45,7 @@ impl Database {
                 fail_count: row.get(6)?,
                 avg_latency: row.get(7)?,
                 last_test_status: row.get(8)?,
+                strip_target_protocol: row.get(9)?,
             })
         })?;
         let mut items = Vec::new();
@@ -56,7 +58,7 @@ impl Database {
     /// 获取所有代理记录（按名称排序，兼容旧接口，无测试统计）
     pub fn get_all_proxies(&self) -> AppResult<Vec<ProxyInfo>> {
         let mut stmt = self.conn.prepare(
-            "SELECT proxy_id, proxy_name, proxy_type, url, is_active FROM proxies_info ORDER BY proxy_name"
+            "SELECT proxy_id, proxy_name, proxy_type, url, is_active, strip_target_protocol FROM proxies_info ORDER BY proxy_name"
         )?;
         let rows = stmt.query_map([], |row| {
             Ok(ProxyInfo {
@@ -69,6 +71,7 @@ impl Database {
                 fail_count: 0,
                 avg_latency: None,
                 last_test_status: None,
+                strip_target_protocol: row.get(5)?,
             })
         })?;
         let mut items = Vec::new();
@@ -83,7 +86,7 @@ impl Database {
     /// @returns 已启用且匹配类型的代理列表
     pub fn get_active_proxies(&self, proxy_type: &ProxyType) -> AppResult<Vec<ProxyInfo>> {
         let mut stmt = self.conn.prepare(
-            "SELECT proxy_id, proxy_name, proxy_type, url, is_active FROM proxies_info WHERE is_active=1 AND proxy_type=?1 ORDER BY proxy_name"
+            "SELECT proxy_id, proxy_name, proxy_type, url, is_active, strip_target_protocol FROM proxies_info WHERE is_active=1 AND proxy_type=?1 ORDER BY proxy_name"
         )?;
         let rows = stmt.query_map(rusqlite::params![proxy_type.as_str()], |row| {
             Ok(ProxyInfo {
@@ -96,6 +99,7 @@ impl Database {
                 fail_count: 0,
                 avg_latency: None,
                 last_test_status: None,
+                strip_target_protocol: row.get(5)?,
             })
         })?;
         let mut items = Vec::new();

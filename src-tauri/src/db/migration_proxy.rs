@@ -37,15 +37,16 @@ impl Database {
         let has_proxy_type = columns.contains(&"proxy_type".to_string());
         let has_url = columns.contains(&"url".to_string());
         let has_is_active = columns.contains(&"is_active".to_string());
+        let has_strip = columns.contains(&"strip_target_protocol".to_string());
 
         // 如果所有字段都已存在，跳过迁移
-        if has_proxy_name && has_proxy_type && has_url && has_is_active {
+        if has_proxy_name && has_proxy_type && has_url && has_is_active && has_strip {
             return Ok(());
         }
 
         log::info!(
             "[migrate_proxies_info] 重建 proxies_info 表（字段齐全={}）",
-            has_proxy_name && has_proxy_type && has_url && has_is_active
+            has_proxy_name && has_proxy_type && has_url && has_is_active && has_strip
         );
 
         let new_schema = "CREATE TABLE proxies_info_new (
@@ -53,7 +54,8 @@ impl Database {
             proxy_name  TEXT NOT NULL,
             proxy_type  TEXT NOT NULL DEFAULT 'download',
             url         TEXT NOT NULL UNIQUE,
-            is_active   INTEGER NOT NULL DEFAULT 1
+            is_active   INTEGER NOT NULL DEFAULT 1,
+            strip_target_protocol INTEGER NOT NULL DEFAULT 0
         );";
 
         let proxy_name_expr = if has_proxy_name { "proxy_name" } else { "''" };
@@ -64,15 +66,21 @@ impl Database {
         };
         let url_expr = if has_url { "url" } else { "''" };
         let is_active_expr = if has_is_active { "is_active" } else { "1" };
+        let strip_expr = if has_strip {
+            "strip_target_protocol"
+        } else {
+            "0"
+        };
 
         let insert_sql = format!(
-            "INSERT INTO proxies_info_new (proxy_id, proxy_name, proxy_type, url, is_active)
-             SELECT proxy_id, {proxy_name}, {proxy_type}, {url}, {is_active}
+            "INSERT INTO proxies_info_new (proxy_id, proxy_name, proxy_type, url, is_active, strip_target_protocol)
+             SELECT proxy_id, {proxy_name}, {proxy_type}, {url}, {is_active}, {strip}
              FROM proxies_info;",
             proxy_name = proxy_name_expr,
             proxy_type = proxy_type_expr,
             url = url_expr,
-            is_active = is_active_expr
+            is_active = is_active_expr,
+            strip = strip_expr
         );
 
         self.conn.execute_batch("PRAGMA foreign_keys=OFF;")?;
