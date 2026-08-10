@@ -1,7 +1,8 @@
 /**
- * proxy.rs - 代理管理命令
+ * proxy/test.rs - 代理连通性测试命令与辅助
  *
- * 提供代理源的获取、下载、解析、测试和启用/禁用管理功能
+ * 提供代理延迟测试的多个入口（单 URL / 批量 / 单代理），
+ * 以及测试结果持久化与测试 URL 配置等辅助逻辑。
  */
 use log::{debug, info};
 use tauri::State;
@@ -9,7 +10,7 @@ use chrono::Utc;
 use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
 
-use crate::errors::AppResult;
+use crate::errors::{AppError, AppResult};
 use crate::models::*;
 use crate::proxy;
 use crate::AppState;
@@ -29,88 +30,9 @@ pub struct ProxyTestResult {
     pub test_url: String,
 }
 
-/// 获取所有代理列表（附带最新测试统计）
-#[tauri::command]
-pub async fn get_proxies(state: State<'_, AppState>) -> AppResult<Vec<ProxyInfo>> {
-    debug!("正在获取所有代理");
-    let db = state.db.lock()?;
-    let result = db.get_all_proxies_with_stats()?;
-    info!("已获取 {} 个代理", result.len());
-    Ok(result)
-}
-
-/// 从 Greasyfork 用户脚本获取代理源
-#[tauri::command]
-pub async fn fetch_proxy_sources(state: State<'_, AppState>) -> AppResult<usize> {
-    info!("正在从用户脚本获取代理源");
-    let client = reqwest::Client::new();
-    let proxies = proxy::fetch_proxy_list_from_userscript(&client).await?;
-    let db = state.db.lock()?;
-    let mut count = 0;
-    for p in proxies {
-        let proxy_info = ProxyInfo {
-            proxy_id: None,
-            proxy_name: proxy::extract_proxy_name(&p.url),
-            proxy_type: p.proxy_type,
-            url: p.url.clone(),
-            is_active: true,
-            success_count: 0,
-            fail_count: 0,
-            avg_latency: None,
-            last_test_status: None,
-            strip_target_protocol: p.strip_target_protocol,
-        };
-        let _ = db.insert_proxy(&proxy_info);
-        count += 1;
-    }
-    info!("已获取 {} 个代理源", count);
-    Ok(count)
-}
-
-/// 下载代理文件
-/// 从配置的 URL 下载代理规则 JS 文件到本地
-#[tauri::command]
-pub async fn download_proxy_file(state: State<'_, AppState>) -> AppResult<usize> {
-    info!("开始下载代理文件");
-
-    // 获取下载 URL
-    let download_url = {
-        let db = state.db.lock()?;
-        db.get_setting("proxy_download_url")
-            .unwrap_or(None)
-            .map(|s| s.value)
-            .unwrap_or_else(|| "https://update.greasyfork.org/scripts/412245/Github%20%E5%A2%9E%E5%BC%BA%20-%20%E9%AB%98%E9%80%9F%E4%B8%8B%E8%BD%BD.user.js".to_string())
-    };
-
-    let client = reqwest::Client::new();
-    let file_path = proxy::download_proxy_file(&client, &download_url).await?;
-
-    info!("代理文件已下载到: {:?}", file_path);
-    Ok(0) // 返回 0，实际数量在解析时计算
-}
-
-/// 解析代理文件
-/// 读取已下载的代理规则 JS 文件，解析代理信息并写入数据库
-#[tauri::command]
-pub async fn parse_proxy_file(state: State<'_, AppState>) -> AppResult<usize> {
-    info!("开始解析代理文件");
-    let proxies = proxy::parse_proxy_file().await?;
-
-    let db = state.db.lock()?;
-    let mut count = 0;
-    for p in proxies {
-        if let Ok(_) = db.insert_proxy(&p) {
-            count += 1;
-        }
-    }
-
-    info!("成功解析并插入 {} 个代理", count);
-    Ok(count)
-}
-
 /// 测试代理延迟（按下载代理类型，使用真实的下载地址拼接规则）
 /// 注意：不记录代理 URL，防止凭据泄露
-    #[tauri::command]
+#[tauri::command]
 pub async fn test_proxy(_state: State<'_, AppState>, proxy_url: String) -> AppResult<i64> {
     debug!("正在测试代理延迟");
     let latency = proxy::test_proxy_by_type(
@@ -164,7 +86,7 @@ pub async fn test_proxies_batch(
             .clone()
             .acquire_owned()
             .await
-            .map_err(|e| crate::errors::AppError::NetworkError(format!("并发控制失败: {}", e)))?;
+            .map_err(|e| AppError::NetworkError(format!("并发控制失败: {}", e)))?;
         let test_urls = test_urls.clone();
         set.spawn(async move {
             let _permit = permit; // 持有至任务结束，维持并发上限
@@ -202,9 +124,7 @@ pub async fn test_proxies_batch(
     // 按完成顺序收集结果（完成顺序 ≠ 发起顺序，但前端按 proxy_id 映射，无影响）
     let mut results = Vec::new();
     while let Some(joined) = set.join_next().await {
-        let result = joined.map_err(|e| {
-            crate::errors::AppError::NetworkError(format!("代理测试任务异常: {}", e))
-        })?;
+        let result = joined.map_err(|e| AppError::NetworkError(format!("代理测试任务异常: {}", e)))?;
         results.push(result);
     }
 
@@ -236,9 +156,7 @@ pub async fn test_proxy_single(
         let proxy = proxies
             .into_iter()
             .find(|p| p.proxy_id == Some(proxy_id))
-            .ok_or_else(|| {
-                crate::errors::AppError::PackageNotFound(format!("代理 {} 不存在", proxy_id))
-            })?;
+            .ok_or_else(|| AppError::PackageNotFound(format!("代理 {} 不存在", proxy_id)))?;
         let test_urls = get_test_urls(&db);
         (proxy, test_urls)
     };
@@ -256,21 +174,21 @@ pub async fn test_proxy_single(
     )
     .await
     {
-            Ok(latency) => ProxyTestResult {
-                proxy_id,
-                success: true,
-                latency: Some(latency),
-                error: None,
-                test_url,
-            },
-            Err(e) => ProxyTestResult {
-                proxy_id,
-                success: false,
-                latency: None,
-                error: Some(e.to_string()),
-                test_url,
-            },
-        };
+        Ok(latency) => ProxyTestResult {
+            proxy_id,
+            success: true,
+            latency: Some(latency),
+            error: None,
+            test_url,
+        },
+        Err(e) => ProxyTestResult {
+            proxy_id,
+            success: false,
+            latency: None,
+            error: Some(e.to_string()),
+            test_url,
+        },
+    };
 
     info!("代理 {} 测试完成: {}", proxy_id, result.success);
 
@@ -281,53 +199,6 @@ pub async fn test_proxy_single(
     }
 
     Ok(result)
-}
-
-/// 清空代理表
-/// 删除 proxies_info 和 proxies_test 表中所有数据，并重置 proxy_id 自增计数器
-#[tauri::command]
-pub async fn clear_proxy_tables(state: State<'_, AppState>) -> AppResult<usize> {
-    info!("正在清空代理表");
-    let db = state.db.lock()?;
-    let count = db.clear_all_proxies()?;
-    info!("已清空 {} 个代理记录", count);
-    Ok(count)
-}
-
-/// 设置代理启用状态
-#[tauri::command]
-pub async fn set_proxy_active(
-    state: State<'_, AppState>,
-    proxy_id: i64,
-    is_active: bool,
-) -> AppResult<()> {
-    info!("正在设置代理 {} 启用状态={}", proxy_id, is_active);
-    let db = state.db.lock()?;
-    db.update_proxy_active(proxy_id, is_active)
-}
-
-/// 删除代理
-#[tauri::command]
-pub async fn delete_proxy(state: State<'_, AppState>, proxy_id: i64) -> AppResult<()> {
-    info!("正在删除代理 {}", proxy_id);
-    let db = state.db.lock()?;
-    db.delete_proxy(proxy_id)
-}
-
-/// 更新代理信息（支持手动编辑名称、URL、类型）
-#[tauri::command]
-pub async fn update_proxy(
-    state: State<'_, AppState>,
-    proxy_id: i64,
-    proxy_name: String,
-    url: String,
-    proxy_type: String,
-) -> AppResult<()> {
-    info!("正在更新代理 {}: name={}, url={}, type={}", proxy_id, proxy_name, url, proxy_type);
-    let db = state.db.lock()?;
-    db.update_proxy(proxy_id, &proxy_name, &url, &proxy_type)?;
-    info!("代理 {} 更新完成", proxy_id);
-    Ok(())
 }
 
 /// 持久化单个测试结果到 proxies_test 表

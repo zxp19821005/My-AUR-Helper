@@ -1,0 +1,110 @@
+/* StandardizedInput 组件样式 */
+
+.input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background-color: var(--bg-primary);
+  transition: all 0.2s;
+  width: 100%;
+}
+
+.input-wrapper:hover:not(.input-wrapper-disabled) {
+  border-color: var(--text-muted);
+}
+
+.input-wrapper:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.15);
+}
+
+.input-wrapper-error {
+  border-color: var(--error);
+}
+
+.input-wrapper-error:focus-within {
+  box-shadow: 0 0 0 2px rgba(239, 83, 80, 0.15);
+}
+
+.input-wrapper-success {
+  border-color: var(--success);
+}
+
+.input-wrapper-success:focus-within {
+  box-shadow: 0 0 0 2px rgba(76, 175, 125, 0.15);
+}
+
+.input-wrapper-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: var(--bg-secondary);
+}
+
+.input-wrapper-sm {
+  padding: 0.375rem 0.625rem;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+}
+
+.input-wrapper-md {
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+}
+
+.input-wrapper-lg {
+  padding: 0.625rem 1rem;
+  border-radius: 10px;
+  font-size: 1rem;
+}
+
+.input-field {
+  flex: 1;
+  border: none;
+  background: none;
+  color: var(--text-primary);
+  font-size: inherit;
+  outline: none;
+  min-width: 0;
+}
+
+.input-field::placeholder {
+  color: var(--text-muted);
+}
+
+.input-field:disabled {
+  cursor: not-allowed;
+}
+
+.input-prefix,
+.input-suffix {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.input-clear,
+.input-password-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.125rem;
+  border-radius: 4px;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.input-clear:hover,
+.input-password-toggle:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-hover);
+}

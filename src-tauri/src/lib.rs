@@ -18,14 +18,11 @@ pub mod logger; // 日志轮转与输出模块
 pub mod models; // 数据模型模块
 pub mod proxy; // 代理管理模块
 pub mod versions; // 版本处理模块
+mod tray; // 系统托盘模块
 
 use std::path::PathBuf; // 路径缓冲区，用于构建文件路径
 use std::sync::Mutex; // 互斥锁，保证数据库连接的线程安全访问
-use tauri::{
-    menu::{Menu, MenuItem}, // Tauri 菜单组件
-    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}, // 系统托盘相关
-    Manager,                // Tauri 应用管理器 trait
-};
+use tauri::Manager; // Tauri 应用管理器 trait
 
 /// 应用状态，包含数据库连接
 pub struct AppState {
@@ -127,71 +124,7 @@ pub fn run() {
             app.manage(CloseAction(close_action));
 
             // 如果启用，创建系统托盘
-            if show_tray {
-                // 创建托盘菜单项
-                let show_item = MenuItem::with_id(app, "show", "显示窗口", true, None::<&str>)?;
-                let quit_item = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-                let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
-
-                // 创建托盘图标
-                let _tray = TrayIconBuilder::new()
-                    .icon(
-                        app.default_window_icon()
-                            .map(|icon| icon.clone())
-                            .unwrap_or_else(|| {
-                                log::warn!("默认图标加载失败，使用系统默认图标");
-                                // 创建一个 1x1 的透明图标作为备用
-                                tauri::image::Image::new(&[0u8, 0, 0, 0], 1, 1)
-                            }),
-                    )
-                    .menu(&menu) // 绑定菜单
-                    .tooltip("My AUR Helper") // 鼠标悬停提示
-                    // 菜单事件处理
-                    .on_menu_event(move |app, event| {
-                        match event.id.as_ref() {
-                            "show" => {
-                                // 显示主窗口并获取焦点
-                                if let Some(window) = app.get_webview_window("main") {
-                                    if let Err(e) = window.show() {
-                                        log::warn!("窗口显示失败: {}", e);
-                                    }
-                                    if let Err(e) = window.set_focus() {
-                                        log::warn!("窗口聚焦失败: {}", e);
-                                    }
-                                }
-                            }
-                            "quit" => {
-                                // 退出应用
-                                app.exit(0);
-                            }
-                            _ => {}
-                        }
-                    })
-                    // 托盘图标点击事件（左键点击显示窗口）
-                    .on_tray_icon_event(|tray, event| {
-                        if let TrayIconEvent::Click {
-                            button: MouseButton::Left,
-                            button_state: MouseButtonState::Up,
-                            ..
-                        } = event
-                        {
-                            let app = tray.app_handle();
-                            if let Some(window) = app.get_webview_window("main") {
-                                if let Err(e) = window.show() {
-                                    log::warn!("窗口显示失败: {}", e);
-                                }
-                                if let Err(e) = window.set_focus() {
-                                    log::warn!("窗口聚焦失败: {}", e);
-                                }
-                            }
-                        }
-                    })
-                    .build(app)?;
-
-                log::info!("系统托盘已创建");
-            } else {
-                log::info!("系统托盘已被设置禁用");
-            }
+            tray::create_tray(app, show_tray)?;
 
             // 将数据库存储到应用状态，供命令使用
             app.manage(AppState {

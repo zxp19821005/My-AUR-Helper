@@ -14,9 +14,9 @@ import { ref, onMounted, onUnmounted, computed, inject, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { FOOTER_KEY, addMessage } from "../composables/footer";
-import { Trash2, X } from "@lucide/vue";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
 import StandardizedBadge from "../components/base/StandardizedBadge.vue";
+import LogToolbar from "../components/common/LogToolbar.vue";
 import type { Column } from "../composables/useTableState";
 import { useSettingsStore } from "../stores/settings";
 
@@ -165,11 +165,6 @@ watch(currentPage, () => {
   syncFooter();
 });
 
-/** 清除级别筛选 */
-function clearLevelFilter() {
-  levelFilter.value = "";
-}
-
 /** 获取级别对应的徽章类型 */
 function getLevelType(level: string): "info" | "success" | "warning" | "danger" {
   switch (level.toUpperCase()) {
@@ -200,48 +195,12 @@ const columns: Column[] = [
 <template>
   <div>
     <!-- 顶部工具栏（单行） -->
-    <div class="log-toolbar">
-      <div class="log-toolbar-left">
-        <div class="level-filter-wrapper">
-          <select
-            v-model="levelFilter"
-            class="level-select"
-          >
-            <option value="">全部级别</option>
-            <option value="INFO">INFO</option>
-            <option value="WARN">WARN</option>
-            <option value="ERROR">ERROR</option>
-            <option value="DEBUG">DEBUG</option>
-          </select>
-          <button
-            v-if="levelFilter"
-            class="btn-icon btn-icon-sm btn-icon-secondary"
-            @click="clearLevelFilter"
-            title="清除筛选"
-          >
-            <X :size="14" />
-          </button>
-        </div>
-      </div>
-      <div class="log-toolbar-right">
-        <div class="search-box">
-          <input
-            v-model="searchQuery"
-            type="text"
-            class="search-input"
-            placeholder="搜索日志..."
-          />
-        </div>
-        <button
-          class="btn-icon btn-icon-danger"
-          :disabled="loading"
-          @click="clearLogs"
-          title="清空当天日志"
-        >
-          <Trash2 :size="16" />
-        </button>
-      </div>
-    </div>
+    <LogToolbar
+      v-model:level-filter="levelFilter"
+      v-model:search-query="searchQuery"
+      :loading="loading"
+      @clear-logs="clearLogs"
+    />
 
     <!-- 内容显示区域（禁用内置分页，使用全局 BottomToolbar） -->
     <StandardizedTable
@@ -273,70 +232,3 @@ const columns: Column[] = [
     </StandardizedTable>
   </div>
 </template>
-
-<style scoped>
-.log-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.625rem 1.25rem;
-  border-bottom: 1px solid var(--border);
-  background-color: var(--bg-primary);
-  min-height: 44px;
-}
-.log-toolbar-left {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.log-toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-.level-filter-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-.level-select {
-  padding: 0.375rem 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background-color: var(--bg-card);
-  color: var(--text-primary);
-  font-size: 0.8125rem;
-  cursor: pointer;
-  transition: border-color 0.15s;
-}
-.level-select:hover {
-  border-color: var(--accent);
-}
-.level-select:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-.search-box {
-  display: flex;
-  align-items: center;
-  padding: 0.25rem 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background-color: var(--bg-card);
-  transition: border-color 0.15s;
-}
-.search-box:focus-within {
-  border-color: var(--accent);
-}
-.search-input {
-  border: none;
-  background: none;
-  color: var(--text-primary);
-  font-size: 0.8125rem;
-  outline: none;
-  width: 140px;
-}
-.search-input::placeholder {
-  color: var(--text-muted);
-}
-</style>

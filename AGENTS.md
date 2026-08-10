@@ -91,6 +91,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | 文件 | 说明 |
 |------|------|
 | `src-tauri/src/lib.rs` | Tauri 命令注册和应用初始化 |
+| `src-tauri/src/tray.rs` | 系统托盘创建（菜单、点击事件，由 lib.rs 提取） |
 | `src-tauri/src/main.rs` | Tauri 应用入口点 |
 | `src-tauri/src/logger.rs` | 日志系统配置（tracing） |
 | `src-tauri/src/db/` | 数据库层 |
@@ -117,11 +118,14 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/commands/backup/backup_basic.rs` | 备份基础操作（查询、扫描、去重、删除） |
 | `src-tauri/src/commands/backup/backup_install.rs` | 备份包安装和信息查询（pacman -Qip、sudoers、install） |
 | `src-tauri/src/commands/backup/dedup.rs` | 去重逻辑（文件名解析、版本比较） |
-| `src-tauri/src/commands/cache_backup/` | 缓存包备份命令模块（目录结构，替换原单文件） |
-| `src-tauri/src/commands/cache_backup/mod.rs` | 模块声明和导出（dirs/backup/scan 子模块） |
-| `src-tauri/src/commands/cache_backup/dirs.rs` | 缓存目录通用工具（CacheDir、路径展开、包名解析、启用目录获取） |
-| `src-tauri/src/commands/cache_backup/backup.rs` | 备份命令（备份到已有目录/备份到子目录） |
-| `src-tauri/src/commands/cache_backup/scan.rs` | 扫描命令（清空缓存表/扫描所有缓存目录） |
+| `src-tauri/src/commands/proxy/` | 代理管理命令模块（由单文件 commands/proxy.rs 拆分，保持 commands::proxy::* 注册路径） |
+| `src-tauri/src/commands/proxy/mod.rs` | 模块声明和导出（basic/test 子模块） |
+| `src-tauri/src/commands/proxy/basic.rs` | 代理基础命令（获取/下载/解析/增删改查） |
+| `src-tauri/src/commands/proxy/test.rs` | 代理连通性测试命令与辅助 |
+| `src-tauri/src/commands/fileops/cache_backup/` | 缓存包备份命令模块（由 fileops 下原单文件拆分） |
+| `src-tauri/src/commands/fileops/cache_backup/mod.rs` | 模块声明和导出（existing/subdirectory 子模块） |
+| `src-tauri/src/commands/fileops/cache_backup/existing.rs` | 备份到已有备份记录所在子目录（版本比较 + 复制） |
+| `src-tauri/src/commands/fileops/cache_backup/subdirectory.rs` | 备份到指定子目录 |
 | `src-tauri/src/commands/sysops/cache_cleanup.rs` | 缓存清理命令（系统缓存、自定义缓存目录、sudoers 配置） |
 | `src-tauri/src/commands/software_sync/` | 软件包同步命令模块（目录结构） |
 | `src-tauri/src/commands/software_sync/mod.rs` | 模块声明和导出（不含具体实现） |
@@ -154,6 +158,9 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/proxy/mod.rs` | 代理管理 |
 | `src-tauri/src/proxy/fetch.rs` | 代理请求封装 |
 | `src-tauri/src/proxy/test.rs` | 代理连通性测试 |
+| `src-tauri/src/proxy/parse.rs` | 代理文件解析（公共 API，数组提取逻辑已拆出） |
+| `src-tauri/src/proxy/parse/parse_array.rs` | 代理 JS 数组字节级状态机提取 |
+| `src-tauri/src/proxy/parse/parse_tests.rs` | 代理解析单元测试 |
 | `src-tauri/src/backup/mod.rs` | 备份管理 |
 | `src-tauri/src/backup/execute.rs` | 备份执行逻辑 |
 | `src-tauri/src/models/` | 数据模型定义 |
@@ -173,7 +180,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/components/base/` | 基础UI组件（Button、Card、Input、Select、Message、StatCard、Badge） |
 | `src/components/common/` | 通用组件（StandardizedTable、StandardizedModal、PaginationControls、ProgressBar、PageToolbar等） |
 | `src/components/layout/` | 布局组件（Sidebar、TabBar、BottomToolbar、PopupLayout、LogPanel等） |
-| `src/components/package/` | 软件包相关组件（SoftwareDetailModal、SoftwareFormModal、PackageRowActions、各InfoCard等） |
+| `src/components/package/` | 软件包相关组件（SoftwareDetailModal、SoftwareFormModal、PackageRowActions、PackageTable、各InfoCard等） |
 | `src/components/backup/` | 备份管理组件（BackupToolbar、RowActions、InfoDialog、SudoersDialog等） |
 | `src/components/cache/` | 缓存管理组件（CacheToolbar、CacheRowActions） |
 | `src/components/proxy/` | 代理管理组件（ProxyToolbar、ProxyRowActions） |
@@ -197,8 +204,8 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/stores/` | Pinia 状态管理 |
 | `src/types/index.ts` | TypeScript 类型定义 |
 | `src/assets/styles/` | 样式文件目录（集中管理所有组件样式） |
-| `src/assets/styles/base-components.css` | 基础组件样式（Button、Card、Input、Select等） |
-| `src/assets/styles/layout-components.css` | 布局组件样式（Sidebar、TabBar、BottomToolbar等） |
+| `src/assets/styles/base-components.css` | 基础组件样式索引（`@import` base/ 下 6 个子文件） |
+| `src/assets/styles/layout-components.css` | 布局组件样式索引（`@import` layout/ 下 4 个子文件） |
 | `src/assets/styles/modal-styles.css` | 模态框样式 |
 | `src/assets/styles/table-styles.css` | 表格样式 |
 | `src/assets/styles/settings-styles.css` | 设置页面样式 |
@@ -249,6 +256,40 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/components/filter/FilterBar.vue` | 324 | `FilterBar.vue` | 186 | 2026-07-30 | ✅ 完成 |
 | | | `assets/styles/filter-styles.css` | 148 | | 全局样式 |
 | `src/components/package/DetailToolbar.vue` 等 | - | `assets/styles/toolbar-buttons.css` | 105 | 2026-07-30 | ✅ 完成（提取重复按钮样式） |
+| `src/assets/styles/base-components.css` | 551 | `base-components.css`(索引) | 14 | 2026-08-10 | ✅ 完成 |
+| | | `base/button.css` | 135 | | 新文件 |
+| | | `base/card.css` | 68 | | 新文件 |
+| | | `base/input.css` | 110 | | 新文件 |
+| | | `base/message.css` | 60 | | 新文件 |
+| | | `base/select.css` | 85 | | 新文件 |
+| | | `base/stat-card.css` | 82 | | 新文件 |
+| `src/assets/styles/layout-components.css` | 303 | `layout-components.css`(索引) | 12 | 2026-08-10 | ✅ 完成 |
+| | | `layout/tab-bar.css` | 73 | | 新文件 |
+| | | `layout/sidebar.css` | 92 | | 新文件 |
+| | | `layout/bottom-toolbar.css` | 79 | | 新文件 |
+| | | `layout/popup-layout.css` | 51 | | 新文件 |
+| `src/views/ProxySettings.vue` | 534 | `ProxySettings.vue` | 256 | 2026-08-10 | ✅ 完成 |
+| | | `composables/useProxyActions.ts` | 167 | | 新文件 |
+| | | `components/proxy/ProxyEditModal.vue` | 72 | | 新文件 |
+| | | `components/proxy/ProxyDetailModal.vue` | 78 | | 新文件 |
+| | | `components/proxy/ProxyClearConfirmModal.vue` | 41 | | 新文件 |
+| `src/views/CacheManager.vue` | 384 | `CacheManager.vue` | 248 | 2026-08-10 | ✅ 完成 |
+| | | `components/cache/CacheSudoersModal.vue` | 167 | | 新文件 |
+| `src/views/LogViewer.vue` | 341 | `LogViewer.vue` | 234 | 2026-08-10 | ✅ 完成 |
+| | | `components/common/LogToolbar.vue` | 125 | | 新文件 |
+| `src/views/PackageList.vue` | 334 | `PackageList.vue` | 240 | 2026-08-10 | ✅ 完成 |
+| | | `components/package/PackageTable.vue` | 125 | | 新文件 |
+| `src-tauri/src/commands/proxy.rs` | 403 | `commands/proxy/mod.rs` | 16 | 2026-08-10 | ✅ 完成 |
+| | | `commands/proxy/basic.rs` | 143 | | 新文件 |
+| | | `commands/proxy/test.rs` | 274 | | 新文件 |
+| `src-tauri/src/proxy/parse.rs` | 375 | `proxy/parse.rs` | 173 | 2026-08-10 | ✅ 完成 |
+| | | `proxy/parse/parse_array.rs` | 130 | | 新文件 |
+| | | `proxy/parse/parse_tests.rs` | 86 | | 新文件 |
+| `src-tauri/src/commands/fileops/cache_backup.rs` | 309 | `commands/fileops/cache_backup/mod.rs` | 12 | 2026-08-10 | ✅ 完成 |
+| | | `commands/fileops/cache_backup/existing.rs` | 210 | | 新文件 |
+| | | `commands/fileops/cache_backup/subdirectory.rs` | 110 | | 新文件 |
+| `src-tauri/src/lib.rs` | 305 | `lib.rs` | 238 | 2026-08-10 | ✅ 完成 |
+| | | `tray.rs` | 83 | | 新文件 |
 
 <!-- ========== 前端重构记录：目录重组与样式提取 ========== -->
 ### 前端重构记录（2026-07-29）

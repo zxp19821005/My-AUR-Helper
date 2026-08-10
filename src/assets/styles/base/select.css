@@ -1,0 +1,85 @@
+/* StandardizedSelect 组件样式 */
+
+.select-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 2rem 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background-color: var(--bg-primary);
+  transition: all 0.2s;
+  position: relative;
+  width: 100%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239a9cb8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+}
+
+.select-wrapper:hover:not(.select-wrapper-disabled) {
+  border-color: var(--text-muted);
+}
+
+.select-wrapper:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.15);
+}
+
+.select-wrapper-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: var(--bg-secondary);
+}
+
+.select-wrapper-sm {
+  padding: 0.375rem 1.75rem 0.375rem 0.625rem;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  background-position: right 0.5rem center;
+}
+
+.select-wrapper-md {
+  padding: 0.5rem 2rem 0.5rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+}
+
+.select-wrapper-lg {
+  padding: 0.625rem 2.25rem 0.625rem 1rem;
+  border-radius: 10px;
+  font-size: 1rem;
+  background-position: right 1rem center;
+}
+
+.select-wrapper-has-prefix {
+  padding-left: 0.5rem;
+}
+
+.select-field {
+  flex: 1;
+  border: none;
+  background: none;
+  color: var(--text-primary);
+  font-size: inherit;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.select-field:disabled {
+  cursor: not-allowed;
+}
+
+.select-field option {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.select-prefix {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}

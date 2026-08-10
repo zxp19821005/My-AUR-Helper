@@ -1,0 +1,60 @@
+/* StandardizedMessage 组件样式 */
+
+.message {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--msg-border);
+  background-color: var(--msg-bg);
+  color: var(--msg-color);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.message-icon {
+  flex-shrink: 0;
+}
+
+.message-text {
+  flex: 1;
+  color: var(--text-primary);
+}
+
+.message-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.message-close:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-hover);
+}
+
+.message-enter-active,
+.message-leave-active {
+  transition: all 0.3s ease;
+}
+
+.message-enter-from,
+.message-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.message-enter-to,
+.message-leave-from {
+  opacity: 1;
+  transform: translateY(0);
+}

@@ -21,17 +21,15 @@ import { onMounted, ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { usePackageStore } from "../stores/packages";
 import { usePackageActions } from "../composables/packageActions";
-import { usePackageList, fmtTimestamp } from "../composables/usePackageList";
+import { usePackageList } from "../composables/usePackageList";
 import PageToolbar from "../components/common/PageToolbar.vue";
 import FilterBar from "../components/filter/FilterBar.vue";
 import SoftwareFormModal from "../components/package/SoftwareFormModal.vue";
 import SoftwareDetailModal from "../components/package/SoftwareDetailModal.vue";
-import StandardizedTable from "../components/common/StandardizedTable.vue";
-import PackageRowActions from "../components/package/PackageRowActions.vue";
+import PackageTable from "../components/package/PackageTable.vue";
 import { RefreshCw, Plus, Trash2, Info, Download, Filter } from "@lucide/vue";
 import { packageTypeFilterOptions, checkerTypeFilterOptions } from "../utils/enums";
 import type { ValidateResult } from "../types";
-import type { Column } from "../composables/useTableState";
 
 const pkgStore = usePackageStore();
 
@@ -109,43 +107,6 @@ function updateConditionFilter(key: "packageType" | "checkerType", value: number
     conditionFilters: { ...filterState.value.conditionFilters, [key]: value },
   };
 }
-
-/** 表格列配置 */
-const columns: Column[] = [
-  {
-    key: "pkgname",
-    title: "包名",
-    sortable: true,
-  },
-  {
-    key: "aur_version",
-    title: "AUR 版本",
-    sortable: true,
-  },
-  {
-    key: "aur_last_updated",
-    title: "AUR 最后提交",
-    formatter: (value: any) => fmtTimestamp(value),
-  },
-  {
-    key: "upstream_version",
-    title: "上游版本",
-    sortable: true,
-  },
-  {
-    key: "upstream_last_checked",
-    title: "上游检查日期",
-    formatter: (value: any) => fmtTimestamp(value),
-  },
-];
-
-/** 处理行点击 */
-function handleRowClick(row: any) {
-  openDetailModal(row.pkgname);
-}
-
-/** 处理选择变化（选中状态由 StandardizedTable 内部管理） */
-function handleSelectionChange(_selectedRows: any[]) {}
 
 onMounted(async () => {
   await Promise.all([fetchView(), pkgStore.fetchPackages()]);
@@ -226,67 +187,21 @@ onMounted(async () => {
       @reset-filters="resetFilters"
     />
 
-    <!-- 使用StandardizedTable替换原有表格 -->
-    <StandardizedTable
-      :key="`table-${filteredEntries.length}`"
-      :columns="columns"
-      :data="filteredEntries"
-      :pageSize="pageSize"
-      :searchQuery="searchQuery"
-      :searchFields="['pkgname', 'aur_version', 'upstream_version']"
-      :currentPage="currentPage"
-      rowKey="pkgname"
-      showCheckbox
-      showIndex
-      striped
-      hoverable
-      clickable
-      :showPagination="false"
-      emptyText="暂无软件包"
-      @selection-change="handleSelectionChange"
-      @row-click="handleRowClick"
-    >
-      <!-- 自定义包名列 -->
-      <template #cell-pkgname="{ row }">
-        <strong :class="{ 'pkg-outdated': row.is_outdated }">
-          {{ row.pkgname }}
-        </strong>
-      </template>
-
-      <!-- 自定义AUR版本列 -->
-      <template #cell-aur_version="{ row }">
-        {{ row.aur_version || "-" }}
-      </template>
-
-      <!-- 自定义AUR最后提交列 -->
-      <template #cell-aur_last_updated="{ row }">
-        {{ fmtTimestamp(row.aur_last_updated) }}
-      </template>
-
-      <!-- 自定义上游版本列 -->
-      <template #cell-upstream_version="{ row }">
-        {{ row.upstream_version || "-" }}
-      </template>
-
-      <!-- 自定义上游检查日期列 -->
-      <template #cell-upstream_last_checked="{ row }">
-        {{ fmtTimestamp(row.upstream_last_checked) }}
-      </template>
-
-      <!-- 操作列 -->
-      <template #actions="{ row }">
-        <PackageRowActions
-          :pkgname="row.pkgname"
-          :is-row-loading="isRowLoading"
-          @view="openDetailModal"
-          @edit="openEditModal"
-          @sync-aur="rowSyncFromAur"
-          @sync-pkgbuild="rowSyncFromPkgbuild"
-          @check-upstream="rowCheckUpstream"
-          @delete="(pkgname) => rowDelete(pkgname, selectedPkgnames, setSelected)"
-        />
-      </template>
-    </StandardizedTable>
+    <!-- 软件包数据表格 -->
+    <PackageTable
+      :entries="filteredEntries"
+      :search-query="searchQuery"
+      :page-size="pageSize"
+      :current-page="currentPage"
+      :is-row-loading="isRowLoading"
+      @row-click="openDetailModal"
+      @view="openDetailModal"
+      @edit="openEditModal"
+      @sync-aur="rowSyncFromAur"
+      @sync-pkgbuild="rowSyncFromPkgbuild"
+      @check-upstream="rowCheckUpstream"
+      @delete="(pkgname) => rowDelete(pkgname, selectedPkgnames, setSelected)"
+    />
 
     <SoftwareFormModal
       :show="showModal"
@@ -306,10 +221,6 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.pkg-outdated {
-  color: var(--warning);
-}
-
 /* 顶部工具栏内联筛选（软件包类型 / 检查器类型） */
 .toolbar-filter-group {
   display: flex;
@@ -326,10 +237,5 @@ onMounted(async () => {
   margin-left: 2px;
   min-width: 16px;
   text-align: center;
-}
-
-/* 操作列按钮间距 */
-:deep(.actions-cell) {
-  gap: 0.25rem;
 }
 </style>
