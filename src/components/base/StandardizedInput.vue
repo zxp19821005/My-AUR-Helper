@@ -36,9 +36,9 @@
   />
 -->
 <script setup lang="ts">
-import { X, Eye, EyeOff } from "@lucide/vue";
 import type { Component } from "vue";
 import { ref, computed } from "vue";
+import { Icon } from "../../icons";
 
 const props = withDefaults(defineProps<{
   /** 输入值 */
@@ -162,7 +162,7 @@ defineExpose({
       @click="handleClear"
       title="清空"
     >
-      <X :size="14" />
+      <component :is="Icon.actionClear" :size="14" />
     </button>
 
     <button
@@ -172,7 +172,7 @@ defineExpose({
       @click="togglePassword"
       :title="showPassword ? '隐藏密码' : '显示密码'"
     >
-      <component :is="showPassword ? EyeOff : Eye" :size="16" />
+      <component :is="showPassword ? Icon.hide : Icon.show" :size="16" />
     </button>
 
     <div v-if="suffix && !clearable && !hasPasswordToggle" class="input-suffix">

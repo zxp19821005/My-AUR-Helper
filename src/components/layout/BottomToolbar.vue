@@ -15,10 +15,10 @@
 <script setup lang="ts">
 import { ref, inject, watch, nextTick } from "vue";
 import { FOOTER_KEY, clearMessages } from "../../composables/footer";
-import { ChevronUp, ChevronDown } from "@lucide/vue";
 import LogPanel from "./LogPanel.vue";
 import PaginationControls from "../common/PaginationControls.vue";
 import ProgressBar from "../common/ProgressBar.vue";
+import { Icon } from "../../icons";
 
 const footer = inject(FOOTER_KEY)!;
 
@@ -70,8 +70,8 @@ watch(
       </div>
       <div class="btf-right">
         <button class="log-toggle-btn" @click="toggleLogPanel" :title="footer.logPanelExpanded ? '收起日志' : '展开日志'">
-          <ChevronUp v-if="footer.logPanelExpanded" :size="14" />
-          <ChevronDown v-else :size="14" />
+          <component :is="Icon.expand" v-if="footer.logPanelExpanded" :size="14" />
+          <component :is="Icon.collapse" v-else :size="14" />
           <span v-if="footer.messages.length > 0" class="log-count-badge">{{ footer.messages.length }}</span>
         </button>
         <ProgressBar :footer="footer" />

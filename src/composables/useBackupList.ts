@@ -4,130 +4,65 @@
  * 功能：
  * - 管理列表分页、搜索、选择状态
  * - 提供格式化函数和操作控制逻辑
+ *
+ * 列表通用逻辑（分页/搜索/过滤/选择/工具栏同步）由 useListBase 提供，
+ * 本文件仅保留备份特有的：子目录筛选、架构筛选、加载函数。
  */
-import { computed, ref, watch, inject, onMounted } from "vue";
+import { computed, ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
-import { useSettingsStore } from "../stores/settings";
-import { FOOTER_KEY } from "./footer";
+import { useListBase } from "./useListBase";
 import type { BackupSoftwareEntry } from "../types";
 
 export function useBackupList() {
-  const footer = inject(FOOTER_KEY)!;
-  const settingsStore = useSettingsStore();
-
-  const pageSize = ref(50);
-  const currentPage = ref(1);
-  const entries = ref<BackupSoftwareEntry[]>([]);
-  const selectedIds = ref(new Set<number>());
-  const searchQuery = ref("");
   const subdirectoryFilter = ref("");
   const subdirectories = ref<string[]>([]);
   const archFilter = ref("");
+
+  const base = useListBase<BackupSoftwareEntry>({
+    pageSizeSetting: "list_page_size_backup",
+    getKey: (e) => e.id,
+    infoText: (t) => `总计: ${t} 个备份文件`,
+    pageResetRefs: [subdirectoryFilter, archFilter],
+    filter: (all, q) => {
+      let result = all;
+      if (subdirectoryFilter.value) {
+        result = result.filter((e) => e.subdirectory === subdirectoryFilter.value);
+      }
+      if (archFilter.value) {
+        result = result.filter((e) => e.arch === archFilter.value);
+      }
+      if (q) {
+        result = result.filter(
+          (e) => e.pkgname.toLowerCase().includes(q) || e.filename.toLowerCase().includes(q)
+        );
+      }
+      return result;
+    },
+  });
+
   const architectures = computed(() => {
     const set = new Set<string>();
-    for (const e of entries.value) if (e.arch) set.add(e.arch);
+    for (const e of base.entries.value) if (e.arch) set.add(e.arch);
     return Array.from(set).sort();
-  });
-  const loading = ref(false);
-
-  onMounted(async () => {
-    pageSize.value = await settingsStore.getSettingNumber("list_page_size_backup", 50);
-  });
-
-  const filteredEntries = computed(() => {
-    let result = entries.value;
-    if (subdirectoryFilter.value) {
-      result = result.filter((e) => e.subdirectory === subdirectoryFilter.value);
-    }
-    if (archFilter.value) {
-      result = result.filter((e) => e.arch === archFilter.value);
-    }
-    if (searchQuery.value) {
-      const q = searchQuery.value.toLowerCase();
-      result = result.filter((e) =>
-        e.pkgname.toLowerCase().includes(q) ||
-        e.filename.toLowerCase().includes(q)
-      );
-    }
-    return result;
-  });
-
-  const totalRecords = computed(() => filteredEntries.value.length);
-
-  const pageData = computed(() => {
-    const start = (currentPage.value - 1) * pageSize.value;
-    return filteredEntries.value.slice(start, start + pageSize.value);
-  });
-
-  function syncToolbar() {
-    const s = filteredEntries.value;
-    footer.infoText = `总计: ${s.length} 个备份文件`;
-    footer.showPagination = s.length > pageSize.value;
-    footer.totalRecords = s.length;
-    footer.currentPage = currentPage.value;
-    footer.pageSize = pageSize.value;
-    footer.onPageChange = goToPage;
-  }
-
-  function goToPage(page: number) {
-    currentPage.value = page;
-  }
-
-  watch(totalRecords, syncToolbar);
-  watch(searchQuery, () => { currentPage.value = 1; });
-  watch(subdirectoryFilter, () => { currentPage.value = 1; });
-  watch(archFilter, () => { currentPage.value = 1; });
-  watch(currentPage, (p) => {
-    footer.currentPage = p;
-    footer.onPageChange = goToPage;
   });
 
   async function fetchEntries() {
-    loading.value = true;
+    base.loading.value = true;
     try {
-      entries.value = await invoke<BackupSoftwareEntry[]>("list_backup_software");
+      base.entries.value = await invoke<BackupSoftwareEntry[]>("list_backup_software");
     } finally {
-      loading.value = false;
-      syncToolbar();
+      base.loading.value = false;
+      base.syncToolbar();
     }
   }
-
-  function toggleSelect(id: number) {
-    const s = new Set(selectedIds.value);
-    if (s.has(id)) s.delete(id);
-    else s.add(id);
-    selectedIds.value = s;
-  }
-
-  function toggleSelectAll() {
-    if (pageData.value.every((p) => selectedIds.value.has(p.id))) {
-      selectedIds.value = new Set();
-    } else {
-      selectedIds.value = new Set(pageData.value.map((p) => p.id));
-    }
-  }
-
-  const setSelected = (v: Set<number>) => { selectedIds.value = v; };
 
   return {
-    pageSize,
-    currentPage,
-    entries,
-    selectedIds,
-    searchQuery,
+    ...base,
     subdirectoryFilter,
     subdirectories,
     archFilter,
     architectures,
-    loading,
-    filteredEntries,
-    totalRecords,
-    pageData,
     fetchEntries,
-    toggleSelect,
-    toggleSelectAll,
-    setSelected,
-    syncToolbar,
   };
 }
 

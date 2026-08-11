@@ -18,7 +18,6 @@
 import { ref, onMounted, inject } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { invoke } from "@tauri-apps/api/core";
-import { ArrowLeft, ArrowRight } from "@lucide/vue";
 import { FOOTER_KEY } from "../composables/footer";
 import { useSoftwareForm } from "../composables/useSoftwareForm";
 import SoftwareFormModal from "../components/package/SoftwareFormModal.vue";
@@ -26,6 +25,7 @@ import PackageBasicInfoCard from "../components/package/PackageBasicInfoCard.vue
 import PackageAurInfoCard from "../components/package/PackageAurInfoCard.vue";
 import PackageUpstreamInfoCard from "../components/package/PackageUpstreamInfoCard.vue";
 import PackageDetailFooter from "../components/package/PackageDetailFooter.vue";
+import NavPager from "../components/common/NavPager.vue";
 import StandardizedBadge from "../components/base/StandardizedBadge.vue";
 import StandardizedMessage from "../components/base/StandardizedMessage.vue";
 
@@ -97,7 +97,7 @@ function navigate(direction: "prev" | "next") {
         </StandardizedButton>
       </div>
       <div class="header-center">
-        <h1 class="pkg-title">
+        <h1 class="modal-title">
           {{ detail?.pkgname || "加载中..." }}
           <StandardizedBadge
             v-if="detail"
@@ -108,24 +108,7 @@ function navigate(direction: "prev" | "next") {
         </h1>
       </div>
       <div class="header-right">
-        <button
-          class="nav-btn"
-          :class="{ disabled: !prevPkgname }"
-          @click="navigate('prev')"
-          title="上一个"
-        >
-          <ArrowLeft :size="20" />
-          <span>{{ prevPkgname || "" }}</span>
-        </button>
-        <button
-          class="nav-btn"
-          :class="{ disabled: !nextPkgname }"
-          @click="navigate('next')"
-          title="下一个"
-        >
-          <span>{{ nextPkgname || "" }}</span>
-          <ArrowRight :size="20" />
-        </button>
+        <NavPager variant="inline" show-labels :prev="prevPkgname" :next="nextPkgname" @navigate="navigate" />
       </div>
     </div>
 
@@ -203,7 +186,7 @@ function navigate(direction: "prev" | "next") {
 .header-left, .header-right { display: flex; align-items: center; gap: 0.5rem; }
 .header-center { flex: 1; text-align: center; }
 
-.pkg-title {
+.modal-title {
   display: inline-flex;
   align-items: center;
   gap: 0.75rem;
@@ -211,29 +194,10 @@ function navigate(direction: "prev" | "next") {
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
-
-.nav-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.375rem 0.75rem;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text-secondary);
-  font-size: 0.8125rem;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.nav-btn:hover:not(.disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
-  background-color: var(--bg-hover);
-}
-
-.nav-btn.disabled { opacity: 0.4; cursor: not-allowed; }
 
 .message-container {
   padding: 0.75rem 1.25rem;
@@ -267,7 +231,7 @@ function navigate(direction: "prev" | "next") {
     order: -1;
   }
 
-  .pkg-title {
+  .modal-title {
     font-size: 1rem;
   }
 

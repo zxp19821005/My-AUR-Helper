@@ -21,6 +21,7 @@ import { watch, computed, ref } from "vue";
 import { useSoftwareForm, pkgTypes, checkerTypes } from "../../composables/useSoftwareForm";
 import { useLicenseSelect } from "../../composables/useLicenseSelect";
 import StandardizedModal from "../common/StandardizedModal.vue";
+import StandardizedButton from "../base/StandardizedButton.vue";
 
 const props = defineProps<{
   show: boolean;
@@ -177,10 +178,10 @@ async function handleSave() {
       </div>
     </div>
     <template #footer>
-      <button class="btn btn-outline" @click="emit('close')">取消</button>
-      <button class="btn btn-primary" @click="handleSave" :disabled="saving || !canSaveBtn">
+      <StandardizedButton variant="outline" tone="neutral" @click="emit('close')">取消</StandardizedButton>
+      <StandardizedButton variant="primary" @click="handleSave" :disabled="saving || !canSaveBtn">
         {{ saving ? "保存中..." : "确认" }}
-      </button>
+      </StandardizedButton>
     </template>
   </StandardizedModal>
 </template>

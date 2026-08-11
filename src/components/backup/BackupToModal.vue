@@ -5,11 +5,15 @@
   - 选择备份子目录
   - 执行缓存包备份操作
   - 显示备份进度和结果
+
+  说明：基于 StandardizedModal 统一模态框风格（取代原先自写的 modal-overlay 结构）
 -->
 <script setup lang="ts">
-import { ref, inject } from "vue";
+import { ref, watch, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { FOOTER_KEY, addMessage } from "../../composables/footer";
+import StandardizedModal from "../common/StandardizedModal.vue";
+import StandardizedButton from "../base/StandardizedButton.vue";
 
 const props = defineProps<{
   show: boolean;
@@ -27,9 +31,10 @@ const footer = inject(FOOTER_KEY)!;
 const backupToSubdirectory = ref("");
 const backingUp = ref(false);
 
-function handleClose() {
-  if (!backingUp.value) emit("close");
-}
+// 打开时重置选择（原 open() 行为）
+watch(() => props.show, (val) => {
+  if (val) backupToSubdirectory.value = "";
+});
 
 async function handleBackupTo() {
   if (!backupToSubdirectory.value && props.subdirectories.length > 0) {
@@ -51,85 +56,46 @@ async function handleBackupTo() {
     backingUp.value = false;
   }
 }
-
-function open() {
-  backupToSubdirectory.value = "";
-}
-
-defineExpose({ open });
 </script>
 
 <template>
-  <Teleport to="body">
-    <div v-if="show" class="modal-overlay" @click.self="handleClose">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>备份到子目录</h3>
-          <button class="btn-icon" @click="handleClose" :disabled="backingUp">
-            <span>&times;</span>
-          </button>
-        </div>
-        <div class="modal-body">
-          <p>选中 {{ selectedFilenames.length }} 个缓存包</p>
-          <div class="form-group">
-            <label>选择备份子目录：</label>
-            <select v-model="backupToSubdirectory" class="backup-dir-select">
-              <option value="">根目录</option>
-              <option v-for="dir in subdirectories" :key="dir" :value="dir">{{ dir }}</option>
-            </select>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" @click="handleClose" :disabled="backingUp">取消</button>
-          <button class="btn-primary" @click="handleBackupTo" :disabled="backingUp">
-            {{ backingUp ? "备份中..." : "确认备份" }}
-          </button>
-        </div>
+  <StandardizedModal
+    :show="show"
+    title="备份到子目录"
+    width="sm"
+    :closable="!backingUp"
+    @close="emit('close')"
+  >
+    <div class="backup-body">
+      <p>选中 {{ selectedFilenames.length }} 个缓存包</p>
+      <div class="form-group">
+        <label>选择备份子目录：</label>
+        <select v-model="backupToSubdirectory" class="backup-dir-select">
+          <option value="">根目录</option>
+          <option v-for="dir in subdirectories" :key="dir" :value="dir">{{ dir }}</option>
+        </select>
       </div>
     </div>
-  </Teleport>
+
+    <template #footer>
+      <StandardizedButton variant="outline" size="sm" :disabled="backingUp" @click="emit('close')">
+        取消
+      </StandardizedButton>
+      <StandardizedButton variant="primary" size="sm" :loading="backingUp" @click="handleBackupTo">
+        {{ backingUp ? "备份中..." : "确认备份" }}
+      </StandardizedButton>
+    </template>
+  </StandardizedModal>
 </template>
 
 <style scoped>
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-.modal-content {
-  background: var(--bg-card);
-  border-radius: 12px;
-  width: 420px;
-  max-width: 90vw;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-}
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--border);
-}
-.modal-header h3 {
-  margin: 0;
-  font-size: 1rem;
-}
-.modal-body {
-  padding: 1.25rem;
-}
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  padding: 1rem 1.25rem;
-  border-top: 1px solid var(--border);
+.backup-body p {
+  margin: 0 0 0.75rem 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
 }
 .form-group {
-  margin-top: 1rem;
+  margin-top: 0.5rem;
 }
 .form-group label {
   display: block;
@@ -149,34 +115,5 @@ defineExpose({ open });
 }
 .backup-dir-select:focus {
   border-color: var(--accent);
-}
-.btn-secondary {
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-primary);
-  cursor: pointer;
-  font-size: 0.875rem;
-}
-.btn-secondary:hover:not(:disabled) {
-  background: var(--bg-secondary);
-}
-.btn-primary {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 6px;
-  background: var(--accent);
-  color: white;
-  cursor: pointer;
-  font-size: 0.875rem;
-}
-.btn-primary:hover:not(:disabled) {
-  opacity: 0.9;
-}
-.btn-primary:disabled,
-.btn-secondary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 </style>

@@ -10,7 +10,7 @@
   使用组件：
   - StandardizedTable: 表格组件
   - PageToolbar: 页面工具栏
-  - LicenseFormModal: 弹窗组件
+  - BaseFormModal: 新增/编辑弹窗（通用表单弹窗）
   - PaginationControls: 分页控件
 -->
 <script setup lang="ts">
@@ -19,12 +19,12 @@ import { invoke } from "@tauri-apps/api/core";
 import type { License } from "../types";
 import type { FooterState } from "../composables/footer";
 import { defaultFooterState } from "../composables/footer";
-import LicenseFormModal from "../components/enum/LicenseFormModal.vue";
+import BaseFormModal, { type FormField } from "../components/common/BaseFormModal.vue";
 import { useSettingsStore } from "../stores/settings";
 import PageToolbar from "../components/common/PageToolbar.vue";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
 import PaginationControls from "../components/common/PaginationControls.vue";
-import { RefreshCw, Plus } from "@lucide/vue";
+import { Icon } from "../icons";
 
 const settingsStore = useSettingsStore();
 const licenses = ref<License[]>([]);
@@ -37,11 +37,13 @@ const pageSize = ref(50);
 
 const showModal = ref(false);
 const modalMode = ref<"add" | "edit">("add");
-const modalForm = ref({
-  id: null as number | null,
-  spdx_id: "",
-  full_name: "",
-});
+const modalId = ref<number | null>(null);
+const modalValues = ref<Record<string, string>>({ spdx_id: "", full_name: "" });
+
+const licenseFields: FormField[] = [
+  { key: "spdx_id", label: "SPDX ID", placeholder: "如 MIT, GPL-3.0-only", required: true },
+  { key: "full_name", label: "完整名称", placeholder: "如 MIT License", required: true },
+];
 
 const footer = reactive<FooterState>(defaultFooterState());
 
@@ -107,17 +109,19 @@ async function syncFromSPDX() {
 
 function openAdd() {
   modalMode.value = "add";
-  modalForm.value = { id: null, spdx_id: "", full_name: "" };
+  modalId.value = null;
+  modalValues.value = { spdx_id: "", full_name: "" };
   showModal.value = true;
 }
 
 function openEdit(lic: License) {
   modalMode.value = "edit";
-  modalForm.value = { id: lic.id, spdx_id: lic.spdx_id, full_name: lic.full_name };
+  modalId.value = lic.id;
+  modalValues.value = { spdx_id: lic.spdx_id, full_name: lic.full_name };
   showModal.value = true;
 }
 
-async function handleSave(data: { id: number | null; spdx_id: string; full_name: string }) {
+async function handleSave(data: Record<string, string>) {
   try {
     if (modalMode.value === "add") {
       await invoke("add_license", {
@@ -126,7 +130,7 @@ async function handleSave(data: { id: number | null; spdx_id: string; full_name:
       });
     } else {
       await invoke("update_license", {
-        id: data.id,
+        id: modalId.value,
         spdxId: data.spdx_id.trim(),
         fullName: data.full_name.trim(),
       });
@@ -171,14 +175,14 @@ function handleRowClick(row: License) {
         @click="syncFromSPDX"
         title="从 SPDX 同步"
       >
-        <RefreshCw :size="16" :class="{ 'spinning': syncing }" />
+        <component :is="Icon.syncAur" :size="16" :class="{ 'spinning': syncing }" />
       </button>
       <button
         class="btn-icon btn-icon-success"
         @click="openAdd"
         title="新增 License"
       >
-        <Plus :size="16" />
+        <component :is="Icon.actionAdd" :size="16" />
       </button>
     </PageToolbar>
 
@@ -199,18 +203,18 @@ function handleRowClick(row: License) {
       <!-- 操作列 -->
       <template #actions="{ row }">
         <button
-          class="btn-icon btn-icon-default"
+          class="btn-icon btn-icon-warning"
           @click.stop="openEdit(row)"
           title="编辑"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+          <component :is="Icon.actionEdit" :size="14" />
         </button>
         <button
           class="btn-icon btn-icon-danger"
           @click.stop="handleDelete(row)"
           title="删除"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+          <component :is="Icon.actionDelete" :size="14" />
         </button>
       </template>
     </StandardizedTable>
@@ -221,10 +225,12 @@ function handleRowClick(row: License) {
     </div>
 
     <!-- 编辑弹窗 -->
-    <LicenseFormModal
+    <BaseFormModal
       :show="showModal"
       :mode="modalMode"
-      :license="modalForm"
+      entity-name="License"
+      :fields="licenseFields"
+      :model-value="modalValues"
       @save="handleSave"
       @close="showModal = false"
     />
@@ -242,12 +248,5 @@ function handleRowClick(row: License) {
   justify-content: center;
   padding: 0.75rem 0;
   border-top: 1px solid var(--border);
-}
-.spinning {
-  animation: spin 1s linear infinite;
-}
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
 }
 </style>

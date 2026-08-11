@@ -7,6 +7,7 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 import StandardizedModal from "../common/StandardizedModal.vue";
+import StandardizedButton from "../base/StandardizedButton.vue";
 import type { ProxyInfo } from "../../types";
 
 const props = defineProps<{
@@ -47,8 +48,8 @@ function handleSave() {
     </div>
     <template #footer>
       <div class="modal-footer-actions">
-        <button class="btn btn-secondary" @click="emit('close')">取消</button>
-        <button class="btn btn-primary" @click="handleSave">保存</button>
+        <StandardizedButton variant="secondary" @click="emit('close')">取消</StandardizedButton>
+        <StandardizedButton variant="primary" @click="handleSave">保存</StandardizedButton>
       </div>
     </template>
   </StandardizedModal>
@@ -57,16 +58,16 @@ function handleSave() {
 <style scoped>
 .modal-form { padding: 4px 0; }
 .form-group { display: flex; flex-direction: column; gap: 6px; }
-.form-label { font-size: 13px; font-weight: 500; color: var(--text-primary, #374151); }
+.form-label { font-size: 13px; font-weight: 500; color: var(--text-primary); }
 .form-input {
   padding: 7px 10px;
-  border: 1px solid var(--border-color, #d1d5db);
+  border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 13px;
-  background: var(--bg-primary, #fff);
-  color: var(--text-primary, #374151);
+  background: var(--bg-primary);
+  color: var(--text-primary);
   outline: none;
 }
-.form-input:focus { border-color: var(--color-primary, #7c3aed); box-shadow: 0 0 0 2px rgba(124,58,237,.15); }
+.form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(108,99,255,.15); }
 .modal-footer-actions { display: flex; justify-content: flex-end; gap: 8px; }
 </style>

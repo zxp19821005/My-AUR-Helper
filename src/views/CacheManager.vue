@@ -9,7 +9,7 @@
   - 单行操作：删除缓存
 
   使用组件：
-  - CacheToolbar: 工具栏组件
+  - PageToolbar: 工具栏组件（内联）
   - CacheRowActions: 行操作按钮组
   - StandardizedTable: 表格组件
   - BackupToModal: 备份弹窗组件
@@ -27,7 +27,7 @@ import PageToolbar from "../components/common/PageToolbar.vue";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
 import CacheRowActions from "../components/cache/CacheRowActions.vue";
 import CacheSudoersModal from "../components/cache/CacheSudoersModal.vue";
-import { Trash2, Scan, Copy, GitBranch, Trash } from "@lucide/vue";
+import { Icon } from "../icons";
 
 const footer = inject(FOOTER_KEY)!;
 
@@ -175,25 +175,25 @@ const columns = [
         </select>
       </template>
       <button class="btn-icon btn-icon-accent" :disabled="loading || scanning" @click="handleScan" title="扫描所有缓存目录">
-        <Scan :size="16" />
+        <component :is="Icon.scan" :size="16" />
       </button>
       <button class="btn-icon btn-icon-danger" :disabled="loading" @click="handleClearTable" title="清空缓存表">
-        <Trash2 :size="16" />
+        <component :is="Icon.clearTable" :size="16" />
       </button>
       <button class="btn-icon btn-icon-danger" :disabled="selectedIds.size === 0" @click="deleteSelected" title="删除选中">
-        <Trash2 :size="16" />
+        <component :is="Icon.deleteSelected" :size="16" />
       </button>
       <button class="btn-icon btn-icon-info" :disabled="loading" @click="handleDedup" title="去重（保留最新版本）">
-        <GitBranch :size="16" />
+        <component :is="Icon.dedup" :size="16" />
       </button>
       <button class="btn-icon btn-icon-success" :disabled="loading" @click="handleBackupNewVersion" title="备份新版（自动比较版本，将更新的包备份到已有位置）">
-        <Copy :size="16" />
+        <component :is="Icon.backupNewVersion" :size="16" />
       </button>
       <button class="btn-icon btn-icon-success" :disabled="loading || selectedIds.size === 0" @click="openBackupToModal" title="备份到（选择子目录）">
-        <Copy :size="16" />
+        <component :is="Icon.backupTo" :size="16" />
       </button>
       <button class="btn-icon btn-icon-danger" :disabled="loading || cleanupLoading" @click="handleFullCleanup" title="缓存清理（清理系统缓存和自定义缓存目录）">
-        <Trash :size="16" />
+        <component :is="Icon.fullCleanup" :size="16" />
       </button>
     </PageToolbar>
 

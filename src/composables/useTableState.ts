@@ -12,7 +12,7 @@
  * - 需要表格状态管理的自定义表格
  */
 import { computed, ref, watch } from "vue";
-import { ChevronUp, ChevronDown, ChevronsUpDown } from "@lucide/vue";
+import { Icon } from "../icons";
 
 export interface Column {
   key: string;
@@ -196,10 +196,10 @@ export function useTableState(props: UseTableStateProps) {
   }
 
   function getSortIcon(column: Column) {
-    if (sortState.value.key !== column.key) return ChevronsUpDown;
-    if (sortState.value.direction === "asc") return ChevronUp;
-    if (sortState.value.direction === "desc") return ChevronDown;
-    return ChevronsUpDown;
+    if (sortState.value.key !== column.key) return Icon.sortNone;
+    if (sortState.value.direction === "asc") return Icon.sortAsc;
+    if (sortState.value.direction === "desc") return Icon.sortDesc;
+    return Icon.sortNone;
   }
 
   function getPageNumbers(): (number | string)[] {

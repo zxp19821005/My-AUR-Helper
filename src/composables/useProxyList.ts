@@ -5,11 +5,13 @@
  * - 管理列表分页、搜索、选择状态
  * - 提供格式化函数和操作控制逻辑
  * - 支持代理类型筛选
+ *
+ * 列表通用逻辑由 useListBase 提供；本文件保留代理特有的：类型筛选、
+ * 测试状态、启停/更新/删除等操作。
  */
-import { computed, ref, watch, inject, onMounted } from "vue";
+import { ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
-import { useSettingsStore } from "../stores/settings";
-import { FOOTER_KEY } from "./footer";
+import { useListBase } from "./useListBase";
 import type { ProxyInfo, ProxyType } from "../types";
 
 /** 从 URL 提取代理显示名称（域名部分） */
@@ -58,101 +60,45 @@ export interface ProxyTestResult {
 }
 
 export function useProxyList() {
-  const footer = inject(FOOTER_KEY)!;
-  const settingsStore = useSettingsStore();
-
-  const pageSize = ref(50);
-  const currentPage = ref(1);
-  const entries = ref<ProxyInfo[]>([]);
-  const selectedIds = ref(new Set<number>());
-  const searchQuery = ref("");
   const typeFilter = ref<ProxyType | "">("");
-  const loading = ref(false);
-
   /** 测试结果映射（proxy_id -> 测试结果） */
   const testResults = ref<Map<number, ProxyTestResult>>(new Map());
   /** 正在测试的代理 ID 列表 */
   const testingIds = ref<Set<number>>(new Set());
 
-  onMounted(async () => {
-    pageSize.value = await settingsStore.getSettingNumber("list_page_size_proxy", 50);
-  });
-
-  const filteredEntries = computed(() => {
-    let result = entries.value;
-    if (typeFilter.value) {
-      result = result.filter((e) => e.proxy_type === typeFilter.value);
-    }
-    if (searchQuery.value) {
-      const q = searchQuery.value.toLowerCase();
-      result = result.filter((e) =>
-        e.proxy_name.toLowerCase().includes(q) ||
-        e.url.toLowerCase().includes(q) ||
-        e.proxy_type.toLowerCase().includes(q) ||
-        extractProxyName(e.url).toLowerCase().includes(q)
-      );
-    }
-    return result;
-  });
-
-  const totalRecords = computed(() => filteredEntries.value.length);
-
-  const pageData = computed(() => {
-    const start = (currentPage.value - 1) * pageSize.value;
-    return filteredEntries.value.slice(start, start + pageSize.value);
-  });
-
-  function syncToolbar() {
-    const s = filteredEntries.value;
-    footer.infoText = `总计: ${s.length} 个代理`;
-    footer.showPagination = s.length > pageSize.value;
-    footer.totalRecords = s.length;
-    footer.currentPage = currentPage.value;
-    footer.pageSize = pageSize.value;
-    footer.onPageChange = goToPage;
-  }
-
-  function goToPage(page: number) {
-    currentPage.value = page;
-  }
-
-  watch(totalRecords, syncToolbar);
-  watch(searchQuery, () => { currentPage.value = 1; });
-  watch(typeFilter, () => { currentPage.value = 1; });
-  watch(currentPage, (p) => {
-    footer.currentPage = p;
-    footer.onPageChange = goToPage;
+  const base = useListBase<ProxyInfo>({
+    pageSizeSetting: "list_page_size_proxy",
+    getKey: (p) => p.proxy_id!,
+    infoText: (t) => `总计: ${t} 个代理`,
+    pageResetRefs: [typeFilter],
+    filter: (all, q) => {
+      let result = all;
+      if (typeFilter.value) {
+        result = result.filter((e) => e.proxy_type === typeFilter.value);
+      }
+      if (q) {
+        result = result.filter(
+          (e) =>
+            e.proxy_name.toLowerCase().includes(q) ||
+            e.url.toLowerCase().includes(q) ||
+            e.proxy_type.toLowerCase().includes(q) ||
+            extractProxyName(e.url).toLowerCase().includes(q)
+        );
+      }
+      return result;
+    },
   });
 
   /** 加载代理列表 */
   async function fetchEntries() {
-    loading.value = true;
+    base.loading.value = true;
     try {
-      entries.value = await invoke<ProxyInfo[]>("get_proxies");
+      base.entries.value = await invoke<ProxyInfo[]>("get_proxies");
     } finally {
-      loading.value = false;
-      syncToolbar();
+      base.loading.value = false;
+      base.syncToolbar();
     }
   }
-
-  /** 切换单行选中 */
-  function toggleSelect(id: number) {
-    const s = new Set(selectedIds.value);
-    if (s.has(id)) s.delete(id);
-    else s.add(id);
-    selectedIds.value = s;
-  }
-
-  /** 全选/取消全选 */
-  function toggleSelectAll() {
-    if (pageData.value.every((p) => selectedIds.value.has(p.proxy_id!))) {
-      selectedIds.value = new Set();
-    } else {
-      selectedIds.value = new Set(pageData.value.map((p) => p.proxy_id!));
-    }
-  }
-
-  const setSelected = (v: Set<number>) => { selectedIds.value = v; };
 
   /** 切换代理启用状态 */
   async function toggleProxyActive(proxy: ProxyInfo) {
@@ -169,7 +115,7 @@ export function useProxyList() {
 
   /** 更新代理信息（编辑名称/URL/类型） */
   async function updateProxy(proxyId: number, updates: Partial<ProxyInfo>) {
-    const proxy = entries.value.find((p) => p.proxy_id === proxyId);
+    const proxy = base.entries.value.find((p) => p.proxy_id === proxyId);
     if (!proxy) throw new Error("代理不存在");
     try {
       await invoke("update_proxy", {
@@ -198,16 +144,16 @@ export function useProxyList() {
 
   /** 批量删除代理 */
   async function deleteSelectedProxies() {
-    if (selectedIds.value.size === 0) return;
-    loading.value = true;
+    if (base.selectedIds.value.size === 0) return;
+    base.loading.value = true;
     try {
-      for (const id of selectedIds.value) {
+      for (const id of base.selectedIds.value) {
         await invoke("delete_proxy", { proxyId: id });
       }
-      selectedIds.value = new Set();
+      base.selectedIds.value = new Set();
       await fetchEntries();
     } finally {
-      loading.value = false;
+      base.loading.value = false;
     }
   }
 
@@ -215,7 +161,7 @@ export function useProxyList() {
   function setTestResult(proxyId: number, result: ProxyTestResult) {
     testResults.value.set(proxyId, result);
     // 同步更新对应条目的持久化测试统计
-    const entry = entries.value.find((e) => e.proxy_id === proxyId);
+    const entry = base.entries.value.find((e) => e.proxy_id === proxyId);
     if (entry) {
       entry.avg_latency = result.latency;
       if (result.success) {
@@ -249,22 +195,11 @@ export function useProxyList() {
   }
 
   return {
-    pageSize,
-    currentPage,
-    entries,
-    selectedIds,
-    searchQuery,
+    ...base,
     typeFilter,
-    loading,
-    filteredEntries,
-    totalRecords,
-    pageData,
     testResults,
     testingIds,
     fetchEntries,
-    toggleSelect,
-    toggleSelectAll,
-    setSelected,
     toggleProxyActive,
     deleteProxy,
     deleteSelectedProxies,
@@ -272,7 +207,6 @@ export function useProxyList() {
     clearTestResults,
     getTestStatusText,
     getTestStatusClass,
-    syncToolbar,
     updateProxy,
     extractProxyName,
     isValidProxyName,

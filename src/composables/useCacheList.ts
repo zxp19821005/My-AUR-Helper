@@ -5,11 +5,13 @@
  * - 管理列表分页、搜索、选择状态
  * - 从 cache_software 数据库表读取已存在的存量数据（页面打开自动执行）
  * - 扫描所有启用的缓存目录重新写入数据库（手动触发 "扫描" 按钮）
+ *
+ * 列表通用逻辑由 useListBase 提供。
+ * 缓存条目因磁盘扫描结果 id 为占位值（跨页不唯一），故选择键采用「filteredEntries 全局索引」。
  */
-import { computed, ref, watch, inject, onMounted } from "vue";
+import { computed, ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
-import { useSettingsStore } from "../stores/settings";
-import { FOOTER_KEY } from "./footer";
+import { useListBase } from "./useListBase";
 import type { CachePackage, CacheSoftwareEntry } from "../types";
 
 /**
@@ -37,32 +39,31 @@ export interface CacheListEntry {
 }
 
 export function useCacheList() {
-  const footer = inject(FOOTER_KEY)!;
-  const settingsStore = useSettingsStore();
-
-  const pageSize = ref(50);
-  const currentPage = ref(1);
-  const entries = ref<CacheListEntry[]>([]);
-  const selectedIds = ref(new Set<number>());
-  const searchQuery = ref("");
   const sourceDirFilter = ref("");
   const sourceDirs = ref<{ name: string; path: string }[]>([]);
   const archFilter = ref("");
-  const architectures = computed(() => {
-    const set = new Set<string>();
-    for (const e of entries.value) if (e.arch) set.add(e.arch);
-    return Array.from(set).sort();
-  });
-  const loading = ref(false);
 
-  onMounted(async () => {
-    pageSize.value = await settingsStore.getSettingNumber("list_page_size_cache", 50);
-    // 页面打开时，自动从 cache_software 表读取存量数据
-    try {
-      await loadEntries();
-    } catch (e) {
-      console.error("[缓存管理] 页面打开时加载存量缓存数据失败:", e);
-    }
+  const base = useListBase<CacheListEntry>({
+    pageSizeSetting: "list_page_size_cache",
+    // 选择键 = filteredEntries 中的全局索引（缓存 id 为占位值，不可作为稳定键）
+    getKey: (_e, globalIndex) => globalIndex,
+    infoText: (t) => `总计: ${t} 个缓存文件`,
+    pageResetRefs: [sourceDirFilter, archFilter],
+    filter: (all, q) => {
+      let result = all;
+      if (sourceDirFilter.value) {
+        result = result.filter((e) => e.cache_directory === sourceDirFilter.value);
+      }
+      if (archFilter.value) {
+        result = result.filter((e) => e.arch === archFilter.value);
+      }
+      if (q) {
+        result = result.filter(
+          (e) => e.pkgname.toLowerCase().includes(q) || e.filename.toLowerCase().includes(q)
+        );
+      }
+      return result;
+    },
   });
 
   /** 把前端 CachePackage（来自 PkgFileInfo 扫描结果）转成列表条目 */
@@ -104,52 +105,10 @@ export function useCacheList() {
     return dash >= 0 ? nv.substring(0, dash) : nv;
   }
 
-  const filteredEntries = computed(() => {
-    let result = entries.value;
-    if (sourceDirFilter.value) {
-      result = result.filter((e) => e.cache_directory === sourceDirFilter.value);
-    }
-    if (archFilter.value) {
-      result = result.filter((e) => e.arch === archFilter.value);
-    }
-    if (searchQuery.value) {
-      const q = searchQuery.value.toLowerCase();
-      result = result.filter((e) =>
-        e.pkgname.toLowerCase().includes(q) ||
-        e.filename.toLowerCase().includes(q)
-      );
-    }
-    return result;
-  });
-
-  const totalRecords = computed(() => filteredEntries.value.length);
-
-  const pageData = computed(() => {
-    const start = (currentPage.value - 1) * pageSize.value;
-    return filteredEntries.value.slice(start, start + pageSize.value);
-  });
-
-  function syncToolbar() {
-    const s = filteredEntries.value;
-    footer.infoText = `总计: ${s.length} 个缓存文件`;
-    footer.showPagination = s.length > pageSize.value;
-    footer.totalRecords = s.length;
-    footer.currentPage = currentPage.value;
-    footer.pageSize = pageSize.value;
-    footer.onPageChange = goToPage;
-  }
-
-  function goToPage(page: number) {
-    currentPage.value = page;
-  }
-
-  watch(totalRecords, syncToolbar);
-  watch(searchQuery, () => { currentPage.value = 1; });
-  watch(sourceDirFilter, () => { currentPage.value = 1; });
-  watch(archFilter, () => { currentPage.value = 1; });
-  watch(currentPage, (p) => {
-    footer.currentPage = p;
-    footer.onPageChange = goToPage;
+  const architectures = computed(() => {
+    const set = new Set<string>();
+    for (const e of base.entries.value) if (e.arch) set.add(e.arch);
+    return Array.from(set).sort();
   });
 
   /**
@@ -157,30 +116,30 @@ export function useCacheList() {
    * 不会扫描磁盘，只执行 SELECT 查询，速度快
    */
   async function loadEntries() {
-    loading.value = true;
+    base.loading.value = true;
     try {
       const data = await invoke<CacheSoftwareEntry[]>("list_cache_software");
-      entries.value = data.map(fromCacheSoftwareEntry);
-      selectedIds.value = new Set();
+      base.entries.value = data.map(fromCacheSoftwareEntry);
+      base.selectedIds.value = new Set();
     } finally {
-      loading.value = false;
-      syncToolbar();
+      base.loading.value = false;
+      base.syncToolbar();
     }
   }
 
   /**
    * 扫描所有启用的缓存目录（磁盘），清空并重建 cache_software 表
-   * 对应原来的 fetchEntries，仅在用户点击 "扫描" 按钮时触发
+   * 仅在用户点击 "扫描" 按钮时触发
    */
   async function rescanAllDirs() {
-    loading.value = true;
+    base.loading.value = true;
     try {
       const scanned = await invoke<CachePackage[]>("scan_all_cache_dirs");
-      entries.value = scanned.map(fromCachePackage);
-      selectedIds.value = new Set();
+      base.entries.value = scanned.map(fromCachePackage);
+      base.selectedIds.value = new Set();
     } finally {
-      loading.value = false;
-      syncToolbar();
+      base.loading.value = false;
+      base.syncToolbar();
     }
   }
 
@@ -189,59 +148,16 @@ export function useCacheList() {
     await rescanAllDirs();
   }
 
-  function toggleSelect(index: number) {
-    const s = new Set(selectedIds.value);
-    if (s.has(index)) s.delete(index);
-    else s.add(index);
-    selectedIds.value = s;
-  }
-
-  function toggleSelectAll() {
-    if (pageData.value.every((_, i) => {
-      const globalIdx = (currentPage.value - 1) * pageSize.value + i;
-      return selectedIds.value.has(globalIdx);
-    })) {
-      selectedIds.value = new Set();
-    } else {
-      const newSet = new Set<number>();
-      pageData.value.forEach((_, i) => {
-        newSet.add((currentPage.value - 1) * pageSize.value + i);
-      });
-      selectedIds.value = newSet;
-    }
-  }
-
   return {
-    pageSize,
-    currentPage,
-    entries,
-    selectedIds,
-    searchQuery,
+    ...base,
     sourceDirFilter,
     sourceDirs,
     archFilter,
     architectures,
-    loading,
-    filteredEntries,
-    totalRecords,
-    pageData,
     loadEntries,
     rescanAllDirs,
     fetchEntries,
-    toggleSelect,
-    toggleSelectAll,
-    syncToolbar,
   };
-}
-
-/**
- * 格式化文件大小为人类可读字符串
- */
-export function formatSize(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return (bytes / Math.pow(1024, i)).toFixed(1) + " " + units[i];
 }
 
 // 给 js/ts 使用的 rsplit 工具（避免修改 String.prototype）

@@ -7,8 +7,8 @@
 -->
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
-import { Home, ChevronLeft, ChevronRight, SkipForward } from "@lucide/vue";
 import type { FooterState } from "../../composables/footer";
+import { Icon } from "../../icons";
 
 const props = defineProps<{
   footer: FooterState;
@@ -40,10 +40,10 @@ watch(() => props.footer.currentPage, (p) => {
 <template>
   <div class="pagination-controls">
     <button class="btn-icon btn-icon-info" :disabled="footer.currentPage <= 1" @click="goTo(1)" title="首页">
-      <Home :size="16" />
+      <component :is="Icon.pageFirst" :size="16" />
     </button>
     <button class="btn-icon btn-icon-info" :disabled="footer.currentPage <= 1" @click="goTo(footer.currentPage - 1)" title="上一页">
-      <ChevronLeft :size="16" />
+      <component :is="Icon.pagePrev" :size="16" />
     </button>
 
     <span class="btf-page-info">
@@ -52,10 +52,10 @@ watch(() => props.footer.currentPage, (p) => {
     </span>
 
     <button class="btn-icon btn-icon-info" :disabled="footer.currentPage >= totalPages" @click="goTo(footer.currentPage + 1)" title="下一页">
-      <ChevronRight :size="16" />
+      <component :is="Icon.pageNext" :size="16" />
     </button>
     <button class="btn-icon btn-icon-info" :disabled="footer.currentPage >= totalPages" @click="goTo(totalPages)" title="末页">
-      <SkipForward :size="16" />
+      <component :is="Icon.pageLast" :size="16" />
     </button>
 
     <span class="btf-text">共 {{ footer.totalRecords }} 条</span>

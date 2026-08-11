@@ -8,7 +8,7 @@
   - 删除
 -->
 <script setup lang="ts">
-import { RefreshCw, Trash2, Eye, Pencil, Download } from "@lucide/vue";
+import { Icon } from "../../icons";
 
 defineProps<{
   pkgname: string;
@@ -28,18 +28,18 @@ const emit = defineEmits<{
 
 <template>
   <button
-    class="btn-icon btn-icon-default"
+    class="btn-icon btn-icon-info"
     @click.stop="emit('view', pkgname)"
     title="查看详情"
   >
-    <Eye :size="14" />
+    <component :is="Icon.actionInfo" :size="14" />
   </button>
   <button
-    class="btn-icon btn-icon-accent"
+    class="btn-icon btn-icon-warning"
     @click.stop="emit('edit', pkgname)"
     title="软件编辑"
   >
-    <Pencil :size="14" />
+    <component :is="Icon.actionEdit" :size="14" />
   </button>
   <button
     class="btn-icon btn-icon-accent"
@@ -47,7 +47,7 @@ const emit = defineEmits<{
     :disabled="isRowLoading(pkgname, 'sync-aur')"
     title="从AUR同步"
   >
-    <RefreshCw :size="14" />
+    <component :is="Icon.syncAur" :size="14" />
   </button>
   <button
     class="btn-icon btn-icon-accent"
@@ -55,7 +55,7 @@ const emit = defineEmits<{
     :disabled="isRowLoading(pkgname, 'sync-pkgbuild')"
     title="从PKGBUILD同步"
   >
-    <Download :size="14" />
+    <component :is="Icon.syncPkgbuild" :size="14" />
   </button>
   <button
     class="btn-icon btn-icon-info"
@@ -63,7 +63,7 @@ const emit = defineEmits<{
     :disabled="isRowLoading(pkgname, 'check-upstream')"
     title="更新上游信息"
   >
-    <RefreshCw :size="14" />
+    <component :is="Icon.actionSearch" :size="14" />
   </button>
   <button
     class="btn-icon btn-icon-danger"
@@ -71,6 +71,6 @@ const emit = defineEmits<{
     :disabled="isRowLoading(pkgname, 'delete')"
     title="删除"
   >
-    <Trash2 :size="14" />
+    <component :is="Icon.actionDelete" :size="14" />
   </button>
 </template>

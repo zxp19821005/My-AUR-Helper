@@ -6,6 +6,7 @@
 -->
 <script setup lang="ts">
 import StandardizedModal from "../common/StandardizedModal.vue";
+import StandardizedButton from "../base/StandardizedButton.vue";
 
 defineProps<{
   show: boolean;
@@ -25,8 +26,8 @@ const emit = defineEmits<{
     </div>
     <template #footer>
       <div class="modal-footer-actions">
-        <button class="btn btn-secondary" @click="emit('close')">取消</button>
-        <button class="btn btn-danger" :disabled="clearing" @click="emit('confirm')">确定清空</button>
+        <StandardizedButton variant="secondary" @click="emit('close')">取消</StandardizedButton>
+        <StandardizedButton variant="danger" :disabled="clearing" @click="emit('confirm')">确定清空</StandardizedButton>
       </div>
     </template>
   </StandardizedModal>
@@ -34,8 +35,8 @@ const emit = defineEmits<{
 
 <style scoped>
 .modal-form { padding: 4px 0; }
-.confirm-text { font-size: 14px; color: var(--text-primary, #374151); margin-bottom: 8px; }
-.confirm-sub { font-size: 12px; color: var(--text-muted, #6b7280); }
-.confirm-sub code { background: var(--bg-secondary, #f3f4f6); padding: 1px 4px; border-radius: 3px; font-size: 11px; }
+.confirm-text { font-size: 14px; color: var(--text-primary); margin-bottom: 8px; }
+.confirm-sub { font-size: 12px; color: var(--text-muted); }
+.confirm-sub code { background: var(--bg-secondary); padding: 1px 4px; border-radius: 3px; font-size: 11px; }
 .modal-footer-actions { display: flex; justify-content: flex-end; gap: 8px; }
 </style>

@@ -22,7 +22,7 @@ import PageToolbar from "../components/common/PageToolbar.vue";
 import ProxyEditModal from "../components/proxy/ProxyEditModal.vue";
 import ProxyDetailModal from "../components/proxy/ProxyDetailModal.vue";
 import ProxyClearConfirmModal from "../components/proxy/ProxyClearConfirmModal.vue";
-import { Trash2, Download, FileCode, Zap, Database, Info, Edit, TestTube } from "@lucide/vue";
+import { Icon } from "../icons";
 
 const footer = inject(FOOTER_KEY)!;
 const list = useProxyList();
@@ -139,19 +139,19 @@ const columns = [
         </select>
       </template>
       <button class="btn-icon btn-icon-danger" :disabled="clearing" @click="showClearConfirm = true" title="清空代理表">
-        <Database :size="16" />
+        <component :is="Icon.clearTable" :size="16" />
       </button>
       <button class="btn-icon btn-icon-accent" :disabled="downloading" @click="handleDownloadProxyFile" title="获取代理文件">
-        <Download :size="16" />
+        <component :is="Icon.actionDownload" :size="16" />
       </button>
       <button class="btn-icon btn-icon-info" :disabled="parsing" @click="handleParseProxyFile" title="解析代理文件">
-        <FileCode :size="16" />
+        <component :is="Icon.parseProxy" :size="16" />
       </button>
       <button class="btn-icon btn-icon-success" :disabled="loading" @click="handleTestProxies" title="代理测试">
-        <Zap :size="16" />
+        <component :is="Icon.testBatch" :size="16" />
       </button>
       <button class="btn-icon btn-icon-danger" :disabled="selectedIds.size === 0" @click="handleDeleteSelected" title="删除选中">
-        <Trash2 :size="16" />
+        <component :is="Icon.deleteSelected" :size="16" />
       </button>
     </PageToolbar>
 
@@ -204,11 +204,11 @@ const columns = [
 
       <template #actions="{ row }">
         <div class="action-buttons">
-          <button class="btn-icon btn-icon-default" @click="openDetailModal(row)" title="详情">
-            <Info :size="14" />
+          <button class="btn-icon btn-icon-info" @click="openDetailModal(row)" title="详情">
+            <component :is="Icon.actionInfo" :size="14" />
           </button>
-          <button class="btn-icon btn-icon-accent" @click="openEditModal(row)" title="编辑">
-            <Edit :size="14" />
+          <button class="btn-icon btn-icon-warning" @click="openEditModal(row)" title="编辑">
+            <component :is="Icon.actionEdit" :size="14" />
           </button>
           <button
             class="btn-icon btn-icon-success"
@@ -216,10 +216,10 @@ const columns = [
             @click="row.proxy_id !== null && handleTestSingleProxy(row.proxy_id)"
             title="测试"
           >
-            <TestTube :size="14" />
+            <component :is="Icon.testSingle" :size="14" />
           </button>
           <button class="btn-icon btn-icon-danger" @click="handleDeleteSingleProxy(row)" title="删除">
-            <Trash2 :size="14" />
+            <component :is="Icon.actionDelete" :size="14" />
           </button>
         </div>
       </template>
@@ -250,7 +250,7 @@ const columns = [
 }
 .stat-cell { font-variant-numeric: tabular-nums; }
 .latency-cell { font-variant-numeric: tabular-nums; }
-.latency-ok { color: var(--color-success, #16a34a); }
-.latency-untested { color: var(--text-muted, #9ca3af); }
-.latency-fail { color: var(--color-danger, #dc2626); font-weight: 600; }
+.latency-ok { color: var(--success); }
+.latency-untested { color: var(--text-muted); }
+.latency-fail { color: var(--error); font-weight: 600; }
 </style>

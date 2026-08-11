@@ -8,7 +8,7 @@
 <script setup lang="ts">
 import { invoke } from "@tauri-apps/api/core";
 import type { SoftwareDetail } from "../../types";
-import { Edit, Trash2, RefreshCw, FileCode, GitBranch } from "@lucide/vue";
+import PackageActionButtons from "./PackageActionButtons.vue";
 
 const props = defineProps<{
   detail: SoftwareDetail | null;
@@ -98,49 +98,19 @@ async function checkUpdate() {
 <template>
   <div class="detail-footer">
     <div class="footer-actions">
-      <button
-        class="toolbar-btn btn-blue"
-        @click="emit('edit')"
-        title="编辑"
-      >
-        <Edit :size="18" />
-      </button>
-
-      <button
-        class="toolbar-btn btn-purple"
-        :disabled="updatingAur"
-        @click="updateAurInfo"
-        title="更新 AUR 信息"
-      >
-        <GitBranch :size="18" :class="{ spinning: updatingAur }" />
-      </button>
-
-      <button
-        class="toolbar-btn btn-teal"
-        :disabled="updatingPkgbuild"
-        @click="updatePkgbuild"
-        title="同步 PKGBUILD"
-      >
-        <FileCode :size="18" :class="{ spinning: updatingPkgbuild }" />
-      </button>
-
-      <button
-        class="toolbar-btn btn-green"
-        :disabled="checking"
-        @click="checkUpdate"
-        title="检查上游更新"
-      >
-        <RefreshCw :size="18" :class="{ spinning: checking }" />
-      </button>
-
-      <button
-        class="toolbar-btn btn-red"
-        :disabled="deleting"
-        @click="handleDelete"
-        title="删除"
-      >
-        <Trash2 :size="18" :class="{ spinning: deleting }" />
-      </button>
+      <PackageActionButtons
+        :updating-aur="updatingAur"
+        :updating-pkgbuild="updatingPkgbuild"
+        :checking="checking"
+        :deleting="deleting"
+        size="md"
+        :with-dividers="false"
+        @edit="emit('edit')"
+        @update-aur="updateAurInfo"
+        @update-pkgbuild="updatePkgbuild"
+        @check-update="checkUpdate"
+        @delete="handleDelete"
+      />
     </div>
   </div>
 </template>
@@ -163,15 +133,6 @@ async function checkUpdate() {
   justify-content: center;
   max-width: 900px;
   margin: 0 auto;
-}
-
-/* 纯图标按钮：固定方形、图标居中，去掉文字后的间距 */
-.footer-actions .toolbar-btn {
-  justify-content: center;
-  gap: 0;
-  padding: 0.5rem;
-  width: 2.5rem;
-  height: 2.5rem;
 }
 
 @media (max-width: 768px) {

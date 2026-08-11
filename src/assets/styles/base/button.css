@@ -126,10 +126,5 @@
 }
 
 .loading .icon {
-  animation: btn-spin 1s linear infinite;
-}
-
-@keyframes btn-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  animation: spin 1s linear infinite;
 }

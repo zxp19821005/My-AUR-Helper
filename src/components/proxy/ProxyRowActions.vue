@@ -5,10 +5,14 @@
   - 启用/禁用代理
   - 测试代理
   - 删除代理
+
+  操作列统一使用带语义背景色的 btn-icon 样式：
+  - 启用/禁用（toggle）：蓝色 info
+  - 测试（test）：绿色 success
+  - 删除（delete）：红色 danger
 -->
 <script setup lang="ts">
-import { Globe, Zap, Trash2 } from "@lucide/vue";
-import StandardizedButton from "../base/StandardizedButton.vue";
+import { Icon } from "../../icons";
 
 defineProps<{
   row: any;
@@ -23,31 +27,28 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <StandardizedButton
-    variant="outline"
-    size="sm"
+  <button
+    class="btn-icon btn-icon-info"
     @click.stop="emit('toggle', row)"
     :title="row.is_active ? '禁用' : '启用'"
   >
-    <Globe :size="14" />
-  </StandardizedButton>
+    <component :is="Icon.sourceAur" :size="14" />
+  </button>
 
-  <StandardizedButton
-    variant="outline"
-    size="sm"
+  <button
+    class="btn-icon btn-icon-success"
     @click.stop="row.proxy_id !== null && emit('test', row.proxy_id)"
     :disabled="row.proxy_id !== null && testingIds.has(row.proxy_id)"
     title="测试代理"
   >
-    <Zap :size="14" />
-  </StandardizedButton>
+    <component :is="Icon.testSingle" :size="14" />
+  </button>
 
-  <StandardizedButton
-    variant="danger"
-    size="sm"
+  <button
+    class="btn-icon btn-icon-danger"
     @click.stop="emit('delete', row)"
     title="删除"
   >
-    <Trash2 :size="14" />
-  </StandardizedButton>
+    <component :is="Icon.actionDelete" :size="14" />
+  </button>
 </template>

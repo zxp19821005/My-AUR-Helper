@@ -5,10 +5,14 @@
   - 查看包信息
   - 安装备份包
   - 删除备份
+
+  操作列统一使用带语义背景色的 btn-icon 样式：
+  - 查看信息（view-info）：蓝色 info
+  - 安装（install）：橙色 warning
+  - 删除（delete）：红色 danger
 -->
 <script setup lang="ts">
-import { Info, Download, Trash2 } from "@lucide/vue";
-import StandardizedButton from "../base/StandardizedButton.vue";
+import { Icon } from "../../icons";
 
 defineProps<{
   row: any;
@@ -24,32 +28,29 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <StandardizedButton
-    variant="outline"
-    size="sm"
+  <button
+    class="btn-icon btn-icon-info"
     @click.stop="emit('view-info', row)"
     title="查看信息"
   >
-    <Info :size="14" />
-  </StandardizedButton>
+    <component :is="Icon.actionInfo" :size="14" />
+  </button>
 
-  <StandardizedButton
-    variant="primary"
-    size="sm"
+  <button
+    class="btn-icon btn-icon-warning"
     @click.stop="emit('install', row)"
     :disabled="installing"
     title="安装"
   >
-    <Download :size="14" />
-  </StandardizedButton>
+    <component :is="Icon.install" :size="14" />
+  </button>
 
-  <StandardizedButton
-    variant="danger"
-    size="sm"
+  <button
+    class="btn-icon btn-icon-danger"
     @click.stop="emit('delete', row)"
     :disabled="loading"
     title="删除"
   >
-    <Trash2 :size="14" />
-  </StandardizedButton>
+    <component :is="Icon.actionDelete" :size="14" />
+  </button>
 </template>

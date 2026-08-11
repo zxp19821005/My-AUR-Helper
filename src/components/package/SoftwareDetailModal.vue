@@ -18,7 +18,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { SoftwareDetail, Language } from "../../types";
 import StandardizedModal from "../common/StandardizedModal.vue";
 import SoftwareFormModal from "./SoftwareFormModal.vue";
-import FloatingNav from "./FloatingNav.vue";
+import NavPager from "../common/NavPager.vue";
 import DetailToolbar from "./DetailToolbar.vue";
 import SoftwareInfoTable from "./SoftwareInfoTable.vue";
 import SoftwareStatusRow from "./SoftwareStatusRow.vue";
@@ -177,10 +177,10 @@ watch(
     <template #error v-if="error">{{ error }}</template>
 
     <div class="detail-header">
-      <h3 class="pkg-title">{{ detail?.pkgname || "软件详情" }}</h3>
+      <h3 class="modal-title">{{ detail?.pkgname || "软件详情" }}</h3>
     </div>
 
-    <FloatingNav :prev="prevPkgname" :next="nextPkgname" @navigate="navigate" />
+    <NavPager variant="floating" :prev="prevPkgname" :next="nextPkgname" @navigate="navigate" />
 
     <div v-if="loading" class="loading-text">加载中...</div>
 
@@ -236,11 +236,14 @@ watch(
   text-align: center;
   margin-bottom: 0.75rem;
 }
-.pkg-title {
+.modal-title {
   font-size: 0.9375rem;
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .loading-text {

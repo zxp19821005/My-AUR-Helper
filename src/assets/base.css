@@ -47,3 +47,78 @@ body {
   padding: 1.5rem;
   border: 1px solid var(--border);
 }
+
+/* ====== 全局加载/旋转动画（统一，避免各组件重复定义）====== */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+/* ====== 通用上/下一个导航按钮（NavPager）====== */
+.nav-pager {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* 悬浮布局：绝对定位覆盖在相对父级左右，垂直居中 */
+.nav-pager--floating {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  transform: translateY(-50%);
+  justify-content: space-between;
+  padding: 0 0.5rem;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.nav-pager--floating .nav-btn {
+  pointer-events: auto;
+}
+
+/* 行内布局：流式排列（用于页面 header，可带文字标签） */
+.nav-pager--inline {
+  justify-content: flex-end;
+}
+
+/* 导航按钮基础样式（accent 紫底 + 白图标，常驻颜色，与两处详情弹窗一致） */
+.nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-width: 2.25rem;
+  height: 2.25rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.15s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.nav-btn .nav-label {
+  font-size: 0.8125rem;
+  max-width: 8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-btn:hover:not(.disabled):not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.nav-btn.disabled,
+.nav-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}

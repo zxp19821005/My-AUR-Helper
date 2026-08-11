@@ -15,9 +15,8 @@
 -->
 <script setup lang="ts">
 import { useRouter } from "vue-router";
-import { PanelLeftClose, PanelLeftOpen } from "@lucide/vue";
 import { useTabStore } from "../../stores/tabs";
-import { iconMap } from "../../utils/icons";
+import { Icon } from "../../icons";
 
 defineProps<{ collapsed: boolean }>();
 const emit = defineEmits<{ toggle: [] }>();
@@ -27,11 +26,11 @@ const tabStore = useTabStore();
 
 /** 导航菜单项配置 - 定义侧边栏中各导航项的路径、标签和图标 */
 const navItems = [
-  { path: "/", label: "仪表盘", icon: "LayoutDashboard" },
-  { path: "/packages", label: "软件管理", icon: "Package" },
-  { path: "/backup", label: "备份管理", icon: "HardDrive" },
-  { path: "/cache", label: "缓存管理", icon: "Database" },
-  { path: "/proxy", label: "代理管理", icon: "Globe" },
+  { path: "/", label: "仪表盘", icon: Icon.navDashboard },
+  { path: "/packages", label: "软件管理", icon: Icon.navPackages },
+  { path: "/backup", label: "备份管理", icon: Icon.navBackup },
+  { path: "/cache", label: "缓存管理", icon: Icon.navCache },
+  { path: "/proxy", label: "代理管理", icon: Icon.navProxy },
 ];
 
 /**
@@ -51,10 +50,10 @@ function navigate(item: (typeof navItems)[number]) {
     <div class="sidebar-header">
       <span v-if="!collapsed" class="sidebar-title">My AUR Helper</span>
       <!-- 展开/收起切换按钮 -->
-      <button class="sidebar-toggle" @click="emit('toggle')" :title="collapsed ? '展开' : '收起'">
-        <PanelLeftOpen v-if="collapsed" :size="18" />
-        <PanelLeftClose v-else :size="18" />
-      </button>
+        <button class="sidebar-toggle" @click="emit('toggle')" :title="collapsed ? '展开' : '收起'">
+          <component :is="Icon.panelLeftOpen" v-if="collapsed" :size="18" />
+          <component :is="Icon.panelLeftClose" v-else :size="18" />
+        </button>
     </div>
 
     <!-- 导航菜单 - 遍历 navItems 渲染各导航项 -->
@@ -68,7 +67,7 @@ function navigate(item: (typeof navItems)[number]) {
         :title="collapsed ? item.label : ''"
       >
         <!-- 导航图标 -->
-        <component :is="iconMap[item.icon]" :size="20" class="nav-icon" />
+        <component :is="item.icon" :size="20" class="nav-icon" />
         <!-- 导航文字标签 - 收起时隐藏 -->
         <span v-if="!collapsed" class="nav-label">{{ item.label }}</span>
       </div>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { inject, ref, watch } from "vue";
-import { Settings, List, ScrollText, Search, RefreshCw, X } from "@lucide/vue";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { Icon } from "../../icons";
 
 const props = defineProps<{
   modelValue?: string;
@@ -138,7 +138,7 @@ function openSettings() {
         <slot name="filter-icon" />
       </button>
       <div class="search-box">
-        <Search :size="14" class="search-icon" />
+        <component :is="Icon.actionSearch" :size="14" class="search-icon" />
         <input
           v-model="searchText"
           type="text"
@@ -151,7 +151,7 @@ function openSettings() {
           @click="clearSearch"
           title="清除搜索"
         >
-          <X :size="12" />
+          <component :is="Icon.actionClear" :size="12" />
         </button>
       </div>
       <div class="toolbar-divider"></div>
@@ -161,17 +161,17 @@ function openSettings() {
         @click="openEnums"
         title="枚举值管理"
       >
-        <List :size="18" />
+        <component :is="Icon.menuEnums" :size="18" />
       </button>
       <button class="toolbar-icon-btn" @click="openLogs" title="日志">
-        <ScrollText :size="18" />
+        <component :is="Icon.menuLogs" :size="18" />
       </button>
       <div class="toolbar-divider"></div>
       <button class="toolbar-icon-btn" @click="openSettings" title="设置">
-        <Settings :size="18" />
+        <component :is="Icon.navSettings" :size="18" />
       </button>
       <button class="toolbar-icon-btn" @click="emit('refresh')" title="刷新数据">
-        <RefreshCw :size="18" />
+        <component :is="Icon.actionRefresh" :size="18" />
       </button>
     </div>
   </div>
@@ -222,7 +222,7 @@ function openSettings() {
   background-color: var(--bg-card);
 }
 .btn-icon-warning {
-  color: var(--color-warning) !important;
+  color: var(--warning) !important;
 }
 .search-box {
   display: flex;

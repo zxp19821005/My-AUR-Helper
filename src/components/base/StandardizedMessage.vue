@@ -28,8 +28,8 @@
   />
 -->
 <script setup lang="ts">
-import { CheckCircle, XCircle, AlertTriangle, Info, X } from "@lucide/vue";
 import { ref, watch, onMounted } from "vue";
+import { Icon } from "../../icons";
 
 const props = withDefaults(defineProps<{
   /** 消息类型 */
@@ -61,25 +61,25 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 /** 消息类型配置 */
 const typeConfig = {
   success: {
-    icon: CheckCircle,
+    icon: Icon.statusSuccess,
     color: "var(--success)",
     bgColor: "var(--success-bg)",
     borderColor: "var(--success)",
   },
   error: {
-    icon: XCircle,
+    icon: Icon.statusError,
     color: "var(--error)",
     bgColor: "var(--error-bg)",
     borderColor: "var(--error)",
   },
   warning: {
-    icon: AlertTriangle,
+    icon: Icon.statusWarning,
     color: "var(--warning)",
     bgColor: "var(--warning-bg)",
     borderColor: "var(--warning)",
   },
   info: {
-    icon: Info,
+    icon: Icon.statusInfo,
     color: "var(--accent)",
     bgColor: "rgba(108, 99, 255, 0.15)",
     borderColor: "var(--accent)",
@@ -144,7 +144,7 @@ onMounted(() => {
         @click="handleClose"
         title="关闭"
       >
-        <X :size="14" />
+        <component :is="Icon.actionClear" :size="14" />
       </button>
     </div>
   </Transition>

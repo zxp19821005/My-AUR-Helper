@@ -21,6 +21,8 @@ import {
 import { useSettingsDraft } from "../../composables/useSettingsDraft";
 import SettingsCard from "./SettingsCard.vue";
 import SettingsActionBar from "./SettingsActionBar.vue";
+import { Icon } from "../../icons";
+import StandardizedButton from "../base/StandardizedButton.vue";
 
 const { draft, dirty, saving, reset, commit } = useSettingsDraft<CacheDir[]>([]);
 
@@ -145,16 +147,16 @@ function showMessage(msg: string) {
         <template v-if="editingIndex === index">
           <input v-model="dir.name" class="text-input" style="width: 120px" placeholder="名称" :disabled="dir.is_default" />
           <input v-model="dir.path" class="text-input" style="flex: 1" placeholder="路径" />
-          <button class="btn btn-primary btn-sm" @click="finishEdit" :disabled="saving">完成</button>
-          <button class="btn btn-secondary btn-sm" @click="cancelEdit" :disabled="saving">取消</button>
+          <StandardizedButton variant="primary" size="sm" @click="finishEdit" :disabled="saving">完成</StandardizedButton>
+          <StandardizedButton variant="secondary" size="sm" @click="cancelEdit" :disabled="saving">取消</StandardizedButton>
         </template>
         <template v-else>
           <span class="cache-dir-path">{{ dir.path }}</span>
-          <button class="btn-icon btn-icon-info" @click="startEdit(index)" title="编辑">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          <button class="btn-icon btn-icon-warning" @click="startEdit(index)" title="编辑">
+            <component :is="Icon.actionEdit" :size="14" />
           </button>
           <button class="btn-icon btn-icon-danger" @click="deleteCacheDir(index)" title="删除">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            <component :is="Icon.actionDelete" :size="14" />
           </button>
         </template>
       </div>
@@ -166,13 +168,13 @@ function showMessage(msg: string) {
         </label>
         <input v-model="newCacheDir.name" class="text-input" style="width: 120px" placeholder="名称" />
         <input v-model="newCacheDir.path" class="text-input" style="flex: 1" placeholder="路径" />
-        <button class="btn btn-primary btn-sm" @click="addCacheDir" :disabled="saving">添加</button>
-        <button class="btn btn-secondary btn-sm" @click="showAddForm = false">取消</button>
+        <StandardizedButton variant="primary" size="sm" @click="addCacheDir" :disabled="saving">添加</StandardizedButton>
+        <StandardizedButton variant="secondary" size="sm" @click="showAddForm = false">取消</StandardizedButton>
       </div>
 
-      <button v-if="!showAddForm" class="btn btn-outline" style="margin-top: 1rem" @click="showAddForm = true">
+      <StandardizedButton v-if="!showAddForm" variant="outline" tone="neutral" style="margin-top: 1rem" @click="showAddForm = true">
         + 添加缓存目录
-      </button>
+      </StandardizedButton>
     </SettingsCard>
 
     <SettingsActionBar

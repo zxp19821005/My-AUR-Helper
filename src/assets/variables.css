@@ -7,6 +7,8 @@
   --text-muted: #6b6e8a;
   --accent: #6c63ff;
   --accent-hover: #5a52e0;
+  --color-info: #3b82f6;
+  --color-teal: #14b8a6;
   --success: #4caf7d;
   --success-bg: rgba(76, 175, 125, 0.15);
   --warning: #ffa726;
@@ -28,6 +30,8 @@
   --text-muted: #999999;
   --accent: #6c63ff;
   --accent-hover: #5a52e0;
+  --color-info: #2563eb;
+  --color-teal: #0d9488;
   --success: #4caf7d;
   --success-bg: rgba(76, 175, 125, 0.1);
   --warning: #ff9800;

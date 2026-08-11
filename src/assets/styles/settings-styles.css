@@ -113,97 +113,6 @@
   color: var(--text-muted);
 }
 
-/* ========== 设置页面按钮 ========== */
-.settings-btn {
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  cursor: pointer;
-  font-size: 0.8125rem;
-  transition: all 0.15s;
-  white-space: nowrap;
-}
-
-.settings-btn-sm {
-  padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
-}
-
-.settings-btn-primary {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
-}
-
-.settings-btn-primary:hover:not(:disabled) {
-  opacity: 0.9;
-}
-
-.settings-btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.settings-btn-secondary {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-}
-
-.settings-btn-secondary:hover:not(:disabled) {
-  background: var(--bg-card);
-}
-
-.settings-btn-secondary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.settings-btn-outline {
-  background: none;
-  border: 1px dashed var(--border);
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  font-size: 0.8125rem;
-  transition: all 0.15s;
-}
-
-.settings-btn-outline:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.settings-btn-icon {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0.25rem;
-  border-radius: 4px;
-  transition: all 0.15s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.settings-btn-icon-info {
-  color: var(--text-secondary);
-}
-
-.settings-btn-icon-info:hover {
-  color: var(--accent);
-  background-color: var(--hover-bg, rgba(128,128,128,0.1));
-}
-
-.settings-btn-icon-danger {
-  color: var(--text-secondary);
-}
-
-.settings-btn-icon-danger:hover {
-  color: #e74c3c;
-  background-color: rgba(231,76,60,0.1);
-}
-
 /* ========== 设置页面通用行 ========== */
 .settings-row {
   padding: 0.75rem 0;
@@ -253,7 +162,7 @@
 }
 
 .log-status .status-dot.active {
-  background-color: var(--color-success);
+  background-color: var(--success);
   animation: pulse 2s infinite;
 }
 

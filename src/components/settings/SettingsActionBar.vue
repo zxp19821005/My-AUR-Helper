@@ -15,7 +15,7 @@
   - reset - 点击重置设置
 -->
 <script setup lang="ts">
-import { Save, RotateCcw } from "@lucide/vue";
+import { Icon } from "../../icons";
 
 defineProps<{
   /** 是否存在未保存修改 */
@@ -39,7 +39,7 @@ const emit = defineEmits<{
       title="重置设置（撤销未保存的修改）"
       @click="emit('reset')"
     >
-      <RotateCcw :size="18" />
+      <component :is="Icon.reset" :size="18" />
       <span>重置设置</span>
     </button>
     <button
@@ -49,7 +49,7 @@ const emit = defineEmits<{
       :title="saving ? '保存中...' : '保存设置'"
       @click="emit('save')"
     >
-      <Save :size="18" />
+      <component :is="Icon.save" :size="18" />
       <span>{{ saving ? "保存中..." : "保存设置" }}</span>
     </button>
   </div>

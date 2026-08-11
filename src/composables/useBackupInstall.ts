@@ -9,6 +9,7 @@
 import { ref, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { FOOTER_KEY, addMessage } from "./footer";
+import type { BackupSoftwareEntry } from "../types";
 
 export function useBackupInstall() {
   const footer = inject(FOOTER_KEY)!;
@@ -24,6 +25,7 @@ export function useBackupInstall() {
   const infoDialogLoading = ref(false);
   const infoDialogContent = ref("");
   const infoDialogPkgname = ref("");
+  const infoDialogEntry = ref<BackupSoftwareEntry | null>(null);
 
   async function checkSudoers() {
     try {
@@ -39,13 +41,14 @@ export function useBackupInstall() {
     } catch { /* ignore */ }
   }
 
-  async function viewPackageInfo(fullPath: string, pkgname: string) {
-    infoDialogPkgname.value = pkgname;
+  async function viewPackageInfo(entry: BackupSoftwareEntry) {
+    infoDialogEntry.value = entry;
+    infoDialogPkgname.value = entry.pkgname;
     infoDialogVisible.value = true;
     infoDialogLoading.value = true;
     infoDialogContent.value = "";
     try {
-      const output = await invoke<string>("get_package_file_info", { fullPath });
+      const output = await invoke<string>("get_package_file_info", { fullPath: entry.full_path });
       infoDialogContent.value = output;
     } catch (e) {
       infoDialogContent.value = `获取信息失败: ${e}`;
@@ -58,6 +61,7 @@ export function useBackupInstall() {
     infoDialogVisible.value = false;
     infoDialogContent.value = "";
     infoDialogPkgname.value = "";
+    infoDialogEntry.value = null;
   }
 
   async function handleInstall(fullPath: string, pkgname: string) {
@@ -138,6 +142,7 @@ export function useBackupInstall() {
     infoDialogLoading,
     infoDialogContent,
     infoDialogPkgname,
+    infoDialogEntry,
     checkSudoers,
     viewPackageInfo,
     closeInfoDialog,

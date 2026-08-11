@@ -18,13 +18,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { Package, CheckCircle, AlertCircle, Globe, Settings, Database, HardDrive, Network } from "@lucide/vue";
 import { usePackageStore } from "../stores/packages";
 import { invoke } from "@tauri-apps/api/core";
 import type { ProxyInfo } from "../types";
 import PageToolbar from "../components/common/PageToolbar.vue";
 import StandardizedStatCard from "../components/base/StandardizedStatCard.vue";
 import StandardizedButton from "../components/base/StandardizedButton.vue";
+import { Icon } from "../icons";
 
 const router = useRouter();
 const pkgStore = usePackageStore();
@@ -55,7 +55,7 @@ const stats = {
       <StandardizedStatCard
         title="总包数"
         :value="stats.total()"
-        :icon="Package"
+        :icon="Icon.statTotal"
         color="var(--accent)"
         clickable
         @click="router.push('/packages')"
@@ -64,7 +64,7 @@ const stats = {
       <StandardizedStatCard
         title="已最新"
         :value="stats.updated()"
-        :icon="CheckCircle"
+        :icon="Icon.statUpdated"
         color="var(--success)"
         clickable
         @click="router.push('/packages')"
@@ -73,7 +73,7 @@ const stats = {
       <StandardizedStatCard
         title="有更新"
         :value="stats.outdated()"
-        :icon="AlertCircle"
+        :icon="Icon.statOutdated"
         color="var(--warning)"
         clickable
         @click="router.push('/packages')"
@@ -82,7 +82,7 @@ const stats = {
       <StandardizedStatCard
         title="代理源"
         :value="proxyCount"
-        :icon="Globe"
+        :icon="Icon.statProxy"
         color="var(--info)"
         clickable
         @click="router.push('/proxy')"
@@ -92,7 +92,7 @@ const stats = {
     <!-- 快速操作区域 -->
     <div class="card quick-actions-card">
       <h3 class="quick-actions-title">
-        <Settings :size="18" />
+        <component :is="Icon.navSettings" :size="18" />
         快速操作
       </h3>
       <div class="quick-actions-buttons">
@@ -101,7 +101,7 @@ const stats = {
           size="md"
           @click="router.push('/packages')"
         >
-          <Database :size="16" />
+          <component :is="Icon.navPackages" :size="16" />
           软件管理
         </StandardizedButton>
 
@@ -110,7 +110,7 @@ const stats = {
           size="md"
           @click="router.push('/backup')"
         >
-          <HardDrive :size="16" />
+          <component :is="Icon.navBackup" :size="16" />
           备份管理
         </StandardizedButton>
 
@@ -119,7 +119,7 @@ const stats = {
           size="md"
           @click="router.push('/cache')"
         >
-          <Database :size="16" />
+          <component :is="Icon.navCache" :size="16" />
           缓存管理
         </StandardizedButton>
 
@@ -128,7 +128,7 @@ const stats = {
           size="md"
           @click="router.push('/proxy')"
         >
-          <Network :size="16" />
+          <component :is="Icon.navProxy" :size="16" />
           代理管理
         </StandardizedButton>
       </div>

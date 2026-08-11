@@ -13,9 +13,8 @@
 -->
 <script setup lang="ts">
 import { useRouter } from "vue-router";
-import { X } from "@lucide/vue";
 import { useTabStore } from "../../stores/tabs";
-import { iconMap } from "../../utils/icons";
+import { Icon } from "../../icons";
 
 const router = useRouter();
 const tabStore = useTabStore();
@@ -55,12 +54,12 @@ function closeTab(path: string, event: Event) {
       @click="switchTab(tab.path)"
     >
       <!-- 标签图标 -->
-      <component :is="iconMap[tab.icon]" :size="14" class="tab-icon" />
+      <component :is="tab.icon" :size="14" class="tab-icon" />
       <!-- 标签文字 -->
       <span class="tab-label">{{ tab.label }}</span>
       <!-- 关闭按钮 - 默认隐藏，悬停时显示 -->
       <button class="tab-close" @click="closeTab(tab.path, $event)" title="关闭">
-        <X :size="12" />
+        <component :is="Icon.actionClear" :size="12" />
       </button>
     </div>
   </div>

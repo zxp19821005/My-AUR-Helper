@@ -10,7 +10,8 @@
   - 支持图标插槽
 
   Props:
-  - variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'ghost' - 按钮变体
+  - variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'ghost' - 按钮风格（结构）
+  - tone?: 'primary' | 'info' | 'success' | 'warning' | 'danger' | 'accent' | 'teal' | 'neutral' - 语义色调（颜色）
   - size?: 'sm' | 'md' | 'lg' - 按钮尺寸
   - disabled?: boolean - 是否禁用
   - loading?: boolean - 是否加载中
@@ -30,11 +31,13 @@
   </StandardizedButton>
 -->
 <script setup lang="ts">
-import { Loader2 } from "@lucide/vue";
+import { Icon } from "../../icons";
 
 withDefaults(defineProps<{
-  /** 按钮变体 */
+  /** 按钮变体（视觉风格） */
   variant?: "primary" | "secondary" | "outline" | "danger" | "ghost";
+  /** 语义色调（颜色意图，需配合 outline/ghost 生效，solid 亦可） */
+  tone?: "primary" | "info" | "success" | "warning" | "danger" | "accent" | "teal" | "neutral";
   /** 按钮尺寸 */
   size?: "sm" | "md" | "lg";
   /** 是否禁用 */
@@ -57,13 +60,14 @@ withDefaults(defineProps<{
     class="standardized-button"
     :class="[
       `variant-${variant}`,
+      tone ? `tone-${tone}` : '',
       `size-${size}`,
       { loading },
     ]"
     :disabled="disabled || loading"
     :type="type"
   >
-    <Loader2 v-if="loading" :size="size === 'sm' ? 14 : size === 'lg' ? 18 : 16" class="icon" />
+    <component :is="Icon.loading" v-if="loading" :size="size === 'sm' ? 14 : size === 'lg' ? 18 : 16" class="icon" />
     <slot name="icon" />
     <slot />
   </button>
@@ -71,6 +75,8 @@ withDefaults(defineProps<{
 
 <style scoped>
 .standardized-button {
+  --bc: var(--accent);
+  --bc-soft: rgba(108, 99, 255, 0.08);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -85,11 +91,11 @@ withDefaults(defineProps<{
   border: 1px solid transparent;
 }
 
-/* Variants */
+/* ===== 风格变体（视觉结构，颜色由 --bc/--bc-soft 驱动） ===== */
 .variant-primary {
-  background-color: var(--primary);
+  background-color: var(--bc);
   color: white;
-  border-color: var(--primary);
+  border-color: var(--bc);
 }
 
 .variant-primary:hover:not(:disabled):not(.loading) {
@@ -112,18 +118,20 @@ withDefaults(defineProps<{
 
 .variant-outline {
   background-color: transparent;
-  color: var(--primary);
-  border-color: var(--primary);
+  color: var(--bc);
+  border-color: var(--bc);
 }
 
 .variant-outline:hover:not(:disabled):not(.loading) {
-  background-color: rgba(108, 99, 255, 0.05);
+  background-color: var(--bc-soft);
 }
 
 .variant-danger {
-  background-color: var(--error);
+  --bc: var(--error);
+  --bc-soft: var(--error-bg);
+  background-color: var(--bc);
   color: white;
-  border-color: var(--error);
+  border-color: var(--bc);
 }
 
 .variant-danger:hover:not(:disabled):not(.loading) {
@@ -132,14 +140,23 @@ withDefaults(defineProps<{
 
 .variant-ghost {
   background-color: transparent;
-  color: var(--text-secondary);
+  color: var(--bc);
   border-color: transparent;
 }
 
 .variant-ghost:hover:not(:disabled):not(.loading) {
-  background-color: var(--bg-hover);
-  color: var(--text-primary);
+  background-color: var(--bc-soft);
 }
+
+/* ===== 语义色调（覆盖 --bc/--bc-soft，须置于变体之后以生效） ===== */
+.tone-primary { --bc: var(--accent); --bc-soft: rgba(108, 99, 255, 0.08); }
+.tone-info { --bc: var(--color-info); --bc-soft: rgba(59, 130, 246, 0.1); }
+.tone-success { --bc: var(--success); --bc-soft: var(--success-bg); }
+.tone-warning { --bc: var(--warning); --bc-soft: var(--warning-bg); }
+.tone-danger { --bc: var(--error); --bc-soft: var(--error-bg); }
+.tone-accent { --bc: var(--accent); --bc-soft: rgba(108, 99, 255, 0.08); }
+.tone-teal { --bc: var(--color-teal); --bc-soft: rgba(20, 184, 166, 0.1); }
+.tone-neutral { --bc: var(--text-secondary); --bc-soft: var(--bg-hover); }
 
 /* Sizes */
 .size-sm {
@@ -197,10 +214,5 @@ withDefaults(defineProps<{
 
 .loading .icon {
   animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
 }
 </style>

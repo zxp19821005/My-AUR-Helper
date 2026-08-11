@@ -8,8 +8,9 @@
   - 通过 badge 显示活跃筛选条件数量
 -->
 <script setup lang="ts">
-import { Filter, X, Search } from "@lucide/vue";
 import type { FilterState } from "../../composables/usePackageList";
+import { Icon } from "../../icons";
+import StandardizedButton from "../base/StandardizedButton.vue";
 
 const props = defineProps<{
   filterState: FilterState;
@@ -79,14 +80,14 @@ function handleValidateUrls() {
       <div class="filter-panel">
         <div class="filter-header">
           <div class="filter-title">
-            <Filter :size="16" />
+            <component :is="Icon.actionFilter" :size="16" />
             <span>筛选条件</span>
             <span v-if="activeFilterCount > 0" class="filter-badge">
               {{ activeFilterCount }}
             </span>
           </div>
           <button class="btn-icon btn-icon-default" @click="handleClose">
-            <X :size="16" />
+            <component :is="Icon.actionClear" :size="16" />
           </button>
         </div>
 
@@ -114,14 +115,14 @@ function handleValidateUrls() {
         </div>
 
         <div class="filter-footer">
-          <button class="btn btn-secondary" @click="handleReset">
-            <X :size="14" />
+          <StandardizedButton variant="secondary" @click="handleReset">
+            <template #icon><component :is="Icon.actionClear" :size="14" /></template>
             清空筛选
-          </button>
-          <button class="btn btn-primary" @click="handleValidateUrls" :disabled="loading">
-            <Search :size="14" />
+          </StandardizedButton>
+          <StandardizedButton variant="primary" @click="handleValidateUrls" :disabled="loading">
+            <template #icon><component :is="Icon.actionSearch" :size="14" /></template>
             校验上游URL
-          </button>
+          </StandardizedButton>
         </div>
       </div>
     </div>

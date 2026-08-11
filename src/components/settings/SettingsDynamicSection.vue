@@ -12,7 +12,6 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick, computed } from "vue";
 import { invoke } from "@tauri-apps/api/core";
-import { Eye, EyeOff } from "@lucide/vue";
 import type { Setting } from "../../types";
 import { useSettingsStore } from "../../stores/settings";
 import { useSettingsDraft } from "../../composables/useSettingsDraft";
@@ -20,6 +19,7 @@ import StandardizedCard from "../base/StandardizedCard.vue";
 import StandardizedInput from "../base/StandardizedInput.vue";
 import SettingRow from "./SettingRow.vue";
 import SettingsActionBar from "./SettingsActionBar.vue";
+import { Icon } from "../../icons";
 
 const props = defineProps<{
   /** 设置分类 */
@@ -155,8 +155,8 @@ function initTextareas() {
                 type="button"
                 :title="passwordVisible[s.key] ? '隐藏' : '显示'"
               >
-                <Eye v-if="passwordVisible[s.key]" :size="18" />
-                <EyeOff v-else :size="18" />
+                <component :is="Icon.show" v-if="passwordVisible[s.key]" :size="18" />
+                <component :is="Icon.hide" v-else :size="18" />
               </button>
             </div>
           </template>

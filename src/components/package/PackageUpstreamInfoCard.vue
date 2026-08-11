@@ -6,9 +6,9 @@
   - 显示上游 URL
 -->
 <script setup lang="ts">
-import { Info, Clock } from "@lucide/vue";
 import type { SoftwareDetail } from "../../types";
 import StandardizedCard from "../base/StandardizedCard.vue";
+import { Icon } from "../../icons";
 
 defineProps<{
   detail: SoftwareDetail;
@@ -34,7 +34,7 @@ function fmtTimestamp(ts: number | null): string {
     layout="table"
   >
     <template #status>
-      <Info :size="16" />
+      <component :is="Icon.actionInfo" :size="16" />
     </template>
     <table class="info-table">
       <tbody>
@@ -45,7 +45,7 @@ function fmtTimestamp(ts: number | null): string {
         <tr>
           <td class="label">上游检查日期</td>
           <td class="value">
-            <Clock :size="12" class="inline-icon" />
+            <component :is="Icon.clock" :size="12" class="inline-icon" />
             {{ fmtTimestamp(detail.upstream_last_checked) }}
           </td>
         </tr>

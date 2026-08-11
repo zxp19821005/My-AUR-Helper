@@ -7,10 +7,10 @@
 -->
 <script setup lang="ts">
 import { computed } from "vue";
-import { Package } from "@lucide/vue";
 import type { SoftwareDetail } from "../../types";
 import { pkgTypeOptions, checkerTypeOptions } from "../../utils/enums";
 import StandardizedCard from "../base/StandardizedCard.vue";
+import { Icon } from "../../icons";
 
 const props = defineProps<{
   detail: SoftwareDetail;
@@ -32,7 +32,7 @@ const checkerTypeName = computed(() => {
     layout="table"
   >
     <template #status>
-      <Package :size="16" />
+      <component :is="Icon.navPackages" :size="16" />
     </template>
     <div class="badge-row">
       <span class="type-tag">{{ pkgTypeName }}</span>

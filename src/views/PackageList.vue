@@ -27,7 +27,7 @@ import FilterBar from "../components/filter/FilterBar.vue";
 import SoftwareFormModal from "../components/package/SoftwareFormModal.vue";
 import SoftwareDetailModal from "../components/package/SoftwareDetailModal.vue";
 import PackageTable from "../components/package/PackageTable.vue";
-import { RefreshCw, Plus, Trash2, Info, Download, Filter } from "@lucide/vue";
+import { Icon } from "../icons";
 import { packageTypeFilterOptions, checkerTypeFilterOptions } from "../utils/enums";
 import type { ValidateResult } from "../types";
 
@@ -122,7 +122,7 @@ onMounted(async () => {
       @toggle-filter="showFilterBar = !showFilterBar"
     >
       <template #filter-icon>
-        <Filter :size="16" />
+        <component :is="Icon.actionFilter" :size="16" />
         <span v-if="activeFilterCount > 0" class="filter-count-badge">{{ activeFilterCount }}</span>
       </template>
 
@@ -157,22 +157,22 @@ onMounted(async () => {
         </div>
       </template>
       <button class="btn-icon btn-icon-accent" @click="syncFromAur(selectedPkgnames)" :disabled="loading" title="从AUR同步">
-        <RefreshCw :size="16" />
+        <component :is="Icon.syncAur" :size="16" />
       </button>
       <button class="btn-icon btn-icon-accent" @click="syncFromPkgbuild(selectedPkgnames)" :disabled="loading" title="从PKGBUILD同步">
-        <Download :size="16" />
+        <component :is="Icon.syncPkgbuild" :size="16" />
       </button>
       <button class="btn-icon btn-icon-success" @click="openAddModal" title="添加软件">
-        <Plus :size="16" />
+        <component :is="Icon.actionAdd" :size="16" />
       </button>
       <button class="btn-icon btn-icon-info" @click="updateAurInfo(selectedPkgnames)" :disabled="loading" title="更新AUR信息">
-        <Info :size="16" />
+        <component :is="Icon.actionRefresh" :size="16" />
       </button>
       <button class="btn-icon btn-icon-info" @click="checkSelectedUpstream(selectedPkgnames)" :disabled="loading" title="更新上游信息">
-        <RefreshCw :size="16" />
+        <component :is="Icon.actionSearch" :size="16" />
       </button>
       <button class="btn-icon btn-icon-danger" @click="deleteSelected(selectedPkgnames, setSelected)" :disabled="selectedPkgnames.size === 0" title="删除选中">
-        <Trash2 :size="16" />
+        <component :is="Icon.actionDelete" :size="16" />
       </button>
     </PageToolbar>
 

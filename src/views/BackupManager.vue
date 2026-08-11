@@ -10,24 +10,24 @@
   - sudoers 配置检测与提示弹窗
 
   使用组件：
-  - BackupToolbar: 工具栏组件
+  - PageToolbar: 工具栏组件（内联）
   - BackupRowActions: 行操作按钮组
   - StandardizedTable: 表格组件
   - StandardizedModal: 弹窗组件
 -->
 <script setup lang="ts">
-import { onMounted, ref, inject } from "vue";
+import { onMounted, ref, inject, computed } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { useBackupList, fmtEpoch } from "../composables/useBackupList";
 import { useBackupInstall } from "../composables/useBackupInstall";
 import { FOOTER_KEY, addMessage } from "../composables/footer";
-import type { DeduplicateResult } from "../types";
+import type { DeduplicateResult, BackupSoftwareEntry } from "../types";
 import PageToolbar from "../components/common/PageToolbar.vue";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
 import BackupRowActions from "../components/backup/BackupRowActions.vue";
 import BackupInfoDialog from "../components/backup/BackupInfoDialog.vue";
 import BackupSudoersDialog from "../components/backup/BackupSudoersDialog.vue";
-import { Trash2, Scan, Copy, Download } from "@lucide/vue";
+import { Icon } from "../icons";
 
 const footer = inject(FOOTER_KEY)!;
 
@@ -42,7 +42,7 @@ const {
 const {
   installing, sudoersCommand, showSudoersPrompt,
   pendingInstallPath, pendingInstallPkgname,
-  infoDialogVisible, infoDialogLoading, infoDialogContent, infoDialogPkgname,
+  infoDialogVisible, infoDialogLoading, infoDialogContent, infoDialogPkgname, infoDialogEntry,
   checkSudoers, viewPackageInfo, closeInfoDialog,
   handleInstall, doInstall, closeSudoersPrompt, batchInstall,
 } = useBackupInstall();
@@ -150,6 +150,41 @@ function handleBatchInstall() {
   batchInstall(selectedIds.value, filteredEntries.value);
 }
 
+/** 详情弹窗：安装备份包 */
+function onDialogInstall(entry: BackupSoftwareEntry) {
+  handleInstall(entry.full_path, entry.pkgname);
+}
+
+/** 详情弹窗：删除备份（删除后关闭弹窗） */
+function onDialogDelete(entry: BackupSoftwareEntry) {
+  rowDelete(entry.id, entry.filename);
+  closeInfoDialog();
+}
+
+/** 详情弹窗：上一个/下一个 导航 */
+function onDialogNavigate(target: BackupSoftwareEntry) {
+  viewPackageInfo(target);
+}
+
+/** 当前弹窗条目在 filteredEntries 中的索引 */
+const dialogIndex = computed(() => {
+  if (!infoDialogEntry.value) return -1;
+  return filteredEntries.value.findIndex((e: BackupSoftwareEntry) => e.id === infoDialogEntry.value!.id);
+});
+
+/** 上一个条目 */
+const prevEntry = computed<BackupSoftwareEntry | null>(() => {
+  const idx = dialogIndex.value;
+  return idx > 0 ? filteredEntries.value[idx - 1] as BackupSoftwareEntry : null;
+});
+
+/** 下一个条目 */
+const nextEntry = computed<BackupSoftwareEntry | null>(() => {
+  const idx = dialogIndex.value;
+  const list = filteredEntries.value;
+  return idx >= 0 && idx < list.length - 1 ? list[idx + 1] as BackupSoftwareEntry : null;
+});
+
 function handleSelectionChange(selectedRows: any[]) {
   const newSelected = new Set<number>();
   selectedRows.forEach((row: any) => {
@@ -196,19 +231,19 @@ const columns = [
         </select>
       </template>
       <button class="btn-icon btn-icon-danger" :disabled="loading" @click="handleClearTable" title="清空备份表">
-        <Trash2 :size="16" />
+        <component :is="Icon.clearTable" :size="16" />
       </button>
       <button class="btn-icon btn-icon-accent" :disabled="loading || scanning" @click="handleScanDirectory" title="扫描备份目录">
-        <Scan :size="16" />
+        <component :is="Icon.scan" :size="16" />
       </button>
       <button class="btn-icon btn-icon-info" :disabled="loading" @click="handleDeduplicate" title="软件去重">
-        <Copy :size="16" />
+        <component :is="Icon.dedup" :size="16" />
       </button>
       <button class="btn-icon btn-icon-success" :disabled="selectedIds.size === 0 || installing" @click="handleBatchInstall" title="批量安装备份包">
-        <Download :size="16" />
+        <component :is="Icon.install" :size="16" />
       </button>
       <button class="btn-icon btn-icon-danger" :disabled="selectedIds.size === 0" @click="deleteSelected" title="删除选中">
-        <Trash2 :size="16" />
+        <component :is="Icon.deleteSelected" :size="16" />
       </button>
     </PageToolbar>
 
@@ -245,20 +280,28 @@ const columns = [
           :row="row"
           :loading="loading"
           :installing="installing"
-          @view-info="(r) => viewPackageInfo(r.full_path, r.pkgname)"
+          @view-info="(r) => viewPackageInfo(r)"
           @install="(r) => handleInstall(r.full_path, r.pkgname)"
           @delete="(r) => rowDelete(r.id, r.filename)"
         />
       </template>
     </StandardizedTable>
 
-    <!-- 包信息弹窗 -->
+    <!-- 包详情弹窗 -->
     <BackupInfoDialog
       :show="infoDialogVisible"
       :loading="infoDialogLoading"
       :pkgname="infoDialogPkgname"
       :content="infoDialogContent"
+      :entry="infoDialogEntry"
+      :prev-entry="prevEntry"
+      :next-entry="nextEntry"
+      v-model:installing="installing"
+      v-model:deleting="loading"
       @close="closeInfoDialog"
+      @install="onDialogInstall"
+      @delete="onDialogDelete"
+      @navigate="onDialogNavigate"
     />
 
     <!-- sudoers 配置提示弹窗 -->

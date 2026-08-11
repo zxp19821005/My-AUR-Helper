@@ -21,6 +21,7 @@ import BottomToolbar from "./components/layout/BottomToolbar.vue";
 import { useTabStore } from "./stores/tabs";
 import { FOOTER_KEY, defaultFooterState } from "./composables/footer";
 import type { FooterState } from "./composables/footer";
+import { Icon } from "./icons";
 
 const route = useRoute();
 const tabStore = useTabStore();
@@ -52,9 +53,9 @@ watch(
     };
     if (path.startsWith("/packages/")) {
       const pkgName = path.split("/packages/")[1];
-      tabStore.openTab({ path, label: pkgName || "软件详情", icon: "Package" });
+      tabStore.openTab({ path, label: pkgName || "软件详情", icon: Icon.navPackages });
     } else if (routeLabels[path]) {
-      tabStore.openTab({ path, label: routeLabels[path], icon: "Package" });
+      tabStore.openTab({ path, label: routeLabels[path], icon: Icon.navPackages });
     }
   },
   { immediate: true }

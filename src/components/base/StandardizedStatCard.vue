@@ -31,8 +31,8 @@
   />
 -->
 <script setup lang="ts">
-import { ArrowUp, ArrowDown, Minus } from "@lucide/vue";
 import { computed, type Component } from "vue";
+import { Icon } from "../../icons";
 
 const props = withDefaults(defineProps<{
   /** 卡片标题 */
@@ -66,9 +66,9 @@ function handleClick() {
 
 const trendIcon = computed(() => {
   switch (props.trend) {
-    case "up": return ArrowUp;
-    case "down": return ArrowDown;
-    default: return Minus;
+    case "up": return Icon.trendUp;
+    case "down": return Icon.trendDown;
+    default: return Icon.trendNeutral;
   }
 });
 

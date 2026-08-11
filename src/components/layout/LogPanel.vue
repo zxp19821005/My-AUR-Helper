@@ -9,8 +9,8 @@
 -->
 <script setup lang="ts">
 import { ref, nextTick, watch } from "vue";
-import { Trash2 } from "@lucide/vue";
 import type { FooterState } from "../../composables/footer";
+import { Icon } from "../../icons";
 
 const props = defineProps<{
   footer: FooterState;
@@ -56,7 +56,7 @@ const emit = defineEmits<{
       <span class="log-panel-title">操作日志</span>
       <div class="log-panel-actions">
         <button class="btn-icon btn-icon-info" @click="emit('clear')" title="清空日志">
-          <Trash2 :size="14" />
+          <component :is="Icon.clearTable" :size="14" />
         </button>
       </div>
     </div>

@@ -43,16 +43,16 @@
     width="lg"
     @close="handleClose"
   >
-    <template #footer>
-      <button class="btn btn-secondary" @click="showModal = false">取消</button>
-      <button class="btn btn-primary" @click="handleSave">保存</button>
-    </template>
+  <template #footer>
+    <StandardizedButton variant="secondary" @click="showModal = false">取消</StandardizedButton>
+    <StandardizedButton variant="primary" @click="handleSave">保存</StandardizedButton>
+  </template>
     <form>...</form>
   </StandardizedModal>
 -->
 <script setup lang="ts">
-import { X } from "@lucide/vue";
 import { watch, computed, onMounted, onUnmounted } from "vue";
+import { Icon } from "../../icons";
 
 const props = withDefaults(defineProps<{
   /** 是否显示 */
@@ -164,7 +164,7 @@ onUnmounted(() => {
               title="关闭"
             >
               <slot name="close">
-                <X :size="18" />
+                <component :is="Icon.actionClear" :size="18" />
               </slot>
             </button>
           </div>

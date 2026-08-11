@@ -181,9 +181,9 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/components/common/` | 通用组件（StandardizedTable、StandardizedModal、PaginationControls、ProgressBar、PageToolbar等） |
 | `src/components/layout/` | 布局组件（Sidebar、TabBar、BottomToolbar、PopupLayout、LogPanel等） |
 | `src/components/package/` | 软件包相关组件（SoftwareDetailModal、SoftwareFormModal、PackageRowActions、PackageTable、各InfoCard等） |
-| `src/components/backup/` | 备份管理组件（BackupToolbar、RowActions、InfoDialog、SudoersDialog等） |
-| `src/components/cache/` | 缓存管理组件（CacheToolbar、CacheRowActions） |
-| `src/components/proxy/` | 代理管理组件（ProxyToolbar、ProxyRowActions） |
+| `src/components/backup/` | 备份管理组件（RowActions、InfoDialog、SudoersDialog等） |
+| `src/components/cache/` | 缓存管理组件（CacheRowActions） |
+| `src/components/proxy/` | 代理管理组件（ProxyRowActions） |
 | `src/components/settings/` | 设置页面组件（SettingsCard、SettingRow、各配置Section） |
 | `src/components/filter/` | 筛选组件（FilterBar） |
 | `src/components/enum/` | 枚举管理组件（LanguageFormModal、LicenseFormModal） |
@@ -229,16 +229,13 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | | | `PackageUpstreamInfoCard.vue` | 113 | | 新文件 |
 | | | `PackageDetailFooter.vue` | 175 | | 新文件 |
 | `src/views/BackupManager.vue` | 436 | `BackupManager.vue` | 257 | 2026-07-29 | ✅ 完成 |
-| | | `BackupToolbar.vue` | 145 | | 新文件 |
 | | | `BackupRowActions.vue` | 54 | | 新文件 |
 | | | `BackupInfoDialog.vue` | 58 | | 新文件 |
 | | | `BackupSudoersDialog.vue` | 67 | | 新文件 |
 | `src/views/CacheManager.vue` | 435 | `CacheManager.vue` | 233 | 2026-07-30 | ✅ 完成 |
-| | | `CacheToolbar.vue` | 159 | | 新文件 |
 | | | `CacheRowActions.vue` | 29 | | 新文件 |
 | | | `composables/useCacheBackupActions.ts` | 124 | | 新文件 |
 | `src/views/ProxySettings.vue` | 428 | `ProxySettings.vue` | 276 | 2026-07-29 | ✅ 完成 |
-| | | `ProxyToolbar.vue` | 120 | | 新文件 |
 | | | `ProxyRowActions.vue` | 52 | | 新文件 |
 | `src/components/BottomToolbar.vue` | 422 | `BottomToolbar.vue` | 160 | 2026-07-29 | ✅ 完成 |
 | | | `LogPanel.vue` | 208 | | 新文件 |

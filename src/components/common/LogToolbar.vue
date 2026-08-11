@@ -5,7 +5,7 @@
   交互：级别/搜索使用 v-model 受控，清空日志 emit clear-logs 由父组件处理（含确认与调用）。
 -->
 <script setup lang="ts">
-import { Trash2, X } from "@lucide/vue";
+import { Icon } from "../../icons";
 
 const levelFilter = defineModel<string>("levelFilter", { default: "" });
 const searchQuery = defineModel<string>("searchQuery", { default: "" });
@@ -32,7 +32,7 @@ const emit = defineEmits<{
           @click="levelFilter = ''"
           title="清除筛选"
         >
-          <X :size="14" />
+          <component :is="Icon.actionClear" :size="14" />
         </button>
       </div>
     </div>
@@ -51,7 +51,7 @@ const emit = defineEmits<{
         @click="emit('clearLogs')"
         title="清空当天日志"
       >
-        <Trash2 :size="16" />
+        <component :is="Icon.clearTable" :size="16" />
       </button>
     </div>
   </div>

@@ -9,7 +9,7 @@
   使用组件：
   - StandardizedTable: 表格组件
   - PageToolbar: 页面工具栏
-  - LanguageFormModal: 弹窗组件
+  - BaseFormModal: 新增/编辑弹窗（通用表单弹窗）
   - PaginationControls: 分页控件
 -->
 <script setup lang="ts">
@@ -18,12 +18,12 @@ import { invoke } from "@tauri-apps/api/core";
 import type { EnumProgrammingLanguage as ProgrammingLanguage } from "../types";
 import type { FooterState } from "../composables/footer";
 import { defaultFooterState } from "../composables/footer";
-import LanguageFormModal from "../components/enum/LanguageFormModal.vue";
+import BaseFormModal, { type FormField } from "../components/common/BaseFormModal.vue";
 import { useSettingsStore } from "../stores/settings";
 import PageToolbar from "../components/common/PageToolbar.vue";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
 import PaginationControls from "../components/common/PaginationControls.vue";
-import { Plus } from "@lucide/vue";
+import { Icon } from "../icons";
 
 const settingsStore = useSettingsStore();
 const languages = ref<ProgrammingLanguage[]>([]);
@@ -35,11 +35,13 @@ const pageSize = ref(50);
 
 const showModal = ref(false);
 const modalMode = ref<"add" | "edit">("add");
-const modalForm = ref({
-  id: null as number | null,
-  name: "",
-  short_name: "",
-});
+const modalId = ref<number | null>(null);
+const modalValues = ref<Record<string, string>>({ name: "", short_name: "" });
+
+const languageFields: FormField[] = [
+  { key: "name", label: "名称", placeholder: "如 JavaScript, Python", required: true },
+  { key: "short_name", label: "简称", placeholder: "如 JS, PY" },
+];
 
 const footer = reactive<FooterState>(defaultFooterState());
 
@@ -91,23 +93,25 @@ async function loadLanguages() {
 
 function openAdd() {
   modalMode.value = "add";
-  modalForm.value = { id: null, name: "", short_name: "" };
+  modalId.value = null;
+  modalValues.value = { name: "", short_name: "" };
   showModal.value = true;
 }
 
 function openEdit(lang: ProgrammingLanguage) {
   modalMode.value = "edit";
-  modalForm.value = { id: lang.id, name: lang.name, short_name: lang.short_name || "" };
+  modalId.value = lang.id;
+  modalValues.value = { name: lang.name, short_name: lang.short_name || "" };
   showModal.value = true;
 }
 
-async function handleSave(data: { id: number | null; name: string; short_name: string }) {
+async function handleSave(data: Record<string, string>) {
   try {
     await invoke("upsert_language", {
       language: {
-        id: data.id,
+        id: modalId.value,
         name: data.name.trim(),
-        short_name: data.short_name.trim(),
+        short_name: (data.short_name ?? "").trim(),
       },
     });
     showModal.value = false;
@@ -144,13 +148,13 @@ function handleRowClick(row: ProgrammingLanguage) {
 <template>
   <div class="language-manager">
     <PageToolbar v-model="searchQuery" @refresh="loadLanguages">
-      <button
-        class="btn-icon btn-icon-success"
-        @click="openAdd"
-        title="新增编程语言"
-      >
-        <Plus :size="16" />
-      </button>
+        <button
+          class="btn-icon btn-icon-success"
+          @click="openAdd"
+          title="新增编程语言"
+        >
+          <component :is="Icon.actionAdd" :size="16" />
+        </button>
     </PageToolbar>
 
     <!-- 编程语言表格 -->
@@ -170,18 +174,18 @@ function handleRowClick(row: ProgrammingLanguage) {
       <!-- 操作列 -->
       <template #actions="{ row }">
         <button
-          class="btn-icon btn-icon-default"
+          class="btn-icon btn-icon-warning"
           @click.stop="openEdit(row)"
           title="编辑"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+          <component :is="Icon.actionEdit" :size="14" />
         </button>
         <button
           class="btn-icon btn-icon-danger"
           @click.stop="handleDelete(row)"
           title="删除"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+          <component :is="Icon.actionDelete" :size="14" />
         </button>
       </template>
     </StandardizedTable>
@@ -192,10 +196,12 @@ function handleRowClick(row: ProgrammingLanguage) {
     </div>
 
     <!-- 编辑弹窗 -->
-    <LanguageFormModal
+    <BaseFormModal
       :show="showModal"
       :mode="modalMode"
-      :language="modalForm"
+      entity-name="编程语言"
+      :fields="languageFields"
+      :model-value="modalValues"
       @save="handleSave"
       @close="showModal = false"
     />

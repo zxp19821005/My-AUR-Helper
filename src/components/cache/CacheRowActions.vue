@@ -3,10 +3,12 @@
 
   功能：
   - 删除缓存文件
+
+  操作列统一使用带语义背景色的 btn-icon 样式：
+  - 删除（delete）：红色 danger
 -->
 <script setup lang="ts">
-import { Trash2 } from "@lucide/vue";
-import StandardizedButton from "../base/StandardizedButton.vue";
+import { Icon } from "../../icons";
 
 defineProps<{
   loading: boolean;
@@ -18,13 +20,12 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <StandardizedButton
-    variant="danger"
-    size="sm"
-    :loading="loading"
+  <button
+    class="btn-icon btn-icon-danger"
+    :disabled="loading"
     @click.stop="emit('delete')"
     title="删除"
   >
-    <Trash2 :size="14" />
-  </StandardizedButton>
+    <component :is="Icon.actionDelete" :size="14" />
+  </button>
 </template>

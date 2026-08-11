@@ -196,9 +196,9 @@ src/
 │   ├── common/               # 通用组件（StandardizedTable 系列、StandardizedModal、PageToolbar、PaginationControls、ProgressBar）
 │   ├── layout/               # 布局组件（Sidebar、TabBar、BottomToolbar、LogPanel、PopupLayout、SettingsPopup、LogsPopup、EnumLayout）
 │   ├── package/              # 软件包组件（SoftwareDetailModal、SoftwareFormModal、PackageRowActions、各 InfoCard、DetailToolbar、FloatingNav 等）
-│   ├── backup/               # 备份组件（BackupToolbar、BackupRowActions、BackupInfoDialog、BackupSudoersDialog、BackupToModal）
-│   ├── cache/                # 缓存组件（CacheToolbar、CacheRowActions）
-│   ├── proxy/                # 代理组件（ProxyToolbar、ProxyRowActions）
+│   ├── backup/               # 备份组件（BackupRowActions、BackupInfoDialog、BackupSudoersDialog、BackupToModal）
+│   ├── cache/                # 缓存组件（CacheRowActions）
+│   ├── proxy/                # 代理组件（ProxyRowActions）
 │   ├── settings/             # 设置组件（SettingsCard、SettingRow、AppearanceSettings、各配置 Section）
 │   ├── filter/               # 筛选组件（FilterBar）
 │   └── enum/                 # 枚举组件（LicenseFormModal、LanguageFormModal）

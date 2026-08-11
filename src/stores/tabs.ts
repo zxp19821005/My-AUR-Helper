@@ -9,6 +9,8 @@
  */
 import { defineStore } from "pinia";  // Pinia 状态管理库
 import { ref } from "vue";            // Vue 响应式 API
+import type { Component } from "vue";
+import { Icon } from "../icons";
 
 /** 标签页接口 - 定义单个标签页的数据结构 */
 export interface Tab {
@@ -16,8 +18,8 @@ export interface Tab {
   path: string;
   /** 显示标签 - 标签页上显示的文字 */
   label: string;
-  /** 图标名称 - 标签页图标的标识符，用于动态渲染图标组件 */
-  icon: string;
+  /** 图标组件 - 标签页图标（统一来自图标中心，确保全局一致） */
+  icon: Component;
 }
 
 /** 创建 tabs Store，用于管理标签页的全局状态 */
@@ -55,7 +57,7 @@ export const useTabStore = defineStore("tabs", () => {
       if (openTabs.value.length === 0) {
         // 没有标签页时，回退到仪表盘
         activeTab.value = "/";
-        openTab({ path: "/", label: "仪表盘", icon: "LayoutDashboard" });
+        openTab({ path: "/", label: "仪表盘", icon: Icon.navDashboard });
       } else {
         // 切换到相邻标签（优先左侧，如果被删的是最后一个则切换到前一个）
         const newIdx = Math.min(idx, openTabs.value.length - 1);
