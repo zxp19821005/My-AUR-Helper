@@ -8,7 +8,6 @@
  */
 import { computed, ref, watch, inject, onMounted } from "vue";
 import { invoke } from "@tauri-apps/api/core";
-import { usePackageStore } from "../stores/packages";
 import { useSettingsStore } from "../stores/settings";
 import { FOOTER_KEY } from "./footer";
 import type { SoftwareListEntry } from "../types";
@@ -55,7 +54,6 @@ function createDefaultFilterState(): FilterState {
 }
 
 export function usePackageList() {
-  const pkgStore = usePackageStore();
   const footer = inject(FOOTER_KEY)!;
   const settingsStore = useSettingsStore();
 
@@ -167,6 +165,44 @@ export function usePackageList() {
     }
   }
 
+  /**
+   * 定向刷新指定软件包的列表条目，避免整表（近两千条）重载。
+   * - 传入非空 pkgname 列表：逐条拉取最新条目，就地更新对应数据对象的字段
+   *   （保持数组引用不变，Vue 仅重渲染发生变化的那一行，而非整页）
+   * - 若某 pkgname 后端返回 null（如已被删除）：从列表原地移除该条目
+   * - 传入空列表（语义为"全部"）：回退为整表重载
+   * @param pkgnames - 需要刷新的包名列表
+   */
+  async function refreshEntries(pkgnames: string[]) {
+    if (pkgnames.length === 0) {
+      await fetchView();
+      return;
+    }
+    try {
+      const results = await Promise.all(
+        pkgnames.map((name) =>
+          invoke<SoftwareListEntry | null>("get_software_list_entry", { pkgname: name })
+        )
+      );
+      const byName = new Map(results.filter(Boolean).map((e) => [e!.pkgname, e!]));
+      const removed = new Set(pkgnames.filter((name) => !byName.has(name)));
+      const list = entries.value;
+      for (let i = 0; i < list.length; i++) {
+        const updated = byName.get(list[i].pkgname);
+        if (updated) {
+          // 就地更新字段，保持对象引用与数组引用不变，避免整页重渲染
+          Object.assign(list[i], updated);
+        }
+      }
+      // 仅当存在被删除的条目时才替换数组引用（删除操作需移除行）
+      if (removed.size) {
+        entries.value = list.filter((e) => !removed.has(e.pkgname));
+      }
+    } finally {
+      syncToolbar();
+    }
+  }
+
   function toggleSelect(pkgname: string) {
     const s = new Set(selectedPkgnames.value);
     if (s.has(pkgname)) s.delete(pkgname);
@@ -199,10 +235,6 @@ export function usePackageList() {
     showDetailModal.value = true;
   }
 
-  function onModalSaved() {
-    Promise.all([fetchView(), pkgStore.fetchPackages()]);
-  }
-
   const setSelected = (v: Set<string>) => { selectedPkgnames.value = v; };
 
   function resetFilters() {
@@ -227,12 +259,12 @@ export function usePackageList() {
     pageData,
     activeFilterCount,
     fetchView,
+    refreshEntries,
     toggleSelect,
     toggleSelectAll,
     openAddModal,
     openEditModal,
     openDetailModal,
-    onModalSaved,
     setSelected,
     syncToolbar,
     resetFilters,

@@ -10,6 +10,7 @@
 use log::info;
 use tauri::State;
 
+use crate::commands::sysops::backup_install::build_pacman_install_rules;
 use crate::errors::AppResult;
 use crate::AppState;
 
@@ -181,10 +182,10 @@ pub async fn get_cache_cleanup_sudoers_command(state: State<'_, AppState>) -> Ap
             .unwrap_or_else(|| "/run/media/zxp/Backup/Linux/ZST".to_string())
     };
 
-    // 使用 sudo cat 检查文件是否已存在且包含缓存清理规则
+    // 使用 sudo -n cat 检查文件是否已存在且包含缓存清理规则（非交互，避免弹出密码框）
     let sudoers_path = "/etc/sudoers.d/aur-helper-backup";
     let output = tokio::process::Command::new("sudo")
-        .args(["cat", sudoers_path])
+        .args(["-n", "cat", sudoers_path])
         .output()
         .await;
 
@@ -204,10 +205,11 @@ pub async fn get_cache_cleanup_sudoers_command(state: State<'_, AppState>) -> Ap
             ))
         }
         _ => {
-            // 文件不存在，创建新的配置文件（pacman -U 限定到备份目录）
+            // 文件不存在，创建新的配置文件（pacman -U 限定到备份目录，含子目录）
+            let pacman_rule = build_pacman_install_rules(&backup_dir);
             Ok(format!(
-                "echo \"{} ALL=(ALL) NOPASSWD: /usr/bin/pacman -U {}/*, /usr/bin/find /var/cache/pacman/pkg/* -mindepth 1 -delete\" | sudo tee /etc/sudoers.d/aur-helper-backup",
-                username, backup_dir
+                "echo \"{} ALL=(ALL) NOPASSWD: {}, /usr/bin/find /var/cache/pacman/pkg/* -mindepth 1 -delete\" | sudo tee /etc/sudoers.d/aur-helper-backup",
+                username, pacman_rule
             ))
         }
     }

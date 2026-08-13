@@ -6,7 +6,7 @@
 use log::info;
 use tauri::State;
 
-use crate::commands::fileops::cache_dirs::{find_cache_file, get_cache_dirs};
+use crate::commands::fileops::cache_dirs::get_cache_dirs;
 use crate::commands::fileops::cache_scan::scan_cache_dir;
 use crate::errors::AppResult;
 use crate::models::{BackupSoftware, CacheSoftwareEntry};
@@ -108,11 +108,15 @@ pub async fn backup_cache_to_existing(
         if let Some(backup_list) = pkg_backup_map.get(pkgname) {
             let (cache_entry, cache_version) = cache_entries;
 
-            // 找到备份表中版本最新的记录
-            if let Some(latest_backup) = backup_list
-                .iter()
-                .max_by_key(|entry| format_backup_version(entry))
-            {
+            // 找到备份表中版本最新的记录（按版本号比较，而非字符串字典序）
+            if let Some(latest_backup) = backup_list.iter().max_by(|a, b| {
+                match compare_vercmp(&format_backup_version(a), &format_backup_version(b)) {
+                    VersionComparison::LessThan => std::cmp::Ordering::Less,
+                    VersionComparison::GreaterThan => std::cmp::Ordering::Greater,
+                    VersionComparison::Equal => std::cmp::Ordering::Equal,
+                    VersionComparison::Incomparable => std::cmp::Ordering::Equal,
+                }
+            }) {
                 let backup_version = format_backup_version(latest_backup);
 
                 // 比较缓存版本和备份版本
@@ -121,7 +125,12 @@ pub async fn backup_cache_to_existing(
                 if comparison == VersionComparison::GreaterThan {
                     // 缓存版本更新，需要备份
                     let filename = &cache_entry.filename;
-                    let cache_file_path = find_cache_file(filename, &cache_dirs).await;
+                    // 直接使用扫描时记录的完整路径（递归扫描后文件可能位于子目录）
+                    let cache_file_path = if std::path::Path::new(&cache_entry.full_path).exists() {
+                        Some(std::path::PathBuf::from(&cache_entry.full_path))
+                    } else {
+                        None
+                    };
 
                     match cache_file_path {
                         Some(src_path) => {

@@ -4,21 +4,29 @@
   功能：
   - 提示用户配置 sudoers 免密以获取 root 权限
   - 显示需要执行的命令
-  - 提供重试和取消操作
+  - 提供「安装」（继续安装）和「取消」操作
+
+  实现约定：
+  - 统一使用 StandardizedModal 作为弹窗容器（与全局对话框风格一致）
+  - 底部操作区统一使用 StandardizedButton，带图标、彩色、右对齐
 -->
 <script setup lang="ts">
+import { Icon } from "../../icons";
 import StandardizedModal from "../common/StandardizedModal.vue";
+import StandardizedButton from "../base/StandardizedButton.vue";
 
 defineProps<{
   show: boolean;
   sudoersCommand: string;
   pendingInstallPath: string;
   pendingInstallPkgname: string;
+  /** 是否正在安装中（用于禁用按钮并显示加载态） */
+  installing: boolean;
 }>();
 
 const emit = defineEmits<{
   close: [];
-  retry: [path: string, pkgname: string];
+  install: [path: string, pkgname: string];
 }>();
 </script>
 
@@ -32,11 +40,27 @@ const emit = defineEmits<{
     <div class="sudoers-content">
       <p>安装备份包需要 root 权限。请在终端中执行以下命令配置 sudoers 免密：</p>
       <pre class="sudoers-command">{{ sudoersCommand }}</pre>
-      <p class="hint">配置完成后，点击"重试"按钮继续安装。</p>
+      <p class="hint">配置完成后，点击"安装"按钮继续安装。</p>
     </div>
     <template #footer>
-      <button class="modal-btn" @click="emit('close')">取消</button>
-      <button class="modal-btn primary" @click="emit('retry', pendingInstallPath, pendingInstallPkgname)">重试</button>
+      <StandardizedButton variant="outline" size="sm" :disabled="installing" @click="emit('close')">
+        <template #icon>
+          <component :is="Icon.actionClear" :size="16" />
+        </template>
+        取消
+      </StandardizedButton>
+      <StandardizedButton
+        variant="primary"
+        tone="success"
+        size="sm"
+        :loading="installing"
+        @click="emit('install', pendingInstallPath, pendingInstallPkgname)"
+      >
+        <template #icon>
+          <component :is="Icon.install" :size="16" />
+        </template>
+        安装
+      </StandardizedButton>
     </template>
   </StandardizedModal>
 </template>

@@ -17,8 +17,8 @@ pub mod errors; // 统一错误处理模块
 pub mod logger; // 日志轮转与输出模块
 pub mod models; // 数据模型模块
 pub mod proxy; // 代理管理模块
-pub mod versions; // 版本处理模块
-mod tray; // 系统托盘模块
+mod tray;
+pub mod versions; // 版本处理模块 // 系统托盘模块
 
 use std::path::PathBuf; // 路径缓冲区，用于构建文件路径
 use std::sync::Mutex; // 互斥锁，保证数据库连接的线程安全访问
@@ -157,6 +157,7 @@ pub fn run() {
             // 软件包管理
             commands::software::list_software, // 获取所有软件包列表
             commands::software::list_software_view, // 获取软件包列表展示数据
+            commands::software::get_software_list_entry, // 获取单条列表视图条目（定向刷新）
             commands::software::get_software,  // 根据包名获取单个软件包
             commands::software::get_software_detail, // 获取软件包完整详情
             commands::software::get_prev_next_software, // 获取上一个/下一个软件包（导航用）
@@ -216,6 +217,10 @@ pub fn run() {
             commands::sysops::cache_cleanup::clean_custom_cache_dirs, // 清理自定义缓存目录
             commands::sysops::cache_cleanup::check_cache_cleanup_sudoers, // 检测缓存清理 sudoers 配置
             commands::sysops::cache_cleanup::get_cache_cleanup_sudoers_command, // 获取缓存清理 sudoers 配置命令
+            commands::sysops::cache_install::get_cache_package_info, // 获取缓存包文件信息
+            commands::sysops::cache_install::install_cache_package,  // 安装缓存包
+            commands::sysops::cache_install::check_cache_install_sudoers, // 检测缓存安装 sudoers 配置
+            commands::sysops::cache_install::get_cache_install_sudoers_command, // 获取缓存安装 sudoers 配置命令
             // 日志管理
             commands::logs::get_logs,     // 获取日志列表
             commands::logs::get_new_logs, // 增量获取日志

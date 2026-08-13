@@ -59,12 +59,15 @@ export function useTableState(props: UseTableStateProps) {
     return typeof props.pageSize === "function" ? props.pageSize() : props.pageSize;
   });
 
+  // 仅在数据集合结构变化（条目数量改变，如新增 / 删除 / 筛选）时回到第 1 页。
+  // 注意：不可使用 deep 监听整个数据对象——单行原地更新（Object.assign 修改某行字段）
+  // 同样会触发 deep 回调，导致每次单包操作都被重置回第 1 页，
+  // 表现为"整表刷新"而非仅刷新该行。条目数量不变时（单行同步 / 检查 / 编辑）则保持当前页。
   watch(
-    resolvedData,
+    () => resolvedData.value.length,
     () => {
       currentPage.value = 1;
-    },
-    { deep: true }
+    }
   );
 
   const visibleColumns = computed(() =>

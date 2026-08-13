@@ -1,4 +1,4 @@
-use super::{gitee, github, gitlab, http, manual, redirect, trait_def::VersionChecker};
+use super::{browser, gitee, github, gitlab, http, manual, redirect, trait_def::VersionChecker};
 /**
  * factory.rs - 检查器工厂
  *
@@ -27,5 +27,6 @@ pub fn get_checker(
         CheckerType::Redirect => Box::new(redirect::RedirectChecker),
         CheckerType::Http => Box::new(http::HttpChecker),
         CheckerType::Manual => Box::new(manual::ManualChecker),
+        CheckerType::Browser => Box::new(browser::BrowserChecker),
     }
 }

@@ -25,8 +25,9 @@ export type PackageType = 1 | 2 | 3 | 4;
  * 5: 重定向 (redirect) - 通过 HTTP 重定向获取版本
  * 6: HTTP 页面解析 - 从 HTML 页面解析版本号
  * 7: 手动检查 (manual) - 手动更新，无自动检查
+ * 8: 浏览器(JS渲染) - 调用本机 Chromium/Chrome 执行 JS 渲染后提取版本
  */
-export type CheckerType = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+export type CheckerType = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
 /** 代理类型 - 定义代理支持的协议类型 */
 export type ProxyType = "download" | "clone" | "raw" | "ssh";

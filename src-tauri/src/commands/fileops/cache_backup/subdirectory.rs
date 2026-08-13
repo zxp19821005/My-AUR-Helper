@@ -6,7 +6,9 @@
 use log::info;
 use tauri::State;
 
-use crate::commands::fileops::cache_dirs::{extract_pkgname_from_cache, find_cache_file, get_cache_dirs};
+use crate::commands::fileops::cache_dirs::{
+    extract_pkgname_from_cache, find_cache_file, get_cache_dirs,
+};
 use crate::errors::AppResult;
 use crate::models::BackupSoftware;
 use crate::AppState;

@@ -12,7 +12,7 @@
 import { computed, ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { useListBase } from "./useListBase";
-import type { CachePackage, CacheSoftwareEntry } from "../types";
+import type { CacheSoftwareEntry } from "../types";
 
 /**
  * 列表展示时使用的统一条目类型（兼容两种数据源）
@@ -26,6 +26,8 @@ export interface CacheListEntry {
   pkgname: string;
   /** 缓存文件名 */
   filename: string;
+  /** 完整文件路径（cache_directory/filename），用于安装/查看信息 */
+  full_path: string;
   /** epoch */
   epoch: number;
   /** 版本号 */
@@ -66,27 +68,13 @@ export function useCacheList() {
     },
   });
 
-  /** 把前端 CachePackage（来自 PkgFileInfo 扫描结果）转成列表条目 */
-  function fromCachePackage(p: CachePackage, idx: number): CacheListEntry {
-    const epoch = p.epoch ? parseInt(p.epoch, 10) || 0 : 0;
-    return {
-      id: -1 - idx,
-      pkgname: p.name || pkgFromFilename(p.filename),
-      filename: p.filename,
-      epoch,
-      pkgver: p.pkgver,
-      pkgrel: p.pkgrel,
-      arch: p.arch,
-      cache_directory: "",
-    };
-  }
-
   /** 把后端 CacheSoftwareEntry 转成列表条目 */
   function fromCacheSoftwareEntry(e: CacheSoftwareEntry): CacheListEntry {
     return {
       id: e.id,
       pkgname: e.pkgname || pkgFromFilename(e.filename),
       filename: e.filename,
+      full_path: e.full_path,
       epoch: e.epoch,
       pkgver: e.pkgver,
       pkgrel: e.pkgrel,
@@ -130,13 +118,18 @@ export function useCacheList() {
   /**
    * 扫描所有启用的缓存目录（磁盘），清空并重建 cache_software 表
    * 仅在用户点击 "扫描" 按钮时触发
+   *
+   * 注意：scan_all_cache_dirs 的返回值（PkgFileInfo）不含缓存目录字段，
+   * 且版本字段名为 version 与前端 CachePackage.pkgver 不匹配，因此扫描后
+   * 直接重新从数据库读取（loadEntries），以展示完整的缓存目录与版本信息。
+   * 这与备份管理页扫描后重新读库的行为保持一致。
    */
   async function rescanAllDirs() {
     base.loading.value = true;
     try {
-      const scanned = await invoke<CachePackage[]>("scan_all_cache_dirs");
-      base.entries.value = scanned.map(fromCachePackage);
-      base.selectedIds.value = new Set();
+      await invoke<CacheSoftwareEntry[]>("scan_all_cache_dirs");
+      // 扫描结果已写入 cache_software 表，重新从数据库读取以展示完整字段
+      await loadEntries();
     } finally {
       base.loading.value = false;
       base.syncToolbar();

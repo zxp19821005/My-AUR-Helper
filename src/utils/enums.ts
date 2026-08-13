@@ -13,6 +13,7 @@ export const checkerTypes: Record<number, string> = {
   5: "重定向",
   6: "HTTP 页面",
   7: "手动",
+  8: "浏览器(JS渲染)",
 };
 
 export const pkgTypeOptions = Object.entries(pkgTypes).map(([id, label]) => ({

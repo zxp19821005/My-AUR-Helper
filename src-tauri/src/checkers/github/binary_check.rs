@@ -11,6 +11,8 @@
  */
 use log::{info, warn};
 
+use crate::checkers::utils::extract_version_with_regex;
+
 /// 判断文件名是否明显是非 Linux 平台
 fn is_not_linux_platform(name: &str) -> bool {
     let lower = name.to_lowercase();
@@ -44,6 +46,38 @@ pub fn has_linux_binary(assets: &[serde_json::Value], asset_filter: Option<&str>
             .as_str()
             .is_some_and(|n| !is_not_linux_platform(n))
     })
+}
+
+/// 从匹配资产过滤器的文件名中提取版本号
+///
+/// 当 release 的 tag 本身不是版本号（如 "latest"、"continuous"）时，
+/// 真实版本号往往包含在资产文件名中（如 `csBooks-9.0.0.pacman`）。
+/// 此函数遍历资产，找到首个匹配 `asset_filter` 的 Linux 平台文件名，
+/// 并用同一正则提取其中的捕获组作为版本号。
+///
+/// # 参数
+/// - `assets`: release 的资产文件列表
+/// - `asset_filter`: 资产文件名过滤器正则表达式（同时用于匹配与提取）
+///
+/// # 返回
+/// - `Some(version)`: 找到匹配资产并成功提取版本号
+/// - `None`: 未找到匹配资产或无法提取版本
+pub fn extract_version_from_assets(
+    assets: &[serde_json::Value],
+    asset_filter: &str,
+) -> Option<String> {
+    if let Ok(re) = regex::Regex::new(asset_filter) {
+        for asset in assets {
+            if let Some(name) = asset["name"].as_str() {
+                if !is_not_linux_platform(name) && re.is_match(name) {
+                    if let Some(version) = extract_version_with_regex(name, asset_filter) {
+                        return Some(version);
+                    }
+                }
+            }
+        }
+    }
+    None
 }
 
 /// 检查并打印 release 资产的详细信息

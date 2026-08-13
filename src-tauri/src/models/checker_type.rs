@@ -10,6 +10,7 @@ pub enum CheckerType {
     Redirect,
     Http,
     Manual,
+    Browser,
 }
 
 impl CheckerType {
@@ -22,6 +23,7 @@ impl CheckerType {
             CheckerType::Redirect => 5,
             CheckerType::Http => 6,
             CheckerType::Manual => 7,
+            CheckerType::Browser => 8,
         }
     }
 
@@ -33,6 +35,8 @@ impl CheckerType {
             4 => CheckerType::GitLab,
             5 => CheckerType::Redirect,
             6 => CheckerType::Http,
+            7 => CheckerType::Manual,
+            8 => CheckerType::Browser,
             _ => CheckerType::Manual,
         }
     }
@@ -46,6 +50,7 @@ impl CheckerType {
             CheckerType::Redirect,
             CheckerType::Http,
             CheckerType::Manual,
+            CheckerType::Browser,
         ]
     }
 }

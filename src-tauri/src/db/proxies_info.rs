@@ -114,7 +114,13 @@ impl Database {
     /// @param proxy_name - 新名称
     /// @param url - 新 URL
     /// @param proxy_type - 新类型
-    pub fn update_proxy(&self, proxy_id: i64, proxy_name: &str, url: &str, proxy_type: &str) -> AppResult<()> {
+    pub fn update_proxy(
+        &self,
+        proxy_id: i64,
+        proxy_name: &str,
+        url: &str,
+        proxy_type: &str,
+    ) -> AppResult<()> {
         self.conn.execute(
             "UPDATE proxies_info SET proxy_name=?1, url=?2, proxy_type=?3 WHERE proxy_id=?4",
             rusqlite::params![proxy_name, url, proxy_type, proxy_id],
@@ -162,7 +168,10 @@ impl Database {
         // 删除代理记录（会级联删除关联测试记录）
         let deleted = self.conn.execute("DELETE FROM proxies_info", [])?;
         // 重置自增 ID
-        self.conn.execute("DELETE FROM sqlite_sequence WHERE name = 'proxies_info'", [])?;
+        self.conn.execute(
+            "DELETE FROM sqlite_sequence WHERE name = 'proxies_info'",
+            [],
+        )?;
         Ok(deleted)
     }
 }

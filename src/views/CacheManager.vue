@@ -18,11 +18,16 @@
 import { ref, computed, onMounted, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { useCacheList } from "../composables/useCacheList";
+import { fmtEpoch } from "../composables/useBackupList";
 import { loadEnabledCacheDirs } from "../composables/useCacheDirs";
 import { useCacheBackupActions } from "../composables/useCacheBackupActions";
 import { useCacheCleanup } from "../composables/useCacheCleanup";
+import { useCacheInstall } from "../composables/useCacheInstall";
 import { FOOTER_KEY, addMessage } from "../composables/footer";
+import { openConfirm as confirm } from "../composables/useConfirm";
 import BackupToModal from "../components/backup/BackupToModal.vue";
+import BackupInfoDialog from "../components/backup/BackupInfoDialog.vue";
+import BackupSudoersDialog from "../components/backup/BackupSudoersDialog.vue";
 import PageToolbar from "../components/common/PageToolbar.vue";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
 import CacheRowActions from "../components/cache/CacheRowActions.vue";
@@ -72,7 +77,61 @@ const {
   closeSudoersPrompt,
 } = useCacheCleanup();
 
+const {
+  installing,
+  sudoersCommand: installSudoersCommand,
+  showSudoersPrompt: showInstallSudoersPrompt,
+  pendingInstallPath,
+  pendingInstallPkgname,
+  infoDialogVisible,
+  infoDialogLoading,
+  infoDialogContent,
+  infoDialogPkgname,
+  infoDialogEntry,
+  checkSudoers,
+  viewPackageInfo,
+  resolveFullPath,
+  closeInfoDialog,
+  handleInstall,
+  doInstall,
+  closeSudoersPrompt: closeInstallSudoersPrompt,
+} = useCacheInstall();
+
+// 详情弹窗的上一页/下一页导航（基于当前列表顺序）
+const infoDialogIndex = ref(-1);
+
+function openCacheInfo(row: any) {
+  infoDialogIndex.value = filteredEntries.value.indexOf(row);
+  viewPackageInfo(row);
+}
+
+const prevEntry = computed<any>(() => {
+  const i = infoDialogIndex.value;
+  return i > 0 ? filteredEntries.value[i - 1] : null;
+});
+
+const nextEntry = computed<any>(() => {
+  const i = infoDialogIndex.value;
+  const list = filteredEntries.value;
+  return i >= 0 && i < list.length - 1 ? list[i + 1] : null;
+});
+
+function onCacheInfoNavigate(target: any) {
+  const i = filteredEntries.value.indexOf(target);
+  if (i >= 0) {
+    infoDialogIndex.value = i;
+    viewPackageInfo(target);
+  }
+}
+
 onMounted(async () => {
+  // 首次进入即从 cache_software 表读取存量数据（与备份管理页一致）
+  try {
+    await loadEntries();
+  } catch (e) {
+    console.error("加载缓存数据失败:", e);
+    addMessage(footer, "error", `加载缓存数据失败: ${e}`);
+  }
   try {
     sourceDirs.value = await loadEnabledCacheDirs();
   } catch (e) {
@@ -86,6 +145,9 @@ onMounted(async () => {
   } catch { /* ignore */ }
   try {
     backupSubdirectories.value = await invoke<string[]>("list_backup_subdirectories");
+  } catch { /* ignore */ }
+  try {
+    await checkSudoers();
   } catch { /* ignore */ }
 });
 
@@ -102,7 +164,7 @@ async function handleScan() {
 }
 
 async function handleClearTable() {
-  if (!confirm("确定要清空缓存表吗？")) return;
+  if (!(await confirm({ message: "确定要清空缓存表吗？", variant: "danger" }))) return;
   loading.value = true;
   try {
     const count = await invoke<number>("clear_cache_software");
@@ -115,14 +177,14 @@ async function handleClearTable() {
   }
 }
 
-function deleteSelected() {
+async function deleteSelected() {
   if (selectedIds.value.size === 0) return;
-  if (!confirm(`确定要删除选中的 ${selectedIds.value.size} 个缓存文件吗？`)) return;
+  if (!(await confirm({ message: `确定要删除选中的 ${selectedIds.value.size} 个缓存文件吗？`, variant: "danger" }))) return;
   addMessage(footer, "info", "批量删除功能开发中");
 }
 
-function rowDelete(filename: string) {
-  if (!confirm(`确定要删除缓存文件 ${filename} 吗？`)) return;
+async function rowDelete(filename: string) {
+  if (!(await confirm({ message: `确定要删除缓存文件 ${filename} 吗？`, variant: "danger" }))) return;
   addMessage(footer, "info", "删除功能开发中");
 }
 
@@ -139,6 +201,7 @@ function handleSelectionChange(selectedRows: any[]) {
 
 const columns = [
   { key: "pkgname", title: "包名" },
+  { key: "epoch", title: "Epoch" },
   { key: "pkgver", title: "版本" },
   { key: "pkgrel", title: "PkgRel" },
   { key: "arch", title: "架构" },
@@ -192,7 +255,7 @@ const columns = [
       <button class="btn-icon btn-icon-success" :disabled="loading || selectedIds.size === 0" @click="openBackupToModal" title="备份到（选择子目录）">
         <component :is="Icon.backupTo" :size="16" />
       </button>
-      <button class="btn-icon btn-icon-danger" :disabled="loading || cleanupLoading" @click="handleFullCleanup" title="缓存清理（清理系统缓存和自定义缓存目录）">
+      <button class="btn-icon btn-icon-danger" :disabled="loading || cleanupLoading || scanning" @click="() => handleFullCleanup(fetchEntries)" title="缓存清理（清理系统缓存和自定义缓存目录）">
         <component :is="Icon.fullCleanup" :size="16" />
       </button>
     </PageToolbar>
@@ -217,14 +280,22 @@ const columns = [
         <strong>{{ row.pkgname }}</strong>
       </template>
 
+      <template #cell-epoch="{ row }">
+        {{ fmtEpoch(row.epoch) }}
+      </template>
+
       <template #cell-cache_directory="{ row }">
         {{ row.cache_directory || "-" }}
       </template>
 
       <template #actions="{ row }">
         <CacheRowActions
+          :row="row"
           :loading="loading"
-          @delete="rowDelete(row.filename)"
+          :installing="installing"
+          @view-info="(r) => openCacheInfo(r)"
+          @install="(r) => handleInstall(resolveFullPath(r), r.pkgname)"
+          @delete="(r) => rowDelete(r.filename)"
         />
       </template>
     </StandardizedTable>
@@ -244,6 +315,34 @@ const columns = [
       :show="showSudoersPrompt"
       :sudoers-command="sudoersCommand"
       @close="closeSudoersPrompt"
+    />
+
+    <!-- 缓存包详情弹窗 -->
+    <BackupInfoDialog
+      :show="infoDialogVisible"
+      :loading="infoDialogLoading"
+      :pkgname="infoDialogPkgname"
+      :content="infoDialogContent"
+      :entry="infoDialogEntry"
+      :prev-entry="prevEntry"
+      :next-entry="nextEntry"
+      v-model:installing="installing"
+      v-model:deleting="loading"
+      @close="closeInfoDialog"
+      @install="(e) => handleInstall(resolveFullPath(e), e.pkgname)"
+      @delete="(e) => { rowDelete(e.filename); closeInfoDialog(); }"
+      @navigate="(e) => onCacheInfoNavigate(e)"
+    />
+
+    <!-- 安装 sudoers 配置提示弹窗 -->
+    <BackupSudoersDialog
+      :show="showInstallSudoersPrompt"
+      :sudoers-command="installSudoersCommand"
+      :pending-install-path="pendingInstallPath"
+      :pending-install-pkgname="pendingInstallPkgname"
+      :installing="installing"
+      @close="closeInstallSudoersPrompt"
+      @install="doInstall"
     />
   </div>
 </template>

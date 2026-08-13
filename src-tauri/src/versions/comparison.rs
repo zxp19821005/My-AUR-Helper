@@ -84,12 +84,54 @@ pub(crate) fn compare_vercmp(a: &str, b: &str) -> VersionComparison {
         return VersionComparison::LessThan;
     }
 
-    let a_components = split_components(a_rest);
-    let b_components = split_components(b_rest);
+    // 将 pkgrel（末尾的 -<数字> 段）与 pkgver 分离。
+    // 关键语义：pkgrel 仅在 pkgver 完全相等时参与比较，
+    // 否则 pkgrel 会被错误地当成版本组件进行错位比较（如 9.0.1-1 vs 9.0-5）。
+    let (a_ver, a_pkgrel) = split_pkgrel(&a_rest);
+    let (b_ver, b_pkgrel) = split_pkgrel(&b_rest);
+
+    let a_components = split_components(a_ver);
+    let b_components = split_components(b_ver);
 
     debug!("比较组件: a={:?}, b={:?}", a_components, b_components);
 
-    compare_components_list(&a_components, &b_components)
+    match compare_components_list(&a_components, &b_components) {
+        // pkgver 相等时才比较 pkgrel（缺失 pkgrel 视作 0）
+        VersionComparison::Equal => {
+            let ap = a_pkgrel.unwrap_or(0);
+            let bp = b_pkgrel.unwrap_or(0);
+            match ap.cmp(&bp) {
+                std::cmp::Ordering::Less => VersionComparison::LessThan,
+                std::cmp::Ordering::Greater => VersionComparison::GreaterThan,
+                std::cmp::Ordering::Equal => VersionComparison::Equal,
+            }
+        }
+        other => other,
+    }
+}
+
+/// 将「去掉 epoch 后的版本字符串」拆分为 (pkgver, pkgrel)
+///
+/// # 参数
+/// - `rest`: 去掉 epoch 的版本部分，如 `9.0.1-1`、`9.0-5`、`1.2.3~alpha-2`
+///
+/// # 返回
+/// - `(pkgver, Some(pkgrel))`：当末尾存在 `-<纯数字>` 段时
+/// - `(原字符串, None)`：否则（无 pkgrel 或末尾段非纯数字，如 `-rc1`）
+///
+/// # 说明
+/// 仅取**最后一个** `-` 之后的纯数字段作为 pkgrel，以兼容
+/// `1.2.3-rc1-2` 这类「版本含连字符 + pkgrel」的合法格式。
+fn split_pkgrel(rest: &str) -> (&str, Option<u32>) {
+    if let Some(dash_idx) = rest.rfind('-') {
+        let tail = &rest[dash_idx + 1..];
+        if !tail.is_empty() && tail.chars().all(|c| c.is_ascii_digit()) {
+            if let Ok(n) = tail.parse::<u32>() {
+                return (&rest[..dash_idx], Some(n));
+            }
+        }
+    }
+    (rest, None)
 }
 
 /// 比较 rN.HASH 格式的 git 版本

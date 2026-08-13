@@ -16,6 +16,7 @@
 import { ref, watch, onMounted } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { SoftwareDetail, Language } from "../../types";
+import { openConfirm as confirm } from "../../composables/useConfirm";
 import StandardizedModal from "../common/StandardizedModal.vue";
 import SoftwareFormModal from "./SoftwareFormModal.vue";
 import NavPager from "../common/NavPager.vue";
@@ -32,6 +33,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: [];
   navigate: [pkgname: string];
+  /** 单条软件信息已变更，通知外层列表定向刷新该条目（避免整表重载） */
+  entryUpdated: [pkgname: string];
 }>();
 
 const detail = ref<SoftwareDetail | null>(null);
@@ -104,6 +107,7 @@ async function updateAurInfo() {
       pkgnameList: [detail.value.pkgname],
     });
     await loadSoftware();
+    emit("entryUpdated", detail.value.pkgname);
   } catch (e) {
     error.value = String(e);
   } finally {
@@ -120,6 +124,7 @@ async function updatePkgbuild() {
       pkgname: detail.value.pkgname,
     });
     await loadSoftware();
+    emit("entryUpdated", detail.value.pkgname);
   } catch (e) {
     error.value = String(e);
   } finally {
@@ -136,6 +141,7 @@ async function checkUpdate() {
       pkgname: detail.value.pkgname,
     });
     await loadSoftware();
+    emit("entryUpdated", detail.value.pkgname);
   } catch (e) {
     error.value = String(e);
   } finally {
@@ -145,7 +151,7 @@ async function checkUpdate() {
 
 async function handleDelete() {
   if (!detail.value?.software_id) return;
-  if (!confirm(`确定要删除软件包 "${detail.value.pkgname}" 吗？`)) return;
+  if (!(await confirm({ message: `确定要删除软件包 "${detail.value.pkgname}" 吗？`, variant: "danger" }))) return;
   deleting.value = true;
   error.value = "";
   try {

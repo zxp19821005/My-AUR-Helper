@@ -14,6 +14,7 @@ import { ref, onMounted, onUnmounted, computed, inject, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { FOOTER_KEY, addMessage } from "../composables/footer";
+import { openConfirm as confirm } from "../composables/useConfirm";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
 import StandardizedBadge from "../components/base/StandardizedBadge.vue";
 import LogToolbar from "../components/common/LogToolbar.vue";
@@ -102,7 +103,7 @@ async function loadInitialLogs() {
 }
 
 async function clearLogs() {
-  if (!confirm("确定要清空当天日志吗？")) return;
+  if (!(await confirm({ message: "确定要清空当天日志吗？", variant: "danger" }))) return;
   loading.value = true;
   try {
     await invoke("clear_logs");

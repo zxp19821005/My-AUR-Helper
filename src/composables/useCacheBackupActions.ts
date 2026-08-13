@@ -12,6 +12,7 @@ import { ref, type Ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { addMessage, type FooterState } from "./footer";
 import type { DeduplicateResult } from "../types";
+import { openConfirm as confirm } from "./useConfirm";
 
 /**
  * 创建缓存备份操作集合
@@ -39,7 +40,7 @@ export function useCacheBackupActions(
       addMessage(footer, "warning", "未设置备份目录，请先在设置中配置备份目录");
       return;
     }
-    if (!confirm("确定要对备份目录进行去重吗？将删除旧版本文件。")) return;
+    if (!(await confirm({ message: "确定要对备份目录进行去重吗？将删除旧版本文件。", variant: "danger" }))) return;
     loading.value = true;
     try {
       const result = await invoke<DeduplicateResult>("deduplicate_backups", {

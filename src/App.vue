@@ -18,6 +18,8 @@ import { useRoute } from "vue-router";
 import Sidebar from "./components/layout/Sidebar.vue";
 import TabBar from "./components/layout/TabBar.vue";
 import BottomToolbar from "./components/layout/BottomToolbar.vue";
+import ToastContainer from "./components/common/ToastContainer.vue";
+import ConfirmDialog from "./components/common/ConfirmDialog.vue";
 import { useTabStore } from "./stores/tabs";
 import { FOOTER_KEY, defaultFooterState } from "./composables/footer";
 import type { FooterState } from "./composables/footer";
@@ -35,15 +37,11 @@ const isPopupWindow = computed(() => popupPaths.some(p => route.path.startsWith(
 const footerState = reactive<FooterState>(defaultFooterState());
 provide(FOOTER_KEY, footerState);
 
-/** 监听路由变化 - 重置分页/信息文本/进度，保留消息日志 */
+/** 监听路由变化 - 重置分页/信息文本/进度 */
 watch(
   () => route.path,
   (path) => {
-    const savedMessages = [...footerState.messages];
-    const savedExpanded = footerState.logPanelExpanded;
     Object.assign(footerState, defaultFooterState());
-    footerState.messages = savedMessages;
-    footerState.logPanelExpanded = savedExpanded;
     const routeLabels: Record<string, string> = {
       "/": "仪表盘",
       "/packages": "软件管理",
@@ -64,6 +62,11 @@ watch(
 
 <template>
   <div id="app-container">
+    <!-- 全局瞬时消息容器（右下角 toast 堆叠） -->
+    <ToastContainer />
+    <!-- 全局统一确认对话框 -->
+    <ConfirmDialog />
+
     <!-- 弹出窗口布局：直接显示路由内容，不显示侧边栏和标签栏 -->
     <template v-if="isPopupWindow">
       <RouterView />

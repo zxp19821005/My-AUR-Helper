@@ -19,6 +19,7 @@ import {
   type CacheDir,
 } from "../../composables/useCacheDirs";
 import { useSettingsDraft } from "../../composables/useSettingsDraft";
+import { openConfirm as confirm } from "../../composables/useConfirm";
 import SettingsCard from "./SettingsCard.vue";
 import SettingsActionBar from "./SettingsActionBar.vue";
 import { Icon } from "../../icons";
@@ -113,9 +114,9 @@ function addCacheDir() {
   showMessage("已添加（点击保存设置后写入）");
 }
 
-function deleteCacheDir(index: number) {
+async function deleteCacheDir(index: number) {
   if (
-    !confirm("确定要删除此缓存目录配置吗？（未保存前可用「重置设置」撤销）")
+    !(await confirm({ message: "确定要删除此缓存目录配置吗？（未保存前可用「重置设置」撤销）", variant: "danger" }))
   )
     return;
   draft.value.splice(index, 1);

@@ -122,6 +122,7 @@ export const Icon = {
   actionFilter: Filter, // 筛选
   actionDownload: Download, // 下载
   actionUpload: Upload, // 上传
+  actionCopy: Copy, // 复制
   actionInfo: Info, // 详情 / 信息
 
   // ===================== 业务操作（不同功能用不同图标） =====================

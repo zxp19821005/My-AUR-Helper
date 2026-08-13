@@ -11,6 +11,7 @@ use log::{error, info};
 use std::path::PathBuf;
 use tauri::State;
 
+use crate::commands::sysops::pacman_lock::with_pacman_write_lock;
 use crate::errors::{AppError, AppResult};
 use crate::AppState;
 
@@ -34,7 +35,10 @@ const PKG_EXTENSIONS: &[&str] = &[
 /// @param full_path - 待校验的路径
 /// @param allowed_roots - 允许的根目录（绝对路径）
 /// @returns 校验通过的规范化路径
-fn validate_package_path(full_path: &str, allowed_roots: &[PathBuf]) -> AppResult<PathBuf> {
+pub(crate) fn validate_package_path(
+    full_path: &str,
+    allowed_roots: &[PathBuf],
+) -> AppResult<PathBuf> {
     let raw = std::path::Path::new(full_path);
     if !raw.is_absolute() {
         return Err(AppError::InvalidInput(format!(
@@ -50,9 +54,8 @@ fn validate_package_path(full_path: &str, allowed_roots: &[PathBuf]) -> AppResul
         )));
     }
 
-    let canon = std::fs::canonicalize(raw).map_err(|e| {
-        AppError::InvalidInput(format!("无法访问路径 {}: {}", full_path, e))
-    })?;
+    let canon = std::fs::canonicalize(raw)
+        .map_err(|e| AppError::InvalidInput(format!("无法访问路径 {}: {}", full_path, e)))?;
     if !canon.is_file() {
         return Err(AppError::InvalidInput(format!(
             "路径不是普通文件: {}",
@@ -75,6 +78,39 @@ fn validate_package_path(full_path: &str, allowed_roots: &[PathBuf]) -> AppResul
     Ok(canon)
 }
 
+/// 生成对指定目录（含子目录，最多三层）执行 `pacman -U --noconfirm` 的 NOPASSWD 规则片段。
+///
+/// 注意：sudoers 通配符 `*` 不能跨 `/`，子目录层级需逐层列出。
+/// 这里覆盖到三层，足以应对常见的「分类/包」二级目录结构；更深层级可继续追加。
+///
+/// @param dir - 备份/缓存目录（绝对路径）
+/// @returns 逗号分隔的多条规则片段
+pub(crate) fn build_pacman_install_rules(dir: &str) -> String {
+    let d = dir.trim_end_matches('/');
+    format!(
+        "/usr/bin/pacman -U --noconfirm {d}/*, /usr/bin/pacman -U --noconfirm {d}/*/*, /usr/bin/pacman -U --noconfirm {d}/*/*/*"
+    )
+}
+
+/// 判断 sudoers 内容是否已包含对指定目录（含子目录）的 `pacman -U --noconfirm` 免密规则。
+///
+/// @param content - sudoers 文件内容
+/// @param username - 当前用户名
+/// @param dir - 备份/缓存目录（绝对路径）
+/// @returns 是否存在匹配的免密规则
+pub(crate) fn has_pacman_install_rule(content: &str, username: &str, dir: &str) -> bool {
+    let d = dir.trim_end_matches('/');
+    let base = format!("/usr/bin/pacman -U --noconfirm {d}");
+    content.lines().any(|raw| {
+        let line = raw.trim();
+        // 行首须为当前用户，且整体为 NOPASSWD 规则
+        if line.split_whitespace().next() != Some(username) {
+            return false;
+        }
+        line.contains("NOPASSWD:") && line.contains(&base) && line.contains("/*")
+    })
+}
+
 /// 读取备份目录设置，缺失或为空时回退到默认路径
 fn read_backup_dir(db: &impl std::ops::Deref<Target = crate::db::Database>) -> String {
     db.get_setting("backup_dir")
@@ -94,9 +130,10 @@ pub async fn get_package_file_info(
     full_path: String,
 ) -> AppResult<String> {
     let allowed_roots = {
-        let db = state.db.lock().map_err(|e| {
-            AppError::DatabaseError(format!("获取数据库锁失败: {}", e))
-        })?;
+        let db = state
+            .db
+            .lock()
+            .map_err(|e| AppError::DatabaseError(format!("获取数据库锁失败: {}", e)))?;
         vec![
             PathBuf::from(read_backup_dir(&db)),
             PathBuf::from("/var/cache/pacman/pkg"),
@@ -137,24 +174,17 @@ pub async fn check_sudoers_config(state: State<'_, AppState>) -> AppResult<bool>
     let username = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
     let backup_dir = {
-        let db = state.db.lock().map_err(|e| {
-            AppError::DatabaseError(format!("获取数据库锁失败: {}", e))
-        })?;
+        let db = state
+            .db
+            .lock()
+            .map_err(|e| AppError::DatabaseError(format!("获取数据库锁失败: {}", e)))?;
         read_backup_dir(&db)
     };
 
     // 检查 /etc/sudoers.d/aur-helper-backup 文件是否存在
     let sudoers_path = "/etc/sudoers.d/aur-helper-backup";
     match tokio::fs::read_to_string(sudoers_path).await {
-        Ok(content) => {
-            // 允许「限定备份目录」与「旧版通配 *」两种写法，保证向后兼容
-            let scoped = format!(
-                "{} ALL=(ALL) NOPASSWD: /usr/bin/pacman -U {}",
-                username, backup_dir
-            );
-            let legacy = format!("{} ALL=(ALL) NOPASSWD: /usr/bin/pacman -U *", username);
-            Ok(content.contains(&scoped) || content.contains(&legacy))
-        }
+        Ok(content) => Ok(has_pacman_install_rule(&content, &username, &backup_dir)),
         Err(_) => Ok(false), // 文件不存在，需要配置
     }
 }
@@ -172,15 +202,17 @@ pub async fn get_sudoers_command(state: State<'_, AppState>) -> AppResult<String
     let username = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
     let backup_dir = {
-        let db = state.db.lock().map_err(|e| {
-            AppError::DatabaseError(format!("获取数据库锁失败: {}", e))
-        })?;
+        let db = state
+            .db
+            .lock()
+            .map_err(|e| AppError::DatabaseError(format!("获取数据库锁失败: {}", e)))?;
         read_backup_dir(&db)
     };
 
+    let rule = build_pacman_install_rules(&backup_dir);
     Ok(format!(
-        "echo \"{} ALL=(ALL) NOPASSWD: /usr/bin/pacman -U {}/*\" | sudo tee /etc/sudoers.d/aur-helper-backup",
-        username, backup_dir
+        "echo \"{} ALL=(ALL) NOPASSWD: {}\" | sudo tee /etc/sudoers.d/aur-helper-backup",
+        username, rule
     ))
 }
 
@@ -193,9 +225,10 @@ pub async fn install_backup_package(
     full_path: String,
 ) -> AppResult<String> {
     let allowed_roots = {
-        let db = state.db.lock().map_err(|e| {
-            AppError::DatabaseError(format!("获取数据库锁失败: {}", e))
-        })?;
+        let db = state
+            .db
+            .lock()
+            .map_err(|e| AppError::DatabaseError(format!("获取数据库锁失败: {}", e)))?;
         vec![
             PathBuf::from(read_backup_dir(&db)),
             PathBuf::from("/var/cache/pacman/pkg"),
@@ -205,11 +238,14 @@ pub async fn install_backup_package(
 
     info!("[备份管理] 开始安装备份包: {}", safe_path.display());
 
-    let output = tokio::process::Command::new("sudo")
-        .args(["pacman", "-U", "--noconfirm", &safe_path.to_string_lossy()])
-        .output()
-        .await
-        .map_err(|e| AppError::SystemCommand(format!("执行安装失败: {}", e)))?;
+    let output = with_pacman_write_lock(|| async {
+        tokio::process::Command::new("sudo")
+            .args(["pacman", "-U", "--noconfirm", &safe_path.to_string_lossy()])
+            .output()
+            .await
+    })
+    .await
+    .map_err(|e| AppError::SystemCommand(format!("执行安装失败: {}", e)))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();

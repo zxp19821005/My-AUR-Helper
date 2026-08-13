@@ -21,7 +21,7 @@ import StandardizedBadge from "../components/base/StandardizedBadge.vue";
 import PageToolbar from "../components/common/PageToolbar.vue";
 import ProxyEditModal from "../components/proxy/ProxyEditModal.vue";
 import ProxyDetailModal from "../components/proxy/ProxyDetailModal.vue";
-import ProxyClearConfirmModal from "../components/proxy/ProxyClearConfirmModal.vue";
+// 代理清空确认已统一改用 ConfirmDialog（useConfirm），不再需要本地弹窗组件
 import { Icon } from "../icons";
 
 const footer = inject(FOOTER_KEY)!;
@@ -31,7 +31,7 @@ const {
   typeFilter, testingIds, testResults, fetchEntries, syncToolbar,
 } = list;
 const {
-  downloading, parsing, clearing, showClearConfirm,
+  downloading, parsing, clearing,
   handleDownloadProxyFile, handleParseProxyFile, handleClearProxyTables,
   handleTestProxies, handleTestSingleProxy, handleDeleteSelected, handleDeleteSingleProxy,
 } = useProxyActions(list);
@@ -138,7 +138,7 @@ const columns = [
           </option>
         </select>
       </template>
-      <button class="btn-icon btn-icon-danger" :disabled="clearing" @click="showClearConfirm = true" title="清空代理表">
+      <button class="btn-icon btn-icon-danger" :disabled="clearing" @click="handleClearProxyTables" title="清空代理表">
         <component :is="Icon.clearTable" :size="16" />
       </button>
       <button class="btn-icon btn-icon-accent" :disabled="downloading" @click="handleDownloadProxyFile" title="获取代理文件">
@@ -228,7 +228,6 @@ const columns = [
     <!-- 弹窗子组件 -->
     <ProxyEditModal :show="showEditModal" :proxy="editingProxy" @close="closeEditModal" @save="handleSaveEdit" />
     <ProxyDetailModal :show="showDetailModal" :proxy="detailProxy" @close="closeDetailModal" />
-    <ProxyClearConfirmModal :show="showClearConfirm" :clearing="clearing" @close="showClearConfirm = false" @confirm="handleClearProxyTables" />
   </div>
 </template>
 

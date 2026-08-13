@@ -11,6 +11,7 @@
 import { ref, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { FOOTER_KEY, addMessage } from "./footer";
+import { openConfirm as confirm } from "./useConfirm";
 
 /**
  * 创建缓存清理操作集合
@@ -71,9 +72,13 @@ export function useCacheCleanup() {
 
   /**
    * 执行完整缓存清理（系统缓存 + 自定义缓存目录）
+   *
+   * @param onComplete 清理完成（无论成功或失败）后执行的回调，用于刷新列表。
+   *                   清理会删除磁盘上的缓存文件，但 cache_software 表仍为旧数据，
+   *                   因此调用方应传入重新扫描函数（rescanAllDirs）以反映实际磁盘状态。
    */
-  async function handleFullCleanup() {
-    if (!confirm("确定要清理所有缓存吗？这将删除系统缓存和自定义缓存目录中的所有文件。")) {
+  async function handleFullCleanup(onComplete?: () => Promise<void>) {
+    if (!(await confirm({ message: "确定要清理所有缓存吗？这将删除系统缓存和自定义缓存目录中的所有文件。", variant: "danger" }))) {
       return;
     }
 
@@ -97,6 +102,14 @@ export function useCacheCleanup() {
       }
     } finally {
       loading.value = false;
+      // 重新扫描磁盘，使列表与已删除的缓存文件保持一致
+      if (onComplete) {
+        try {
+          await onComplete();
+        } catch (e) {
+          addMessage(footer, "error", `清理后刷新缓存列表失败: ${e}`);
+        }
+      }
     }
   }
 

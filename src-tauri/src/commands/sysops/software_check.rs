@@ -182,7 +182,6 @@ pub async fn check_upstream_version(
     let options = CheckOptions {
         check_test_versions: sw.check_test_versions,
         check_binary_files: sw.check_binary_files,
-        proxy_url: proxy_url.clone(),
     };
 
     debug!("使用检查器: {} 检查 {}", checker.name(), pkgname);
@@ -255,7 +254,6 @@ pub async fn check_selected_upstream(
         let options = CheckOptions {
             check_test_versions: sw.check_test_versions,
             check_binary_files: sw.check_binary_files,
-            proxy_url: proxy_url.clone(),
         };
 
         if let Ok(check_result) = check_with_retry(

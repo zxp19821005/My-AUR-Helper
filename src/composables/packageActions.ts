@@ -11,14 +11,17 @@ import { ref, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { FOOTER_KEY, addMessage } from "./footer";
+import { openConfirm as confirm } from "./useConfirm";
 
 /**
  * 软件包操作钩子
- * @param fetchView - 刷新列表的回调函数
+ * @param fetchView - 整表刷新列表的回调函数（新增/全量同步时使用）
+ * @param refreshEntries - 定向刷新指定软件包条目的回调函数（单包/多包更新时使用）
  * @param syncToolbar - 同步工具栏状态的回调函数
  */
 export function usePackageActions(
   fetchView: () => Promise<void>,
+  refreshEntries: (pkgnames: string[]) => Promise<void>,
   syncToolbar: () => void
 ) {
   const footer = inject(FOOTER_KEY)!;
@@ -55,10 +58,11 @@ export function usePackageActions(
       const list = Array.from(selectedPkgnames);
       if (list.length) {
         await invoke("update_aur_info", { pkgnameList: list });
+        await refreshEntries(list);
       } else {
         await invoke("sync_from_aur");
+        await fetchView();
       }
-      await fetchView();
     } catch (e) {
       showError(String(e));
     } finally {
@@ -86,10 +90,11 @@ export function usePackageActions(
         for (const pkgname of list) {
           await invoke("sync_from_pkgbuild", { pkgname });
         }
+        await refreshEntries(list);
       } else {
         await invoke("sync_from_pkgbuild", { pkgname: null });
+        await fetchView();
       }
-      await fetchView();
     } catch (e) {
       showError(String(e));
     } finally {
@@ -105,8 +110,13 @@ export function usePackageActions(
     loading.value = true;
     try {
       const list = Array.from(selectedPkgnames);
-      await invoke("update_aur_info", { pkgnameList: list.length ? list : null });
-      await fetchView();
+      if (list.length) {
+        await invoke("update_aur_info", { pkgnameList: list });
+        await refreshEntries(list);
+      } else {
+        await invoke("update_aur_info", { pkgnameList: null });
+        await fetchView();
+      }
     } catch (e) {
       showError(String(e));
     } finally {
@@ -121,10 +131,11 @@ export function usePackageActions(
       const list = Array.from(selectedPkgnames);
       if (list.length) {
         await invoke("check_selected_upstream", { pkgnameList: list });
+        await refreshEntries(list);
       } else {
         await invoke("check_all_upstream");
+        await fetchView();
       }
-      await fetchView();
     } catch (e) {
       showError(String(e));
     } finally {
@@ -139,12 +150,12 @@ export function usePackageActions(
   ) {
     const list = Array.from(selectedPkgnames);
     if (!list.length) return;
-    if (!confirm(`确认删除选中的 ${list.length} 个软件包？`)) return;
+    if (!(await confirm({ message: `确认删除选中的 ${list.length} 个软件包？`, variant: "danger" }))) return;
     loading.value = true;
     try {
       await invoke("batch_delete_software", { pkgnameList: list });
       setSelectedPkgnames(new Set());
-      await fetchView();
+      await refreshEntries(list);
     } catch (e) {
       showError(String(e));
     } finally {
@@ -157,7 +168,7 @@ export function usePackageActions(
     setRowLoading(pkgname, "sync-aur");
     try {
       await invoke("update_aur_info", { pkgnameList: [pkgname] });
-      await fetchView();
+      await refreshEntries([pkgname]);
     } catch (e) {
       showError(`${pkgname}: ${e}`);
     } finally {
@@ -170,7 +181,7 @@ export function usePackageActions(
     setRowLoading(pkgname, "sync-pkgbuild");
     try {
       await invoke("sync_from_pkgbuild", { pkgname });
-      await fetchView();
+      await refreshEntries([pkgname]);
     } catch (e) {
       showError(`${pkgname}: ${e}`);
     } finally {
@@ -183,7 +194,7 @@ export function usePackageActions(
     setRowLoading(pkgname, "check-upstream");
     try {
       await invoke("check_selected_upstream", { pkgnameList: [pkgname] });
-      await fetchView();
+      await refreshEntries([pkgname]);
     } catch (e) {
       showError(`${pkgname}: ${e}`);
     } finally {
@@ -197,14 +208,14 @@ export function usePackageActions(
     selectedPkgnames: Set<string>,
     setSelectedPkgnames: (v: Set<string>) => void
   ) {
-    if (!confirm(`确认删除 ${pkgname}？`)) return;
+    if (!(await confirm({ message: `确认删除 ${pkgname}？`, variant: "danger" }))) return;
     setRowLoading(pkgname, "delete");
     try {
       await invoke("batch_delete_software", { pkgnameList: [pkgname] });
       setSelectedPkgnames(
         new Set(Array.from(selectedPkgnames).filter((n) => n !== pkgname))
       );
-      await fetchView();
+      await refreshEntries([pkgname]);
     } catch (e) {
       showError(`${pkgname}: ${e}`);
     } finally {

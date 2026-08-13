@@ -68,7 +68,7 @@ withDefaults(defineProps<{
     :type="type"
   >
     <component :is="Icon.loading" v-if="loading" :size="size === 'sm' ? 14 : size === 'lg' ? 18 : 16" class="icon" />
-    <slot name="icon" />
+    <slot v-else name="icon" />
     <slot />
   </button>
 </template>

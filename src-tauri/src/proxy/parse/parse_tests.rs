@@ -10,16 +10,29 @@ use super::*;
 fn test_parse_proxy_counts_from_file() {
     // 读取实际的代理规则文件
     let content = std::fs::read_to_string(
-        "/home/zxp-archlinux/.config/com.zxp19821005.aur-helper/tmp/proxy_rules.js"
-    ).expect("无法读取代理规则文件");
+        "/home/zxp-archlinux/.config/com.zxp19821005.aur-helper/tmp/proxy_rules.js",
+    )
+    .expect("无法读取代理规则文件");
 
     let proxies = parse_js_content(&content).expect("解析失败");
 
     // 按类型统计
-    let download: Vec<_> = proxies.iter().filter(|p| p.proxy_type == ProxyType::Download).collect();
-    let clone: Vec<_> = proxies.iter().filter(|p| p.proxy_type == ProxyType::Clone).collect();
-    let raw: Vec<_> = proxies.iter().filter(|p| p.proxy_type == ProxyType::Raw).collect();
-    let ssh: Vec<_> = proxies.iter().filter(|p| p.proxy_type == ProxyType::Ssh).collect();
+    let download: Vec<_> = proxies
+        .iter()
+        .filter(|p| p.proxy_type == ProxyType::Download)
+        .collect();
+    let clone: Vec<_> = proxies
+        .iter()
+        .filter(|p| p.proxy_type == ProxyType::Clone)
+        .collect();
+    let raw: Vec<_> = proxies
+        .iter()
+        .filter(|p| p.proxy_type == ProxyType::Raw)
+        .collect();
+    let ssh: Vec<_> = proxies
+        .iter()
+        .filter(|p| p.proxy_type == ProxyType::Ssh)
+        .collect();
 
     println!("总代理数: {}", proxies.len());
     println!("  下载代理: {} (download)", download.len());
@@ -38,8 +51,9 @@ fn test_parse_proxy_counts_from_file() {
 #[test]
 fn test_comment_entries_are_not_parsed() {
     let content = std::fs::read_to_string(
-        "/home/zxp-archlinux/.config/com.zxp19821005.aur-helper/tmp/proxy_rules.js"
-    ).expect("无法读取代理规则文件");
+        "/home/zxp-archlinux/.config/com.zxp19821005.aur-helper/tmp/proxy_rules.js",
+    )
+    .expect("无法读取代理规则文件");
 
     let proxies = parse_js_content(&content).expect("解析失败");
 

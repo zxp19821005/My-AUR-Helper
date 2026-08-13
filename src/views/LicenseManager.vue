@@ -21,6 +21,7 @@ import type { FooterState } from "../composables/footer";
 import { defaultFooterState } from "../composables/footer";
 import BaseFormModal, { type FormField } from "../components/common/BaseFormModal.vue";
 import { useSettingsStore } from "../stores/settings";
+import { openConfirm as confirm } from "../composables/useConfirm";
 import PageToolbar from "../components/common/PageToolbar.vue";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
 import PaginationControls from "../components/common/PaginationControls.vue";
@@ -144,7 +145,7 @@ async function handleSave(data: Record<string, string>) {
 }
 
 async function handleDelete(lic: License) {
-  if (!confirm(`确定要删除 License "${lic.spdx_id}" 吗？`)) return;
+  if (!(await confirm({ message: `确定要删除 License "${lic.spdx_id}" 吗？`, variant: "danger" }))) return;
   try {
     await invoke("delete_license", { id: lic.id });
     message.value = "已删除 License";
@@ -191,6 +192,7 @@ function handleRowClick(row: License) {
       :columns="columns"
       :data="filteredEntries"
       :pageSize="pageSize"
+      :current-page="currentPage"
       rowKey="id"
       showIndex
       striped

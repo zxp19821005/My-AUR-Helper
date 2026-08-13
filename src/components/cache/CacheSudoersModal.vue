@@ -9,6 +9,7 @@
 <script setup lang="ts">
 import { inject } from "vue";
 import { FOOTER_KEY, addMessage } from "../../composables/footer";
+import { Icon } from "../../icons";
 import StandardizedModal from "../common/StandardizedModal.vue";
 import StandardizedButton from "../base/StandardizedButton.vue";
 
@@ -49,9 +50,15 @@ async function copySudoersCommand() {
 
     <template #footer>
       <StandardizedButton variant="outline" size="sm" @click="emit('close')">
+        <template #icon>
+          <component :is="Icon.actionClear" :size="16" />
+        </template>
         取消
       </StandardizedButton>
       <StandardizedButton variant="primary" size="sm" @click="copySudoersCommand">
+        <template #icon>
+          <component :is="Icon.actionCopy" :size="16" />
+        </template>
         复制命令
       </StandardizedButton>
     </template>

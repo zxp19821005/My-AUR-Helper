@@ -78,11 +78,7 @@ fn mask_url(url: &str) -> String {
 /// 仅当目标地址非空时才拼接，避免产生裸代理地址（如 https://cdn.xxx/）。
 /// @param strip_target_protocol - 为 true 时去除目标地址的协议头（如 cors.isteed.cc 类约定），
 ///        否则保留（如 cdn.crashmc.com 类约定）。约定由解析时推断并持久化。
-fn build_test_url(
-    proxy_url: &str,
-    target: &str,
-    strip_target_protocol: bool,
-) -> AppResult<String> {
+fn build_test_url(proxy_url: &str, target: &str, strip_target_protocol: bool) -> AppResult<String> {
     let base = normalize_proxy_url(proxy_url).0; // 规整为源站基址
     let target = target.trim();
     if target.is_empty() {
@@ -190,7 +186,14 @@ pub async fn test_proxy_by_type(
             // 退回验证其 HTTPS 网关的连通性
             let base = normalize_proxy_url(proxy_url).0;
             let gateway = format!("https://{}", extract_host(&base));
-            send_head(&client, proxy_id, proxy_name, &gateway, "SSH 代理网关测试失败").await
+            send_head(
+                &client,
+                proxy_id,
+                proxy_name,
+                &gateway,
+                "SSH 代理网关测试失败",
+            )
+            .await
         }
     }
 }

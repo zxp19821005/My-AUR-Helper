@@ -12,8 +12,8 @@ use tokio::fs;
 use crate::errors::{AppError, AppResult};
 use crate::models::{ProxyInfo, ProxyType};
 
-use super::download::get_proxy_file_path;
 use self::parse_array::extract_array;
+use super::download::get_proxy_file_path;
 
 mod parse_array; // 代理 JS 数组提取子模块
 #[cfg(test)]
@@ -42,7 +42,12 @@ pub fn normalize_proxy_url(url: &str) -> (String, bool) {
     let url = url.trim();
     let after_scheme = match url.find("://") {
         Some(p) => p + 3,
-        None => return (url.trim_end_matches(|c| c == '/' || c == '?').to_string(), false),
+        None => {
+            return (
+                url.trim_end_matches(|c| c == '/' || c == '?').to_string(),
+                false,
+            )
+        }
     };
     let rest = &url[after_scheme..];
     // 源站之后第一个路径/查询分隔符，分隔符之后即为已拼接的下载地址后缀
@@ -170,4 +175,3 @@ fn parse_js_content(content: &str) -> AppResult<Vec<ProxyInfo>> {
 
     Ok(proxies)
 }
-

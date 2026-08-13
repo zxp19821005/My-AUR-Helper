@@ -4,7 +4,9 @@ use log::{debug, info};
 use reqwest::Client;
 
 use super::trait_def::{CheckOptions, CheckResult, VersionChecker};
-use super::utils::{extract_version_from_html, extract_version_with_regex};
+use super::utils::{
+    extract_version_from_html, extract_version_from_url, extract_version_with_regex,
+};
 
 pub struct HttpChecker;
 
@@ -44,6 +46,8 @@ impl VersionChecker for HttpChecker {
             return Ok(CheckResult::default());
         }
 
+        // 跟随重定向后，resp.url() 即最终地址（如 dida365 的 302 指向 dida-8.0.10-x86_64.rpm）
+        let final_url = resp.url().to_string();
         let body = resp.text().await?;
 
         let version = if let Some(regex) = version_extract_regex {
@@ -54,6 +58,9 @@ impl VersionChecker for HttpChecker {
         } else {
             extract_version_from_html(&body)
         };
+
+        // 兜底：版本可能写在重定向/文件下载 URL 里（正文无版本文本时）
+        let version = version.or_else(|| extract_version_from_url(&final_url));
 
         if let Some(v) = &version {
             info!("[版本检查] 检查完成: {} -> 上游版本={}", pkgname, v);

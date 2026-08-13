@@ -9,7 +9,9 @@
 use log::{debug, info, warn};
 use reqwest::Client;
 
-use crate::checkers::github::binary_check::{check_release_assets, has_linux_binary};
+use crate::checkers::github::binary_check::{
+    check_release_assets, extract_version_from_assets, has_linux_binary,
+};
 use crate::checkers::utils::{clean_version, extract_version_with_regex};
 use crate::errors::AppResult;
 use crate::versions;
@@ -94,6 +96,16 @@ pub async fn check_github_release_latest(
 
     if let Some(tag) = data["tag_name"].as_str() {
         if check_binary_files && version_extract_regex.is_some() {
+            // 启用二进制检查且设置了正则时，优先从匹配的资产文件名提取版本
+            // （例如 tag 为 "latest"，真实版本号包含在 .pacman 文件名中）
+            if let Some(filter) = version_extract_regex {
+                if let Some(assets) = data["assets"].as_array() {
+                    if let Some(version) = extract_version_from_assets(assets, filter) {
+                        return Ok(Some(version));
+                    }
+                }
+            }
+            // 资产文件名中未能提取版本时，回退到 tag
             return Ok(Some(clean_version(tag)));
         }
 
@@ -155,7 +167,10 @@ pub async fn check_github_releases(
 ) -> AppResult<Option<String>> {
     let mut best_version: Option<String> = None;
     let mut page = 1;
-    let per_page = 100;
+    // 降低每页数量以减小单次响应体积：releases 列表接口在 release 较多的仓库下
+    // 单页 JSON 可达数 MB，慢速/代理网络下极易在读取响应体时超时
+    // （"error decoding response body"）。30 条/页足够覆盖绝大多数"最新含二进制"场景。
+    let per_page = 30;
     let max_pages = 5;
 
     let tag_filter = if let Some(regex) = version_extract_regex {
@@ -183,7 +198,10 @@ pub async fn check_github_releases(
         None
     };
 
-    loop {
+    // releases 列表接口按发布时间倒序返回，因此首个通过校验的 release
+    // 即为"最新且含匹配二进制"的 release。命中后立即结束整段扫描，
+    // 避免为罕见的"最新 release 无二进制、需翻多页历史"场景付出无谓的大响应请求。
+    'scan: loop {
         if page > max_pages {
             debug!(
                 "[二进制检查] {}: 已达到最大页数限制 ({} 页，{} 个 releases)，停止搜索",
@@ -261,8 +279,19 @@ pub async fn check_github_releases(
                             continue;
                         }
                     }
+                    // 二进制检查命中：当前 release 即"最新含匹配二进制"，
+                    // 采用其版本并立即结束整段扫描（倒序首个 = 最新）
+                    let version = if let Some(assets) = release["assets"].as_array() {
+                        extract_version_from_assets(assets, version_extract_regex.unwrap())
+                            .unwrap_or_else(|| clean_version(tag))
+                    } else {
+                        clean_version(tag)
+                    };
+                    best_version = Some(version);
+                    break 'scan;
                 }
 
+                // 非二进制：取所有匹配 tag 中的最大版本
                 let version = clean_version(tag);
                 best_version = match best_version.take() {
                     Some(current)

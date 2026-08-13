@@ -40,6 +40,12 @@ pub mod upstream_validate;
 /// 缓存清理（系统缓存、自定义缓存目录）
 pub mod cache_cleanup;
 
+/// 缓存包安装和信息查询（pacman -Qip、sudoers 配置）
+pub mod cache_install;
+
+/// pacman 写事务全局串行化锁（防止并发安装争抢 db.lck）
+pub mod pacman_lock;
+
 // 公开导出 Tauri 命令函数，供 lib.rs 注册使用
 pub use backup_basic::{clear_backup_software, delete_backup, list_backup_software};
 pub use backup_install::{
@@ -48,6 +54,10 @@ pub use backup_install::{
 pub use cache_cleanup::{
     check_cache_cleanup_sudoers, clean_custom_cache_dirs, clean_system_cache,
     get_cache_cleanup_sudoers_command,
+};
+pub use cache_install::{
+    check_cache_install_sudoers, get_cache_install_sudoers_command, get_cache_package_info,
+    install_cache_package,
 };
 pub use software_check::{check_selected_upstream, check_upstream_version};
 pub use software_sync::{check_all_upstream, sync_from_aur, sync_from_pkgbuild, update_aur_info};

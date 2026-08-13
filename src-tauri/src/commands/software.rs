@@ -24,6 +24,18 @@ pub async fn list_software_view(
     Ok(result)
 }
 
+/// 按 pkgname 获取单条列表视图条目（定向刷新用）
+#[tauri::command]
+pub async fn get_software_list_entry(
+    state: State<'_, AppState>,
+    pkgname: String,
+) -> Result<Option<SoftwareListEntry>, String> {
+    debug!("正在获取软件包列表条目: {}", pkgname);
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.get_software_list_entry(&pkgname)
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub async fn get_software(
     state: State<'_, AppState>,

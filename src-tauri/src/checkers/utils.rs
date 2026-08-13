@@ -29,21 +29,47 @@ pub fn extract_version_with_regex(text: &str, regex_pattern: &str) -> Option<Str
 }
 
 /// 从 GitHub/GitLab/Gitee 仓库 URL 提取 owner 和 repo
-/// @param repo_url - 仓库 URL，如 https://github.com/owner/repo 或 git@github.com:owner/repo.git
+///
+/// 支持的 URL 格式：
+/// - https://github.com/owner/repo
+/// - https://github.com/owner/repo/releases/tag/v1.0
+/// - https://gitlab.com/owner/repo
+/// - https://gitee.com/owner/repo
+/// - git@github.com:owner/repo.git
+///
+/// @param repo_url - 仓库 URL
 /// @returns (owner, repo) 元组，如果无法解析则返回 None
 pub fn extract_owner_repo(repo_url: &str) -> Option<(String, String)> {
-    // 去除末尾的斜杠和 .git 后缀，然后按 / 分割
-    let parts: Vec<&str> = repo_url
-        .trim_end_matches('/')
-        .trim_end_matches(".git")
-        .split('/')
-        .collect();
-    if parts.len() >= 2 {
-        // 倒数第二部分是 owner，最后一部分是 repo
-        Some((
-            parts[parts.len() - 2].to_string(),
-            parts[parts.len() - 1].to_string(),
-        ))
+    let url = repo_url.trim_end_matches('/').trim_end_matches(".git");
+
+    // 处理 SSH 格式: git@github.com:owner/repo.git
+    if let Some(colon_pos) = url.find(':') {
+        if url.starts_with("git@") {
+            let after_colon = &url[colon_pos + 1..];
+            let parts: Vec<&str> = after_colon.split('/').collect();
+            if parts.len() >= 1 {
+                let first = parts[0];
+                if let Some(slash_pos) = first.find('/') {
+                    let owner = first[..slash_pos].to_string();
+                    let repo = first[slash_pos + 1..].to_string();
+                    return Some((owner, repo));
+                }
+            }
+        }
+    }
+
+    // 处理 HTTP(S) 格式: 按 / 分割，找到域名后的前两段作为 owner/repo
+    let parts: Vec<&str> = url.split('/').collect();
+
+    // 查找域名位置（包含 . 的段即为域名）
+    let domain_idx = parts.iter().position(|p| p.contains('.'))?;
+
+    // owner 和 repo 紧跟在域名之后
+    let owner_idx = domain_idx.checked_add(1)?;
+    let repo_idx = domain_idx.checked_add(2)?;
+
+    if owner_idx < parts.len() && repo_idx < parts.len() {
+        Some((parts[owner_idx].to_string(), parts[repo_idx].to_string()))
     } else {
         None
     }
@@ -160,10 +186,11 @@ fn strip_file_extensions(version: &str) -> String {
 /// @param body - HTML 页面文本内容
 /// @returns 提取到的版本号
 pub fn extract_version_from_html(body: &str) -> Option<String> {
-    // 模式1：匹配 "version" / "release" 等关键词后的版本号
-    let re =
-        regex::Regex::new(r"(?i)(?:version|release|ver\.?)[:\s]+v?(\d+\.\d+\.\d+[a-zA-Z0-9._-]*)")
-            .ok()?;
+    // 模式1：匹配 "version" / "release" / "版本" 等关键词后的版本号
+    let re = regex::Regex::new(
+        r"(?i)(?:version|release|ver\.?|版本)[:\s]+v?(\d+\.\d+\.\d+[a-zA-Z0-9._-]*)",
+    )
+    .ok()?;
     if let Some(cap) = re.captures(body) {
         return Some(cap[1].to_string());
     }

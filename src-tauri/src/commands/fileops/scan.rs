@@ -18,6 +18,8 @@ use crate::errors::AppResult;
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct PkgFileInfo {
     pub filename: String,
+    /// 文件绝对路径（递归扫描时含子目录，用于后续定位与复制）
+    pub full_path: String,
     pub name: String,
     pub epoch: Option<String>,
     pub version: String,
@@ -29,19 +31,40 @@ pub struct PkgFileInfo {
 // .pkg.tar.zst 包文件扫描
 // ════════════════════════════════════════════════════════════
 
-/// 扫描指定目录中的 .pkg.tar.zst 包文件
+/// 递归扫描指定目录（含子目录）中的 .pkg.tar.zst 包文件
+///
+/// 使用显式栈进行深度优先遍历；通过 `file_type()` 判断目录类型，
+/// 对符号链接目录返回 false，从而天然排除符号链接、避免死循环。
+/// 无权限访问的分支会被跳过而不中断整体扫描。
 pub async fn scan_pkg_files(directory: &str) -> AppResult<Vec<PkgFileInfo>> {
-    let mut entries = fs::read_dir(directory).await?;
     let mut result = Vec::new();
-    while let Some(entry) = entries.next_entry().await? {
-        let path = entry.path();
-        if path.is_file() {
-            let filename = path.file_name().unwrap().to_string_lossy().to_string();
-            if let Some(pkg) = parse_pkg_filename(&filename) {
-                result.push(pkg);
+    let mut stack: Vec<std::path::PathBuf> = vec![std::path::PathBuf::from(directory)];
+
+    while let Some(dir) = stack.pop() {
+        let mut entries = match fs::read_dir(&dir).await {
+            Ok(e) => e,
+            Err(_) => continue, // 无权限或目录不存在，跳过该分支
+        };
+
+        while let Some(entry) = entries.next_entry().await? {
+            let path = entry.path();
+            // 使用 file_type 避免跟随符号链接导致无限递归
+            let ft = entry.file_type().await?;
+            if ft.is_dir() {
+                // file_type().is_dir() 对符号链接为 false，天然排除符号链接目录
+                stack.push(path);
+            } else if ft.is_file() {
+                let full_path = path.to_string_lossy().to_string();
+                if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
+                    if let Some(mut pkg) = parse_pkg_filename(filename) {
+                        pkg.full_path = full_path;
+                        result.push(pkg);
+                    }
+                }
             }
         }
     }
+
     result.sort_by(|a, b| a.name.cmp(&b.name));
     Ok(result)
 }
@@ -73,6 +96,7 @@ fn parse_pkg_filename(filename: &str) -> Option<PkgFileInfo> {
 
     Some(PkgFileInfo {
         filename: filename.to_string(),
+        full_path: String::new(),
         name,
         epoch,
         version,

@@ -178,4 +178,38 @@ mod tests {
             VersionComparison::LessThan
         );
     }
+
+    /// pkgrel 不应被当成版本组件错位比较：pkgver 不等时以 pkgver 为准
+    #[test]
+    fn test_pkgrel_not_positional() {
+        // 缓存 9.0.1-1 比备份 9.0-5 更新（pkgver 9.0.1 > 9.0）
+        assert_eq!(
+            compare_vercmp("2:9.0.1-1", "2:9.0-5"),
+            VersionComparison::GreaterThan
+        );
+        // 反向：上游 9.0.1 比 AUR 9.0-5 更新
+        assert_eq!(
+            compare_vercmp("2:9.0-5", "2:9.0.1"),
+            VersionComparison::LessThan
+        );
+        // pkgver 段数不同：1.2 < 1.2.3，pkgrel 不应干扰（修复 1.2-5 vs 1.2.3-1 误判）
+        assert_eq!(
+            compare_vercmp("1.2-5", "1.2.3-1"),
+            VersionComparison::LessThan
+        );
+        // pkgver 相等时才比较 pkgrel
+        assert_eq!(
+            compare_vercmp("1.2.3-1", "1.2.3-5"),
+            VersionComparison::LessThan
+        );
+        assert_eq!(
+            compare_vercmp("1.2.3-5", "1.2.3-1"),
+            VersionComparison::GreaterThan
+        );
+        // pkgrel 缺失视为 0
+        assert_eq!(
+            compare_vercmp("1.2.3-1", "1.2.3"),
+            VersionComparison::GreaterThan
+        );
+    }
 }

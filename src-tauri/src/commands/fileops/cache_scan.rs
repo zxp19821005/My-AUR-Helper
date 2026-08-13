@@ -128,11 +128,8 @@ pub async fn scan_all_cache_dirs(
                     pkgrel: pkg.pkgrel.clone(),
                     arch: pkg.arch.clone(),
                     cache_directory: cache_directory.clone(),
-                    // 完整存储路径 = 缓存目录 + 文件名（与 backup_software.full_path 对齐）
-                    full_path: std::path::Path::new(cache_directory)
-                        .join(&pkg.filename)
-                        .to_string_lossy()
-                        .to_string(),
+                    // 完整存储路径 = 文件真实绝对路径（递归扫描时含子目录）
+                    full_path: pkg.full_path.clone(),
                 };
                 match db.insert_cache_software(&cs) {
                     Ok(_) => inserted += 1,
@@ -199,10 +196,8 @@ pub async fn scan_cache_dir(
                 pkgrel: pkg.pkgrel.clone(),
                 arch: pkg.arch.clone(),
                 cache_directory: dir.path.clone(),
-                full_path: std::path::Path::new(&dir.path)
-                    .join(&pkg.filename)
-                    .to_string_lossy()
-                    .to_string(),
+                // 完整存储路径 = 文件真实绝对路径（递归扫描时含子目录）
+                full_path: pkg.full_path.clone(),
             }
         })
         .collect();

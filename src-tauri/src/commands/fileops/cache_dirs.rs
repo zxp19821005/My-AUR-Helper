@@ -123,16 +123,49 @@ pub fn extract_pkgname_from_cache(filename: &str) -> Option<String> {
     Some(name_ver[..dash_pos].to_string())
 }
 
-/// 在缓存目录中查找文件
+/// 在缓存目录中查找文件（递归搜索子目录）
 pub async fn find_cache_file(
     filename: &str,
     cache_dirs: &[CacheDir],
 ) -> Option<std::path::PathBuf> {
     for dir in cache_dirs {
-        let path = std::path::Path::new(&dir.path);
-        let file_path = path.join(filename);
-        if file_path.exists() {
-            return Some(file_path);
+        let root = std::path::Path::new(&dir.path);
+        if let Some(found) = find_file_recursive(root, filename).await {
+            return Some(found);
+        }
+    }
+    None
+}
+
+/// 递归遍历目录查找文件名匹配的文件
+///
+/// 使用显式栈深度优先遍历；通过 `file_type()` 判断目录类型，
+/// 对符号链接目录返回 false，天然排除符号链接、避免死循环。
+async fn find_file_recursive(dir: &std::path::Path, filename: &str) -> Option<std::path::PathBuf> {
+    let mut stack: Vec<std::path::PathBuf> = vec![dir.to_path_buf()];
+    while let Some(current) = stack.pop() {
+        let mut entries = match tokio::fs::read_dir(&current).await {
+            Ok(e) => e,
+            Err(_) => continue, // 无权限或目录不存在，跳过该分支
+        };
+        loop {
+            let entry = match entries.next_entry().await {
+                Ok(Some(e)) => e,
+                _ => break,
+            };
+            let path = entry.path();
+            let ft = match entry.file_type().await {
+                Ok(ft) => ft,
+                Err(_) => continue,
+            };
+            if ft.is_dir() {
+                // file_type().is_dir() 对符号链接为 false，天然排除符号链接目录
+                stack.push(path);
+            } else if ft.is_file() {
+                if path.file_name().and_then(|n| n.to_str()) == Some(filename) {
+                    return Some(path);
+                }
+            }
         }
     }
     None

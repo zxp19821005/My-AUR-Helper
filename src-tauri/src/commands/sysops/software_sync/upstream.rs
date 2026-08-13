@@ -57,13 +57,11 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
         let software_id = sw.software_id.unwrap_or(0);
         let retry = retry;
 
-        let proxy_url_for_spawn = proxy_url.clone();
         let handle = tokio::spawn(async move {
             let checker = crate::checkers::get_checker(&checker_type_id, settings);
             let options = crate::checkers::CheckOptions {
                 check_test_versions,
                 check_binary_files,
-                proxy_url: proxy_url_for_spawn,
             };
 
             let result = check_with_retry(
@@ -170,7 +168,8 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
             let existing_sw = db.get_software_by_name(&result.pkgname)?;
             if let Some(ref sw) = existing_sw {
                 if sw.language_ids.is_empty() && !language_ids.is_empty() {
-                    if let Err(e) = db.update_software_languages(result.software_id, &language_ids) {
+                    if let Err(e) = db.update_software_languages(result.software_id, &language_ids)
+                    {
                         error!(
                             "[版本检查] 更新 {} 的 languages 失败: {}",
                             result.pkgname, e

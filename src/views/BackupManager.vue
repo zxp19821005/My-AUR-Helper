@@ -21,6 +21,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useBackupList, fmtEpoch } from "../composables/useBackupList";
 import { useBackupInstall } from "../composables/useBackupInstall";
 import { FOOTER_KEY, addMessage } from "../composables/footer";
+import { openConfirm as confirm } from "../composables/useConfirm";
 import type { DeduplicateResult, BackupSoftwareEntry } from "../types";
 import PageToolbar from "../components/common/PageToolbar.vue";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
@@ -70,7 +71,7 @@ onMounted(async () => {
 });
 
 async function handleClearTable() {
-  if (!confirm("确定要清空备份表吗？这只会删除数据库记录，不会删除磁盘文件。")) return;
+  if (!(await confirm({ message: "确定要清空备份表吗？这只会删除数据库记录，不会删除磁盘文件。", variant: "danger" }))) return;
   loading.value = true;
   try {
     const count = await invoke<number>("clear_backup_software");
@@ -107,7 +108,7 @@ async function handleDeduplicate() {
     addMessage(footer, "warning", "请先在设置中配置备份目录");
     return;
   }
-  if (!confirm("确定要执行软件去重吗？将删除每个包的旧版本文件和数据库记录。")) return;
+  if (!(await confirm({ message: "确定要执行软件去重吗？将删除每个包的旧版本文件和数据库记录。", variant: "danger" }))) return;
   loading.value = true;
   try {
     const result = await invoke<DeduplicateResult>("deduplicate_backups", { backupPath: backupPath.value });
@@ -126,7 +127,7 @@ async function handleDeduplicate() {
 }
 
 async function rowDelete(id: number, filename: string) {
-  if (!confirm(`确定要删除备份文件 ${filename} 吗？`)) return;
+  if (!(await confirm({ message: `确定要删除备份文件 ${filename} 吗？`, variant: "danger" }))) return;
   loading.value = true;
   try {
     await invoke("delete_backup", { id, backupPath: backupPath.value });
@@ -140,9 +141,9 @@ async function rowDelete(id: number, filename: string) {
   }
 }
 
-function deleteSelected() {
+async function deleteSelected() {
   if (selectedIds.value.size === 0) return;
-  if (!confirm(`确定要删除选中的 ${selectedIds.value.size} 个备份记录吗？`)) return;
+  if (!(await confirm({ message: `确定要删除选中的 ${selectedIds.value.size} 个备份记录吗？`, variant: "danger" }))) return;
   addMessage(footer, "info", "批量删除功能开发中");
 }
 
@@ -310,8 +311,9 @@ const columns = [
       :sudoers-command="sudoersCommand"
       :pending-install-path="pendingInstallPath"
       :pending-install-pkgname="pendingInstallPkgname"
+      :installing="installing"
       @close="closeSudoersPrompt"
-      @retry="doInstall"
+      @install="doInstall"
     />
   </div>
 </template>

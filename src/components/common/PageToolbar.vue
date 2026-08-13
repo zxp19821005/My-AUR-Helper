@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { inject, ref, watch } from "vue";
-import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { Icon } from "../../icons";
+import { openPopup } from "../../composables/usePopupWindow";
 
 const props = defineProps<{
   modelValue?: string;
@@ -47,76 +47,18 @@ function clearSearch() {
 
 /**
  * 打开（或激活）一个独立 Tauri 子窗口。
- *
- * 变更逻辑（修复重复点击失效）：
- * 1. 若窗口已存在（getByLabel 命中），先 unminimize 再 show + setFocus 重新激活，直接 return。
- *    这一步依赖 capabilities 中授予的 core:window:allow-show / allow-unminimize / allow-set-focus。
- *    早期版本缺少 allow-show 权限，show() 会抛错并误入“重新创建”分支；而重复 label 的
- *    new WebviewWindow 错误是异步事件（tauri://error），外部 try/catch 捕获不到，导致第二次
- *    点击静默失效。补上权限后才真正生效。
- * 2. 若窗口不存在才创建新窗口；创建后监听 tauri://error，极少数竞态下（label 已存在）
- *    补一次聚焦，避免窗口“创建但不可见”。
+ * 具体逻辑见 composables/usePopupWindow.ts（与 Dashboard 共用）。
  */
-async function openWindow(label: string, url: string, title: string) {
-  // 1) 窗口已存在：取消最小化 -> 显示 -> 聚焦（再次点击切换/激活窗口）
-  try {
-    const existing = await WebviewWindow.getByLabel(label);
-    if (existing) {
-      try {
-        await existing.unminimize();
-      } catch {
-        // 部分平台不支持 unminimize，忽略
-      }
-      try {
-        await existing.show();
-        await existing.setFocus();
-      } catch {
-        // show/setFocus 失败，窗口可能已销毁，继续创建新窗口
-      }
-      return;
-    }
-  } catch {
-    // getByLabel 失败，继续创建新窗口
-  }
-
-  // 2) 创建新窗口；duplicate-label 错误通过异步事件发出，不会被下方 try/catch 捕获
-  try {
-    const win = new WebviewWindow(label, {
-      url,
-      title,
-      width: 900,
-      height: 600,
-      resizable: true,
-      center: true,
-    });
-    // 极少数竞态下 label 已存在，create 会异步报错，这里补一次聚焦
-    win.once("tauri://error", async () => {
-      try {
-        const existing = await WebviewWindow.getByLabel(label);
-        if (existing) {
-          try { await existing.unminimize(); } catch { /* ignore */ }
-          await existing.show();
-          await existing.setFocus();
-        }
-      } catch {
-        // 忽略
-      }
-    });
-  } catch (error) {
-    console.error(`打开窗口 "${label}" 失败:`, error);
-  }
-}
-
 function openEnums() {
-  openWindow("enums", "/enums", "枚举值管理");
+  openPopup("enums", "/enums", "枚举值管理");
 }
 
 function openLogs() {
-  openWindow("logs", "/logs", "日志");
+  openPopup("logs", "/logs", "日志");
 }
 
 function openSettings() {
-  openWindow("settings", "/settings", "设置");
+  openPopup("settings", "/settings", "设置");
 }
 </script>
 

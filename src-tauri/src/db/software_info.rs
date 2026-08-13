@@ -210,6 +210,25 @@ impl Database {
         Ok((prev, next))
     }
 
+    /// 将一行查询结果转换为列表视图条目
+    fn row_to_list_entry(row: &rusqlite::Row) -> rusqlite::Result<SoftwareListEntry> {
+        let status_str: Option<String> = row.get(10)?;
+        Ok(SoftwareListEntry {
+            software_id: row.get(0)?,
+            pkgname: row.get(1)?,
+            package_type_id: PackageType::from_id(row.get(2)?),
+            checker_type_id: CheckerType::from_id(row.get(3)?),
+            is_outdated: row.get::<_, i32>(4)? != 0,
+            aur_version: row.get(5)?,
+            aur_last_updated: row.get(6)?,
+            upstream_version: row.get(7)?,
+            upstream_last_checked: row.get(8)?,
+            upstream_url: row.get(9)?,
+            upstream_url_status: status_str.map(|s| UpstreamUrlStatus::from_str(&s)),
+            upstream_license_id: row.get(11)?,
+        })
+    }
+
     pub fn get_software_list_entries(&self) -> AppResult<Vec<SoftwareListEntry>> {
         let mut stmt = self.conn.prepare(
             "SELECT s.software_id, s.pkgname, s.package_type_id, s.checker_type_id, s.is_outdated,
@@ -221,28 +240,32 @@ impl Database {
              LEFT JOIN upstream_info u ON s.software_id = u.software_id
              ORDER BY s.pkgname",
         )?;
-        let rows = stmt.query_map([], |row| {
-            let status_str: Option<String> = row.get(10)?;
-            Ok(SoftwareListEntry {
-                software_id: row.get(0)?,
-                pkgname: row.get(1)?,
-                package_type_id: PackageType::from_id(row.get(2)?),
-                checker_type_id: CheckerType::from_id(row.get(3)?),
-                is_outdated: row.get::<_, i32>(4)? != 0,
-                aur_version: row.get(5)?,
-                aur_last_updated: row.get(6)?,
-                upstream_version: row.get(7)?,
-                upstream_last_checked: row.get(8)?,
-                upstream_url: row.get(9)?,
-                upstream_url_status: status_str.map(|s| UpstreamUrlStatus::from_str(&s)),
-                upstream_license_id: row.get(11)?,
-            })
-        })?;
+        let rows = stmt.query_map([], |row| Self::row_to_list_entry(row))?;
         let mut items = Vec::new();
         for row in rows {
             items.push(row?);
         }
         Ok(items)
+    }
+
+    /// 按 pkgname 获取单条列表视图条目（用于定向刷新，避免整表重载）
+    /// @param pkgname - 软件包名
+    /// @returns 若存在返回 Some，否则 None（例如已被删除）
+    pub fn get_software_list_entry(&self, pkgname: &str) -> AppResult<Option<SoftwareListEntry>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT s.software_id, s.pkgname, s.package_type_id, s.checker_type_id, s.is_outdated,
+                    a.aur_version, CAST(a.last_updated AS INTEGER),
+                    u.upstream_version, CAST(u.last_checked AS INTEGER),
+                    s.upstream_url, u.upstream_url_status, u.upstream_license_id
+             FROM software_info s
+             LEFT JOIN aur_info a ON s.software_id = a.software_id
+             LEFT JOIN upstream_info u ON s.software_id = u.software_id
+             WHERE s.pkgname = ?1",
+        )?;
+        let mut rows = stmt.query_map(rusqlite::params![pkgname], |row| {
+            Self::row_to_list_entry(row)
+        })?;
+        Ok(rows.next().transpose()?)
     }
 
     /// 更新软件的语言 ID 列表

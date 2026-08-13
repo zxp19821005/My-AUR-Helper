@@ -48,10 +48,10 @@ const {
   currentPage,
   filteredEntries,
   fetchView,
+  refreshEntries,
   openAddModal,
   openEditModal,
   openDetailModal,
-  onModalSaved,
   setSelected,
   syncToolbar,
   activeFilterCount,
@@ -70,7 +70,7 @@ const {
   rowSyncFromPkgbuild,
   rowCheckUpstream,
   rowDelete,
-} = usePackageActions(fetchView, syncToolbar);
+} = usePackageActions(fetchView, refreshEntries, syncToolbar);
 
 const validating = ref(false);
 
@@ -111,6 +111,22 @@ function updateConditionFilter(key: "packageType" | "checkerType", value: number
 onMounted(async () => {
   await Promise.all([fetchView(), pkgStore.fetchPackages()]);
 });
+
+/**
+ * 编辑/添加弹窗保存后的刷新处理
+ * - 编辑模式：仅定向刷新被编辑的那一条目（pkgname 不变），避免整表(近两千条)重载
+ * - 添加模式：新包不在当前列表中，回退为整表刷新
+ */
+async function handleFormSaved() {
+  const pkgnames =
+    modalMode.value === "edit" && modalPkgname.value
+      ? [modalPkgname.value]
+      : [];
+  // 编辑模式：仅定向刷新被编辑的那一条目，避免整表(近两千条)重载；
+  // 添加模式：新包不在当前列表，refreshEntries 空列表内部回退为整表 fetchView。
+  // 注意：不再调用 pkgStore.fetchPackages()（其走 list_software 全量加载），否则会整体刷新。
+  await refreshEntries(pkgnames);
+}
 </script>
 
 <template>
@@ -208,7 +224,7 @@ onMounted(async () => {
       :mode="modalMode"
       :pkgname="modalPkgname"
       @close="showModal = false"
-      @saved="onModalSaved"
+      @saved="handleFormSaved"
     />
 
     <SoftwareDetailModal
@@ -216,6 +232,7 @@ onMounted(async () => {
       :pkgname="detailPkgname"
       @close="showDetailModal = false"
       @navigate="detailPkgname = $event"
+      @entry-updated="(p: string) => refreshEntries([p])"
     />
   </div>
 </template>

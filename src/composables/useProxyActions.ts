@@ -13,6 +13,7 @@
 import { ref, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { FOOTER_KEY, addMessage } from "./footer";
+import { openConfirm as confirm } from "./useConfirm";
 import { useProxyList, type ProxyTestResult } from "./useProxyList";
 import type { ProxyInfo } from "../types";
 
@@ -24,7 +25,6 @@ export function useProxyActions(list: ProxyListApi) {
   const downloading = ref(false);
   const parsing = ref(false);
   const clearing = ref(false);
-  const showClearConfirm = ref(false);
 
   /** 获取代理文件（从远程下载并写入本地） */
   async function handleDownloadProxyFile() {
@@ -56,7 +56,7 @@ export function useProxyActions(list: ProxyListApi) {
 
   /** 清空代理表（proxies_info + proxies_test，重置 proxy_id） */
   async function handleClearProxyTables() {
-    showClearConfirm.value = false;
+    if (!(await confirm({ message: "确定要清空所有代理数据吗？此操作不可恢复。", variant: "danger" }))) return;
     clearing.value = true;
     try {
       const count = await invoke<number>("clear_proxy_tables");
@@ -130,7 +130,7 @@ export function useProxyActions(list: ProxyListApi) {
   /** 批量删除选中代理 */
   async function handleDeleteSelected() {
     if (list.selectedIds.value.size === 0) return;
-    if (!confirm(`确定要删除选中的 ${list.selectedIds.value.size} 个代理吗？`)) return;
+    if (!(await confirm({ message: `确定要删除选中的 ${list.selectedIds.value.size} 个代理吗？`, variant: "danger" }))) return;
     list.loading.value = true;
     try {
       await list.deleteSelectedProxies();
@@ -155,7 +155,6 @@ export function useProxyActions(list: ProxyListApi) {
     downloading,
     parsing,
     clearing,
-    showClearConfirm,
     handleDownloadProxyFile,
     handleParseProxyFile,
     handleClearProxyTables,

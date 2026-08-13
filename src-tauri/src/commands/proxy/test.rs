@@ -1,3 +1,4 @@
+use chrono::Utc;
 /**
  * proxy/test.rs - 代理连通性测试命令与辅助
  *
@@ -6,7 +7,6 @@
  */
 use log::{debug, info};
 use tauri::State;
-use chrono::Utc;
 use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
 
@@ -124,7 +124,8 @@ pub async fn test_proxies_batch(
     // 按完成顺序收集结果（完成顺序 ≠ 发起顺序，但前端按 proxy_id 映射，无影响）
     let mut results = Vec::new();
     while let Some(joined) = set.join_next().await {
-        let result = joined.map_err(|e| AppError::NetworkError(format!("代理测试任务异常: {}", e)))?;
+        let result =
+            joined.map_err(|e| AppError::NetworkError(format!("代理测试任务异常: {}", e)))?;
         results.push(result);
     }
 

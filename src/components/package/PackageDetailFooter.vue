@@ -8,6 +8,7 @@
 <script setup lang="ts">
 import { invoke } from "@tauri-apps/api/core";
 import type { SoftwareDetail } from "../../types";
+import { openConfirm as confirm } from "../../composables/useConfirm";
 import PackageActionButtons from "./PackageActionButtons.vue";
 
 const props = defineProps<{
@@ -32,7 +33,7 @@ const error = defineModel<string>("error", { required: true });
 
 async function handleDelete() {
   if (!props.detail?.software_id) return;
-  if (!confirm(`确定要删除软件包 "${props.detail.pkgname}" 吗？`)) return;
+  if (!(await confirm({ message: `确定要删除软件包 "${props.detail.pkgname}" 吗？`, variant: "danger" }))) return;
 
   deleting.value = true;
   error.value = "";
