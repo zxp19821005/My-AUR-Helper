@@ -1,3 +1,9 @@
+/**
+ * software_info.rs - 软件包信息表数据访问层
+ *
+ * 提供 software_info 表的查询、写入、详情获取等数据库操作，
+ * 是软件包元信息的持久化核心。
+ */
 use crate::errors::AppResult;
 
 use crate::models::*;

@@ -1,9 +1,10 @@
-use super::{browser, gitee, github, gitlab, http, manual, redirect, trait_def::VersionChecker};
 /**
  * factory.rs - 检查器工厂
  *
- * 根据检查器类型创建对应的 VersionChecker 实例
+ * 根据检查器类型（CheckerType）创建对应的 VersionChecker 实例，
+ * 统一对外提供 get_checker 入口。
  */
+use super::{browser, gitee, github, gitlab, http, manual, redirect, trait_def::VersionChecker};
 use crate::models::CheckerType;
 
 /// 检查器配置（包含各平台 Token）

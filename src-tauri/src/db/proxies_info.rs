@@ -1,3 +1,8 @@
+/**
+ * proxies_info.rs - 代理配置表数据访问层
+ *
+ * 提供代理源（proxies）记录的增删改查，支撑代理管理与测试功能。
+ */
 use crate::errors::AppResult; // 通用错误处理
 
 use crate::models::*; // 数据模型

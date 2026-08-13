@@ -1,3 +1,9 @@
+/**
+ * fetch.rs - 代理请求封装
+ *
+ * 基于配置的代理（HTTP/SOCKS）构建 reqwest 客户端并发起请求，
+ * 供版本检查与代理测试复用，避免重复实现代理逻辑。
+ */
 use log::info;
 use reqwest::Client;
 

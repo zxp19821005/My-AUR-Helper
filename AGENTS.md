@@ -128,6 +128,8 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/commands/fileops/cache_backup/subdirectory.rs` | 备份到指定子目录 |
 | `src-tauri/src/commands/sysops/cache_cleanup.rs` | 缓存清理命令（系统缓存、自定义缓存目录、sudoers 配置） |
 | `src-tauri/src/commands/sysops/cache_install.rs` | 缓存包安装和信息查询命令（pacman -Qip、sudoers 免密检测、install） |
+| `src-tauri/src/commands/sysops/backup_install.rs` | 备份包安装和信息查询 Tauri 命令（pacman -Qip、sudoers、install） |
+| `src-tauri/src/commands/sysops/backup_install_helpers.rs` | 备份安装的路径校验与 sudoers 规则辅助函数（被 cache_install/cache_cleanup 复用） |
 | `src-tauri/src/commands/sysops/pacman_lock.rs` | pacman 数据库锁检查命令（检测 /var/lib/pacman/db.lck 是否存在） |
 | `src-tauri/src/commands/software_sync/` | 软件包同步命令模块（目录结构） |
 | `src-tauri/src/commands/software_sync/mod.rs` | 模块声明和导出（不含具体实现） |
@@ -140,6 +142,8 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/checkers/factory.rs` | 检查器工厂函数（get_checker） |
 | `src-tauri/src/checkers/trait_def.rs` | VersionChecker trait 定义 |
 | `src-tauri/src/checkers/utils.rs` | 检查器工具函数（含版本正则提取） |
+| `src-tauri/src/checkers/redirect.rs` | HTTP 重定向检查器（跟踪 Location / meta-refresh / JS 重定向） |
+| `src-tauri/src/checkers/redirect_parse.rs` | 重定向检查器的 URL 解析与脚本扫描辅助函数 |
 | `src-tauri/src/checkers/browser.rs` | 浏览器（JS 渲染）检查器（BrowserChecker），调用本机 Chromium/Chrome 渲染后提取版本 |
 | `src-tauri/src/checkers/github/` | GitHub 检查器模块（目录结构） |
 | `src-tauri/src/checkers/github/mod.rs` | 模块声明和导出（不含具体实现） |
@@ -147,6 +151,8 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/checkers/github/api_checker.rs` | GitHubAPIChecker 检查器实现 |
 | `src-tauri/src/checkers/github/tags.rs` | GitHub Tags 分页获取和版本比较逻辑 |
 | `src-tauri/src/checkers/github/api.rs` | GitHub Release API 调用和资产过滤逻辑 |
+| `src-tauri/src/checkers/github/release.rs` | GitHub latest release 路径版本提取（二进制检查 + 正则回退） |
+| `src-tauri/src/checkers/github/release_history.rs` | GitHub Releases 历史遍历扫描（分页 + 资产过滤回退） |
 | `src-tauri/src/checkers/github/git_describe.rs` | Git Describe 格式化（-git 包专用） |
 | `src-tauri/src/versions/` | 版本处理模块（解析、标准化、比较） |
 | `src-tauri/src/versions/mod.rs` | versions 模块入口 |
@@ -186,6 +192,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/components/package/` | 软件包相关组件（SoftwareDetailModal、SoftwareFormModal、PackageRowActions、PackageTable、各InfoCard等） |
 | `src/components/backup/` | 备份管理组件（RowActions、InfoDialog、SudoersDialog等） |
 | `src/components/cache/` | 缓存管理组件（CacheRowActions） |
+| `src/components/dashboard/` | 仪表盘组件（ModuleCard 模块卡片） |
 | `src/components/proxy/` | 代理管理组件（ProxyRowActions） |
 | `src/components/settings/` | 设置页面组件（SettingsCard、SettingRow、各配置Section） |
 | `src/components/filter/` | 筛选组件（FilterBar） |
@@ -202,6 +209,8 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/composables/useCacheList.ts` | 缓存管理列表页逻辑（分页、搜索、选择） |
 | `src/composables/useCacheBackupActions.ts` | 缓存备份操作逻辑（去重、备份新版本、备份到目录） |
 | `src/composables/useCacheCleanup.ts` | 缓存清理操作逻辑（系统缓存、自定义缓存目录、sudoers 检测） |
+| `src/composables/useCacheInfoNav.ts` | 缓存详情弹窗导航与选择逻辑（从 CacheManager 抽取） |
+| `src/composables/useBackupInfoNav.ts` | 备份详情弹窗导航与选择逻辑（从 BackupManager 抽取） |
 | `src/composables/useSoftwareForm.ts` | 软件包表单逻辑（验证、自动检测） |
 | `src/composables/useLicenseSelect.ts` | License 可搜索下拉框逻辑 |
 | `src/stores/` | Pinia 状态管理 |
@@ -290,6 +299,18 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | | | `commands/fileops/cache_backup/subdirectory.rs` | 110 | | 新文件 |
 | `src-tauri/src/lib.rs` | 305 | `lib.rs` | 238 | 2026-08-10 | ✅ 完成 |
 | | | `tray.rs` | 83 | | 新文件 |
+| `src/views/Dashboard.vue` | 460 | `Dashboard.vue` | 260 | 2026-08-13 | ✅ 完成 |
+| | | `components/dashboard/ModuleCard.vue` | 221 | | 新文件 |
+| `src/views/CacheManager.vue` | 347 | `CacheManager.vue` | 301 | 2026-08-13 | ✅ 完成 |
+| | | `composables/useCacheInfoNav.ts` | 83 | | 新文件 |
+| `src/views/BackupManager.vue` | 319 | `BackupManager.vue` | 292 | 2026-08-13 | ✅ 完成 |
+| | | `composables/useBackupInfoNav.ts` | 64 | | 新文件 |
+| `src-tauri/src/checkers/github/release.rs` | 313 | `release.rs` | 140 | 2026-08-13 | ✅ 完成 |
+| | | `release_history.rs` | 194 | | 新文件 |
+| `src-tauri/src/checkers/redirect.rs` | 307 | `redirect.rs` | 183 | 2026-08-13 | ✅ 完成 |
+| | | `redirect_parse.rs` | 138 | | 新文件（纯解析辅助函数） |
+| `src-tauri/src/commands/sysops/backup_install.rs` | 323 | `backup_install.rs` | 224 | 2026-08-13 | ✅ 完成 |
+| | | `backup_install_helpers.rs` | 123 | | 新文件（路径校验/sudoers 辅助） |
 
 <!-- ========== 前端重构记录：目录重组与样式提取 ========== -->
 ### 前端重构记录（2026-07-29）

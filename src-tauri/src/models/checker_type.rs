@@ -6,7 +6,6 @@
  * - 新增检查器类型时，必须同步维护 as_id / from_id / all 三处映射，
  *   否则会出现「枚举↔ID 不一致」导致检查器工厂 get_checker 找不到对应实现
  */
-
 use serde::{Deserialize, Serialize};
 
 /// 版本检查器类型枚举

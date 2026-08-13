@@ -25,6 +25,9 @@ pub mod proxy_utils;
 /// 备份包安装和信息查询（pacman -Qip、sudoers 配置）
 pub mod backup_install;
 
+/// 备份包安装的路径校验与 sudoers 规则辅助函数（被 backup_install 再导出）
+mod backup_install_helpers;
+
 /// 备份基础操作（查询、清空备份表、删除备份）
 pub mod backup_basic;
 

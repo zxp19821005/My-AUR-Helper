@@ -1,10 +1,10 @@
-use chrono::Utc;
 /**
  * proxy/test.rs - 代理连通性测试命令与辅助
  *
  * 提供代理延迟测试的多个入口（单 URL / 批量 / 单代理），
  * 以及测试结果持久化与测试 URL 配置等辅助逻辑。
  */
+use chrono::Utc;
 use log::{debug, info};
 use tauri::State;
 use tokio::sync::Semaphore;

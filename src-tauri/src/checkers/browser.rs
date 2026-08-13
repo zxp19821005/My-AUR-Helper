@@ -9,7 +9,6 @@
  *
  * 依赖：本机需安装 Chromium 或 Google Chrome，否则 check() 返回明确的错误提示
  */
-
 use crate::errors::{AppError, AppResult};
 use async_trait::async_trait;
 use log::{debug, info, warn};

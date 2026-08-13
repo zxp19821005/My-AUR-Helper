@@ -1,3 +1,9 @@
+/**
+ * trait_def.rs - 版本检查器 trait 定义
+ *
+ * 定义 VersionChecker 统一接口（name / check）以及检查选项 CheckOptions、
+ * 检查结果 CheckResult，供所有具体检查器实现。
+ */
 use async_trait::async_trait;
 use reqwest::Client;
 

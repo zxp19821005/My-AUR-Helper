@@ -1,3 +1,9 @@
+/**
+ * software.rs - 软件包相关 Tauri 命令
+ *
+ * 提供软件包列表查询、详情获取、删除等 IPC 命令，是前端软件管理页
+ * 与数据库/业务逻辑之间的桥梁。
+ */
 use log::{debug, info};
 use tauri::State;
 

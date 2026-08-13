@@ -9,13 +9,14 @@
   - 单行操作：删除缓存
 
   使用组件：
-  - PageToolbar: 工具栏组件（内联）
+  - PageToolbar: 工具栏组件
   - CacheRowActions: 行操作按钮组
   - StandardizedTable: 表格组件
-  - BackupToModal: 备份弹窗组件
+  - BackupToModal / BackupInfoDialog / BackupSudoersDialog / CacheSudoersModal: 弹窗
+  - useCacheInfoNav: 详情弹窗导航与选择逻辑（见 composables/useCacheInfoNav.ts）
 -->
 <script setup lang="ts">
-import { ref, computed, onMounted, inject } from "vue";
+import { ref, onMounted, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { useCacheList } from "../composables/useCacheList";
 import { fmtEpoch } from "../composables/useBackupList";
@@ -23,6 +24,7 @@ import { loadEnabledCacheDirs } from "../composables/useCacheDirs";
 import { useCacheBackupActions } from "../composables/useCacheBackupActions";
 import { useCacheCleanup } from "../composables/useCacheCleanup";
 import { useCacheInstall } from "../composables/useCacheInstall";
+import { useCacheInfoNav, cacheColumns } from "../composables/useCacheInfoNav";
 import { FOOTER_KEY, addMessage } from "../composables/footer";
 import { openConfirm as confirm } from "../composables/useConfirm";
 import BackupToModal from "../components/backup/BackupToModal.vue";
@@ -55,20 +57,6 @@ const scanning = ref(false);
 const backupPath = ref("");
 const backupSubdirectories = ref<string[]>([]);
 
-const selectedFilenames = computed(() => {
-  return filteredEntries.value
-    .filter((_, i) => selectedIds.value.has(i))
-    .map((e) => e.filename);
-});
-
-const {
-  showBackupToModal,
-  handleDedup,
-  handleBackupNewVersion,
-  openBackupToModal,
-  handleBackupSuccess,
-} = useCacheBackupActions(footer, backupPath, selectedIds, selectedFilenames, loading);
-
 const {
   loading: cleanupLoading,
   sudoersCommand,
@@ -97,32 +85,17 @@ const {
   closeSudoersPrompt: closeInstallSudoersPrompt,
 } = useCacheInstall();
 
-// 详情弹窗的上一页/下一页导航（基于当前列表顺序）
-const infoDialogIndex = ref(-1);
+// useCacheInfoNav 必须在 useCacheBackupActions 之前调用，
+// 因为后者依赖前者导出的 selectedFilenames
+const { openCacheInfo, prevEntry, nextEntry, onCacheInfoNavigate, handleSelectionChange, selectedFilenames } = useCacheInfoNav({ filteredEntries, selectedIds, viewPackageInfo });
 
-function openCacheInfo(row: any) {
-  infoDialogIndex.value = filteredEntries.value.indexOf(row);
-  viewPackageInfo(row);
-}
-
-const prevEntry = computed<any>(() => {
-  const i = infoDialogIndex.value;
-  return i > 0 ? filteredEntries.value[i - 1] : null;
-});
-
-const nextEntry = computed<any>(() => {
-  const i = infoDialogIndex.value;
-  const list = filteredEntries.value;
-  return i >= 0 && i < list.length - 1 ? list[i + 1] : null;
-});
-
-function onCacheInfoNavigate(target: any) {
-  const i = filteredEntries.value.indexOf(target);
-  if (i >= 0) {
-    infoDialogIndex.value = i;
-    viewPackageInfo(target);
-  }
-}
+const {
+  showBackupToModal,
+  handleDedup,
+  handleBackupNewVersion,
+  openBackupToModal,
+  handleBackupSuccess,
+} = useCacheBackupActions(footer, backupPath, selectedIds, selectedFilenames, loading);
 
 onMounted(async () => {
   // 首次进入即从 cache_software 表读取存量数据（与备份管理页一致）
@@ -187,26 +160,6 @@ async function rowDelete(filename: string) {
   if (!(await confirm({ message: `确定要删除缓存文件 ${filename} 吗？`, variant: "danger" }))) return;
   addMessage(footer, "info", "删除功能开发中");
 }
-
-function handleSelectionChange(selectedRows: any[]) {
-  const newSelected = new Set<number>();
-  selectedRows.forEach((row) => {
-    const idx = filteredEntries.value.findIndex(
-      (e) => e.filename === row.filename
-    );
-    if (idx !== -1) newSelected.add(idx);
-  });
-  selectedIds.value = newSelected;
-}
-
-const columns = [
-  { key: "pkgname", title: "包名" },
-  { key: "epoch", title: "Epoch" },
-  { key: "pkgver", title: "版本" },
-  { key: "pkgrel", title: "PkgRel" },
-  { key: "arch", title: "架构" },
-  { key: "cache_directory", title: "缓存目录" },
-];
 </script>
 
 <template>
@@ -263,7 +216,7 @@ const columns = [
     <!-- 缓存表格 -->
     <StandardizedTable
       :key="`table-${filteredEntries.length}`"
-      :columns="columns"
+      :columns="cacheColumns"
       :data="filteredEntries"
       :pageSize="pageSize"
       :currentPage="currentPage"

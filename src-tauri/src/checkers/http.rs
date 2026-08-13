@@ -1,3 +1,9 @@
+/**
+ * http.rs - HTTP 页面解析版本检查器
+ *
+ * 通过请求上游 HTML 页面，使用版本提取正则从页面文本中提取版本号，
+ * 适用于上游以网页形式发布版本信息的场景。
+ */
 use crate::errors::AppResult;
 use async_trait::async_trait;
 use log::{debug, info};

@@ -19,8 +19,11 @@
 /// GitHub Tags 分页获取和版本比较逻辑
 mod tags;
 
-/// GitHub Release API 调用和资产过滤逻辑
+/// GitHub Release API 调用和资产过滤逻辑（latest 路径）
 mod release;
+
+/// GitHub Releases 历史遍历扫描（分页 + 资产过滤回退）
+mod release_history;
 
 /// 二进制文件检查工具
 mod binary_check;

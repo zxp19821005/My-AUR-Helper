@@ -10,16 +10,18 @@
   - sudoers 配置检测与提示弹窗
 
   使用组件：
-  - PageToolbar: 工具栏组件（内联）
+  - PageToolbar: 工具栏组件
   - BackupRowActions: 行操作按钮组
   - StandardizedTable: 表格组件
-  - StandardizedModal: 弹窗组件
+  - BackupInfoDialog / BackupSudoersDialog: 弹窗
+  - useBackupInfoNav: 详情弹窗导航与选择逻辑（见 composables/useBackupInfoNav.ts）
 -->
 <script setup lang="ts">
-import { onMounted, ref, inject, computed } from "vue";
+import { onMounted, ref, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { useBackupList, fmtEpoch } from "../composables/useBackupList";
 import { useBackupInstall } from "../composables/useBackupInstall";
+import { useBackupInfoNav } from "../composables/useBackupInfoNav";
 import { FOOTER_KEY, addMessage } from "../composables/footer";
 import { openConfirm as confirm } from "../composables/useConfirm";
 import type { DeduplicateResult, BackupSoftwareEntry } from "../types";
@@ -47,6 +49,10 @@ const {
   checkSudoers, viewPackageInfo, closeInfoDialog,
   handleInstall, doInstall, closeSudoersPrompt, batchInstall,
 } = useBackupInstall();
+
+const {
+  prevEntry, nextEntry, onDialogNavigate, handleSelectionChange,
+} = useBackupInfoNav({ filteredEntries, selectedIds, infoDialogEntry, viewPackageInfo });
 
 const backupPath = ref("");
 const scanning = ref(false);
@@ -160,39 +166,6 @@ function onDialogInstall(entry: BackupSoftwareEntry) {
 function onDialogDelete(entry: BackupSoftwareEntry) {
   rowDelete(entry.id, entry.filename);
   closeInfoDialog();
-}
-
-/** 详情弹窗：上一个/下一个 导航 */
-function onDialogNavigate(target: BackupSoftwareEntry) {
-  viewPackageInfo(target);
-}
-
-/** 当前弹窗条目在 filteredEntries 中的索引 */
-const dialogIndex = computed(() => {
-  if (!infoDialogEntry.value) return -1;
-  return filteredEntries.value.findIndex((e: BackupSoftwareEntry) => e.id === infoDialogEntry.value!.id);
-});
-
-/** 上一个条目 */
-const prevEntry = computed<BackupSoftwareEntry | null>(() => {
-  const idx = dialogIndex.value;
-  return idx > 0 ? filteredEntries.value[idx - 1] as BackupSoftwareEntry : null;
-});
-
-/** 下一个条目 */
-const nextEntry = computed<BackupSoftwareEntry | null>(() => {
-  const idx = dialogIndex.value;
-  const list = filteredEntries.value;
-  return idx >= 0 && idx < list.length - 1 ? list[idx + 1] as BackupSoftwareEntry : null;
-});
-
-function handleSelectionChange(selectedRows: any[]) {
-  const newSelected = new Set<number>();
-  selectedRows.forEach((row: any) => {
-    const idx = filteredEntries.value.findIndex((e: any) => e.id === row.id);
-    if (idx !== -1) newSelected.add(idx);
-  });
-  selectedIds.value = newSelected;
 }
 
 const columns = [
