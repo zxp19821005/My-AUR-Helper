@@ -1,3 +1,15 @@
+/**
+ * browser.rs - 浏览器（JS 渲染）版本检查器
+ *
+ * 功能：
+ * - 适用于上游页面由 JavaScript 动态渲染、静态抓取只能拿到 SPA 空壳的场景
+ *   （如百度的 landingPage）
+ * - 通过调用本机已安装的 Chromium / Chrome 的 `--headless --dump-dom` 执行 JS，
+ *   拿到渲染后的 DOM，去除标签得到纯文本，再复用既有正则/HTML 版本提取逻辑
+ *
+ * 依赖：本机需安装 Chromium 或 Google Chrome，否则 check() 返回明确的错误提示
+ */
+
 use crate::errors::{AppError, AppResult};
 use async_trait::async_trait;
 use log::{debug, info, warn};

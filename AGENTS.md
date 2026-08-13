@@ -127,6 +127,8 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/commands/fileops/cache_backup/existing.rs` | 备份到已有备份记录所在子目录（版本比较 + 复制） |
 | `src-tauri/src/commands/fileops/cache_backup/subdirectory.rs` | 备份到指定子目录 |
 | `src-tauri/src/commands/sysops/cache_cleanup.rs` | 缓存清理命令（系统缓存、自定义缓存目录、sudoers 配置） |
+| `src-tauri/src/commands/sysops/cache_install.rs` | 缓存包安装和信息查询命令（pacman -Qip、sudoers 免密检测、install） |
+| `src-tauri/src/commands/sysops/pacman_lock.rs` | pacman 数据库锁检查命令（检测 /var/lib/pacman/db.lck 是否存在） |
 | `src-tauri/src/commands/software_sync/` | 软件包同步命令模块（目录结构） |
 | `src-tauri/src/commands/software_sync/mod.rs` | 模块声明和导出（不含具体实现） |
 | `src-tauri/src/commands/software_sync/aur.rs` | AUR 信息同步命令（只更新 aur_info 表，不更新 software_info 表） |
@@ -138,6 +140,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/checkers/factory.rs` | 检查器工厂函数（get_checker） |
 | `src-tauri/src/checkers/trait_def.rs` | VersionChecker trait 定义 |
 | `src-tauri/src/checkers/utils.rs` | 检查器工具函数（含版本正则提取） |
+| `src-tauri/src/checkers/browser.rs` | 浏览器（JS 渲染）检查器（BrowserChecker），调用本机 Chromium/Chrome 渲染后提取版本 |
 | `src-tauri/src/checkers/github/` | GitHub 检查器模块（目录结构） |
 | `src-tauri/src/checkers/github/mod.rs` | 模块声明和导出（不含具体实现） |
 | `src-tauri/src/checkers/github/tags_checker.rs` | GitHubTagsChecker 检查器实现 |
@@ -403,6 +406,7 @@ cargo test         # Rust 单元测试
 - `GitLabChecker` — GitLab API
 - `RedirectChecker` — HTTP 重定向（跟随 URL 获取版本）
 - `HttpChecker` — HTML 页面解析（提取版本号）
+- `BrowserChecker` — 浏览器（JS 渲染）检查器：适用于上游页面由 JavaScript 动态渲染、静态抓取只能拿到 SPA 空壳的场景（如百度 landingPage），调用本机 Chromium/Chrome 的 `--headless --dump-dom` 渲染后再用正则/HTML 提取版本（实现见 `checkers/browser.rs`）
 - `ManualChecker` — 手动更新（用户指定版本）
 
 ### GitHub 检查器模块结构

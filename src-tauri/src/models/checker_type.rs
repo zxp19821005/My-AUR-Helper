@@ -1,5 +1,19 @@
+/**
+ * checker_type.rs - 版本检查器类型枚举（CheckerType）
+ *
+ * 功能：
+ * - 定义支持的版本检查器类型，并与数据库存储的整型 ID 互转
+ * - 新增检查器类型时，必须同步维护 as_id / from_id / all 三处映射，
+ *   否则会出现「枚举↔ID 不一致」导致检查器工厂 get_checker 找不到对应实现
+ */
+
 use serde::{Deserialize, Serialize};
 
+/// 版本检查器类型枚举
+///
+/// 与数据库 `software_info.checker_type_id` 字段对应的整型 ID 互转
+/// （见 `as_id` / `from_id`）。`Browser` 为浏览器 JS 渲染检查器，需本机安装
+/// Chromium / Chrome。新增类型时务必同步更新 `as_id`、`from_id`、`all` 三处。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(into = "i32", try_from = "i32")]
 pub enum CheckerType {
