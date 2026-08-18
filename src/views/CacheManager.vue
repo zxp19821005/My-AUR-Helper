@@ -213,9 +213,9 @@ async function rowDelete(filename: string) {
       </button>
     </PageToolbar>
 
-    <!-- 缓存表格 -->
+    <!-- 缓存表格（key 固定，避免条数变化时整表重建） -->
     <StandardizedTable
-      :key="`table-${filteredEntries.length}`"
+      key="cache-table"
       :columns="cacheColumns"
       :data="filteredEntries"
       :pageSize="pageSize"

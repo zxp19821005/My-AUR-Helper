@@ -111,7 +111,10 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/db/cache_software.rs` | 缓存软件表 |
 | `src-tauri/src/db/logs.rs` | 日志表 |
 | `src-tauri/src/db/settings.rs` | 设置表（含缓存目录配置、启用/禁用） |
+| `src-tauri/src/db/stats.rs` | 仪表盘统计聚合查询（各模块 COUNT 汇总） |
 | `src-tauri/src/commands/` | Tauri IPC 命令（software/sys_command/enums 等） |
+| `src-tauri/src/commands/dashboard.rs` | 仪表盘统计命令（get_dashboard_stats，聚合各模块计数） |
+| `src-tauri/src/commands/fe_log.rs` | 前端诊断日志命令（frontend_log，仅 println! 到终端、不写文件） |
 | `src-tauri/src/commands/upstream_validate.rs` | 上游 URL 验证命令 |
 | `src-tauri/src/commands/backup/` | 备份管理命令模块（目录结构） |
 | `src-tauri/src/commands/backup/mod.rs` | 模块声明和导出 |
@@ -177,6 +180,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/models/software_list_entry.rs` | 软件包列表展示模型 |
 | `src-tauri/src/models/backup_software_entry.rs` | 备份软件包列表展示模型 |
 | `src-tauri/src/models/cache_dir.rs` | 缓存目录配置模型 |
+| `src-tauri/src/models/dashboard_stats.rs` | 仪表盘统计返回模型（DashboardStats） |
 
 <!-- Vue 前端关键文件列表 -->
 ### Vue 前端
@@ -199,6 +203,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/components/enum/` | 枚举管理组件（LanguageFormModal、LicenseFormModal） |
 | `src/utils/enums.ts` | 枚举常量和共享选项（packageTypes/checkerTypes/filterOptions） |
 | `src/utils/format.ts` | 通用格式化工具（时间戳/License/JSON列表/枚举名称/语言名称） |
+| `src/utils/felog.ts` | 前端诊断日志工具（feDebug/feInfo/feWarn/feError，经 IPC 转发到终端） |
 | `src/composables/` | 组合式函数（hooks） |
 | `src/composables/useCacheDirs.ts` | 缓存目录管理 composable（SettingsCacheSection 和 CacheManager 复用） |
 | `src/composables/footer.ts` | 底部状态栏状态管理 |

@@ -11,14 +11,16 @@
  * - check_upstream_version: 检查上游版本
  */
 import { defineStore } from "pinia";              // Pinia 状态管理库，用于创建 Store
-import { ref } from "vue";                        // Vue 响应式 API，用于创建响应式状态
+import { ref, shallowRef } from "vue";            // Vue 响应式 API，shallowRef 承载千级大数组
 import { invoke } from "@tauri-apps/api/core";    // Tauri IPC 调用函数，用于调用后端 Rust 命令
 import type { SoftwareInfo } from "../types";     // 软件包类型定义
 
 /** 创建 packages Store，用于管理软件包相关的全局状态 */
 export const usePackageStore = defineStore("packages", () => {
-  /** 软件包列表 - 存储所有软件包的响应式数组 */
-  const packages = ref<SoftwareInfo[]>([]);
+  /** 软件包列表 - 存储所有软件包的浅响应式数组。
+   *  注意：1932 个对象深度响应式代理会造成赋值时秒级阻塞，
+   *  本 store 只做整体替换与只读统计（length/filter），shallowRef 足够。 */
+  const packages = shallowRef<SoftwareInfo[]>([]);
 
   /** 加载中状态 - 标识是否正在加载数据 */
   const loading = ref(false);

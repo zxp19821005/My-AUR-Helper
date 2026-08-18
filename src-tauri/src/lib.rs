@@ -237,6 +237,10 @@ pub fn run() {
             commands::enums::get_languages, // 获取所有编程语言
             commands::enums::upsert_language, // 添加或更新编程语言
             commands::enums::delete_language, // 删除编程语言
+            // 仪表盘统计
+            commands::dashboard::get_dashboard_stats, // 获取仪表盘各模块计数
+            // 前端诊断日志转发（仅终端，不写文件）
+            commands::fe_log::frontend_log, // 接收前端诊断日志并打印到终端
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

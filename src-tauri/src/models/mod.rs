@@ -11,6 +11,7 @@ mod backup_software_entry; // 备份软件包列表展示模型
 mod cache_software; // 缓存软件包模型
 mod cache_software_entry; // 缓存软件包列表展示模型
 mod checker_type; // 检查器类型枚举
+mod dashboard_stats; // 仪表盘统计模型
 mod enum_license; // License 枚举模型
 mod enum_programming_language; // 编程语言枚举模型
 mod package_type; // 包类型枚举
@@ -29,6 +30,7 @@ pub use backup_software_entry::BackupSoftwareEntry;
 pub use cache_software::CacheSoftware;
 pub use cache_software_entry::CacheSoftwareEntry;
 pub use checker_type::CheckerType;
+pub use dashboard_stats::DashboardStats;
 pub use enum_license::EnumLicense;
 pub use enum_programming_language::EnumProgrammingLanguage;
 pub use package_type::PackageType;

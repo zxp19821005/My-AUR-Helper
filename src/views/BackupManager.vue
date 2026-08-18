@@ -221,9 +221,9 @@ const columns = [
       </button>
     </PageToolbar>
 
-    <!-- 备份表格 -->
+    <!-- 备份表格（key 固定，避免条数变化时整表重建） -->
     <StandardizedTable
-      :key="`table-${filteredEntries.length}`"
+      key="backup-table"
       :columns="columns"
       :data="filteredEntries"
       :pageSize="pageSize"

@@ -39,7 +39,7 @@ export interface DashboardModule {
 
 <script setup lang="ts">
 import { Icon } from "../../icons";
-import StandardizedButton from "../components/base/StandardizedButton.vue";
+import StandardizedButton from "../base/StandardizedButton.vue";
 
 defineProps<{ module: DashboardModule }>();
 </script>

@@ -20,15 +20,11 @@
 import { ref, reactive, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useTabStore } from "../stores/tabs";
-import { usePackageStore } from "../stores/packages";
 import { invoke } from "@tauri-apps/api/core";
 import type {
-  ProxyInfo,
-  EnumLicense,
-  EnumProgrammingLanguage,
-  CacheSoftwareEntry,
-  BackupSoftwareEntry,
+  DashboardStats,
 } from "../types";
+import { feDebug, feError } from "../utils/felog"; // 前端诊断日志（仅终端）
 import PageToolbar from "../components/common/PageToolbar.vue";
 import ModuleCard, { type DashboardModule } from "../components/dashboard/ModuleCard.vue";
 import { Icon } from "../icons";
@@ -38,7 +34,6 @@ import type { Component } from "vue";
 
 const router = useRouter();
 const tabStore = useTabStore();
-const pkgStore = usePackageStore();
 
 // ===== 统计数据 =====
 const stats = reactive({
@@ -146,49 +141,34 @@ const modules = computed<DashboardModule[]>(() => [
 // ===== 数据加载 =====
 async function loadAll() {
   loading.value = true;
+  feDebug("Dashboard", "loadAll start: invoke get_dashboard_stats");
+  const t = performance.now();
   try {
-    await pkgStore.fetchPackages();
-    stats.pkgTotal = pkgStore.packages.length;
-    stats.pkgUpdated = pkgStore.packages.filter((p) => !p.is_outdated).length;
-    stats.pkgOutdated = pkgStore.packages.filter((p) => p.is_outdated).length;
-  } catch {
-    /* 忽略软件包获取错误 */
+    // 一次 IPC 获取全部模块计数（后端 COUNT(*) 聚合），
+    // 不再全量拉取软件包/代理/License 等列表数据。
+    const s = await invoke<DashboardStats>("get_dashboard_stats");
+    feDebug("Dashboard", `loadAll invoke done: ${Math.round(performance.now() - t)}ms`);
+    stats.pkgTotal = s.pkg_total;
+    stats.pkgUpdated = s.pkg_updated;
+    stats.pkgOutdated = s.pkg_outdated;
+    stats.backup = s.backup_total;
+    stats.cache = s.cache_total;
+    stats.proxyTotal = s.proxy_total;
+    stats.proxyActive = s.proxy_active;
+    stats.licenses = s.license_total;
+    stats.languages = s.language_total;
+  } catch (e) {
+    feError("Dashboard", `loadAll failed: ${String(e)}`);
+    console.error("加载统计数据失败:", e);
+  } finally {
+    loading.value = false;
   }
-  try {
-    const backups = await invoke<BackupSoftwareEntry[]>("list_backup_software");
-    stats.backup = backups.length;
-  } catch {
-    /* 忽略 */
-  }
-  try {
-    const caches = await invoke<CacheSoftwareEntry[]>("list_cache_software");
-    stats.cache = caches.length;
-  } catch {
-    /* 忽略 */
-  }
-  try {
-    const proxies = await invoke<ProxyInfo[]>("get_proxies");
-    stats.proxyTotal = proxies.length;
-    stats.proxyActive = proxies.filter((p) => p.is_active).length;
-  } catch {
-    /* 忽略 */
-  }
-  try {
-    const licenses = await invoke<EnumLicense[]>("get_licenses");
-    stats.licenses = licenses.length;
-  } catch {
-    /* 忽略 */
-  }
-  try {
-    const langs = await invoke<EnumProgrammingLanguage[]>("get_languages");
-    stats.languages = langs.length;
-  } catch {
-    /* 忽略 */
-  }
-  loading.value = false;
 }
 
-onMounted(loadAll);
+onMounted(() => {
+  feDebug("Dashboard", "onMounted, calling loadAll");
+  loadAll();
+});
 </script>
 
 <template>

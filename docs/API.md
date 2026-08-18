@@ -334,6 +334,27 @@
 - 参数: `{ name: string }`
 - 返回: `void`
 
+## 仪表盘统计 (commands/dashboard.rs)
+
+### get_dashboard_stats
+获取仪表盘各模块聚合计数（一次 IPC 替代前端多次列表拉取）。
+- 参数: 无
+- 返回: `DashboardStats`（`pkg_total` / `pkg_updated` / `pkg_outdated` / `backup_total` / `cache_total` / `proxy_total` / `proxy_active` / `license_total` / `language_total`）
+- 说明: 后端对各表执行 `COUNT(*)` 聚合后在单一命令内返回，前端仪表盘仅调用一次即可渲染全部统计卡片，避免全量加载软件包/代理/License 等列表。
+
+## 调试 / 诊断日志 (commands/fe_log.rs)
+
+### frontend_log
+将前端诊断日志转发到 Rust 进程标准输出（**仅终端、不写入 applog 文件**），用于 dev 模式排查前端时序。
+- 参数: `{ level: string, area: string, message: string, ts: string }`
+  - `level`: `DEBUG` / `INFO` / `WARN` / `ERROR`
+  - `area`: 来源标识（如 `main` / `App` / `Router` / `Dashboard`）
+  - `message`: 日志内容
+  - `ts`: 前端本地时间戳（与后端 chrono 同格式，便于跨进程对照）
+- 返回: `void`
+- 前端用法: 通过 `src/utils/felog.ts` 的 `feDebug(area, msg)` / `feInfo(area, msg)` / `feWarn(area, msg)` / `feError(area, msg)` 调用，会同时输出到浏览器控制台并转发到本命令；每条日志附带相对应用启动的 `+Xms` 耗时。
+- 说明: Tauri v2 自定义命令默认放行（capabilities 仅需 `core:default`），无需额外 `app:allow_*` 授权。
+
 ---
 
-**最后更新**: 2026-07-30
+**最后更新**: 2026-08-18

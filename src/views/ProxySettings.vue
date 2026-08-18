@@ -155,9 +155,9 @@ const columns = [
       </button>
     </PageToolbar>
 
-    <!-- 代理表格 -->
+    <!-- 代理表格（key 固定，避免条数变化时整表重建） -->
     <StandardizedTable
-      :key="`table-${filteredEntries.length}`"
+      key="proxy-table"
       :columns="columns"
       :data="filteredEntries"
       :pageSize="pageSize"

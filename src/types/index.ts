@@ -224,6 +224,28 @@ export interface CacheSoftwareEntry {
   full_path: string;
 }
 
+/** 仪表盘统计（后端 get_dashboard_stats 返回，各模块计数） */
+export interface DashboardStats {
+  /** 软件包总数 */
+  pkg_total: number;
+  /** 已是最新的软件包数 */
+  pkg_updated: number;
+  /** 有更新的软件包数 */
+  pkg_outdated: number;
+  /** 备份记录总数 */
+  backup_total: number;
+  /** 缓存记录总数 */
+  cache_total: number;
+  /** 代理源总数 */
+  proxy_total: number;
+  /** 可用代理源数 */
+  proxy_active: number;
+  /** License 枚举总数 */
+  license_total: number;
+  /** 编程语言枚举总数 */
+  language_total: number;
+}
+
 /** 备份软件包列表展示条目（含软件包名称） */
 export interface BackupSoftwareEntry {
   id: number;

@@ -12,10 +12,13 @@ CYAN='\033[0;36m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-info()  { echo -e "${CYAN}[INFO]${NC}  $1"; }
-ok()    { echo -e "${GREEN}[OK]${NC}    $1"; }
-warn()  { echo -e "${YELLOW}[WARN]${NC}  $1"; }
-err()   { echo -e "${RED}[ERROR]${NC} $1"; }
+# 当前时间戳（精确到秒），用于在每条日志前打印，便于观察各阶段耗时
+ts() { date '+%H:%M:%S'; }
+
+info()  { echo -e "${CYAN}[$(ts)] [INFO]${NC}  $1"; }
+ok()    { echo -e "${GREEN}[$(ts)] [OK]${NC}    $1"; }
+warn()  { echo -e "${YELLOW}[$(ts)] [WARN]${NC}  $1"; }
+err()   { echo -e "${RED}[$(ts)] [ERROR]${NC} $1"; }
 
 # ---------- Cache 加速 ----------
 

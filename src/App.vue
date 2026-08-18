@@ -13,7 +13,7 @@
   - logs: 日志窗口
 -->
 <script setup lang="ts">
-import { ref, watch, reactive, provide, computed } from "vue";
+import { ref, watch, reactive, provide, computed, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import Sidebar from "./components/layout/Sidebar.vue";
 import TabBar from "./components/layout/TabBar.vue";
@@ -24,6 +24,7 @@ import { useTabStore } from "./stores/tabs";
 import { FOOTER_KEY, defaultFooterState } from "./composables/footer";
 import type { FooterState } from "./composables/footer";
 import { Icon } from "./icons";
+import { feDebug } from "./utils/felog"; // 前端诊断日志（仅终端）
 
 const route = useRoute();
 const tabStore = useTabStore();
@@ -58,6 +59,13 @@ watch(
   },
   { immediate: true }
 );
+
+// 注：dev 模式下【任何路由 chunk 预取/预加载】都会让 WebKitGTK 在主线程现编译大量
+// ESM 模块，与首屏渲染/导航争抢主线程，反而拖慢交互。故此处【不做任何预加载】，
+// 导航时由 Vite 按需编译对应路由 chunk（dev 固有成本，release 打包版无此问题）。
+onMounted(() => {
+  feDebug("App", "onMounted");
+});
 </script>
 
 <template>

@@ -12,33 +12,36 @@
  * - 弹出窗口使用嵌套路由，父级为布局组件
  */
 import { createRouter, createWebHistory } from "vue-router";  // Vue Router 核心 API
+import { feDebug } from "../utils/felog"; // 前端诊断日志（仅终端）
 
-// 主窗口页面组件
-import Dashboard from "../views/Dashboard.vue";          // 仪表盘页面 - 显示统计概览和快速操作
-import PackageList from "../views/PackageList.vue";      // 软件包列表页面 - 显示所有 AUR 软件包
-import PackageDetail from "../views/PackageDetail.vue";  // 软件包详情页面 - 显示单个软件包详细信息
-import BackupManager from "../views/BackupManager.vue";  // 备份管理页面 - 管理系统备份
-import CacheManager from "../views/CacheManager.vue";    // 缓存管理页面 - 管理本地缓存包
-import ProxySettings from "../views/ProxySettings.vue";  // 代理设置页面 - 管理代理源
+// 页面组件全部采用动态导入（路由懒加载）：
+// 首屏只加载当前路由的模块，避免启动时加载全部 10 个页面及其依赖。
+// 每个页面提取为命名 lazy 常量，便于在 preloadRoutes() 中预取（见文件末尾）。
+// 背景：Vite dev 模式不打包，首次访问某路由需即时编译其 chunk + 加载成百上千个
+// ESM 模块。WebKitGTK 加载大量零散模块远慢于 Chromium，导致首次进入页面卡顿。
+// 预加载机制在首屏渲染完成后空闲预取各页面 chunk，消除首次点击的编译延迟。
 
-// 弹出窗口布局组件
-import SettingsPopup from "../components/layout/SettingsPopup.vue";  // 设置窗口布局 - 左侧菜单 + 右侧内容
-import EnumLayout from "../components/layout/EnumLayout.vue";        // 枚举值管理窗口布局
-import LogsPopup from "../components/layout/LogsPopup.vue";          // 日志窗口布局
+/** 主窗口页面 */
+const Dashboard = () => import("../views/Dashboard.vue");
+const PackageList = () => import("../views/PackageList.vue");
+const PackageDetail = () => import("../views/PackageDetail.vue");
+const BackupManager = () => import("../views/BackupManager.vue");
+const CacheManager = () => import("../views/CacheManager.vue");
+const ProxySettings = () => import("../views/ProxySettings.vue");
 
-// 弹出窗口子页面组件
-import Settings from "../views/Settings.vue";            // 设置页面 - 应用配置管理
-import LicenseManager from "../views/LicenseManager.vue"; // License 管理页面
-import LanguageManager from "../views/LanguageManager.vue"; // 编程语言管理页面
-import LogViewer from "../views/LogViewer.vue";           // 日志查看页面
+/** 弹出窗口布局 */
+const SettingsPopup = () => import("../components/layout/SettingsPopup.vue");
+const EnumLayout = () => import("../components/layout/EnumLayout.vue");
+const LogsPopup = () => import("../components/layout/LogsPopup.vue");
 
-/**
- * 路由配置
- * 主窗口路由和弹出窗口路由分开配置
- */
+/** 弹出窗口子页面 */
+const Settings = () => import("../views/Settings.vue");
+const LicenseManager = () => import("../views/LicenseManager.vue");
+const LanguageManager = () => import("../views/LanguageManager.vue");
+const LogViewer = () => import("../views/LogViewer.vue");
+
+/** 主窗口路由 */
 const routes = [
-  // ===== 主窗口路由 =====
-
   /** 仪表盘 - 默认首页 */
   { path: "/", name: "Dashboard", component: Dashboard },
 
@@ -100,6 +103,14 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
+});
+
+// 前端诊断：记录路由导航时序（首屏白屏排查用）
+router.beforeEach((to, from) => {
+  feDebug("Router", `navigate ${from.path || "(start)"} -> ${to.path}`);
+});
+router.afterEach((to) => {
+  feDebug("Router", `navigated ${to.path}`);
 });
 
 export default router;

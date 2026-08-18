@@ -58,8 +58,11 @@ const columns: Column[] = [
 </script>
 
 <template>
+  <!-- key 必须固定：原 `:key="table-${entries.length}"` 会导致搜索/筛选/增删
+       使条数变化时销毁重建整个表格。行级更新由 StandardizedTable 内部按
+       rowKey="pkgname" 增量 diff，无需重建。 -->
   <StandardizedTable
-    :key="`table-${props.entries.length}`"
+    key="package-table"
     :columns="columns"
     :data="props.entries"
     :pageSize="props.pageSize"

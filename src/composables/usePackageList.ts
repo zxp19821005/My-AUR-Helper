@@ -6,7 +6,7 @@
  * - 提供格式化函数和弹窗控制逻辑
  * - 支持筛选器功能（快速筛选 + 条件筛选）
  */
-import { computed, ref, watch, inject, onMounted } from "vue";
+import { computed, ref, shallowRef, triggerRef, watch, inject, onMounted } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "../stores/settings";
 import { FOOTER_KEY } from "./footer";
@@ -59,7 +59,11 @@ export function usePackageList() {
 
   const pageSize = ref(50);
   const currentPage = ref(1);
-  const entries = ref<SoftwareListEntry[]>([]);
+  // 使用 shallowRef 承载千级大数组：深度响应式会把 1932 个对象的每个字段
+  // 都转换为 getter/setter（约 6 万个代理），每次 invoke 赋值都会同步阻塞
+  // 数百毫秒到数秒（dev/debug 构建更明显）。列表行内更新走 Object.assign
+  // + triggerRef 手动刷新，详见 refreshEntries。
+  const entries = shallowRef<SoftwareListEntry[]>([]);
   const selectedPkgnames = ref(new Set<string>());
   const searchQuery = ref("");
   const filterState = ref<FilterState>(createDefaultFilterState());
@@ -197,6 +201,9 @@ export function usePackageList() {
       // 仅当存在被删除的条目时才替换数组引用（删除操作需移除行）
       if (removed.size) {
         entries.value = list.filter((e) => !removed.has(e.pkgname));
+      } else {
+        // 行内字段已就地更新，但 shallowRef 不追踪嵌套对象变化，需手动触发刷新
+        triggerRef(entries);
       }
     } finally {
       syncToolbar();

@@ -19,7 +19,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
-import { usePackageStore } from "../stores/packages";
 import { usePackageActions } from "../composables/packageActions";
 import { usePackageList } from "../composables/usePackageList";
 import PageToolbar from "../components/common/PageToolbar.vue";
@@ -30,8 +29,6 @@ import PackageTable from "../components/package/PackageTable.vue";
 import { Icon } from "../icons";
 import { packageTypeFilterOptions, checkerTypeFilterOptions } from "../utils/enums";
 import type { ValidateResult } from "../types";
-
-const pkgStore = usePackageStore();
 
 const {
   searchQuery,
@@ -109,7 +106,10 @@ function updateConditionFilter(key: "packageType" | "checkerType", value: number
 }
 
 onMounted(async () => {
-  await Promise.all([fetchView(), pkgStore.fetchPackages()]);
+  // 只加载列表视图（list_software_view）。
+  // 注意：不再调用 pkgStore.fetchPackages()——其走 list_software 全量加载（1932 条
+  // SoftwareInfo 全字段），且本页面从未消费 packages store 的数据，纯属冗余开销。
+  await fetchView();
 });
 
 /**

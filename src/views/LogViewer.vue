@@ -45,6 +45,9 @@ const currentPage = ref(1);
 let unlisten: UnlistenFn | null = null;
 let nextId = 0;
 
+/** 日志内存上限：超过后丢弃最旧条目，防止长会话内存无限增长 */
+const MAX_LOG_ENTRIES = 1000;
+
 onMounted(async () => {
   // 从设置中读取每页显示行数
   pageSize.value = await settingsStore.getSettingNumber("list_page_size_log", 12);
@@ -66,6 +69,10 @@ async function startLogListener() {
         ...payload,
         _id: nextId++,
       });
+      // 限制内存占用：只保留最近 MAX_LOG_ENTRIES 条
+      if (logs.value.length > MAX_LOG_ENTRIES) {
+        logs.value.length = MAX_LOG_ENTRIES;
+      }
     }
   });
 }
@@ -156,10 +163,12 @@ watch(pageSize, () => {
   currentPage.value = 1;
 });
 
-/** 监听 filteredLogs 变化，同步底部工具栏 */
-watch(filteredLogs, () => {
+/** 监听筛选变化或日志条数变化，同步底部工具栏。
+ *  注意：不要 deep 监听 filteredLogs 整数组——实时日志流下每条新日志都会
+ *  触发全量深比较，叠加表格重建造成 WebKitWebProcess 持续高 CPU。 */
+watch([levelFilter, searchQuery, () => logs.value.length], () => {
   syncFooter();
-}, { deep: true });
+});
 
 /** 监听 currentPage 变化，同步底部工具栏 */
 watch(currentPage, () => {
@@ -203,9 +212,11 @@ const columns: Column[] = [
       @clear-logs="clearLogs"
     />
 
-    <!-- 内容显示区域（禁用内置分页，使用全局 BottomToolbar） -->
+    <!-- 内容显示区域（禁用内置分页，使用全局 BottomToolbar）。
+         注意：key 必须固定——若绑定 filteredLogs.length，每条新日志都会销毁重建
+         整个表格（含全部日志行），实时日志流下 CPU 持续飙升。 -->
     <StandardizedTable
-      :key="`table-${filteredLogs.length}`"
+      key="log-table"
       :columns="columns"
       :data="filteredLogs"
       :pageSize="pageSize"

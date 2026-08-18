@@ -22,6 +22,10 @@ import "./assets/styles/modal-styles.css";
 import "./assets/styles/settings-styles.css";
 import "./assets/styles/toolbar-buttons.css";
 import "./assets/styles/filter-styles.css";
+import { feInfo } from "./utils/felog"; // 前端诊断日志（仅终端）
+
+// 前端入口开始执行（ESM 模块图已求值完成）
+feInfo("main", "frontend entry start");
 
 // 应用保存的客户端设置
 // 这些设置存储在 localStorage 中，在应用启动时应用到文档
@@ -39,3 +43,4 @@ app.use(router);        // 路由 - 注册 Vue Router 用于页面导航
 
 // 挂载应用 - 将 Vue 应用挂载到 DOM 中的 #app 元素
 app.mount("#app");
+feInfo("main", "app mounted");

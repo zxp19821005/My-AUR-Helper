@@ -39,6 +39,7 @@ mod schema;
 mod seed;
 mod settings;
 mod software_info;
+mod stats;
 mod upstream_info;
 
 #[cfg(test)]

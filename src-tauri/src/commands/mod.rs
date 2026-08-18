@@ -32,3 +32,9 @@ pub mod settings;
 
 /// 软件包 CRUD 和设置命令
 pub mod software;
+
+/// 仪表盘统计命令
+pub mod dashboard;
+
+/// 前端诊断日志转发命令（仅打印到终端，不写文件）
+pub mod fe_log;
