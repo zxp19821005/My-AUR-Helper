@@ -18,6 +18,7 @@ use std::sync::Arc;
 use log::{error, info, warn};
 use reqwest::Client;
 use tokio::sync::Semaphore;
+use tokio::task::JoinSet;
 
 use crate::checkers::github::graphql_batch::{batch_check_github, GithubBatchItem};
 use crate::checkers::utils::extract_owner_repo;
@@ -234,19 +235,22 @@ pub async fn batch_check_upstream(
     // 其余网络类使用全局并发上限，缓解上游限流
     let network_sem = Arc::new(Semaphore::new(MAX_NETWORK_CONCURRENCY));
 
-    let mut handles = Vec::new();
+    // 单一 JoinSet 承载所有 run_one 任务（浏览器桶 + 必然 REST 桶 + 未命中 GraphQL 的回落桶），
+    // 统一用 join_next() 边完成边回收；回落任务在 GraphQL 完成后并入同一集合，
+    // 与其他任务共享并发信号量，不再单独开第二组 await。
+    let mut handles: JoinSet<UpstreamCheckResult> = JoinSet::new();
 
     // Browser 桶：独立严格并发
     for task in browser_tasks {
         let client = client.clone();
         let settings = settings.clone();
         let sem = browser_sem.clone();
-        handles.push(tokio::spawn(async move {
+        handles.spawn(async move {
             // 获取并发许可后再执行，超出上限的任务在此排队等待；
             // 许可随 _permit 在任务结束时自动释放
             let _permit = sem.acquire().await.expect("浏览器并发信号量已被关闭");
             run_one(&client, &settings, task, retry).await
-        }));
+        });
     }
 
     // ---- 拆分网络桶：GitHub 与必然 REST ----
@@ -284,6 +288,8 @@ pub async fn batch_check_upstream(
     // 并发点：GraphQL 批量查询与「必然 REST」桶同时启动，压平墙钟时间。
     // 成功命中 GraphQL 的包不再发 REST；仅未命中的 github 包后续补回落，
     // 既避免重复请求（保住限流收益），又避免同一包被双重处理。
+    // 注：github_handle 返回 Vec<GithubBatchOutcome>，与 run_one 的返回类型异构，
+    // 故保留独立 tokio::spawn，不并入下方同构的 JoinSet。
     let github_handle = {
         let client = client.clone();
         // 仅克隆 token 字段，settings 仍需用于下方 REST 任务
@@ -292,28 +298,28 @@ pub async fn batch_check_upstream(
         tokio::spawn(async move { batch_check_github(&client, items, token.as_deref()).await })
     };
 
-    // 必然走 REST 的包：全局并发（与 GraphQL 并行执行）
+    // 必然走 REST 的包：全局并发（与 GraphQL 并行执行，并入同一 JoinSet）
     for task in fallback_definite {
         let client = client.clone();
         let settings = settings.clone();
         let sem = network_sem.clone();
-        handles.push(tokio::spawn(async move {
+        handles.spawn(async move {
             let _permit = sem.acquire().await.expect("网络并发信号量已被关闭");
             run_one(&client, &settings, task, retry).await
-        }));
+        });
     }
 
-    // 等待浏览器 + 必然 REST 任务完成（与 GraphQL 并行，不互相等待）
+    // 第一段 drain：先回收浏览器 + 必然 REST（与 GraphQL 并行，互不阻塞）
     let mut checked = Vec::new();
-    for h in handles {
+    while let Some(res) = handles.join_next().await {
         // 单个任务 panic 不应拖垮整体批量检查
-        if let Ok(r) = h.await {
+        if let Ok(r) = res {
             checked.push(r);
         }
     }
 
     // 回收 GraphQL 结果：命中（无论是否取到版本）的包不再走 REST；
-    // 仅未命中的 github 包补回落 REST（此时 GraphQL 已完成，该集合通常很小）
+    // 仅未命中的 github 包补回落 REST。
     let github_results = match github_handle.await {
         Ok(r) => r,
         Err(e) => {
@@ -336,22 +342,24 @@ pub async fn batch_check_upstream(
         })
         .collect();
 
-    // 仅未命中的 github 包补 REST 回落（数量少，单独并发收集）
-    let mut miss_handles = Vec::new();
+    // 未命中的 github 包并入同一 JoinSet（与其他任务共享并发信号量与回收逻辑），
+    // 回落任务之间并行执行，无需单独开第二组 await / 第二组 JoinSet。
     for origin in github_origin {
         if !processed.contains(&origin.pkgname) {
             let client = client.clone();
             let settings = settings.clone();
             let sem = network_sem.clone();
             let task = origin;
-            miss_handles.push(tokio::spawn(async move {
+            handles.spawn(async move {
                 let _permit = sem.acquire().await.expect("网络并发信号量已被关闭");
                 run_one(&client, &settings, task, retry).await
-            }));
+            });
         }
     }
-    for h in miss_handles {
-        if let Ok(r) = h.await {
+
+    // 第二段 drain：回收未命中回落任务（第一段已把所有 run_one 任务 drain 完，此处仅追赶回落任务）
+    while let Some(res) = handles.join_next().await {
+        if let Ok(r) = res {
             checked.push(r);
         }
     }

@@ -138,7 +138,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/commands/sysops/software_sync/mod.rs` | 模块声明和导出（不含具体实现） |
 | `src-tauri/src/commands/sysops/software_sync/aur.rs` | AUR 信息同步命令（只更新 aur_info 表，不更新 software_info 表） |
 | `src-tauri/src/commands/sysops/software_sync/upstream.rs` | 上游版本批量检查命令（`check_all_upstream`）：映射任务交给 batch 引擎分类并行检查；Manual 包跳过网络仅回传标记；一次性批量读取 AUR 版本 + 内存映射语言 ID，消除写库阶段 N+1 查询与反复加锁 |
-| `src-tauri/src/commands/sysops/software_sync/batch.rs` | 上游批量分类并发执行引擎：按检查器类型分桶（Manual 跳过 / Browser 严格限并发 / 网络类全局限并发）；GitHub 包「必然 REST」桶与 GraphQL 批量查询并发启动（`tokio::spawn` 并行），仅未命中 GraphQL 的 github 包补回落 REST（避免重复请求与重复处理）；迁入 check_with_retry、PackageTask、BatchOutcome |
+| `src-tauri/src/commands/sysops/software_sync/batch.rs` | 上游批量分类并发执行引擎：按检查器类型分桶（Manual 跳过 / Browser 严格限并发 / 网络类全局限并发）；单一 `JoinSet<UpstreamCheckResult>` 承载所有 `run_one` 任务（浏览器桶 + 必然 REST 桶 + 未命中 GraphQL 的回落桶），分两段 `join_next()` drain（先回收浏览器+必然 REST，待 GraphQL 完成后把未命中回落任务并入同一集合再 drain）；GitHub 批量查询与「必然 REST」桶并发启动，仅未命中者补回落 REST（避免重复请求与重复处理）；迁入 check_with_retry、PackageTask、BatchOutcome |
 | `src-tauri/src/commands/sysops/software_sync/pkgbuild.rs` | PKGBUILD 文件同步命令（保留用户手动设置的字段） |
 | `src-tauri/src/commands/sysops/software_sync/utils.rs` | 同步工具函数（AurParsedFields、parse_aur_fields 通用 AUR JSON 解析） |
 | `src-tauri/src/checkers/` | 版本检查器模块 |
