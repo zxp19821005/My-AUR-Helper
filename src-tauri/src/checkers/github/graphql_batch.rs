@@ -17,6 +17,7 @@ use std::collections::HashMap;
 use log::warn;
 use reqwest::Client;
 use serde_json::Value;
+use tokio::task::JoinSet;
 
 use crate::checkers::github::binary_check::{extract_version_from_assets, has_linux_binary};
 use crate::checkers::github::graphql_batch_parse::{parse_snapshot, ReleaseData, RepoSnapshot};
@@ -91,39 +92,61 @@ pub async fn batch_check_github(
         _ => return outcomes, // 无 Token：批量不可用，全部回退 REST
     };
 
-    // 按 owner/repo 去重，保留首次出现顺序
-    let mut unique: Vec<(String, String)> = Vec::new();
+    // 构建 (owner,repo) -> 包列表 索引：将「去重」与「按仓库匹配包」合并为一次 O(n)
+    // 哈希构建——去重由 HashMap 键完成（替代原 Vec::contains 的 O(n²)），后续按仓库取
+    // 包为 O(1)（替代原每层 repo 线性扫描全部 items 的 O(n²)）
+    let mut repo_packages: HashMap<(String, String), Vec<&GithubBatchItem>> = HashMap::new();
     for it in &items {
-        let key = (it.owner.clone(), it.repo.clone());
-        if !unique.contains(&key) {
-            unique.push(key);
-        }
+        repo_packages
+            .entry((it.owner.clone(), it.repo.clone()))
+            .or_default()
+            .push(it);
+    }
+    let repos: Vec<(String, String)> = repo_packages.keys().cloned().collect();
+
+    // 按分块并行发送 GraphQL 请求（JoinSet），将串行分块的总耗时压平为最慢一块；
+    // 单块失败 / 仓库缺失交由调用方按包回落逐包 REST，不阻断其他块
+    let mut set = JoinSet::new();
+    for chunk in repos.chunks(MAX_REPOS_PER_QUERY) {
+        let chunk: Vec<(String, String)> = chunk.to_vec();
+        let client = client.clone(); // Client 内部为 Arc，clone 开销极小
+        let token = token.to_string();
+        set.spawn(async move {
+            let res = query_chunk(&client, &chunk, &token).await;
+            (chunk, res)
+        });
     }
 
-    for chunk in unique.chunks(MAX_REPOS_PER_QUERY) {
-        let snapshot_map = match query_chunk(client, chunk, token).await {
-            Some(m) => m,
-            None => continue, // 整批失败（限流 / 网络）：这些仓库回退 REST
+    // 收集各分块结果（alias r{idx} -> 仓库对象），按仓库索引产出各包结果
+    while let Some(join_res) = set.join_next().await {
+        let (chunk, snapshot_map) = match join_res {
+            Ok(v) => v,
+            Err(e) => {
+                warn!("[GitHub GraphQL] 分块任务失败: {}", e);
+                continue;
+            }
         };
-
+        let snapshot_map = match snapshot_map {
+            Some(m) => m,
+            None => continue, // 整批失败：这些仓库回落 REST
+        };
         for (idx, (owner, repo)) in chunk.iter().enumerate() {
             let alias = format!("r{}", idx);
             let snap = match snapshot_map.get(&alias).map(parse_snapshot) {
                 Some(s) => s,
-                None => continue, // 仓库缺失（404 / 不存在）：回退 REST
+                None => continue, // 仓库缺失（404）：回落 REST
             };
-            for it in items
-                .iter()
-                .filter(|i| i.owner == *owner && i.repo == *repo)
-            {
-                let version = select_version(&snap, it);
-                outcomes.push(GithubBatchOutcome {
-                    pkgname: it.pkgname.clone(),
-                    software_id: it.software_id,
-                    version,
-                    license_spdx_id: snap.license.clone(),
-                    language_names: snap.languages.clone(),
-                });
+            if let Some(pkgs) = repo_packages.get(&(owner.clone(), repo.clone())) {
+                for it in pkgs {
+                    let version = select_version(&snap, it);
+                    outcomes.push(GithubBatchOutcome {
+                        pkgname: it.pkgname.clone(),
+                        software_id: it.software_id,
+                        version,
+                        license_spdx_id: snap.license.clone(),
+                        language_names: snap.languages.clone(),
+                    });
+                }
             }
         }
     }
@@ -135,9 +158,11 @@ fn build_query(repos: &[(String, String)]) -> String {
     let mut blocks = String::new();
     for (i, (owner, repo)) in repos.iter().enumerate() {
         let alias = format!("r{}", i);
-        // {owner:?} / {repo:?} 对 &str 输出带引号的 JSON 字符串字面量，自动转义
+        // 用 serde_json 序列化 owner/repo，保证生成合法 JSON 字符串字面量（自动转义引号/特殊字符）
+        let owner_json = serde_json::to_string(owner).unwrap();
+        let repo_json = serde_json::to_string(repo).unwrap();
         blocks.push_str(&format!(
-            "{alias}: repository(owner: {owner:?}, name: {repo:?}) {{ \
+            "{alias}: repository(owner: {owner_json}, name: {repo_json}) {{ \
               licenseInfo {{ spdxId }} \
               languages(first: 5, orderBy: {{ field: SIZE, direction: DESC }}) {{ nodes {{ name }} }} \
               refs(first: 100, refPrefix: \"refs/tags/\") {{ nodes {{ name }} }} \

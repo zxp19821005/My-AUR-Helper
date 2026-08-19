@@ -13,11 +13,39 @@ use crate::errors::{AppError, AppResult};
 use async_trait::async_trait;
 use log::{debug, info, warn};
 use std::path::Path;
+use std::sync::OnceLock;
 use std::time::Duration;
 use tokio::process::Command;
 
 use super::trait_def::{CheckOptions, CheckResult, VersionChecker};
 use super::utils::{extract_version_from_html, extract_version_with_regex};
+
+/// HTML→纯文本使用的正则集合（懒加载，编译一次后全局复用）
+///
+/// html_to_text 会在每次浏览器检查时调用，若每次都重新编译 5 个正则开销可观；
+/// 用 OnceLock 保证进程内仅编译一次。
+struct HtmlRegexes {
+    script: regex::Regex,
+    style: regex::Regex,
+    br: regex::Regex,
+    block: regex::Regex,
+    tag: regex::Regex,
+}
+
+/// 获取（必要时编译）全局唯一的 HTML 正则集合
+fn html_regexes() -> &'static HtmlRegexes {
+    static RE: OnceLock<HtmlRegexes> = OnceLock::new();
+    RE.get_or_init(|| HtmlRegexes {
+        script: regex::Regex::new(r"(?is)<script\b[^>]*>.*?</script>").unwrap(),
+        style: regex::Regex::new(r"(?is)<style\b[^>]*>.*?</style>").unwrap(),
+        br: regex::Regex::new(r"(?i)<br\s*/?>").unwrap(),
+        block: regex::Regex::new(
+            r"(?i)</(p|div|li|tr|th|td|h[1-6]|section|article|header|footer)>",
+        )
+        .unwrap(),
+        tag: regex::Regex::new(r"<[^>]*>").unwrap(),
+    })
+}
 
 /// 浏览器（JS 渲染）检查器
 ///
@@ -70,19 +98,12 @@ impl BrowserChecker {
     /// `V<span>3.4.2</span>` 变成 `V 3.4.2` 导致用户正则 `V(\d+\.\d+\.\d+)`
     /// 匹配失败；仅在块级标签结束处插入换行，避免跨块文字粘连影响提取。
     fn html_to_text(html: &str) -> String {
-        let re_script = regex::Regex::new(r"(?is)<script\b[^>]*>.*?</script>").unwrap();
-        let re_style = regex::Regex::new(r"(?is)<style\b[^>]*>.*?</style>").unwrap();
-        let re_br = regex::Regex::new(r"(?i)<br\s*/?>").unwrap();
-        let re_block =
-            regex::Regex::new(r"(?i)</(p|div|li|tr|th|td|h[1-6]|section|article|header|footer)>")
-                .unwrap();
-        let re_tag = regex::Regex::new(r"<[^>]*>").unwrap();
-
-        let s = re_script.replace_all(html, " ");
-        let s = re_style.replace_all(&s, " ");
-        let s = re_br.replace_all(&s, "\n");
-        let s = re_block.replace_all(&s, "\n");
-        re_tag.replace_all(&s, "").to_string()
+        let re = html_regexes();
+        let s = re.script.replace_all(html, " ");
+        let s = re.style.replace_all(&s, " ");
+        let s = re.br.replace_all(&s, "\n");
+        let s = re.block.replace_all(&s, "\n");
+        re.tag.replace_all(&s, "").to_string()
     }
 }
 
@@ -126,7 +147,7 @@ impl VersionChecker for BrowserChecker {
         // - kill_on_drop(true)：包裹的 future 被丢弃（如 timeout 触发.cancel）时，
         //   内部 Child 随之被 drop 并自动杀掉子进程，避免进程/内存泄漏
         // - 外层 timeout 控制总耗时
-        let mut child = Command::new(&browser)
+        let child = Command::new(&browser)
             .args([
                 "--headless",
                 "--no-sandbox",

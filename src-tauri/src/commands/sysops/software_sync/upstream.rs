@@ -13,6 +13,8 @@
  * 5. Manual 检查器包跳过网络请求，仅回传包名（不写库）
  */
 use log::{error, info};
+use std::collections::HashMap;
+
 use tauri::State;
 
 use super::super::proxy_utils::{build_client, get_active_proxy};
@@ -43,6 +45,13 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
         (packages, settings, timeout, retry, proxy_url)
     };
 
+    // 预先提取每个包的已有语言 ID：初始 get_all_software 已携带该字段，
+    // 避免在写库阶段对每个包再按 pkgname 回查数据库（消除 N+1 查询）
+    let lang_by_id: HashMap<i64, Vec<i64>> = packages
+        .iter()
+        .map(|p| (p.software_id.unwrap_or(0), p.language_ids.clone()))
+        .collect();
+
     // 将 SoftwareInfo 映射为批量检查任务（保留包类型，为后续按包类型批量优化预留）
     let tasks: Vec<PackageTask> = packages
         .into_iter()
@@ -63,6 +72,13 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
     // 分类并行检查：Manual 跳过网络，Browser 限严格并发，其余限全局并发
     let outcome = batch_check_upstream(tasks, client, settings, retry).await;
 
+    // 一次性批量读取所有 AUR 版本（单条 SQL + 单次加锁），替代循环内逐包
+    // get_aur_info 的 N+1 查询与反复加锁，显著降低批量检查的数据库开销
+    let aur_map: HashMap<i64, String> = {
+        let db = state.db.lock()?;
+        db.get_aur_versions_map()?
+    };
+
     // 收集检查结果，与 AUR 版本比较得出是否过期
     let mut check_results: Vec<UpstreamCheckResult> = Vec::new();
     for r in outcome.checked {
@@ -71,16 +87,13 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
             check_results.push(r);
             continue;
         }
-        let aur_ver = {
-            let db = state.db.lock()?;
-            db.get_aur_info(r.software_id)
-                .ok()
-                .flatten()
-                .and_then(|a| a.aur_version)
-                .filter(|v| !v.is_empty())
-        };
+        // 纯内存比较，不再访问数据库
+        let aur_ver = aur_map
+            .get(&r.software_id)
+            .filter(|v| !v.is_empty())
+            .map(|s| s.as_str());
 
-        let is_outdated = match aur_ver.as_deref() {
+        let is_outdated = match aur_ver {
             Some(aur) => {
                 crate::versions::compare_versions(aur, &r.upstream_version)
                     == crate::versions::VersionComparison::LessThan
@@ -126,9 +139,9 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
             }
 
             // 只有当用户没有手动设置语言列表时，才用自动检测到的语言列表填充
-            let existing_sw = db.get_software_by_name(&result.pkgname)?;
-            if let Some(ref sw) = existing_sw {
-                if sw.language_ids.is_empty() && !language_ids.is_empty() {
+            // 直接用初始加载的 lang_by_id 内存映射判断，无需再次查询数据库
+            if let Some(existing_langs) = lang_by_id.get(&result.software_id) {
+                if existing_langs.is_empty() && !language_ids.is_empty() {
                     if let Err(e) = db.update_software_languages(result.software_id, &language_ids)
                     {
                         error!(

@@ -104,7 +104,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/db/migration_enum.rs` | 枚举表迁移（licenses + languages） |
 | `src-tauri/src/db/seed.rs` | 初始数据填充 |
 | `src-tauri/src/db/software_info.rs` | 软件包信息表 |
-| `src-tauri/src/db/aur_info.rs` | AUR 信息表 |
+| `src-tauri/src/db/aur_info.rs` | AUR 信息表；含 `get_aur_versions_map` 批量读取全部 AUR 版本（供上游批量检查消除 N+1 查询） |
 | `src-tauri/src/db/upstream_info.rs` | 上游版本信息表 |
 | `src-tauri/src/db/proxies_info.rs` | 代理配置表 |
 | `src-tauri/src/db/backup_software.rs` | 备份软件表 |
@@ -137,7 +137,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/commands/sysops/software_sync/` | 软件包同步命令模块（目录结构） |
 | `src-tauri/src/commands/sysops/software_sync/mod.rs` | 模块声明和导出（不含具体实现） |
 | `src-tauri/src/commands/sysops/software_sync/aur.rs` | AUR 信息同步命令（只更新 aur_info 表，不更新 software_info 表） |
-| `src-tauri/src/commands/sysops/software_sync/upstream.rs` | 上游版本批量检查命令（`check_all_upstream`）：映射任务交给 batch 引擎分类并行检查；Manual 包跳过网络仅回传标记，保留 AUR 比较与 DB 批量写入 |
+| `src-tauri/src/commands/sysops/software_sync/upstream.rs` | 上游版本批量检查命令（`check_all_upstream`）：映射任务交给 batch 引擎分类并行检查；Manual 包跳过网络仅回传标记；一次性批量读取 AUR 版本 + 内存映射语言 ID，消除写库阶段 N+1 查询与反复加锁 |
 | `src-tauri/src/commands/sysops/software_sync/batch.rs` | 上游批量分类并发执行引擎：按检查器类型分桶（Manual 跳过 / Browser 严格限并发 / 网络类全局限并发）；GitHub 包走 GraphQL 批量 + REST 回退；迁入 check_with_retry、PackageTask、BatchOutcome |
 | `src-tauri/src/commands/sysops/software_sync/pkgbuild.rs` | PKGBUILD 文件同步命令（保留用户手动设置的字段） |
 | `src-tauri/src/commands/sysops/software_sync/utils.rs` | 同步工具函数（AurParsedFields、parse_aur_fields 通用 AUR JSON 解析） |
@@ -148,7 +148,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/checkers/utils.rs` | 检查器工具函数（含版本正则提取） |
 | `src-tauri/src/checkers/redirect.rs` | HTTP 重定向检查器（跟踪 Location / meta-refresh / JS 重定向） |
 | `src-tauri/src/checkers/redirect_parse.rs` | 重定向检查器的 URL 解析与脚本扫描辅助函数 |
-| `src-tauri/src/checkers/browser.rs` | 浏览器（JS 渲染）检查器（BrowserChecker），调用本机 Chromium/Chrome 渲染后提取版本；`spawn()` + `kill_on_drop(true)`，超时自动回收子进程，修复进程/内存泄漏 |
+| `src-tauri/src/checkers/browser.rs` | 浏览器（JS 渲染）检查器（BrowserChecker），调用本机 Chromium/Chrome 渲染后提取版本；`spawn()` + `kill_on_drop(true)`，超时自动回收子进程，修复进程/内存泄漏；HTML 清洗正则用 `OnceLock` 懒加载，进程内仅编译一次 |
 | `src-tauri/src/checkers/github/` | GitHub 检查器模块（目录结构） |
 | `src-tauri/src/checkers/github/mod.rs` | 模块声明和导出（不含具体实现） |
 | `src-tauri/src/checkers/github/tags_checker.rs` | GitHubTagsChecker 检查器实现 |
@@ -157,7 +157,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/checkers/github/release.rs` | GitHub latest release 路径版本提取（二进制检查 + 正则回退） |
 | `src-tauri/src/checkers/github/release_history.rs` | GitHub Releases 历史遍历扫描（分页 + 资产过滤回退） |
 | `src-tauri/src/checkers/github/git_describe.rs` | Git Describe 格式化（-git 包专用） |
-| `src-tauri/src/checkers/github/graphql_batch.rs` | GitHub GraphQL 批量检查器：`batch_check_github` 用 alias 在单次请求批量查多仓库 tags/releases+license+languages；git 包/无 Token/仓库缺失回落逐包 REST；select_version 镜像 REST 路径 |
+| `src-tauri/src/checkers/github/graphql_batch.rs` | GitHub GraphQL 批量检查器：`batch_check_github` 用 alias 在单次请求批量查多仓库 tags/releases+license/languages；按 `owner/repo` 构建哈希索引一次性完成去重与按仓库匹配（O(n)，非 O(n²)）；分块用 `JoinSet` 并行发送请求；git 包/无 Token/仓库缺失回落逐包 REST；select_version 镜像 REST 路径 |
 | `src-tauri/src/checkers/github/graphql_batch_parse.rs` | GitHub GraphQL 快照解析（RepoSnapshot / ReleaseData / parse_snapshot） |
 | `src-tauri/src/versions/` | 版本处理模块（解析、标准化、比较） |
 | `src-tauri/src/versions/mod.rs` | versions 模块入口 |

@@ -2,6 +2,8 @@ use crate::errors::AppResult; // 通用错误处理
 
 use crate::models::*; // 数据模型
 
+use std::collections::HashMap;
+
 use super::Database; // 数据库结构体
 
 impl Database {
@@ -82,5 +84,26 @@ impl Database {
             rusqlite::params![software_id],
         )?;
         Ok(())
+    }
+
+    /// 批量读取所有软件包的 AUR 版本，返回 `software_id -> aur_version` 映射。
+    ///
+    /// 用于上游批量检查：一次性获取全部 AUR 版本，替代循环内逐包调用
+    /// `get_aur_info` 产生的 N+1 查询与反复加锁，显著降低批量检查时的数据库开销。
+    /// 仅返回 aur_version 非空且非空的记录。
+    pub fn get_aur_versions_map(&self) -> AppResult<HashMap<i64, String>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT software_id, aur_version FROM aur_info \
+             WHERE aur_version IS NOT NULL AND aur_version != ''",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })?;
+        let mut map = HashMap::new();
+        for r in rows {
+            let (id, ver) = r?;
+            map.insert(id, ver);
+        }
+        Ok(map)
     }
 }
