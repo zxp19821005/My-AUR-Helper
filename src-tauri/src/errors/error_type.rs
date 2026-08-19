@@ -136,3 +136,16 @@ impl From<AppError> for String {
         e.to_string()
     }
 }
+
+impl AppError {
+    /// 判断错误是否可重试（临时性网络故障）
+    ///
+    /// 可重试：超时、连接失败（网络波动）、服务器错误（5xx）
+    /// 不可重试：DNS 失败、404、403 限流、解析错误等
+    pub fn is_retryable(&self) -> bool {
+        matches!(
+            self,
+            AppError::NetworkTimeout(_) | AppError::NetworkConnect(_)
+        )
+    }
+}

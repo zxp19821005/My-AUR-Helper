@@ -145,6 +145,13 @@ export function usePackageList() {
     footer.infoText = `总计: ${s.length}  |  已最新: ${s.length - outdated}  |  需更新: ${outdated}`;
     footer.showPagination = s.length > pageSize.value;
     footer.totalRecords = s.length;
+    
+    // 边界检查：确保页码不超过总页数
+    const totalPages = Math.ceil(s.length / pageSize.value);
+    if (totalPages > 0 && currentPage.value > totalPages) {
+      currentPage.value = totalPages;
+    }
+    
     footer.currentPage = currentPage.value;
     footer.pageSize = pageSize.value;
     footer.onPageChange = goToPage;
@@ -201,6 +208,7 @@ export function usePackageList() {
       // 仅当存在被删除的条目时才替换数组引用（删除操作需移除行）
       if (removed.size) {
         entries.value = list.filter((e) => !removed.has(e.pkgname));
+        currentPage.value = 1;
       } else {
         // 行内字段已就地更新，但 shallowRef 不追踪嵌套对象变化，需手动触发刷新
         triggerRef(entries);

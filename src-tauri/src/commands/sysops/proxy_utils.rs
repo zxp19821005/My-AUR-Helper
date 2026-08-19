@@ -104,7 +104,9 @@ pub fn build_client_with_redirect(
     _proxy_url: Option<&str>,
     follow_redirects: bool,
 ) -> reqwest::Client {
-    let mut builder = reqwest::Client::builder().timeout(Duration::from_secs(timeout_secs));
+    let mut builder = reqwest::Client::builder()
+        .timeout(Duration::from_secs(timeout_secs))
+        .connect_timeout(Duration::from_secs(10));
 
     if !follow_redirects {
         builder = builder.redirect(reqwest::redirect::Policy::none());

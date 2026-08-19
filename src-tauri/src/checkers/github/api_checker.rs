@@ -102,22 +102,19 @@ impl VersionChecker for GitHubAPIChecker {
             }
         );
 
-        // 获取 license 信息
-        let license = fetch_github_repo_license(client, &owner, &repo, self.token.as_deref())
-            .await
-            .unwrap_or_else(|e| {
-                log::warn!("[版本检查] 获取 license 失败: {}", e);
-                None
-            });
-
-        // 获取编程语言列表
-        let language_names =
+        // 并行获取 license 和 languages（减少串行等待）
+        let (license_result, languages_result) = tokio::join!(
+            fetch_github_repo_license(client, &owner, &repo, self.token.as_deref()),
             fetch_github_repo_languages(client, &owner, &repo, self.token.as_deref())
-                .await
-                .unwrap_or_else(|e| {
-                    log::warn!("[版本检查] 获取 languages 失败: {}", e);
-                    vec![]
-                });
+        );
+        let license = license_result.unwrap_or_else(|e| {
+            log::warn!("[版本检查] 获取 license 失败: {}", e);
+            None
+        });
+        let language_names = languages_result.unwrap_or_else(|e| {
+            log::warn!("[版本检查] 获取 languages 失败: {}", e);
+            vec![]
+        });
 
         // -git 包使用 git describe 逻辑
         if pkgname.ends_with("-git") {

@@ -13,7 +13,7 @@
  * 注意：AUR 同步只更新 aur_info 表（描述、版本、依赖等），不更新 software_info 表。
  * software_info 的字段（上游URL、检查器类型、包类型等）只在用户手动设置时更新。
  */
-use log::{debug, info};
+use log::{debug, info, warn};
 use tauri::State;
 
 use super::super::proxy_utils::{build_client, get_active_proxy};
@@ -200,10 +200,13 @@ pub async fn update_aur_info(
         let pkgname_for_handle = pkgname.clone();
         let handle = tokio::spawn(async move {
             debug!("请求 AUR 信息: {}", pkgname_clone);
-            aur::get_package_info(&client, &pkgname_clone)
-                .await
-                .ok()
-                .flatten()
+            match aur::get_package_info(&client, &pkgname_clone).await {
+                Ok(opt) => opt,
+                Err(e) => {
+                    warn!("获取 {} 的 AUR 信息失败: {}", pkgname_clone, e);
+                    None
+                }
+            }
         });
         handles.push((pkgname_for_handle, handle));
     }

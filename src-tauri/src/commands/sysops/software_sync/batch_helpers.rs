@@ -129,7 +129,13 @@ async fn check_with_retry(
     let mut last_error = None;
     for attempt in 0..=retry_count {
         if attempt > 0 {
-            info!("[重试] 第 {} 次重试 {}", attempt, pkgname);
+            // 指数退避延迟：1s, 2s, 4s ...
+            let delay_secs = 1u64 << (attempt - 1);
+            info!(
+                "[重试] 第 {} 次重试 {} (等待 {}s)",
+                attempt, pkgname, delay_secs
+            );
+            tokio::time::sleep(std::time::Duration::from_secs(delay_secs)).await;
         }
         match checker
             .check(
@@ -150,6 +156,11 @@ async fn check_with_retry(
                     retry_count + 1,
                     e
                 );
+                // 永久性错误（DNS 失败、404、403 等）不重试
+                if !e.is_retryable() {
+                    warn!("[批量检查] {} 错误不可重试，跳过剩余重试", pkgname);
+                    return Err(e);
+                }
                 last_error = Some(e);
             }
         }
