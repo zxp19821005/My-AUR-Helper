@@ -1,21 +1,22 @@
 /**
- * upstream.rs - 上游版本检查命令（并行执行）
+ * upstream.rs - 上游版本检查命令（分类并行执行）
  *
  * 功能：并行检查所有软件包的上游最新版本。
- * 使用 tokio::spawn 并行发起网络请求，每个包独立检查，
+ * 先按检查器类型分类，再交给批量执行引擎（batch 模块）在受控并发下检查，
  * 结果收集到内存后批量写入数据库，减少锁竞争。
  *
  * 工作流程：
  * 1. 从数据库读取所有软件包及其检查器配置
- * 2. 为每个包创建 tokio::spawn 任务并行检查
- * 3. 每个任务调用对应检查器的 check 方法，支持重试
- * 4. 收集所有结果到内存
- * 5. 批量更新数据库中的 upstream_info 和 is_outdated 字段
+ * 2. 映射为 PackageTask，交由 batch_check_upstream 分类并行检查
+ * 3. 收集结果，与 AUR 版本比较得出 is_outdated
+ * 4. 批量更新数据库中的 upstream_info 和 is_outdated 字段
+ * 5. Manual 检查器包跳过网络请求，仅回传包名（不写库）
  */
 use log::{error, info};
 use tauri::State;
 
 use super::super::proxy_utils::{build_client, get_active_proxy};
+use super::batch::{batch_check_upstream, PackageTask};
 use super::utils::{
     build_checker_settings, get_setting_opt, parse_u32, parse_u64, UpstreamCheckResult,
 };
@@ -41,100 +42,60 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
         let proxy_url = get_active_proxy(&db);
         (packages, settings, timeout, retry, proxy_url)
     };
+
+    // 将 SoftwareInfo 映射为批量检查任务（保留包类型，为后续按包类型批量优化预留）
+    let tasks: Vec<PackageTask> = packages
+        .into_iter()
+        .map(|sw| PackageTask {
+            pkgname: sw.pkgname,
+            software_id: sw.software_id.unwrap_or(0),
+            upstream_url: sw.upstream_url.unwrap_or_default(),
+            version_extract_regex: sw.version_extract_regex,
+            check_test_versions: sw.check_test_versions,
+            check_binary_files: sw.check_binary_files,
+            checker_type: sw.checker_type_id,
+            package_type: sw.package_type_id,
+        })
+        .collect();
+
     let client = build_client(timeout, proxy_url.as_deref());
 
-    // 并行检查所有包
-    let mut handles = Vec::new();
-    for sw in &packages {
-        let client = client.clone();
-        let settings = settings.clone();
-        let pkgname = sw.pkgname.clone();
-        let upstream_url = sw.upstream_url.clone().unwrap_or_default();
-        let version_extract_regex = sw.version_extract_regex.clone();
-        let check_test_versions = sw.check_test_versions;
-        let check_binary_files = sw.check_binary_files;
-        let checker_type_id = sw.checker_type_id.clone();
-        let software_id = sw.software_id.unwrap_or(0);
-        let retry = retry;
+    // 分类并行检查：Manual 跳过网络，Browser 限严格并发，其余限全局并发
+    let outcome = batch_check_upstream(tasks, client, settings, retry).await;
 
-        let handle = tokio::spawn(async move {
-            let checker = crate::checkers::get_checker(&checker_type_id, settings);
-            let options = crate::checkers::CheckOptions {
-                check_test_versions,
-                check_binary_files,
-            };
-
-            let result = check_with_retry(
-                &*checker,
-                &client,
-                &upstream_url,
-                &pkgname,
-                version_extract_regex.as_deref(),
-                &options,
-                retry,
-            )
-            .await;
-
-            (pkgname, software_id, result)
-        });
-        handles.push(handle);
-    }
-
-    // 收集结果
+    // 收集检查结果，与 AUR 版本比较得出是否过期
     let mut check_results: Vec<UpstreamCheckResult> = Vec::new();
-    for handle in handles {
-        if let Ok((pkgname, software_id, result)) = handle.await {
-            match result {
-                Ok(check_result) => {
-                    if let Some(version) = check_result.version {
-                        let aur_ver = {
-                            let db = state.db.lock()?;
-                            db.get_aur_info(software_id)
-                                .ok()
-                                .flatten()
-                                .and_then(|a| a.aur_version)
-                                .filter(|v| !v.is_empty())
-                        };
-
-                        let is_outdated = match aur_ver.as_deref() {
-                            Some(aur) => {
-                                crate::versions::compare_versions(aur, &version)
-                                    == crate::versions::VersionComparison::LessThan
-                            }
-                            None => true,
-                        };
-
-                        check_results.push(UpstreamCheckResult {
-                            pkgname,
-                            software_id,
-                            upstream_version: version,
-                            is_outdated,
-                            license_spdx_id: check_result.license,
-                            language_names: check_result.language_names,
-                        });
-                    } else {
-                        check_results.push(UpstreamCheckResult {
-                            pkgname,
-                            software_id,
-                            upstream_version: String::new(),
-                            is_outdated: false,
-                            license_spdx_id: None,
-                            language_names: vec![],
-                        });
-                    }
-                }
-                _ => {
-                    check_results.push(UpstreamCheckResult {
-                        pkgname,
-                        software_id,
-                        upstream_version: String::new(),
-                        is_outdated: false,
-                        license_spdx_id: None,
-                        language_names: vec![],
-                    });
-                }
-            }
+    for r in outcome.checked {
+        if r.upstream_version.is_empty() {
+            // 检查失败 / 无版本：仍记录，写库阶段置 is_outdated=false
+            check_results.push(r);
+            continue;
         }
+        let aur_ver = {
+            let db = state.db.lock()?;
+            db.get_aur_info(r.software_id)
+                .ok()
+                .flatten()
+                .and_then(|a| a.aur_version)
+                .filter(|v| !v.is_empty())
+        };
+
+        let is_outdated = match aur_ver.as_deref() {
+            Some(aur) => {
+                crate::versions::compare_versions(aur, &r.upstream_version)
+                    == crate::versions::VersionComparison::LessThan
+            }
+            None => true,
+        };
+
+        check_results.push(UpstreamCheckResult {
+            pkgname: r.pkgname,
+            software_id: r.software_id,
+            upstream_version: r.upstream_version,
+            is_outdated,
+            license_spdx_id: r.license_spdx_id,
+            language_names: r.language_names,
+        });
     }
 
     // 批量写入数据库
@@ -208,64 +169,11 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
         }
     }
 
+    // Manual 检查器包：跳过网络与写库，仅回传包名标记（前端可展示「需手动更新」）
+    for pkgname in outcome.manual {
+        success_results.push((pkgname, "manual".to_string()));
+    }
+
     info!("已完成 {} 个软件包的上游版本检查", success_results.len());
     Ok(success_results)
-}
-
-/// 带重试的版本检查
-///
-/// # 参数
-/// - `checker`: 版本检查器实例
-/// - `client`: HTTP 客户端
-/// - `upstream_url`: 上游仓库 URL
-/// - `pkgname`: 软件包名称
-/// - `version_extract_regex`: 版本提取正则表达式（可选）
-/// - `options`: 检查选项
-/// - `retry_count`: 最大重试次数
-///
-/// # 返回
-/// - `Ok(CheckResult)`: 检查成功，包含版本号和 license 信息
-/// - `Err(e)`: 所有重试均失败
-async fn check_with_retry(
-    checker: &dyn crate::checkers::VersionChecker,
-    client: &reqwest::Client,
-    upstream_url: &str,
-    pkgname: &str,
-    version_extract_regex: Option<&str>,
-    options: &crate::checkers::CheckOptions,
-    retry_count: u32,
-) -> AppResult<crate::checkers::CheckResult> {
-    let mut last_error = None;
-    for attempt in 0..=retry_count {
-        if attempt > 0 {
-            info!("[重试] 第 {} 次重试 {}", attempt, pkgname);
-        }
-        match checker
-            .check(
-                client,
-                upstream_url,
-                pkgname,
-                version_extract_regex,
-                options,
-            )
-            .await
-        {
-            Ok(result) => return Ok(result),
-            Err(e) => {
-                error!(
-                    "检查 {} 失败 (尝试 {}/{}): {}",
-                    pkgname,
-                    attempt + 1,
-                    retry_count + 1,
-                    e
-                );
-                last_error = Some(e);
-            }
-        }
-    }
-    Err(
-        last_error.unwrap_or(crate::errors::AppError::VersionCheckError(
-            "检查失败".to_string(),
-        )),
-    )
 }

@@ -293,6 +293,44 @@ CSP 设置为 `null`，Webview 无内容安全策略保护。
 
 ---
 
+## 代码安全审计（2026-08-18 复查）
+
+在一次上游批量检查重构中，复查发现浏览器检查器的子进程资源管理缺陷并完成修复。
+
+### 问题 11: 浏览器检查器子进程泄漏（资源耗尽 / 进程残留）
+
+| 项目 | 内容 |
+|------|------|
+| 文件 | `src-tauri/src/checkers/browser.rs` |
+| 函数 | `BrowserChecker::check` |
+| 严重程度 | Medium |
+| 影响 | 批量上游检查场景下，每个 Browser 包并发调用 `Command::output()` 拉起本机 Chromium/Chrome headless 进程；原实现用 `timeout` 包裹 future，超时后 future 被丢弃但 Chrome 子进程未被回收，导致孤儿进程堆积、内存与文件描述符耗尽（OOM/FD 泄漏）；且无任何并发上限，会同时拉起大量 Chrome 进程 |
+
+**修复方案：**
+- 改用 `Command::spawn()` + `.kill_on_drop(true)`：future 被取消或任务结束时，tokio 自动回收子进程，杜绝孤儿进程。
+- 上层批量引擎（`commands/sysops/software_sync/batch.rs`）对 Browser 桶施加独立严格并发信号量（默认上限 4），限制同时运行的 Chrome 进程数量。
+- 上层对全部网络检查施加全局并发信号量（默认上限 16），缓解上游限流。
+
+### 复查修复文件清单
+
+| 文件 | 修改内容 |
+|------|----------|
+| `src-tauri/src/checkers/browser.rs` | `spawn()` + `kill_on_drop(true)` 替换 `Command::output()`，超时自动回收子进程 |
+| `src-tauri/src/commands/sysops/software_sync/batch.rs` | 新增批量分类并发执行引擎，Browser 桶独立限并发、网络桶全局限并发 |
+| `src-tauri/src/commands/sysops/software_sync/upstream.rs` | 重构 `check_all_upstream` 接入分类批量引擎 |
+| `src-tauri/src/commands/sysops/software_sync/mod.rs` | 注册 `pub mod batch` |
+| `src-tauri/src/checkers/github/graphql_batch.rs` | GitHub GraphQL 批量检查器（alias 单次批量查多仓库，无 Token/仓库缺失回落 REST） |
+| `src-tauri/src/checkers/github/graphql_batch_parse.rs` | GitHub GraphQL 响应解析 |
+
+### 复查验证
+
+```
+✓ cargo clippy --all-targets - 编译通过（无新增 warning）
+✓ cargo fmt --check - 本次新增/修改文件格式合规
+```
+
+---
+
 ## 待处理项（依赖层面的中等漏洞）
 
 GitHub Dependabot 提示仓库存在 1 个 moderate 级依赖漏洞（前端，需升级 vite 至 6.x 方可修复；属开发服务器相关问题，不影响生产构建）。相关 3 个前端漏洞已在 2026-07-14 审计中记录，建议在后续开发周期评估 vite 6.x 升级兼容性后再处理。

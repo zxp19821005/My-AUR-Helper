@@ -19,6 +19,9 @@ pub mod aur;
 /// 上游版本检查命令（并行执行）
 pub mod upstream;
 
+/// 上游批量检查执行引擎（分类 + 分组并发）
+pub mod batch;
+
 /// PKGBUILD 文件同步命令
 pub mod pkgbuild;
 

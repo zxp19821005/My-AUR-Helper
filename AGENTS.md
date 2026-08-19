@@ -134,12 +134,13 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/commands/sysops/backup_install.rs` | 备份包安装和信息查询 Tauri 命令（pacman -Qip、sudoers、install） |
 | `src-tauri/src/commands/sysops/backup_install_helpers.rs` | 备份安装的路径校验与 sudoers 规则辅助函数（被 cache_install/cache_cleanup 复用） |
 | `src-tauri/src/commands/sysops/pacman_lock.rs` | pacman 数据库锁检查命令（检测 /var/lib/pacman/db.lck 是否存在） |
-| `src-tauri/src/commands/software_sync/` | 软件包同步命令模块（目录结构） |
-| `src-tauri/src/commands/software_sync/mod.rs` | 模块声明和导出（不含具体实现） |
-| `src-tauri/src/commands/software_sync/aur.rs` | AUR 信息同步命令（只更新 aur_info 表，不更新 software_info 表） |
-| `src-tauri/src/commands/software_sync/upstream.rs` | 上游版本并行检查命令（语言列表仅在为空时自动填充） |
-| `src-tauri/src/commands/software_sync/pkgbuild.rs` | PKGBUILD 文件同步命令（保留用户手动设置的字段） |
-| `src-tauri/src/commands/software_sync/utils.rs` | 同步工具函数（AurParsedFields、parse_aur_fields 通用 AUR JSON 解析） |
+| `src-tauri/src/commands/sysops/software_sync/` | 软件包同步命令模块（目录结构） |
+| `src-tauri/src/commands/sysops/software_sync/mod.rs` | 模块声明和导出（不含具体实现） |
+| `src-tauri/src/commands/sysops/software_sync/aur.rs` | AUR 信息同步命令（只更新 aur_info 表，不更新 software_info 表） |
+| `src-tauri/src/commands/sysops/software_sync/upstream.rs` | 上游版本批量检查命令（`check_all_upstream`）：映射任务交给 batch 引擎分类并行检查；Manual 包跳过网络仅回传标记，保留 AUR 比较与 DB 批量写入 |
+| `src-tauri/src/commands/sysops/software_sync/batch.rs` | 上游批量分类并发执行引擎：按检查器类型分桶（Manual 跳过 / Browser 严格限并发 / 网络类全局限并发）；GitHub 包走 GraphQL 批量 + REST 回退；迁入 check_with_retry、PackageTask、BatchOutcome |
+| `src-tauri/src/commands/sysops/software_sync/pkgbuild.rs` | PKGBUILD 文件同步命令（保留用户手动设置的字段） |
+| `src-tauri/src/commands/sysops/software_sync/utils.rs` | 同步工具函数（AurParsedFields、parse_aur_fields 通用 AUR JSON 解析） |
 | `src-tauri/src/checkers/` | 版本检查器模块 |
 | `src-tauri/src/checkers/mod.rs` | 检查器模块入口和导出 |
 | `src-tauri/src/checkers/factory.rs` | 检查器工厂函数（get_checker） |
@@ -147,16 +148,17 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/checkers/utils.rs` | 检查器工具函数（含版本正则提取） |
 | `src-tauri/src/checkers/redirect.rs` | HTTP 重定向检查器（跟踪 Location / meta-refresh / JS 重定向） |
 | `src-tauri/src/checkers/redirect_parse.rs` | 重定向检查器的 URL 解析与脚本扫描辅助函数 |
-| `src-tauri/src/checkers/browser.rs` | 浏览器（JS 渲染）检查器（BrowserChecker），调用本机 Chromium/Chrome 渲染后提取版本 |
+| `src-tauri/src/checkers/browser.rs` | 浏览器（JS 渲染）检查器（BrowserChecker），调用本机 Chromium/Chrome 渲染后提取版本；`spawn()` + `kill_on_drop(true)`，超时自动回收子进程，修复进程/内存泄漏 |
 | `src-tauri/src/checkers/github/` | GitHub 检查器模块（目录结构） |
 | `src-tauri/src/checkers/github/mod.rs` | 模块声明和导出（不含具体实现） |
 | `src-tauri/src/checkers/github/tags_checker.rs` | GitHubTagsChecker 检查器实现 |
 | `src-tauri/src/checkers/github/api_checker.rs` | GitHubAPIChecker 检查器实现 |
 | `src-tauri/src/checkers/github/tags.rs` | GitHub Tags 分页获取和版本比较逻辑 |
-| `src-tauri/src/checkers/github/api.rs` | GitHub Release API 调用和资产过滤逻辑 |
 | `src-tauri/src/checkers/github/release.rs` | GitHub latest release 路径版本提取（二进制检查 + 正则回退） |
 | `src-tauri/src/checkers/github/release_history.rs` | GitHub Releases 历史遍历扫描（分页 + 资产过滤回退） |
 | `src-tauri/src/checkers/github/git_describe.rs` | Git Describe 格式化（-git 包专用） |
+| `src-tauri/src/checkers/github/graphql_batch.rs` | GitHub GraphQL 批量检查器：`batch_check_github` 用 alias 在单次请求批量查多仓库 tags/releases+license+languages；git 包/无 Token/仓库缺失回落逐包 REST；select_version 镜像 REST 路径 |
+| `src-tauri/src/checkers/github/graphql_batch_parse.rs` | GitHub GraphQL 快照解析（RepoSnapshot / ReleaseData / parse_snapshot） |
 | `src-tauri/src/versions/` | 版本处理模块（解析、标准化、比较） |
 | `src-tauri/src/versions/mod.rs` | versions 模块入口 |
 | `src-tauri/src/versions/utils.rs` | 版本处理工具函数（比较、排序、查找最新版本） |
@@ -432,7 +434,7 @@ cargo test         # Rust 单元测试
 - `GitLabChecker` — GitLab API
 - `RedirectChecker` — HTTP 重定向（跟随 URL 获取版本）
 - `HttpChecker` — HTML 页面解析（提取版本号）
-- `BrowserChecker` — 浏览器（JS 渲染）检查器：适用于上游页面由 JavaScript 动态渲染、静态抓取只能拿到 SPA 空壳的场景（如百度 landingPage），调用本机 Chromium/Chrome 的 `--headless --dump-dom` 渲染后再用正则/HTML 提取版本（实现见 `checkers/browser.rs`）
+- `BrowserChecker` — 浏览器（JS 渲染）检查器：适用于上游页面由 JavaScript 动态渲染、静态抓取只能拿到 SPA 空壳的场景（如百度 landingPage），调用本机 Chromium/Chrome 的 `--headless --dump-dom` 渲染后再用正则/HTML 提取版本（实现见 `checkers/browser.rs`）。批量场景下用 `spawn()` + `kill_on_drop(true)` 超时自动回收子进程，避免并发拉起多个 Chrome 导致内存/FD 耗尽及进程泄漏（修复见 AGENTS.md 安全审计「问题 11」）
 - `ManualChecker` — 手动更新（用户指定版本）
 
 ### GitHub 检查器模块结构
@@ -445,6 +447,8 @@ GitHub 检查器采用目录结构（`checkers/github/`），包含以下文件�
 - `binary_check.rs`: 二进制文件检查工具
 - `repo_info.rs`: 仓库元信息获取（License + 编程语言）
 - `git_describe.rs`: Git Describe 格式化（-git 包专用），通过 GitHub API 生成类似 `git describe` 的版本字符串
+- `graphql_batch.rs`: GitHub GraphQL 批量检查器（`batch_check_github`）：用 alias 在单次请求里批量查多个仓库的 tags/releases + license/languages，按 `owner/repo` 去重；git 包/无 Token/仓库缺失回落逐包 REST；`select_version` 严格镜像 REST 路径保证结果一致
+- `graphql_batch_parse.rs`: GitHub GraphQL 响应解析（`RepoSnapshot` / `ReleaseData` / `parse_snapshot`）
 
 ### 工具模块
 - `checkers/utils.rs` — 通用工具函数（版本号正则提取、URL 解析等）

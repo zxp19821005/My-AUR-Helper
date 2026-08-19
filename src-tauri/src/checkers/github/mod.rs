@@ -40,6 +40,12 @@ mod tags_checker;
 /// GitHubAPIChecker 检查器实现
 mod api_checker;
 
+/// GitHub 上游版本批量检查（GraphQL 分块聚合）
+pub mod graphql_batch;
+
+/// GitHub GraphQL 批量查询的快照解析
+pub mod graphql_batch_parse;
+
 // 公开导出检查器结构体，供 checkers/mod.rs 中的工厂函数使用
 pub use api_checker::GitHubAPIChecker;
 pub use tags_checker::GitHubTagsChecker;

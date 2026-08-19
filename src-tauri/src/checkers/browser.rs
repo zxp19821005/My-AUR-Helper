@@ -122,22 +122,37 @@ impl VersionChecker for BrowserChecker {
         };
         debug!("[版本检查] 使用浏览器: {}", browser);
 
-        let output = tokio::time::timeout(
-            Duration::from_secs(60),
-            Command::new(&browser)
-                .args([
-                    "--headless",
-                    "--no-sandbox",
-                    "--disable-gpu",
-                    "--disable-dev-shm-usage",
-                    "--dump-dom",
-                    upstream_url,
-                ])
-                .output(),
-        )
-        .await
-        .map_err(|_| AppError::VersionCheckError(format!("浏览器检查 {} 超时（60 秒）", pkgname)))?
-        .map_err(|e| AppError::VersionCheckError(format!("启动浏览器失败: {}", e)))?;
+        // 启动浏览器子进程：
+        // - kill_on_drop(true)：包裹的 future 被丢弃（如 timeout 触发.cancel）时，
+        //   内部 Child 随之被 drop 并自动杀掉子进程，避免进程/内存泄漏
+        // - 外层 timeout 控制总耗时
+        let mut child = Command::new(&browser)
+            .args([
+                "--headless",
+                "--no-sandbox",
+                "--disable-gpu",
+                "--disable-dev-shm-usage",
+                "--dump-dom",
+                upstream_url,
+            ])
+            .kill_on_drop(true)
+            .spawn()
+            .map_err(|e| AppError::VersionCheckError(format!("启动浏览器失败: {}", e)))?;
+
+        let output =
+            match tokio::time::timeout(Duration::from_secs(60), child.wait_with_output()).await {
+                Ok(res) => res.map_err(|e| {
+                    AppError::VersionCheckError(format!("读取浏览器输出失败: {}", e))
+                })?,
+                Err(_) => {
+                    // 超时：child 已被 move 进 wait_with_output 的 future，
+                    // timeout 触发后该 future 被丢弃，kill_on_drop(true) 自动杀掉子进程
+                    return Err(AppError::VersionCheckError(format!(
+                        "浏览器检查 {} 超时（60 秒）",
+                        pkgname
+                    )));
+                }
+            };
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);

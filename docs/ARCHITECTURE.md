@@ -128,7 +128,8 @@ src-tauri/src/
 │       └── software_sync/    # 软件包同步命令模块
 │           ├── mod.rs        # 模块声明和导出
 │           ├── aur.rs        # AUR 信息同步和更新命令
-│           ├── upstream.rs   # 上游版本并行检查命令
+│           ├── upstream.rs   # 上游版本批量检查命令（check_all_upstream，交给 batch 引擎分类并行检查）
+│           ├── batch.rs      # 上游批量分类并发执行引擎（Manual/Browser/网络分桶 + GitHub GraphQL 批量）
 │           ├── pkgbuild.rs   # PKGBUILD 文件同步命令
 │           └── utils.rs      # 同步工具函数
 ├── checkers/
@@ -141,9 +142,12 @@ src-tauri/src/
 │   │   ├── api_checker.rs    # GitHubAPIChecker 检查器实现
 │   │   ├── tags.rs           # Tags 分页获取和版本比较逻辑
 │   │   ├── release.rs        # Release API 调用（latest + 分页遍历）
+│   │   ├── release_history.rs # Releases 历史遍历扫描（分页 + 资产过滤回退）
 │   │   ├── binary_check.rs   # 二进制文件检查工具
 │   │   ├── repo_info.rs      # 仓库元信息获取（License + 编程语言）
-│   │   └── git_describe.rs   # Git Describe 格式化（-git 包专用）
+│   │   ├── git_describe.rs   # Git Describe 格式化（-git 包专用）
+│   │   ├── graphql_batch.rs  # GitHub GraphQL 批量检查器（alias 单次批量查多仓库 + REST 回退）
+│   │   └── graphql_batch_parse.rs # GitHub GraphQL 响应解析
 │   ├── gitee.rs              # Gitee 检查器
 │   ├── gitlab.rs             # GitLab 检查器
 │   ├── redirect.rs           # 重定向检查器

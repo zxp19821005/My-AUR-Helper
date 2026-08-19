@@ -12,7 +12,7 @@
 mod browser;
 mod factory;
 mod gitee;
-mod github;
+pub mod github;
 mod gitlab;
 mod http;
 mod manual;
@@ -20,7 +20,7 @@ mod redirect;
 /// HTTP 重定向检查器的 URL 解析与脚本扫描辅助函数
 mod redirect_parse;
 mod trait_def;
-mod utils;
+pub mod utils;
 
 pub use factory::{get_checker, CheckerSettings};
 pub use trait_def::{CheckOptions, CheckResult, VersionChecker};
