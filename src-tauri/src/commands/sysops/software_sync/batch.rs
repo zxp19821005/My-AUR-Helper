@@ -249,12 +249,12 @@ pub async fn batch_check_upstream(
         }));
     }
 
-    // ---- GitHub 批量（GraphQL）----
-    // 从网络桶中分离 GitHub 包，命中 GraphQL 的直接出结果；
-    // git 包 / 无 Token / URL 解析失败 / 仓库缺失 回落到逐包 REST（run_one）。
+    // ---- 拆分网络桶：GitHub 与必然 REST ----
+    // github_items/origin：可走 GraphQL 的包（URL 解析成功、非 git、有 Token）
+    // fallback_definite：git 包 / URL 解析失败 / 非 GitHub 检查器 —— 必然走 REST
     let mut github_items: Vec<GithubBatchItem> = Vec::new();
     let mut github_origin: Vec<PackageTask> = Vec::new();
-    let mut fallback: Vec<PackageTask> = Vec::new();
+    let mut fallback_definite: Vec<PackageTask> = Vec::new();
 
     for task in network_tasks {
         let is_github = matches!(
@@ -278,18 +278,50 @@ pub async fn batch_check_upstream(
                 continue;
             }
         }
-        fallback.push(task);
+        fallback_definite.push(task);
     }
 
-    // 命中 GraphQL 的包直接产出结果；未命中（仓库缺失 / 失败回落）回到 fallback 走 REST
-    let github_results =
-        batch_check_github(&client, github_items, settings.github_token.as_deref()).await;
-    let processed: HashSet<String> = github_results.iter().map(|o| o.pkgname.clone()).collect();
-    for origin in github_origin {
-        if !processed.contains(&origin.pkgname) {
-            fallback.push(origin);
+    // 并发点：GraphQL 批量查询与「必然 REST」桶同时启动，压平墙钟时间。
+    // 成功命中 GraphQL 的包不再发 REST；仅未命中的 github 包后续补回落，
+    // 既避免重复请求（保住限流收益），又避免同一包被双重处理。
+    let github_handle = {
+        let client = client.clone();
+        // 仅克隆 token 字段，settings 仍需用于下方 REST 任务
+        let token = settings.github_token.clone();
+        let items = github_items;
+        tokio::spawn(async move { batch_check_github(&client, items, token.as_deref()).await })
+    };
+
+    // 必然走 REST 的包：全局并发（与 GraphQL 并行执行）
+    for task in fallback_definite {
+        let client = client.clone();
+        let settings = settings.clone();
+        let sem = network_sem.clone();
+        handles.push(tokio::spawn(async move {
+            let _permit = sem.acquire().await.expect("网络并发信号量已被关闭");
+            run_one(&client, &settings, task, retry).await
+        }));
+    }
+
+    // 等待浏览器 + 必然 REST 任务完成（与 GraphQL 并行，不互相等待）
+    let mut checked = Vec::new();
+    for h in handles {
+        // 单个任务 panic 不应拖垮整体批量检查
+        if let Ok(r) = h.await {
+            checked.push(r);
         }
     }
+
+    // 回收 GraphQL 结果：命中（无论是否取到版本）的包不再走 REST；
+    // 仅未命中的 github 包补回落 REST（此时 GraphQL 已完成，该集合通常很小）
+    let github_results = match github_handle.await {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("[批量检查] GitHub GraphQL 任务失败: {}", e);
+            Vec::new()
+        }
+    };
+    let processed: HashSet<String> = github_results.iter().map(|o| o.pkgname.clone()).collect();
 
     let mut checked_from_graphql: Vec<UpstreamCheckResult> = github_results
         .into_iter()
@@ -304,24 +336,26 @@ pub async fn batch_check_upstream(
         })
         .collect();
 
-    // 网络桶（含回落的 GitHub 包）：全局并发
-    for task in fallback {
-        let client = client.clone();
-        let settings = settings.clone();
-        let sem = network_sem.clone();
-        handles.push(tokio::spawn(async move {
-            let _permit = sem.acquire().await.expect("网络并发信号量已被关闭");
-            run_one(&client, &settings, task, retry).await
-        }));
+    // 仅未命中的 github 包补 REST 回落（数量少，单独并发收集）
+    let mut miss_handles = Vec::new();
+    for origin in github_origin {
+        if !processed.contains(&origin.pkgname) {
+            let client = client.clone();
+            let settings = settings.clone();
+            let sem = network_sem.clone();
+            let task = origin;
+            miss_handles.push(tokio::spawn(async move {
+                let _permit = sem.acquire().await.expect("网络并发信号量已被关闭");
+                run_one(&client, &settings, task, retry).await
+            }));
+        }
     }
-
-    let mut checked = Vec::new();
-    for h in handles {
-        // 单个任务 panic 不应拖垮整体批量检查
+    for h in miss_handles {
         if let Ok(r) = h.await {
             checked.push(r);
         }
     }
+
     // 合并 GraphQL 批量命中结果
     checked.append(&mut checked_from_graphql);
 
