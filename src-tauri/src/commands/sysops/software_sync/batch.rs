@@ -15,17 +15,17 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use log::{error, info, warn};
+use log::warn;
 use reqwest::Client;
 use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
 
 use crate::checkers::github::graphql_batch::{batch_check_github, GithubBatchItem};
 use crate::checkers::utils::extract_owner_repo;
-use crate::checkers::{self, CheckOptions, CheckResult, CheckerSettings};
-use crate::errors::{AppError, AppResult};
+use crate::checkers::CheckerSettings;
 use crate::models::{CheckerType, PackageType};
 
+use super::batch_helpers::{classify, run_one};
 use super::utils::UpstreamCheckResult;
 
 /// 浏览器检查器最大并发数：每个 headless Chrome 进程内存占用较大，
@@ -66,145 +66,6 @@ pub struct BatchOutcome {
     pub checked: Vec<UpstreamCheckResult>,
     /// 手动检查器包名列表
     pub manual: Vec<String>,
-}
-
-/// 将软件包按检查器类型分为 Manual / Browser / 其余网络检查三类
-///
-/// # 参数
-/// - `tasks`: 待分类的软件包任务列表
-///
-/// # 返回
-/// - `(browser, network, manual)`：浏览器类任务、网络类任务与手动类包名
-fn classify(tasks: Vec<PackageTask>) -> (Vec<PackageTask>, Vec<PackageTask>, Vec<String>) {
-    let mut browser = Vec::new();
-    let mut network = Vec::new();
-    let mut manual = Vec::new();
-    for t in tasks {
-        match t.checker_type {
-            // Manual 检查器不产生网络请求，仅收集包名
-            CheckerType::Manual => manual.push(t.pkgname),
-            // Browser 检查器需严格限制并发（进程资源昂贵）
-            CheckerType::Browser => browser.push(t),
-            // 其余检查器纳入全局并发池
-            _ => network.push(t),
-        }
-    }
-    (browser, network, manual)
-}
-
-/// 执行单个软件包的上游版本检查（含重试）
-///
-/// 返回 UpstreamCheckResult；检查失败时版本留空，交由调用方决定不写库。
-///
-/// # 参数
-/// - `client`: 共享 HTTP 客户端
-/// - `settings`: 检查器配置（各平台 Token）
-/// - `task`: 待检查的软件包任务
-/// - `retry`: 最大重试次数
-async fn run_one(
-    client: &Client,
-    settings: &CheckerSettings,
-    task: PackageTask,
-    retry: u32,
-) -> UpstreamCheckResult {
-    let checker = checkers::get_checker(&task.checker_type, settings.clone());
-    let options = CheckOptions {
-        check_test_versions: task.check_test_versions,
-        check_binary_files: task.check_binary_files,
-    };
-    let result = check_with_retry(
-        &*checker,
-        client,
-        &task.upstream_url,
-        &task.pkgname,
-        task.version_extract_regex.as_deref(),
-        &options,
-        retry,
-    )
-    .await;
-
-    match result {
-        Ok(CheckResult {
-            version,
-            license,
-            language_names,
-        }) => UpstreamCheckResult {
-            pkgname: task.pkgname,
-            software_id: task.software_id,
-            // 是否过期由调用方与 AUR 版本比较后决定，这里先置 false
-            upstream_version: version.unwrap_or_default(),
-            is_outdated: false,
-            license_spdx_id: license,
-            language_names,
-        },
-        Err(e) => {
-            warn!("[批量检查] {} 检查失败: {}", task.pkgname, e);
-            UpstreamCheckResult {
-                pkgname: task.pkgname,
-                software_id: task.software_id,
-                upstream_version: String::new(),
-                is_outdated: false,
-                license_spdx_id: None,
-                language_names: vec![],
-            }
-        }
-    }
-}
-
-/// 带重试的版本检查
-///
-/// 顺序尝试直到成功或耗尽重试次数，失败时返回最后一次的错误。
-///
-/// # 参数
-/// - `checker`: 版本检查器实例
-/// - `client`: HTTP 客户端
-/// - `upstream_url`: 上游仓库 URL
-/// - `pkgname`: 软件包名称
-/// - `version_extract_regex`: 版本提取正则表达式（可选）
-/// - `options`: 检查选项
-/// - `retry_count`: 最大重试次数
-///
-/// # 返回
-/// - `Ok(CheckResult)`: 检查成功，包含版本号和 license 信息
-/// - `Err(e)`: 所有重试均失败
-async fn check_with_retry(
-    checker: &dyn checkers::VersionChecker,
-    client: &Client,
-    upstream_url: &str,
-    pkgname: &str,
-    version_extract_regex: Option<&str>,
-    options: &CheckOptions,
-    retry_count: u32,
-) -> AppResult<CheckResult> {
-    let mut last_error = None;
-    for attempt in 0..=retry_count {
-        if attempt > 0 {
-            info!("[重试] 第 {} 次重试 {}", attempt, pkgname);
-        }
-        match checker
-            .check(
-                client,
-                upstream_url,
-                pkgname,
-                version_extract_regex,
-                options,
-            )
-            .await
-        {
-            Ok(result) => return Ok(result),
-            Err(e) => {
-                error!(
-                    "检查 {} 失败 (尝试 {}/{}): {}",
-                    pkgname,
-                    attempt + 1,
-                    retry_count + 1,
-                    e
-                );
-                last_error = Some(e);
-            }
-        }
-    }
-    Err(last_error.unwrap_or(AppError::VersionCheckError("检查失败".to_string())))
 }
 
 /// 分类并行检查所有软件包的上游版本

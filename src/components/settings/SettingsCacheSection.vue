@@ -11,7 +11,7 @@
 -->
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { invoke } from "@tauri-apps/api/core";
+import { useSettingsStore } from "../../stores/settings";
 import {
   loadCacheDirs,
   saveCustomCacheDirs,
@@ -52,22 +52,22 @@ async function load() {
 async function handleSave() {
   saving.value = true;
   try {
-    // 自定义目录整表保存
+    const settingsStore = useSettingsStore();
+    // 自定义目录整表保存（内部走 store.setSetting）
     await saveCustomCacheDirs(draft.value);
-    // 默认目录逐个保存 path + enabled
+    // 默认目录逐个保存 path + enabled（并行写入，避免串行 IPC）
+    const writes: Promise<void>[] = [];
     for (let i = 0; i < draft.value.length; i++) {
       const d = draft.value[i];
       if (d.is_default) {
         const key = getDefaultCacheKey(i, draft.value);
         if (key) {
-          await invoke("set_setting", { key, value: d.path });
-          await invoke("set_setting", {
-            key: `${key}_enabled`,
-            value: String(d.is_enabled),
-          });
+          writes.push(settingsStore.setSetting(key, d.path));
+          writes.push(settingsStore.setSetting(`${key}_enabled`, String(d.is_enabled)));
         }
       }
     }
+    await Promise.all(writes);
     commit();
     editingIndex.value = null;
     showMessage("已保存");

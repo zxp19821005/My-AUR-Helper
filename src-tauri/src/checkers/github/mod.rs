@@ -46,6 +46,9 @@ pub mod graphql_batch;
 /// GitHub GraphQL 批量查询的快照解析
 pub mod graphql_batch_parse;
 
+/// GitHub GraphQL 批量检查的版本挑选辅助函数（从 graphql_batch.rs 拆分以符合 300 行约束）
+mod graphql_batch_helpers;
+
 // 公开导出检查器结构体，供 checkers/mod.rs 中的工厂函数使用
 pub use api_checker::GitHubAPIChecker;
 pub use tags_checker::GitHubTagsChecker;

@@ -1,8 +1,8 @@
 # 代码质量与合规性检查问题清单
 
-> 检查日期：2026-07-29
+> 检查日期：2026-07-29（M-010 于 2026-08-19 修复）
 > 检查范围：AGENTS.md 代码片段、Rust 后端、Vue 前端、TypeScript 文件
-> 问题总数：22 项（高风险 1 项、中风险 10 项、低风险 11 项）
+> 问题总数：22 项（高风险 1 项、中风险 10 项、低风险 11 项），已修复 20 项
 
 ---
 
@@ -530,7 +530,7 @@ fn ok_result(version: Option<String>, license: Option<String>, language_names: V
 | M-007 | ✅ 已修复 | 2026-07-29 | 添加 pkgname 前端输入验证 |
 | M-008 | ✅ 已修复 | 2026-07-29 | 提取复杂表达式为 computed 属性 |
 | M-009 | ✅ 已解决 | 2026-07-30 | DataTable.vue 为死代码已删除（统一使用 StandardizedTable），问题不复存在 |
-| M-010 | ⏳ 待修复 | - | 需要拆分类型定义文件，影响范围较大 |
+| M-010 | ✅ 已修复 | 2026-08-19 | `src/types/index.ts` 按领域拆分为 7 个模块（package/proxy/enum/backup/cache/settings/dashboard），index.ts 仅保留 barrel 再导出（17 行） |
 | L-001 | ✅ 已修复 | 2026-07-29 | 删除重复的 eprintln! |
 | L-002 | ✅ 已修复 | 2026-07-29 | 添加窗口操作失败的日志记录 |
 | L-003 | ✅ 已修复 | 2026-07-29 | 将 debug! 改为 warn! 级别 |
@@ -544,8 +544,8 @@ fn ok_result(version: Option<String>, license: Option<String>, language_names: V
 | L-011 | ✅ 已修复 | 2026-07-29 | 移除冗余的 COUNT 查询 |
 
 **修复统计**：
-- 已修复：19 项
-- 待修复：3 项（M-010、L-008、L-010，均为低优先级，需要更大范围重构）
+- 已修复：20 项
+- 待修复：2 项（L-008、L-010，均为低优先级，需要更大范围重构）
 
 ---
 

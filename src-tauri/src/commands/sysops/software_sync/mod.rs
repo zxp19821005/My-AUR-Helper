@@ -22,6 +22,9 @@ pub mod upstream;
 /// 上游批量检查执行引擎（分类 + 分组并发）
 pub mod batch;
 
+/// 批量检查辅助函数（从 batch.rs 拆分以符合 300 行约束）
+mod batch_helpers;
+
 /// PKGBUILD 文件同步命令
 pub mod pkgbuild;
 

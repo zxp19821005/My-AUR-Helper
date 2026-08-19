@@ -12,15 +12,26 @@
 import { ref, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { FOOTER_KEY, addMessage } from "./footer";
+import { useSudoers } from "./useSudoers";
 
 export function useCacheInstall() {
   const footer = inject(FOOTER_KEY)!;
   const installing = ref(false);
-  const sudoersAvailable = ref<boolean | null>(null);
-  const sudoersCommand = ref("");
-  const showSudoersPrompt = ref(false);
   const pendingInstallPath = ref("");
   const pendingInstallPkgname = ref("");
+
+  // sudoers 免密配置状态与操作（复用缓存清理的 sudoers 规则文件）
+  const {
+    sudoersAvailable,
+    sudoersCommand,
+    showSudoersPrompt,
+    checkSudoers,
+    loadSudoersCommand,
+    closeSudoersPrompt,
+  } = useSudoers({
+    checkCommand: "check_cache_install_sudoers",
+    getCommand: "get_cache_install_sudoers_command",
+  });
 
   // 信息弹窗状态
   const infoDialogVisible = ref(false);
@@ -28,21 +39,6 @@ export function useCacheInstall() {
   const infoDialogContent = ref("");
   const infoDialogPkgname = ref("");
   const infoDialogEntry = ref<any>(null);
-
-  /** 检测缓存安装 sudoers 是否已配置（允许 pacman -U 作用于缓存目录） */
-  async function checkSudoers() {
-    try {
-      sudoersAvailable.value = await invoke<boolean>("check_cache_install_sudoers");
-    } catch {
-      sudoersAvailable.value = false;
-    }
-  }
-
-  async function loadSudoersCommand() {
-    try {
-      sudoersCommand.value = await invoke<string>("get_cache_install_sudoers_command");
-    } catch { /* ignore */ }
-  }
 
   /** 由列表行解析出完整文件路径（兜底：full_path 缺失时用 缓存目录+文件名 拼接） */
   function resolveFullPath(entry: any): string {
@@ -104,10 +100,6 @@ export function useCacheInstall() {
     } finally {
       installing.value = false;
     }
-  }
-
-  function closeSudoersPrompt() {
-    showSudoersPrompt.value = false;
   }
 
   return {

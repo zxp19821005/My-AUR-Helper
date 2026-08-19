@@ -171,7 +171,7 @@ mod tests {
     #[test]
     fn validate_accepts_pkg_inside_root() {
         let tmp = std::env::temp_dir().join("bk_install_test_root");
-        let _ = std::fs::create_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).expect("创建测试目录失败");
         let file = tmp.join("foo-1.0.0-1-x86_64.pkg.tar.zst");
         std::fs::write(&file, b"fake").unwrap();
 
@@ -186,7 +186,7 @@ mod tests {
     #[test]
     fn validate_rejects_pkg_outside_root() {
         let root = std::env::temp_dir().join("bk_install_test_root_only");
-        let _ = std::fs::create_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("创建测试根目录失败");
 
         let outside = std::env::temp_dir().join("bk_install_test_outside.pkg.tar.zst");
         std::fs::write(&outside, b"fake").unwrap();
@@ -203,7 +203,7 @@ mod tests {
     #[test]
     fn validate_rejects_non_pkg_extension() {
         let tmp = std::env::temp_dir().join("bk_install_test_ext");
-        let _ = std::fs::create_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).expect("创建测试目录失败");
         let file = tmp.join("evil.sh");
         std::fs::write(&file, b"fake").unwrap();
 

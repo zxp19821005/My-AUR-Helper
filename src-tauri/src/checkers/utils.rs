@@ -5,6 +5,37 @@
  * 复用的纯函数。
  */
 use log::debug;
+use std::sync::OnceLock;
+
+/// 版本提取所需的静态正则集合
+/// 进程级惰性编译一次，避免每次提取版本都重新编译
+struct StaticRegexes {
+    clean: regex::Regex,
+    url_v: regex::Regex,
+    url_num: regex::Regex,
+    html_kw: regex::Regex,
+    html_td: regex::Regex,
+}
+
+/// 获取版本提取静态正则集合单例
+fn static_regexes() -> &'static StaticRegexes {
+    static RE: OnceLock<StaticRegexes> = OnceLock::new();
+    RE.get_or_init(|| StaticRegexes {
+        clean: regex::Regex::new(r"[^0-9]*?(v?\d[\d.]*)").expect("正则 clean 编译失败"),
+        url_v: regex::Regex::new(r"[/-]v?(\d+\.\d+\.\d+[a-zA-Z0-9._+-]*)")
+            .expect("正则 url_v 编译失败"),
+        url_num: regex::Regex::new(r"[/-](\d+\.\d+\.\d+[a-zA-Z0-9._+-]*)")
+            .expect("正则 url_num 编译失败"),
+        html_kw: regex::Regex::new(
+            r"(?i)(?:version|release|ver\.?|版本)[:\s]+v?(\d+\.\d+\.\d+[a-zA-Z0-9._-]*)",
+        )
+        .expect("正则 html_kw 编译失败"),
+        html_td: regex::Regex::new(
+            r"(?i)(?:v)?(\d+\.\d+\.\d+[a-zA-Z0-9._-]*)(?:\s*</[aA]>)?\s*</[tT][dD]>\s*<[tT][dD]",
+        )
+        .expect("正则 html_td 编译失败"),
+    })
+}
 
 /// 使用自定义正则表达式从文本中提取版本号
 /// @param text - 包含版本号的文本
@@ -94,17 +125,16 @@ pub fn extract_owner_repo(repo_url: &str) -> Option<(String, String)> {
 /// @returns 清理后的版本号，如果无法提取版本则返回原始字符串
 pub fn clean_version(ver: &str) -> String {
     // 尝试匹配 appname-vX.Y.Z 或 appname-X.Y.Z 模式
-    // 使用正则表达式提取 v 或数字开头的版本部分
-    if let Ok(re) = regex::Regex::new(r"[^0-9]*?(v?\d[\d.]*)") {
-        if let Some(cap) = re.captures(ver) {
-            if let Some(version) = cap.get(1) {
-                let version_str = version.as_str();
-                // 去除开头的 v/V 前缀
-                return version_str
-                    .trim_start_matches('v')
-                    .trim_start_matches('V')
-                    .to_string();
-            }
+    // 复用惰性编译的静态正则提取 v 或数字开头的版本部分
+    let re = &static_regexes().clean;
+    if let Some(cap) = re.captures(ver) {
+        if let Some(version) = cap.get(1) {
+            let version_str = version.as_str();
+            // 去除开头的 v/V 前缀
+            return version_str
+                .trim_start_matches('v')
+                .trim_start_matches('V')
+                .to_string();
         }
     }
     // 回退：只去除开头的 v/V 前缀
@@ -118,14 +148,13 @@ pub fn clean_version(ver: &str) -> String {
 /// @param url - 包含版本号的 URL 字符串
 /// @returns 提取到的版本号（已去除常见文件扩展名）
 pub fn extract_version_from_url(url: &str) -> Option<String> {
+    let re = &static_regexes();
     // 尝试匹配带 v 前缀的版本号
-    let re = regex::Regex::new(r"[/-]v?(\d+\.\d+\.\d+[a-zA-Z0-9._+-]*)").ok()?;
-    if let Some(cap) = re.captures(url) {
+    if let Some(cap) = re.url_v.captures(url) {
         return Some(strip_file_extensions(&cap[1]));
     }
     // 尝试匹配不带 v 前缀的版本号
-    let re2 = regex::Regex::new(r"[/-](\d+\.\d+\.\d+[a-zA-Z0-9._+-]*)").ok()?;
-    if let Some(cap) = re2.captures(url) {
+    if let Some(cap) = re.url_num.captures(url) {
         return Some(strip_file_extensions(&cap[1]));
     }
     None
@@ -192,20 +221,13 @@ fn strip_file_extensions(version: &str) -> String {
 /// @param body - HTML 页面文本内容
 /// @returns 提取到的版本号
 pub fn extract_version_from_html(body: &str) -> Option<String> {
+    let re = static_regexes();
     // 模式1：匹配 "version" / "release" / "版本" 等关键词后的版本号
-    let re = regex::Regex::new(
-        r"(?i)(?:version|release|ver\.?|版本)[:\s]+v?(\d+\.\d+\.\d+[a-zA-Z0-9._-]*)",
-    )
-    .ok()?;
-    if let Some(cap) = re.captures(body) {
+    if let Some(cap) = re.html_kw.captures(body) {
         return Some(cap[1].to_string());
     }
     // 模式2：匹配 HTML 表格中 <td> 标签内的版本号
-    let re2 = regex::Regex::new(
-        r"(?i)(?:v)?(\d+\.\d+\.\d+[a-zA-Z0-9._-]*)(?:\s*</[aA]>)?\s*</[tT][dD]>\s*<[tT][dD]",
-    )
-    .ok()?;
-    if let Some(cap) = re2.captures(body) {
+    if let Some(cap) = re.html_td.captures(body) {
         return Some(cap[1].to_string());
     }
     None

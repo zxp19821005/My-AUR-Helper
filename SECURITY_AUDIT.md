@@ -331,6 +331,58 @@ CSP 设置为 `null`，Webview 无内容安全策略保护。
 
 ---
 
+## 代码安全审计（2026-08-19 复查）
+
+在整体项目优化中，对日志脱敏与错误处理做增量加固，未发现新的高危漏洞。
+
+### 加固项 1: 代理 URL 在 update_proxy 日志中脱敏（延续问题 10 的日志脱敏原则）
+
+| 项目 | 内容 |
+|------|------|
+| 文件 | `src-tauri/src/commands/proxy/basic.rs` |
+| 函数 | `update_proxy` |
+| 影响 | 代理 URL 可能包含 `user:pass@` 凭据，原 `info!` 日志打印完整 URL。本次复用 `mask_url`（与 `proxy/test.rs` 同一脱敏实现）后，日志仅记录脱敏主机名，数据库仍写入真实 URL |
+
+**修复方案：**
+- `proxy/basic.rs` 新增私有 `mask_url`：剥离协议头与 userinfo，仅保留主机名+路径。
+- `update_proxy` 成功日志改为脱敏输出；增删改查其余日志不记录 URL 明文。
+
+### 加固项 2: software_info 详情日志不再 dump 完整 license JSON
+
+| 项目 | 内容 |
+|------|------|
+| 文件 | `src-tauri/src/db/software_info.rs` |
+| 影响 | `debug!` 级别曾把整份 license JSON 数组打印到日志，属日志冗余；本次改为仅记录 `has_aur_license` / `has_upstream_license` 两个布尔值，保留诊断价值同时减少日志噪音 |
+
+### 加固项 3: proxy/basic.rs 静默 DB 写入失败改为显式 warn
+
+| 项目 | 内容 |
+|------|------|
+| 文件 | `src-tauri/src/commands/proxy/basic.rs` |
+| 函数 | `import_proxies`（代理导入/解析） |
+| 影响 | 原实现 `let _ = db.insert_proxy(...)` 静默吞掉写入失败，用户会看到"导入成功 N 条"但实际部分未入库。改为逐条 `if let Err(e) = ... { warn!(...) } else { count += 1 }`，仅统计真实成功条数 |
+
+### 加固项 4: 共享 HTTP 客户端消除每请求新建连接
+
+| 项目 | 内容 |
+|------|------|
+| 文件 | `src-tauri/src/http_client.rs`（新文件） |
+| 影响 | 原多处每请求 `Client::new()` 会重复建立 TCP/TLS 连接池，批量上游检查场景下造成握手开销与资源浪费。新增 `http_client::shared_client()`（`OnceLock` 单例，默认 30s 超时），代理导入/下载、重定向检查、上游 URL 验证等统一复用 |
+| 说明 | 重定向检查器与上游 URL 验证因需要不同超时/重定向策略，保留各自独立的 `OnceLock` 客户端（`redirect_client` / `validate_client`），仅消除无特殊需求的每请求新建 |
+
+### 复查验证
+
+```
+✓ cargo check --lib - 编译成功
+✓ cargo clippy --all-targets - 无新增 warning（仅遗留既有警告，与本次改动无关）
+```
+
+---
+
 ## 待处理项（依赖层面的中等漏洞）
 
 GitHub Dependabot 提示仓库存在 1 个 moderate 级依赖漏洞（前端，需升级 vite 至 6.x 方可修复；属开发服务器相关问题，不影响生产构建）。相关 3 个前端漏洞已在 2026-07-14 审计中记录，建议在后续开发周期评估 vite 6.x 升级兼容性后再处理。
+
+## 其他已知问题（非安全）
+
+- `package.json` 的 `lint` 脚本引用的 `eslint` 未安装（devDependencies 中缺失），`pnpm lint` 无法执行；当前以 `vue-tsc --noEmit` + `vite build` 作为前端质量门禁。建议后续补充 ESLint 配置与依赖。

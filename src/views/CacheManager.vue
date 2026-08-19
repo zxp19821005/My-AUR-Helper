@@ -16,12 +16,12 @@
   - useCacheInfoNav: 详情弹窗导航与选择逻辑（见 composables/useCacheInfoNav.ts）
 -->
 <script setup lang="ts">
-import { ref, onMounted, inject } from "vue";
+import { ref, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { useCacheList } from "../composables/useCacheList";
 import { fmtEpoch } from "../composables/useBackupList";
-import { loadEnabledCacheDirs } from "../composables/useCacheDirs";
 import { useCacheBackupActions } from "../composables/useCacheBackupActions";
+import { useCacheManagerInit } from "../composables/useCacheManagerInit";
 import { useCacheCleanup } from "../composables/useCacheCleanup";
 import { useCacheInstall } from "../composables/useCacheInstall";
 import { useCacheInfoNav, cacheColumns } from "../composables/useCacheInfoNav";
@@ -54,8 +54,6 @@ const {
 } = useCacheList();
 
 const scanning = ref(false);
-const backupPath = ref("");
-const backupSubdirectories = ref<string[]>([]);
 
 const {
   loading: cleanupLoading,
@@ -85,6 +83,14 @@ const {
   closeSudoersPrompt: closeInstallSudoersPrompt,
 } = useCacheInstall();
 
+// 初始化逻辑（加载缓存表/缓存目录/backup_dir/子目录/sudoers）抽离到 composable，
+// 需在 useCacheInstall 之后调用以复用其 checkSudoers
+const { backupPath, backupSubdirectories } = useCacheManagerInit(footer, {
+  loadEntries,
+  setSourceDirs: (dirs) => (sourceDirs.value = dirs),
+  checkSudoers,
+});
+
 // useCacheInfoNav 必须在 useCacheBackupActions 之前调用，
 // 因为后者依赖前者导出的 selectedFilenames
 const { openCacheInfo, prevEntry, nextEntry, onCacheInfoNavigate, handleSelectionChange, selectedFilenames } = useCacheInfoNav({ filteredEntries, selectedIds, viewPackageInfo });
@@ -97,32 +103,7 @@ const {
   handleBackupSuccess,
 } = useCacheBackupActions(footer, backupPath, selectedIds, selectedFilenames, loading);
 
-onMounted(async () => {
-  // 首次进入即从 cache_software 表读取存量数据（与备份管理页一致）
-  try {
-    await loadEntries();
-  } catch (e) {
-    console.error("加载缓存数据失败:", e);
-    addMessage(footer, "error", `加载缓存数据失败: ${e}`);
-  }
-  try {
-    sourceDirs.value = await loadEnabledCacheDirs();
-  } catch (e) {
-    console.error("加载缓存目录失败:", e);
-  }
-  try {
-    const setting = await invoke<{ value: string } | null>("get_setting", {
-      key: "backup_dir",
-    });
-    if (setting) backupPath.value = setting.value;
-  } catch { /* ignore */ }
-  try {
-    backupSubdirectories.value = await invoke<string[]>("list_backup_subdirectories");
-  } catch { /* ignore */ }
-  try {
-    await checkSudoers();
-  } catch { /* ignore */ }
-});
+// onMounted 初始化已抽离到 useCacheManagerInit composable
 
 async function handleScan() {
   scanning.value = true;

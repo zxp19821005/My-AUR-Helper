@@ -8,6 +8,7 @@
  */
 import { ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import { useSettingsStore } from "../stores/settings";
 
 export interface CacheDir {
   name: string;
@@ -24,18 +25,26 @@ export interface CacheDirSimple {
 /**
  * 加载所有缓存目录配置（用于 SettingsCacheSection 等需要完整配置的场景）
  *
+ * 并行发起全部 get_setting IPC，避免串行往返；首个异常会中断整体加载
+ *
  * @returns 包含完整信息的缓存目录列表（含 is_default、is_enabled）
  */
 export async function loadCacheDirs(): Promise<CacheDir[]> {
   const dirs: CacheDir[] = [];
 
+  // 7 个设置键并行读取（Promise.all 并发，显著快于逐个 await）
+  const [systemPath, systemEnabled, paruPath, paruEnabled, yayPath, yayEnabled, customDirs] =
+    await Promise.all([
+      invoke<{ value: string } | null>("get_setting", { key: "cache_dir_system" }),
+      invoke<{ value: string } | null>("get_setting", { key: "cache_dir_system_enabled" }),
+      invoke<{ value: string } | null>("get_setting", { key: "cache_dir_paru" }),
+      invoke<{ value: string } | null>("get_setting", { key: "cache_dir_paru_enabled" }),
+      invoke<{ value: string } | null>("get_setting", { key: "cache_dir_yay" }),
+      invoke<{ value: string } | null>("get_setting", { key: "cache_dir_yay_enabled" }),
+      invoke<{ value: string } | null>("get_setting", { key: "cache_dirs_custom" }),
+    ]);
+
   // 系统缓存（默认）
-  const systemPath = await invoke<{ value: string } | null>("get_setting", {
-    key: "cache_dir_system",
-  });
-  const systemEnabled = await invoke<{ value: string } | null>("get_setting", {
-    key: "cache_dir_system_enabled",
-  });
   dirs.push({
     name: "系统缓存",
     path: systemPath?.value || "/var/cache/pacman/pkg",
@@ -44,12 +53,6 @@ export async function loadCacheDirs(): Promise<CacheDir[]> {
   });
 
   // paru 缓存（默认）
-  const paruPath = await invoke<{ value: string } | null>("get_setting", {
-    key: "cache_dir_paru",
-  });
-  const paruEnabled = await invoke<{ value: string } | null>("get_setting", {
-    key: "cache_dir_paru_enabled",
-  });
   if (paruPath?.value) {
     dirs.push({
       name: "paru 缓存",
@@ -60,12 +63,6 @@ export async function loadCacheDirs(): Promise<CacheDir[]> {
   }
 
   // yay 缓存（默认）
-  const yayPath = await invoke<{ value: string } | null>("get_setting", {
-    key: "cache_dir_yay",
-  });
-  const yayEnabled = await invoke<{ value: string } | null>("get_setting", {
-    key: "cache_dir_yay_enabled",
-  });
   if (yayPath?.value) {
     dirs.push({
       name: "yay 缓存",
@@ -76,9 +73,6 @@ export async function loadCacheDirs(): Promise<CacheDir[]> {
   }
 
   // 自定义缓存目录（从 cache_dirs_custom 读取）
-  const customDirs = await invoke<{ value: string } | null>("get_setting", {
-    key: "cache_dirs_custom",
-  });
   if (customDirs?.value) {
     const customList: { name: string; path: string; is_enabled: boolean }[] =
       JSON.parse(customDirs.value);
@@ -98,48 +92,40 @@ export async function loadCacheDirs(): Promise<CacheDir[]> {
 /**
  * 加载启用的缓存目录列表（用于 CacheManager 等只需要简单列表的场景）
  *
+ * 并行发起全部 get_setting IPC，避免串行往返
+ *
  * @returns 简化的缓存目录列表（仅包含已启用的 name 和 path）
  */
 export async function loadEnabledCacheDirs(): Promise<CacheDirSimple[]> {
   const dirs: CacheDirSimple[] = [];
 
+  const [systemDir, systemEnabled, paruDir, paruEnabled, yayDir, yayEnabled, customDirs] =
+    await Promise.all([
+      invoke<{ value: string } | null>("get_setting", { key: "cache_dir_system" }),
+      invoke<{ value: string } | null>("get_setting", { key: "cache_dir_system_enabled" }),
+      invoke<{ value: string } | null>("get_setting", { key: "cache_dir_paru" }),
+      invoke<{ value: string } | null>("get_setting", { key: "cache_dir_paru_enabled" }),
+      invoke<{ value: string } | null>("get_setting", { key: "cache_dir_yay" }),
+      invoke<{ value: string } | null>("get_setting", { key: "cache_dir_yay_enabled" }),
+      invoke<{ value: string } | null>("get_setting", { key: "cache_dirs_custom" }),
+    ]);
+
   // 系统缓存
-  const systemDir = await invoke<{ value: string } | null>("get_setting", {
-    key: "cache_dir_system",
-  });
-  const systemEnabled = await invoke<{ value: string } | null>("get_setting", {
-    key: "cache_dir_system_enabled",
-  });
   if (systemDir?.value && systemEnabled?.value !== "false") {
     dirs.push({ name: "系统缓存", path: systemDir.value });
   }
 
   // paru 缓存
-  const paruDir = await invoke<{ value: string } | null>("get_setting", {
-    key: "cache_dir_paru",
-  });
-  const paruEnabled = await invoke<{ value: string } | null>("get_setting", {
-    key: "cache_dir_paru_enabled",
-  });
   if (paruDir?.value && paruEnabled?.value !== "false") {
     dirs.push({ name: "paru 缓存", path: paruDir.value });
   }
 
   // yay 缓存
-  const yayDir = await invoke<{ value: string } | null>("get_setting", {
-    key: "cache_dir_yay",
-  });
-  const yayEnabled = await invoke<{ value: string } | null>("get_setting", {
-    key: "cache_dir_yay_enabled",
-  });
   if (yayDir?.value && yayEnabled?.value !== "false") {
     dirs.push({ name: "yay 缓存", path: yayDir.value });
   }
 
   // 自定义缓存目录
-  const customDirs = await invoke<{ value: string } | null>("get_setting", {
-    key: "cache_dirs_custom",
-  });
   if (customDirs?.value) {
     const customList: { name: string; path: string; is_enabled: boolean }[] =
       JSON.parse(customDirs.value);
@@ -156,6 +142,8 @@ export async function loadEnabledCacheDirs(): Promise<CacheDirSimple[]> {
 /**
  * 保存自定义缓存目录列表
  *
+ * 通过 settings store 的 setSetting 集中写入，同步更新 store 缓存
+ *
  * @param dirs 完整的缓存目录列表（会自动过滤掉默认目录）
  */
 export async function saveCustomCacheDirs(dirs: CacheDir[]): Promise<void> {
@@ -167,10 +155,7 @@ export async function saveCustomCacheDirs(dirs: CacheDir[]): Promise<void> {
       is_enabled: d.is_enabled,
     }));
 
-  await invoke("set_setting", {
-    key: "cache_dirs_custom",
-    value: JSON.stringify(customDirs),
-  });
+  await useSettingsStore().setSetting("cache_dirs_custom", JSON.stringify(customDirs));
 }
 
 /**

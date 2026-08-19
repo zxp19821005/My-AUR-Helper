@@ -16,12 +16,11 @@ import type { ProxyInfo, ProxyType } from "../types";
 
 /** 从 URL 提取代理显示名称（域名部分） */
 export function extractProxyName(url: string): string {
-  try {
-    if (url.includes("://")) {
-      const domain = url.split("://")[1]?.split("/")[0];
-      if (domain) return domain;
-    }
-  } catch { /* ignore */ }
+  // 纯字符串操作不会抛异常，无需 try/catch 包裹
+  if (url.includes("://")) {
+    const domain = url.split("://")[1]?.split("/")[0];
+    if (domain) return domain;
+  }
   return url;
 }
 
@@ -102,44 +101,34 @@ export function useProxyList() {
 
   /** 切换代理启用状态 */
   async function toggleProxyActive(proxy: ProxyInfo) {
-    try {
-      await invoke("set_proxy_active", {
-        proxyId: proxy.proxy_id,
-        isActive: !proxy.is_active,
-      });
-      proxy.is_active = !proxy.is_active;
-    } catch (e) {
-      throw e;
-    }
+    // 失败时让异常自然向上传播，由调用方统一处理
+    await invoke("set_proxy_active", {
+      proxyId: proxy.proxy_id,
+      isActive: !proxy.is_active,
+    });
+    proxy.is_active = !proxy.is_active;
   }
 
   /** 更新代理信息（编辑名称/URL/类型） */
   async function updateProxy(proxyId: number, updates: Partial<ProxyInfo>) {
     const proxy = base.entries.value.find((p) => p.proxy_id === proxyId);
     if (!proxy) throw new Error("代理不存在");
-    try {
-      await invoke("update_proxy", {
-        proxyId,
-        proxyName: updates.proxy_name ?? proxy.proxy_name,
-        url: updates.url ?? proxy.url,
-        proxyType: updates.proxy_type ?? proxy.proxy_type,
-      });
-      // 更新本地数据
-      if (updates.proxy_name !== undefined) proxy.proxy_name = updates.proxy_name;
-      if (updates.url !== undefined) proxy.url = updates.url;
-      if (updates.proxy_type !== undefined) proxy.proxy_type = updates.proxy_type;
-    } catch (e) {
-      throw e;
-    }
+    // invoke 失败时抛出异常，下方本地更新不会执行
+    await invoke("update_proxy", {
+      proxyId,
+      proxyName: updates.proxy_name ?? proxy.proxy_name,
+      url: updates.url ?? proxy.url,
+      proxyType: updates.proxy_type ?? proxy.proxy_type,
+    });
+    // 更新本地数据
+    if (updates.proxy_name !== undefined) proxy.proxy_name = updates.proxy_name;
+    if (updates.url !== undefined) proxy.url = updates.url;
+    if (updates.proxy_type !== undefined) proxy.proxy_type = updates.proxy_type;
   }
 
   /** 删除代理 */
   async function deleteProxy(proxyId: number) {
-    try {
-      await invoke("delete_proxy", { proxyId });
-    } catch (e) {
-      throw e;
-    }
+    await invoke("delete_proxy", { proxyId });
   }
 
   /** 批量删除代理 */

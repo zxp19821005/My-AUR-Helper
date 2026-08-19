@@ -165,7 +165,13 @@ impl Database {
             let aur_license_json: Option<String> = row.get(17)?;
             let upstream_license_json: Option<String> = row.get(20)?;
             let lang_json: String = row.get(9)?;
-            log::debug!("get_software_detail: pkgname={}, aur_license_json={:?}, upstream_license_json={:?}", pkgname, aur_license_json, upstream_license_json);
+            // 仅记录是否命中而非完整 JSON 载荷，避免每次详情查询输出噪声与潜在敏感信息泄露
+            log::debug!(
+                "get_software_detail: pkgname={}, has_aur_license={}, has_upstream_license={}",
+                pkgname,
+                aur_license_json.is_some(),
+                upstream_license_json.is_some()
+            );
             Ok(SoftwareDetail {
                 software_id: Some(row.get(0)?),
                 pkgname: row.get(1)?,

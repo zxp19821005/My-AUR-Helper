@@ -2,9 +2,38 @@ use crate::errors::AppResult; // 通用错误处理
 use log::info;
 use regex::Regex; // 正则表达式，用于解析 PKGBUILD 变量
 use std::path::Path; // 文件路径操作
+use std::sync::OnceLock; // 惰性初始化静态正则集合
 use tokio::fs; // 异步文件系统操作 // 日志记录
 
 use crate::models::{CheckerType, PackageType, SoftwareInfo}; // 项目数据模型
+
+/// PKGBUILD 解析所需的正则表达式集合
+/// 进程级惰性编译一次，避免每次解析都重新构建 8 个正则
+struct PkgRegexes {
+    pkgname: Regex,
+    pkgver: Regex,
+    url: Regex,
+    ghurl: Regex,
+    giteeurl: Regex,
+    gitlaburl: Regex,
+    dlurl: Regex,
+    source_gh: Regex,
+}
+
+/// 获取 PKGBUILD 正则集合单例
+fn pkgbuild_regexes() -> &'static PkgRegexes {
+    static RE: OnceLock<PkgRegexes> = OnceLock::new();
+    RE.get_or_init(|| PkgRegexes {
+        pkgname: Regex::new(r"^pkgname=([a-zA-Z0-9@._+-]+)").expect("正则 pkgname 编译失败"),
+        pkgver: Regex::new(r"^pkgver=(.+)").expect("正则 pkgver 编译失败"),
+        url: Regex::new(r#"^url="([^"]*)"#).expect("正则 url 编译失败"),
+        ghurl: Regex::new(r#"^_ghurl="([^"]*)"#).expect("正则 ghurl 编译失败"),
+        giteeurl: Regex::new(r#"^_giteeurl="([^"]*)"#).expect("正则 giteeurl 编译失败"),
+        gitlaburl: Regex::new(r#"^_gitlaburl="([^"]*)"#).expect("正则 gitlaburl 编译失败"),
+        dlurl: Regex::new(r#"^_dlurl="([^"]*)"#).expect("正则 dlurl 编译失败"),
+        source_gh: Regex::new(r#"github\.com/([^/]+/[^/]+)"#).expect("正则 source_gh 编译失败"),
+    })
+}
 
 /// 读取 PKGBUILD 文件并解析为软件包信息
 /// @param path - PKGBUILD 所在目录的路径
@@ -25,16 +54,8 @@ pub async fn read_pkgbuild(path: &Path) -> AppResult<Option<(SoftwareInfo, Optio
 /// @param path - 包目录路径（用于在无 pkgname 时作为包名）
 /// @returns (SoftwareInfo 结构体, 可选的上游 URL)
 fn parse_pkgbuild(content: &str, path: &Path) -> AppResult<(SoftwareInfo, Option<String>)> {
-    // 预编译正则表达式，匹配 PKGBUILD 中的变量赋值
-    let re_pkgname = Regex::new(r"^pkgname=([a-zA-Z0-9@._+-]+)").unwrap();
-    let re_pkgver = Regex::new(r"^pkgver=(.+)").unwrap();
-    let re_url = Regex::new(r#"^url="([^"]*)"#).unwrap();
-    let re_ghurl = Regex::new(r#"^_ghurl="([^"]*)"#).unwrap();
-    let re_giteeurl = Regex::new(r#"^_giteeurl="([^"]*)"#).unwrap();
-    let re_gitlaburl = Regex::new(r#"^_gitlaburl="([^"]*)"#).unwrap();
-    let re_dlurl = Regex::new(r#"^_dlurl="([^"]*)"#).unwrap();
-    // 匹配 source 数组中的 GitHub URL
-    let re_source_gh = Regex::new(r#"github\.com/([^/]+/[^/]+)"#).unwrap();
+    // 复用进程级惰性编译的正则集合，避免每次解析 PKGBUILD 都重新编译 8 个正则
+    let re = pkgbuild_regexes();
 
     let mut pkgname = String::new();
     let mut pkgver = String::new();
@@ -49,7 +70,7 @@ fn parse_pkgbuild(content: &str, path: &Path) -> AppResult<(SoftwareInfo, Option
 
         // 处理 source 数组中的 URL
         if in_source {
-            if let Some(cap) = re_source_gh.captures(trimmed) {
+            if let Some(cap) = re.source_gh.captures(trimmed) {
                 let gh_url = format!("https://github.com/{}", &cap[1]);
                 if upstream_url.is_none() {
                     upstream_url = Some(gh_url);
@@ -60,27 +81,27 @@ fn parse_pkgbuild(content: &str, path: &Path) -> AppResult<(SoftwareInfo, Option
             }
         }
 
-        if let Some(cap) = re_pkgname.captures(trimmed) {
+        if let Some(cap) = re.pkgname.captures(trimmed) {
             pkgname = cap[1].to_string();
-        } else if let Some(cap) = re_pkgver.captures(trimmed) {
+        } else if let Some(cap) = re.pkgver.captures(trimmed) {
             pkgver = cap[1].trim().to_string();
-        } else if let Some(cap) = re_url.captures(trimmed) {
+        } else if let Some(cap) = re.url.captures(trimmed) {
             url = Some(cap[1].to_string());
-        } else if let Some(cap) = re_ghurl.captures(trimmed) {
+        } else if let Some(cap) = re.ghurl.captures(trimmed) {
             upstream_url = Some(cap[1].to_string());
-        } else if let Some(cap) = re_giteeurl.captures(trimmed) {
+        } else if let Some(cap) = re.giteeurl.captures(trimmed) {
             upstream_url = Some(cap[1].to_string());
             checker_type = CheckerType::Gitee;
-        } else if let Some(cap) = re_gitlaburl.captures(trimmed) {
+        } else if let Some(cap) = re.gitlaburl.captures(trimmed) {
             upstream_url = Some(cap[1].to_string());
             checker_type = CheckerType::GitLab;
-        } else if let Some(cap) = re_dlurl.captures(trimmed) {
+        } else if let Some(cap) = re.dlurl.captures(trimmed) {
             if upstream_url.is_none() {
                 upstream_url = Some(cap[1].to_string());
             }
         } else if trimmed.starts_with("source=") || trimmed.starts_with("source=(") {
             // 开始 source 数组
-            if let Some(cap) = re_source_gh.captures(trimmed) {
+            if let Some(cap) = re.source_gh.captures(trimmed) {
                 let gh_url = format!("https://github.com/{}", &cap[1]);
                 if upstream_url.is_none() {
                     upstream_url = Some(gh_url);

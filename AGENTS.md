@@ -199,7 +199,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/components/backup/` | 备份管理组件（RowActions、InfoDialog、SudoersDialog等） |
 | `src/components/cache/` | 缓存管理组件（CacheRowActions） |
 | `src/components/dashboard/` | 仪表盘组件（ModuleCard 模块卡片） |
-| `src/components/proxy/` | 代理管理组件（ProxyRowActions） |
+| `src/components/proxy/` | 代理管理组件（ProxyEditModal、ProxyDetailModal、ProxyClearConfirmModal） |
 | `src/components/settings/` | 设置页面组件（SettingsCard、SettingRow、各配置Section） |
 | `src/components/filter/` | 筛选组件（FilterBar） |
 | `src/components/enum/` | 枚举管理组件（LanguageFormModal、LicenseFormModal） |
@@ -207,7 +207,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/utils/format.ts` | 通用格式化工具（时间戳/License/JSON列表/枚举名称/语言名称） |
 | `src/utils/felog.ts` | 前端诊断日志工具（feDebug/feInfo/feWarn/feError，经 IPC 转发到终端） |
 | `src/composables/` | 组合式函数（hooks） |
-| `src/composables/useCacheDirs.ts` | 缓存目录管理 composable（SettingsCacheSection 和 CacheManager 复用） |
+| `src/composables/useCacheDirs.ts` | 缓存目录管理 composable（SettingsCacheSection 和 CacheManager 复用；加载函数并行读取全部设置键） |
 | `src/composables/footer.ts` | 底部状态栏状态管理 |
 | `src/composables/packageActions.ts` | 软件包操作逻辑（同步、检查、删除） |
 | `src/composables/usePackageList.ts` | 软件包列表页逻辑（分页、搜索、选择） |
@@ -216,12 +216,14 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/composables/useCacheList.ts` | 缓存管理列表页逻辑（分页、搜索、选择） |
 | `src/composables/useCacheBackupActions.ts` | 缓存备份操作逻辑（去重、备份新版本、备份到目录） |
 | `src/composables/useCacheCleanup.ts` | 缓存清理操作逻辑（系统缓存、自定义缓存目录、sudoers 检测） |
+| `src/composables/useSudoers.ts` | sudoers 免密配置共享 composable（备份安装/缓存安装/缓存清理三场景复用，命令名参数化注入） |
+| `src/composables/useCacheManagerInit.ts` | 缓存管理页初始化聚合（加载缓存表/缓存目录/backup_dir/子目录/sudoers） |
 | `src/composables/useCacheInfoNav.ts` | 缓存详情弹窗导航与选择逻辑（从 CacheManager 抽取） |
 | `src/composables/useBackupInfoNav.ts` | 备份详情弹窗导航与选择逻辑（从 BackupManager 抽取） |
 | `src/composables/useSoftwareForm.ts` | 软件包表单逻辑（验证、自动检测） |
 | `src/composables/useLicenseSelect.ts` | License 可搜索下拉框逻辑 |
 | `src/stores/` | Pinia 状态管理 |
-| `src/types/index.ts` | TypeScript 类型定义 |
+| `src/types/` | TypeScript 类型定义（index.ts 为 barrel 再导出；按领域拆分：package/proxy/enum/backup/cache/settings/dashboard） |
 | `src/assets/styles/` | 样式文件目录（集中管理所有组件样式） |
 | `src/assets/styles/base-components.css` | 基础组件样式索引（`@import` base/ 下 6 个子文件） |
 | `src/assets/styles/layout-components.css` | 布局组件样式索引（`@import` layout/ 下 4 个子文件） |
@@ -318,6 +320,20 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | | | `redirect_parse.rs` | 138 | | 新文件（纯解析辅助函数） |
 | `src-tauri/src/commands/sysops/backup_install.rs` | 323 | `backup_install.rs` | 224 | 2026-08-13 | ✅ 完成 |
 | | | `backup_install_helpers.rs` | 123 | | 新文件（路径校验/sudoers 辅助） |
+| `src-tauri/src/checkers/github/graphql_batch.rs` | 376 | `graphql_batch.rs` | 217 | 2026-08-19 | ✅ 完成 |
+| | | `graphql_batch_helpers.rs` | 171 | | 新文件（版本选择/比较辅助） |
+| `src-tauri/src/commands/sysops/software_sync/batch.rs` | 371 | `batch.rs` | 232 | 2026-08-19 | ✅ 完成 |
+| | | `batch_helpers.rs` | 158 | | 新文件（任务分类/单包检查/重试辅助） |
+| `src/types/index.ts` | 313 | `index.ts`（barrel 再导出） | 17 | 2026-08-19 | ✅ 完成 |
+| | | `types/package.ts` | 125 | | 新文件（软件包相关类型） |
+| | | `types/proxy.ts` | 37 | | 新文件（代理类型） |
+| | | `types/enum.ts` | 32 | | 新文件（License/语言枚举） |
+| | | `types/backup.ts` | 41 | | 新文件（备份类型） |
+| | | `types/cache.ts` | 39 | | 新文件（缓存类型） |
+| | | `types/settings.ts` | 41 | | 新文件（设置/日志类型） |
+| | | `types/dashboard.ts` | 40 | | 新文件（仪表盘/Footer 状态） |
+| `src/views/CacheManager.vue` | 301 | `CacheManager.vue` | 282 | 2026-08-19 | ✅ 完成 |
+| | | `composables/useCacheManagerInit.ts` | 71 | | 新文件（onMounted 初始化聚合） |
 
 <!-- ========== 前端重构记录：目录重组与样式提取 ========== -->
 ### 前端重构记录（2026-07-29）

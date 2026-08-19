@@ -12,6 +12,7 @@ import { ref, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { FOOTER_KEY, addMessage } from "./footer";
 import { openConfirm as confirm } from "./useConfirm";
+import { useSudoers } from "./useSudoers";
 
 /**
  * 创建缓存清理操作集合
@@ -21,17 +22,17 @@ import { openConfirm as confirm } from "./useConfirm";
 export function useCacheCleanup() {
   const footer = inject(FOOTER_KEY)!;
   const loading = ref(false);
-  const sudoersCommand = ref("");
-  const showSudoersPrompt = ref(false);
 
-  /**
-   * 获取 sudoers 配置命令
-   */
-  async function loadSudoersCommand() {
-    try {
-      sudoersCommand.value = await invoke<string>("get_cache_cleanup_sudoers_command");
-    } catch { /* ignore */ }
-  }
+  // sudoers 免密配置状态与操作（清理系统缓存需要 root 权限）
+  const {
+    sudoersCommand,
+    showSudoersPrompt,
+    loadSudoersCommand,
+    closeSudoersPrompt,
+  } = useSudoers({
+    checkCommand: "check_cache_cleanup_sudoers",
+    getCommand: "get_cache_cleanup_sudoers_command",
+  });
 
   /**
    * 清理系统缓存 /var/cache/pacman/pkg
@@ -111,13 +112,6 @@ export function useCacheCleanup() {
         }
       }
     }
-  }
-
-  /**
-   * 关闭 sudoers 提示
-   */
-  function closeSudoersPrompt() {
-    showSudoersPrompt.value = false;
   }
 
   return {

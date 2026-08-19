@@ -10,16 +10,27 @@ import { ref, inject } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { FOOTER_KEY, addMessage } from "./footer";
 import { openConfirm as confirm } from "./useConfirm";
+import { useSudoers } from "./useSudoers";
 import type { BackupSoftwareEntry } from "../types";
 
 export function useBackupInstall() {
   const footer = inject(FOOTER_KEY)!;
   const installing = ref(false);
-  const sudoersAvailable = ref<boolean | null>(null);
-  const sudoersCommand = ref("");
-  const showSudoersPrompt = ref(false);
   const pendingInstallPath = ref("");
   const pendingInstallPkgname = ref("");
+
+  // sudoers 免密配置状态与操作（检测/获取命令文本/弹窗控制）
+  const {
+    sudoersAvailable,
+    sudoersCommand,
+    showSudoersPrompt,
+    checkSudoers,
+    loadSudoersCommand,
+    closeSudoersPrompt,
+  } = useSudoers({
+    checkCommand: "check_sudoers_config",
+    getCommand: "get_sudoers_command",
+  });
 
   // 信息弹窗状态
   const infoDialogVisible = ref(false);
@@ -27,20 +38,6 @@ export function useBackupInstall() {
   const infoDialogContent = ref("");
   const infoDialogPkgname = ref("");
   const infoDialogEntry = ref<BackupSoftwareEntry | null>(null);
-
-  async function checkSudoers() {
-    try {
-      sudoersAvailable.value = await invoke<boolean>("check_sudoers_config");
-    } catch {
-      sudoersAvailable.value = false;
-    }
-  }
-
-  async function loadSudoersCommand() {
-    try {
-      sudoersCommand.value = await invoke<string>("get_sudoers_command");
-    } catch { /* ignore */ }
-  }
 
   async function viewPackageInfo(entry: BackupSoftwareEntry) {
     infoDialogEntry.value = entry;
@@ -94,10 +91,6 @@ export function useBackupInstall() {
     } finally {
       installing.value = false;
     }
-  }
-
-  function closeSudoersPrompt() {
-    showSudoersPrompt.value = false;
   }
 
   async function batchInstall(

@@ -21,6 +21,7 @@ use async_trait::async_trait;
 use log::{debug, info, warn};
 use reqwest::Client;
 use std::collections::HashSet;
+use std::sync::OnceLock;
 
 use super::redirect_parse::*;
 use super::trait_def::{CheckOptions, CheckResult, VersionChecker};
@@ -28,6 +29,20 @@ use super::utils::{extract_version_from_url, extract_version_with_regex};
 
 /// 最大重定向次数，防止无限循环
 const MAX_REDIRECTS: usize = 5;
+
+/// 重定向检查专用客户端（不自动跟随重定向，带浏览器 UA），进程级复用以避免重复构建连接池
+static REDIRECT_CLIENT: OnceLock<Client> = OnceLock::new();
+
+/// 获取重定向检查专用客户端单例
+fn redirect_client() -> &'static Client {
+    REDIRECT_CLIENT.get_or_init(|| {
+        Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .user_agent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            .build()
+            .expect("初始化重定向检查客户端失败")
+    })
+}
 
 pub struct RedirectChecker;
 
@@ -58,13 +73,10 @@ impl VersionChecker for RedirectChecker {
             return Ok(CheckResult::default());
         }
 
-        // 创建不自动跟随重定向的客户端（直连）
+        // 复用进程级重定向检查客户端（不自动跟随重定向，带浏览器 UA）
         // 注意：绝不使用配置中的 GitHub 镜像代理（ProxyType::Download）作为正向代理去请求任意主机。
         // 若系统环境变量 http_proxy/https_proxy 已设置，reqwest 会自动采用真实系统代理。
-        let client = Client::builder()
-            .redirect(reqwest::redirect::Policy::none())
-            .user_agent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-            .build()?;
+        let client = redirect_client();
 
         let mut current_url = upstream_url.to_string();
         let mut version = None;
@@ -141,7 +153,7 @@ impl VersionChecker for RedirectChecker {
             //    抓取 <script src> 并对 JS 文本套用版本正则（如 flomo）
             if version.is_none() {
                 if let Some(v) = extract_version_from_scripts(
-                    &client,
+                    client,
                     &current_url,
                     &body,
                     version_extract_regex,

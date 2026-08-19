@@ -4,8 +4,7 @@
  * 提供代理源的获取、下载、解析与增删改查命令，
  * 不含连通性测试逻辑（测试相关见 test.rs）。
  */
-use log::{debug, info};
-use reqwest;
+use log::{debug, info, warn};
 use tauri::State;
 
 use crate::errors::AppResult;
@@ -27,8 +26,8 @@ pub async fn get_proxies(state: State<'_, AppState>) -> AppResult<Vec<ProxyInfo>
 #[tauri::command]
 pub async fn fetch_proxy_sources(state: State<'_, AppState>) -> AppResult<usize> {
     info!("正在从用户脚本获取代理源");
-    let client = reqwest::Client::new();
-    let proxies = proxy::fetch_proxy_list_from_userscript(&client).await?;
+    let client = crate::http_client::shared_client();
+    let proxies = proxy::fetch_proxy_list_from_userscript(client).await?;
     let db = state.db.lock()?;
     let mut count = 0;
     for p in proxies {
@@ -44,8 +43,12 @@ pub async fn fetch_proxy_sources(state: State<'_, AppState>) -> AppResult<usize>
             last_test_status: None,
             strip_target_protocol: p.strip_target_protocol,
         };
-        let _ = db.insert_proxy(&proxy_info);
-        count += 1;
+        // 插入失败仅记录告警，不计入成功数，避免静默丢失数据
+        if let Err(e) = db.insert_proxy(&proxy_info) {
+            warn!("插入代理 {} 失败: {}", proxy_info.proxy_name, e);
+        } else {
+            count += 1;
+        }
     }
     info!("已获取 {} 个代理源", count);
     Ok(count)
@@ -66,11 +69,14 @@ pub async fn download_proxy_file(state: State<'_, AppState>) -> AppResult<usize>
             .unwrap_or_else(|| "https://update.greasyfork.org/scripts/412245/Github%20%E5%A2%9E%E5%BC%BA%20-%20%E9%AB%98%E9%80%9F%E4%B8%8B%E8%BD%BD.user.js".to_string())
     };
 
-    let client = reqwest::Client::new();
-    let file_path = proxy::download_proxy_file(&client, &download_url).await?;
+    let client = crate::http_client::shared_client();
+    let file_path = proxy::download_proxy_file(client, &download_url).await?;
 
     info!("代理文件已下载到: {:?}", file_path);
-    Ok(0) // 返回 0，实际数量在解析时计算
+    // 下载后立即解析并返回真实新增条数（与 parse_proxy_file 共用同一逻辑）
+    let count = parse_and_insert_proxies(&state).await?;
+    info!("成功下载并解析 {} 个代理", count);
+    Ok(count)
 }
 
 /// 解析代理文件
@@ -78,16 +84,7 @@ pub async fn download_proxy_file(state: State<'_, AppState>) -> AppResult<usize>
 #[tauri::command]
 pub async fn parse_proxy_file(state: State<'_, AppState>) -> AppResult<usize> {
     info!("开始解析代理文件");
-    let proxies = proxy::parse_proxy_file().await?;
-
-    let db = state.db.lock()?;
-    let mut count = 0;
-    for p in proxies {
-        if let Ok(_) = db.insert_proxy(&p) {
-            count += 1;
-        }
-    }
-
+    let count = parse_and_insert_proxies(&state).await?;
     info!("成功解析并插入 {} 个代理", count);
     Ok(count)
 }
@@ -134,10 +131,47 @@ pub async fn update_proxy(
 ) -> AppResult<()> {
     info!(
         "正在更新代理 {}: name={}, url={}, type={}",
-        proxy_id, proxy_name, url, proxy_type
+        proxy_id,
+        proxy_name,
+        mask_url(&url),
+        proxy_type
     );
     let db = state.db.lock()?;
     db.update_proxy(proxy_id, &proxy_name, &url, &proxy_type)?;
     info!("代理 {} 更新完成", proxy_id);
     Ok(())
+}
+
+/// 解析已下载的代理文件并写入数据库，返回新增条数（已存在项跳过）
+///
+/// 下载与解析两个命令共用此逻辑，避免重复实现插入流程。
+///
+/// @param state - 应用状态（用于获取数据库锁）
+/// @returns 新插入的代理条数
+async fn parse_and_insert_proxies(state: &State<'_, AppState>) -> AppResult<usize> {
+    let proxies = proxy::parse_proxy_file().await?;
+    let db = state.db.lock()?;
+    let mut count = 0;
+    for p in proxies {
+        if db.insert_proxy(&p).is_ok() {
+            count += 1;
+        }
+    }
+    Ok(count)
+}
+
+/// 脱敏代理 URL：屏蔽 userinfo（user:pass@），避免凭据写入日志
+///
+/// @param url - 原始代理 URL
+/// @returns 脱敏后的 URL（保留主机名与路径）
+fn mask_url(url: &str) -> String {
+    // 去掉协议头后的 host 段可能含 user:pass@
+    let without_scheme = match url.find("://") {
+        Some(p) => &url[p + 3..],
+        None => url,
+    };
+    match without_scheme.find('@') {
+        Some(p) => format!("***@{}", &without_scheme[p + 1..]),
+        None => without_scheme.to_string(),
+    }
 }

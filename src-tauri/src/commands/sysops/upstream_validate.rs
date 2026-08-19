@@ -8,6 +8,8 @@
  * - 更新 upstream_info 表中的 upstream_url_status 字段
  */
 use std::sync::Arc;
+use std::sync::OnceLock;
+use std::time::Duration;
 use tauri::{Emitter, State};
 use tokio::sync::Semaphore;
 
@@ -22,6 +24,19 @@ pub struct ValidateResult {
     pub pkgname: String,
     pub upstream_url: Option<String>,
     pub status: UpstreamUrlStatus,
+}
+
+/// 上游 URL 验证专用客户端（10 秒超时），进程级复用以避免每次验证重建连接池
+static VALIDATE_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+
+/// 获取上游验证客户端单例
+fn validate_client() -> &'static reqwest::Client {
+    VALIDATE_CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .timeout(Duration::from_secs(10))
+            .build()
+            .expect("初始化上游验证客户端失败")
+    })
 }
 
 /// 验证单个软件包的上游 URL
@@ -117,13 +132,8 @@ pub async fn validate_upstream_urls(
         return Ok(vec![]);
     }
 
-    // 创建 HTTP 客户端（10 秒超时）
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .build()
-        .map_err(|e| {
-            crate::errors::AppError::NetworkError(format!("创建 HTTP 客户端失败: {}", e))
-        })?;
+    // 复用进程级共享的验证客户端（10 秒超时），避免每次验证重建连接池
+    let client = validate_client().clone();
 
     // 并发控制：最大 10 个并发请求
     let semaphore = Arc::new(Semaphore::new(10));

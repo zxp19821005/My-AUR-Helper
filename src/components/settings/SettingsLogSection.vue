@@ -12,6 +12,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import { useSettingsStore } from "../../stores/settings";
 import { useSettingsDraft } from "../../composables/useSettingsDraft";
 import SettingsCard from "./SettingsCard.vue";
 import SettingRow from "./SettingRow.vue";
@@ -59,10 +60,14 @@ onMounted(async () => {
 async function handleSave() {
   saving.value = true;
   try {
-    await invoke("set_setting", { key: "log_max_size", value: draft.value.log_max_size });
-    await invoke("set_setting", { key: "log_max_files", value: draft.value.log_max_files });
-    await invoke("set_setting", { key: "log_dir", value: draft.value.log_dir });
-    await invoke("set_setting", { key: "log_prefix", value: draft.value.log_prefix });
+    // 通过 store 集中写入并更新缓存；4 个设置项并行保存
+    const settingsStore = useSettingsStore();
+    await Promise.all([
+      settingsStore.setSetting("log_max_size", draft.value.log_max_size),
+      settingsStore.setSetting("log_max_files", draft.value.log_max_files),
+      settingsStore.setSetting("log_dir", draft.value.log_dir),
+      settingsStore.setSetting("log_prefix", draft.value.log_prefix),
+    ]);
     await invoke("apply_log_settings");
     commit();
     showMessage("已保存");

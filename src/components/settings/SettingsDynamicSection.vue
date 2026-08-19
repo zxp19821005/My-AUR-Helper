@@ -67,10 +67,10 @@ async function load() {
 async function handleSave() {
   saving.value = true;
   try {
-    // 设置项数量很少，直接全量保存，简单可靠
-    for (const item of draft.value) {
-      await invoke("set_setting", { key: item.key, value: item.value });
-    }
+    // 设置项数量很少，直接全量保存（走 store.setSetting 集中写入并同步缓存）
+    await Promise.all(
+      draft.value.map((item) => settingsStore.setSetting(item.key, item.value)),
+    );
     await settingsStore.refreshAllSettings();
     commit();
     showMessage("已保存");

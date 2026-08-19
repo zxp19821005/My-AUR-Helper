@@ -59,16 +59,19 @@ const scanning = ref(false);
 
 async function loadSettings() {
   try {
-    const { invoke: inv } = await import("@tauri-apps/api/core");
-    const setting = await inv<{ value: string } | null>("get_setting", { key: "backup_dir" });
+    const setting = await invoke<{ value: string } | null>("get_setting", { key: "backup_dir" });
     if (setting) backupPath.value = setting.value;
-  } catch { /* ignore */ }
+  } catch (e) {
+    console.error("加载备份目录设置失败:", e);
+  }
 }
 
 async function loadSubdirectories() {
   try {
     subdirectories.value = await invoke<string[]>("list_backup_subdirectories");
-  } catch { /* ignore */ }
+  } catch (e) {
+    console.error("加载备份子目录失败:", e);
+  }
 }
 
 onMounted(async () => {

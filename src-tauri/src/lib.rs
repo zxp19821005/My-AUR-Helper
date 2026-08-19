@@ -14,6 +14,7 @@ pub mod checkers; // 版本检查器模块
 pub mod commands; // Tauri IPC 命令模块
 pub mod db; // 数据库操作模块
 pub mod errors; // 统一错误处理模块
+pub mod http_client; // 共享 HTTP 客户端单例模块
 pub mod logger; // 日志轮转与输出模块
 pub mod models; // 数据模型模块
 pub mod proxy; // 代理管理模块
