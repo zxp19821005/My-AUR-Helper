@@ -1,0 +1,6 @@
+{
+  "build": {
+    "beforeDevCommand": "bash scripts/dev-fast-frontend.sh",
+    "devUrl": "http://localhost:4173"
+  }
+}

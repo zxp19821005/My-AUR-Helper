@@ -32,11 +32,11 @@ export default defineConfig(async () => ({
     // 浏览器请求时直接返回已编译缓存的模块，消除首次路由切换的即时编译延迟。
     warmup: {
       clientFiles: [
-        "/src/views/PackageList.vue",
-        "/src/views/PackageDetail.vue",
-        "/src/views/BackupManager.vue",
-        "/src/views/CacheManager.vue",
-        "/src/views/ProxySettings.vue",
+        "./src/views/PackageList.vue",
+        "./src/views/PackageDetail.vue",
+        "./src/views/BackupManager.vue",
+        "./src/views/CacheManager.vue",
+        "./src/views/ProxySettings.vue",
       ],
     },
   },

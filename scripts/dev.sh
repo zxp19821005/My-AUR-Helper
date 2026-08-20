@@ -67,6 +67,9 @@ usage() {
 
 命令:
   dev         启动开发模式（Tauri dev，前端热重载 + 后端热重载）
+  dev-fast    启动快速开发模式（前端打包产物 + 后端热重载，页面加载接近 release 速度）
+              适合 WebKitGTK + 内存压力大导致 dev 模式页面切换极慢的场景；
+              代价：前端无 HMR，改前端代码后手动刷新（Ctrl+R）
   build       生产构建（pnpm build + tauri build）
   check       类型检查（vue-tsc + cargo check）
   lint        Lint 检查（eslint + cargo clippy）
@@ -82,6 +85,14 @@ case "${1:-help}" in
     dev)
         info "启动 Tauri 开发模式（前端热重载 + 后端热重载）${RUSTC_WRAPPER:+| 缓存: $RUSTC_WRAPPER}"
         pnpm tauri dev
+        ok "开发服务器已关闭"
+        show_cache_stats
+        ;;
+
+    dev-fast)
+        info "启动 Tauri 快速开发模式（前端打包产物 + 后端热重载）${RUSTC_WRAPPER:+| 缓存: $RUSTC_WRAPPER}"
+        info "前端无 HMR：改前端代码后手动刷新（Ctrl+R）；后端 Rust 仍自动重编译重启"
+        pnpm tauri dev --config src-tauri/tauri.fast.conf.json
         ok "开发服务器已关闭"
         show_cache_stats
         ;;
