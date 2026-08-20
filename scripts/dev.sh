@@ -26,20 +26,14 @@ export RUSTC_WRAPPER="${RUSTC_WRAPPER:-sccache}"
 export CC="${CC:-ccache gcc}"
 export CXX="${CXX:-ccache g++}"
 
-# ---------- WebKitGTK 2.52.6 DMABUF 渲染回归应急 ----------
-# 2026-08-20: webkit2gtk-4.1 2.52.6-1 在 Intel + X11 上 DMABUF 加速路径回归，
-# 表现为所有页面卡顿（切换 15-37s）+ WebKitWebProcess CPU 占用高。
-# 仅在检测到该已知回归版本时禁用 DMABUF（回退软件渲染，CPU 略高）；
-# 2.52.5（已降级）及未来修复版本自动恢复硬件加速，无需改脚本。
-# 如需强制覆盖：WEBKIT_FORCE_DISABLE_DMABUF=1（强制禁用）/ =0（强制启用）。
-if [[ -n "${WEBKIT_FORCE_DISABLE_DMABUF:-}" ]]; then
-    export WEBKIT_DISABLE_DMABUF_RENDERER="$WEBKIT_FORCE_DISABLE_DMABUF"
-else
-    _webkit_ver="$(pacman -Q webkit2gtk-4.1 2>/dev/null | awk '{print $2}')"
-    if [[ "$_webkit_ver" == "2.52.6-1" ]]; then
-        export WEBKIT_DISABLE_DMABUF_RENDERER=1
-        echo -e "${YELLOW}[$(ts)] [WARN]${NC}  检测到 webkit2gtk-4.1 2.52.6-1（DMABUF 回归版本），已禁用 DMABUF 硬件加速"
-    fi
+# ---------- WebKitGTK DMABUF 渲染应急 ----------
+# 2026-08-20 实测：本机（Intel i915 + X11）DMABUF 硬件加速路径异常，
+# 2.52.5-2 与 2.52.6-1 开启时均卡死（页面切换 15s+，navigate 无 navigated）；
+# 禁用后恢复流畅（0.1-2.4s）。默认禁用，代价是 WebKit 软件渲染 CPU 略高。
+# 如需尝试恢复硬件加速（如重启后/驱动更新后）：
+#   WEBKIT_ENABLE_DMABUF=1 sh scripts/dev.sh dev
+if [[ "${WEBKIT_ENABLE_DMABUF:-0}" != "1" ]]; then
+    export WEBKIT_DISABLE_DMABUF_RENDERER="${WEBKIT_DISABLE_DMABUF_RENDERER:-1}"
 fi
 
 # 确保 sccache 守护进程在运行
