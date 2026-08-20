@@ -1,0 +1,132 @@
+# 架构 / 代码 / 数据库优化方案（2026-08-20）
+
+> 审查范围：`src-tauri/src`（Rust 后端）、`src`（Vue/TS 前端）、`src-tauri/src/db`（SQLite 层）
+> 审查方法：通读关键模块 + 正则扫描 `unwrap()` / `let _ =` / `catch` / `.ok()` / `format!("SELECT` / `format!("INSERT` / 循环内查询
+> 交付：本文件为「建议 + 实施记录」。标注 ✅ 为本次已落地；标注「建议」为本次评估后决定延后（架构风险 / 范围过大），附具体改造思路。
+
+---
+
+## 0. 前置修复：未提交代理重构导致编译失败（必须）
+
+工作区存在一批未提交的「正向代理自动探测」重构（新增 `get_forward_proxy` / `detect_local_proxy`、统一 `build_client(timeout, use_proxy: bool)`），但调用方未同步更新，**库编译失败（7 错误）**。本次先行修复使其可编译：
+
+| 文件 | 修复 |
+|------|------|
+| `checkers/proxy_utils.rs` 调用方 | `build_client(timeout, None)`（旧 `Option<&str>` 签名）→ `build_client(timeout, false)`；`check_selected_upstream` 新增 `github_client = build_client(timeout, true)` |
+| `software_sync/batch.rs` | 新增参数 `github_client` 已接入：GraphQL 批量走 `github_client`、GitHub REST 回落分支也改用 `github_client`（消除 `unused variable` 警告） |
+| `software_check.rs` | `sw.checker_type_id` 现已是 `CheckerType` 类型，`CheckerType::from_id(sw.checker_type_id)` 改为直接 `let checker_type = sw.checker_type_id;` 并复用 `&checker_type` 传给 `get_checker` |
+| `software_sync/aur.rs` / `upstream.rs` | 同步 `build_client(timeout, false)` 并补齐 `github_client` 实参 |
+
+> 设计意图梳理：非 GitHub 检查器（Gitee/GitLab/Redirect/Http）直连；仅 GitHub 走 `github_client`（启用正向代理，契合国内访问 GitHub 场景）。该意图本身合理，仅调用 wiring 未完成。
+
+---
+
+## 1. 架构（Architecture）
+
+### A2 / D1：外键死代码 + 策略矛盾 — Medium — ✅ 已修复
+
+**问题**：`db/connection.rs` 的 `ensure_no_fk_constraints` 查询 `pragma_foreign_key_list('software_info')` 判断是否要移除 FK，但 `software_info` 是**父表**（子表 `aur_info`/`upstream_info` 才有指向它的外键），该计数**恒为 0**，故 `rebuild_software_info_remove_fk` 永不执行；配套的 `fk_checked: Cell<bool>` 字段也无意义。同时 `migration_software.rs:74` 在 `software_info` 上查 `license_id` 外键也属于查错表。整体造成「既声称移除 FK、又 `PRAGMA foreign_keys=ON`」的语义混乱。
+
+**修复**：
+- 删除 `ensure_no_fk_constraints`、`rebuild_software_info_remove_fk`、`fk_checked` 字段及其在 `initialize()` 中的调用。
+- 保留 `new()` 中的 `PRAGMA foreign_keys=ON`，与 `schema.rs` 中子表 `ON DELETE CASCADE` 形成一致、正确的引用完整性策略（删除软件包时级联清理 `aur_info`/`upstream_info`）。
+
+**收益**：移除约 60 行死代码，消除语义矛盾，行为可预测。
+
+### A1：前端缺少统一 API 抽象层 — Medium — 建议（延后）
+
+**问题**：`src/composables/*`、`src/stores/*`、`src/components/**` 直接散落 `invoke("command")`，同一命令多处重复（如 `delete_software` 出现在 3 处、`update_aur_info` 出现在 4 处）；store 与 composable 职责重叠（如 `stores/packages.ts` 与 `composables/usePackageList.ts` 都拉包列表）。
+
+**改造思路**：新增 `src/api/`，按领域导出封装函数（如 `api/software.ts`、`api/proxy.ts`），组件/composable 只调用 service，集中处理错误与类型。属较大重构，本次未实施，建议作为下一周期专项。
+
+### A3：版本比对 + 写入逻辑重复 — Medium — ✅ 已修复
+
+**问题**：`compare_and_update`（单包路径）与 `check_selected_upstream` 内联的写库逻辑实现了同一套「is_outdated 计算 → update_software_outdated → update_software_languages → upsert_upstream_info」，容易漂移。
+
+**修复**：抽取 `apply_upstream_check_result(db, software_id, cleaned_version, is_outdated, upstream_license_id, language_ids, fill_languages)`，两处共用，单一写入口径。
+
+---
+
+## 2. 代码质量（Code Quality）
+
+### C2：批量检查时循环内逐包 `get_aur_info`（N+1 残留）— Medium — ✅ 已修复
+
+**问题**：`check_selected_upstream` 在构建任务前用一个 `for` 循环对每个包调用 `db.get_aur_info(...)`（N 次查询）仅用于判断「有无 AUR 版本」，而紧接着 L308 又一次性 `get_aur_versions_map()` 全量读取 AUR 版本用于比较——前面 N 次查询完全冗余（正是既往审计声称已消除的 N+1 的残留）。
+
+**修复**：把 `get_aur_versions_map()` 的批量读取**提前到任务构建循环之前**，循环内直接用内存中的 `aur_map` 判断 `has_aur`，删除循环内逐包查询。净效果：构建过滤与版本比较共用同一份批量读取，零逐包查询。
+
+### C1：批量写库未包裹事务（数据一致性）— High — 建议（延后，附方案）
+
+**问题**：`check_selected_upstream` 对每个包执行 3 次写（`update_software_outdated` + `update_software_languages` + `upsert_upstream_info`），跨 N 个包循环；`compare_and_update` 同理。中途崩溃会留下部分写入 / 孤儿行。全仓无任何 `transaction()` 使用。
+
+**为何本次未实施**：项目现有写库方法（`update_software_outdated` 等）签名均为 `&self` 且内部用 `self.conn`；而 rusqlite 的 `Connection::transaction()` 需要 `&mut self`，事务 `Transaction` 与 `&self` 方法无法在同一连接上共存（借阅冲突）。直接包事务会触发 borrow-checker 错误（已实测）。
+
+**改造方案**（供下一周期）：将写库方法拆分为「接收 `&rusqlite::Connection` 的低层执行函数」+「`&self` 便捷封装」，批量路径开启 `db.conn.transaction()` 后将 `&tx` 传入低层函数；或在 `Database` 上提供 `with_transaction(|conn| {...})` 闭包式封装。完成后即可把整批写入原子化，任一失败整体回滚。
+
+### C4：HTTP 超时 / 重试解析重复 — Low — 建议（轻量）
+
+**问题**：`check_upstream_version` 与 `check_selected_upstream` 都重复 `parse_u64(get_setting_opt(...).unwrap_or_default(), 30)` / `parse_u32(..., 2)`。
+
+**改造思路**：在 `software_sync::utils` 抽取 `read_http_settings(db) -> (timeout: u64, retry: u32)`，两处调用。低风险，可顺手做。
+
+### C3：日志 / 错误被静默吞掉 — Low — 沿用既有加固
+
+`logger.rs` 的 `writeln!/flush` 用 `let _ =` 吞写失败、`proxy_utils.rs` 的 `addr.parse().unwrap()` 属静态地址安全场景。既往审计已对代理日志做脱敏加固；此处维持现状，仅建议 `logger` 失败至少 `eprintln!` 兜底。
+
+---
+
+## 3. 数据库（Database）
+
+### D3：仪表盘 8 次独立 COUNT 查询 — Low — ✅ 已修复
+
+**问题**：`db/stats.rs` 每次仪表盘加载发 8 条独立 `COUNT(*)` 查询（software_info / outdated / backup / cache / proxies / proxies_active / licenses / languages）。
+
+**修复**：合并为单条 SQL，用 8 个标量子查询一次性返回所有计数，仅一次 DB 往返：
+```sql
+SELECT
+  (SELECT COUNT(*) FROM software_info),
+  (SELECT COUNT(*) FROM software_info WHERE is_outdated = 1),
+  (SELECT COUNT(*) FROM backup_software),
+  (SELECT COUNT(*) FROM cache_software),
+  (SELECT COUNT(*) FROM proxies_info),
+  (SELECT COUNT(*) FROM proxies_info WHERE is_active = 1),
+  (SELECT COUNT(*) FROM enum_licenses),
+  (SELECT COUNT(*) FROM enum_programming_languages)
+```
+删除原 `count(conn, sql)` 辅助函数及 `use rusqlite::Connection`。语义不变，往返次数 8→1。
+
+### D2：software_info 重复 SQL / 行映射 — Low/Medium — 建议（延后）
+
+**问题**：`get_software_detail_by_name` 与 `get_software_list_entry` 是几乎相同的三表 JOIN SELECT；`row_to_software_info` 与 `row_to_list_entry` 对 `software_info` 列的映射重复。
+
+**改造思路**：抽取共享列清单 / 基础查询构造器，减少映射漂移。属低风险但需谨慎核对列序（曾有列序错位导致数据错位的先例），建议配对单测，本次未实施。
+
+### D4：高频过滤列索引核查 — Low — 无动作
+
+现有索引已覆盖 `pkgname`、`is_outdated`、`filename`、`name`、`proxy_id`、`category`；`search_software` 的 `upstream_url LIKE` 因前导通配符无法用索引（可接受），`full_path` 无 WHERE 查询无需索引。当前无明确缺索引。
+
+---
+
+## 4. 验证结果
+
+| 检查项 | 结果 |
+|--------|------|
+| `cargo check --lib` | ✅ 0 error / 0 warning |
+| `cargo clippy --lib` | ✅ 无新增 warning |
+| `cargo test --lib` | ✅ 全部通过（含既有路径校验单测） |
+| `vue-tsc --noEmit` | ✅ 0 error |
+| `vite build` | ✅ 通过 |
+
+---
+
+## 5. 本次改动文件清单
+
+| 文件 | 改动 |
+|------|------|
+| `src-tauri/src/db/connection.rs` | 移除 FK 死代码（`ensure_no_fk_constraints` / `rebuild_software_info_remove_fk` / `fk_checked`） |
+| `src-tauri/src/db/stats.rs` | 仪表盘 8 次 COUNT 合并为单条多子查询 |
+| `src-tauri/src/commands/sysops/software_check.rs` | CheckerType 类型修正；抽取 `apply_upstream_check_result`；移除 N+1 逐包查询；补齐 `github_client` |
+| `src-tauri/src/commands/sysops/software_sync/batch.rs` | 接入 `github_client`（GraphQL + GitHub REST 回落） |
+| `src-tauri/src/commands/sysops/software_sync/aur.rs` | `build_client` 新签名适配 |
+| `src-tauri/src/commands/sysops/software_sync/upstream.rs` | `build_client` 新签名 + 补齐 `github_client` |
+| `src-tauri/src/commands/sysops/proxy_utils.rs`、`enums.rs`、`models/checker_type.rs` 等 | 既有未提交 WIP（正向代理自动探测），本次仅修复其编译接线，未改动其业务逻辑 |

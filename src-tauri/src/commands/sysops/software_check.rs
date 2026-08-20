@@ -10,7 +10,7 @@ use log::{debug, error, info};
 use std::collections::HashMap;
 use tauri::State;
 
-use super::proxy_utils::{build_client, get_active_proxy};
+use super::proxy_utils::build_client;
 use super::software_sync::batch::{batch_check_upstream, PackageTask};
 use super::software_sync::utils::{
     build_checker_settings, get_setting_opt, parse_u32, parse_u64, UpstreamCheckResult,
@@ -72,6 +72,42 @@ async fn check_with_retry(
     Err(last_error.unwrap_or(AppError::VersionCheckError("检查失败".to_string())))
 }
 
+/// 写入单个软件包的上游检查结果（is_outdated / 语言列表 / upstream_info）
+///
+/// 函数内不含事务；调用方按需用 `db.conn.transaction()` 包裹，保证批量写入原子性。
+///
+/// # Arguments
+/// - `db` 数据库连接
+/// - `software_id` 软件包 ID
+/// - `cleaned_version` 已去除 `v` 前缀的上游版本
+/// - `is_outdated` 与 AUR 相比是否落后
+/// - `upstream_license_id` 上游 License SPDX ID（可选）
+/// - `language_ids` 解析后的语言 ID 列表
+/// - `fill_languages` 是否填充语言列表（仅当用户未手动设置时）
+fn apply_upstream_check_result(
+    db: &crate::db::Database,
+    software_id: i64,
+    cleaned_version: &str,
+    is_outdated: bool,
+    upstream_license_id: Option<String>,
+    language_ids: &[i64],
+    fill_languages: bool,
+) -> AppResult<()> {
+    db.update_software_outdated(software_id, is_outdated)?;
+    if fill_languages && !language_ids.is_empty() {
+        db.update_software_languages(software_id, language_ids)?;
+    }
+    let upstream_info = UpstreamInfo {
+        software_id,
+        upstream_version: Some(cleaned_version.to_string()),
+        upstream_license_id,
+        last_checked: Some(Utc::now().timestamp()),
+        upstream_url_status: None,
+    };
+    db.upsert_upstream_info(&upstream_info)?;
+    Ok(())
+}
+
 fn compare_and_update(
     db: &crate::db::Database,
     software_id: i64,
@@ -99,57 +135,25 @@ fn compare_and_update(
         pkgname, aur_ver, version, is_outdated
     );
 
-    // 获取 license JSON（直接存储数组）
     let upstream_license_id = license_spdx_id.map(|s| s.to_string());
-    debug!(
-        "[版本检查] {} license_spdx_id={:?} -> upstream_license_id={:?}",
-        pkgname, license_spdx_id, upstream_license_id
-    );
-
-    // 解析语言 ID 列表（如果语言不存在则自动创建）
     let language_ids = db.resolve_language_ids(language_names)?;
-    debug!(
-        "[版本检查] {} languages={:?} -> ids={:?}",
-        pkgname, language_names, language_ids
-    );
 
-    debug!(
-        "[版本检查] {} 准备写入: software_id={}, is_outdated={}, version={}, license_id={:?}",
-        pkgname, software_id, is_outdated, cleaned_version, upstream_license_id
-    );
+    // 仅当用户未手动设置语言列表时，才用自动检测到的语言列表填充
+    let fill_languages = db
+        .get_software_by_name(pkgname)?
+        .map(|sw| sw.language_ids.is_empty())
+        .unwrap_or(false);
 
-    db.update_software_outdated(software_id, is_outdated)?;
-    debug!(
-        "[版本检查] {} step1: update_software_outdated 成功",
-        pkgname
-    );
-
-    // 只有当用户没有手动设置语言列表时，才用自动检测到的语言列表填充
-    let existing_sw = db.get_software_by_name(pkgname)?;
-    if let Some(ref sw) = existing_sw {
-        if sw.language_ids.is_empty() && !language_ids.is_empty() {
-            db.update_software_languages(software_id, &language_ids)?;
-            debug!(
-                "[版本检查] {} step2: update_software_languages 成功（语言列表为空，自动填充）",
-                pkgname
-            );
-        } else {
-            debug!(
-                "[版本检查] {} step2: 跳过语言列表更新（已有用户设置: {:?}）",
-                pkgname, sw.language_ids
-            );
-        }
-    }
-
-    let upstream_info = UpstreamInfo {
+    // 单包三次写入（is_outdated / languages / upstream_info）
+    apply_upstream_check_result(
+        db,
         software_id,
-        upstream_version: Some(cleaned_version.to_string()),
+        cleaned_version,
+        is_outdated,
         upstream_license_id,
-        last_checked: Some(Utc::now().timestamp()),
-        upstream_url_status: None,
-    };
-    db.upsert_upstream_info(&upstream_info)?;
-    debug!("[版本检查] {} step3: upsert_upstream_info 成功", pkgname);
+        &language_ids,
+        fill_languages,
+    )?;
     Ok(())
 }
 
@@ -159,7 +163,7 @@ pub async fn check_upstream_version(
     pkgname: String,
 ) -> AppResult<String> {
     info!("正在检查上游版本: {}", pkgname);
-    let (sw, settings, timeout, retry, proxy_url) = {
+    let (sw, settings, timeout, retry) = {
         let db = state.db.lock()?;
         let sw = db
             .get_software_by_name(&pkgname)?
@@ -173,8 +177,7 @@ pub async fn check_upstream_version(
             &get_setting_opt(&db, "http_retry_count").unwrap_or_default(),
             2,
         );
-        let proxy_url = get_active_proxy(&db);
-        (sw, settings, timeout, retry, proxy_url)
+        (sw, settings, timeout, retry)
     };
     let has_aur_version = {
         let db = state.db.lock()?;
@@ -190,8 +193,9 @@ pub async fn check_upstream_version(
         )));
     }
 
-    let client = build_client(timeout, proxy_url.as_deref());
-    let checker = checkers::get_checker(&sw.checker_type_id, settings);
+    let checker_type = sw.checker_type_id;
+    let client = build_client(timeout, checker_type.is_github());
+    let checker = checkers::get_checker(&checker_type, settings);
     let upstream_url = sw.upstream_url.as_deref().unwrap_or("");
     let version_extract_regex = sw.version_extract_regex.as_deref();
     let options = CheckOptions {
@@ -243,7 +247,7 @@ pub async fn check_selected_upstream(
     info!("正在检查 {} 个软件包的上游版本", pkgname_list.len());
 
     // 一次性读取所有选中软件包的信息 + 配置，单次加锁
-    let (packages, settings, timeout, retry, proxy_url) = {
+    let (packages, settings, timeout, retry) = {
         let db = state.db.lock()?;
         let mut packages = Vec::new();
         for pkgname in &pkgname_list {
@@ -260,8 +264,7 @@ pub async fn check_selected_upstream(
             &get_setting_opt(&db, "http_retry_count").unwrap_or_default(),
             2,
         );
-        let proxy_url = get_active_proxy(&db);
-        (packages, settings, timeout, retry, proxy_url)
+        (packages, settings, timeout, retry)
     };
 
     // 预先提取每个包的已有语言 ID，避免写库阶段逐包回查（消除 N+1 查询）
@@ -270,28 +273,31 @@ pub async fn check_selected_upstream(
         .map(|p| (p.software_id.unwrap_or(0), p.language_ids.clone()))
         .collect();
 
+    // 一次性批量读取所有 AUR 版本（单条 SQL + 单次加锁），
+    // 同时用于「无 AUR 版本前置过滤」与「版本比较」，避免循环内逐包回查（原 N+1 残留）。
+    let aur_map: HashMap<i64, String> = {
+        let db = state.db.lock()?;
+        db.get_aur_versions_map()?
+    };
+
     // 过滤掉没有 AUR 版本的包（前置检查，避免浪费网络请求）
     let mut tasks = Vec::new();
-    {
-        let db = state.db.lock()?;
-        for sw in &packages {
-            let has_aur = db
-                .get_aur_info(sw.software_id.unwrap_or(0))?
-                .and_then(|a| a.aur_version)
-                .filter(|v| !v.is_empty())
-                .is_some();
-            if has_aur {
-                tasks.push(PackageTask {
-                    pkgname: sw.pkgname.clone(),
-                    software_id: sw.software_id.unwrap_or(0),
-                    upstream_url: sw.upstream_url.clone().unwrap_or_default(),
-                    version_extract_regex: sw.version_extract_regex.clone(),
-                    check_test_versions: sw.check_test_versions,
-                    check_binary_files: sw.check_binary_files,
-                    checker_type: sw.checker_type_id.clone(),
-                    package_type: sw.package_type_id.clone(),
-                });
-            }
+    for sw in &packages {
+        let has_aur = aur_map
+            .get(&sw.software_id.unwrap_or(0))
+            .map(|v| !v.is_empty())
+            .unwrap_or(false);
+        if has_aur {
+            tasks.push(PackageTask {
+                pkgname: sw.pkgname.clone(),
+                software_id: sw.software_id.unwrap_or(0),
+                upstream_url: sw.upstream_url.clone().unwrap_or_default(),
+                version_extract_regex: sw.version_extract_regex.clone(),
+                check_test_versions: sw.check_test_versions,
+                check_binary_files: sw.check_binary_files,
+                checker_type: sw.checker_type_id.clone(),
+                package_type: sw.package_type_id.clone(),
+            });
         }
     }
 
@@ -300,16 +306,11 @@ pub async fn check_selected_upstream(
         return Ok(Vec::new());
     }
 
-    let client = build_client(timeout, proxy_url.as_deref());
+    let client = build_client(timeout, false);
+    let github_client = build_client(timeout, true);
 
     // 并行检查：复用 batch_check_upstream 的分类并发引擎
-    let outcome = batch_check_upstream(tasks, client, settings, retry).await;
-
-    // 一次性批量读取所有 AUR 版本（单条 SQL + 单次加锁）
-    let aur_map: HashMap<i64, String> = {
-        let db = state.db.lock()?;
-        db.get_aur_versions_map()?
-    };
+    let outcome = batch_check_upstream(tasks, client, github_client, settings, retry).await;
 
     // 在内存中比较版本，得出 is_outdated
     let mut check_results: Vec<UpstreamCheckResult> = Vec::new();
@@ -339,7 +340,8 @@ pub async fn check_selected_upstream(
         });
     }
 
-    // 批量写入数据库：单次加锁，循环写入所有结果
+    // 批量写入数据库：单次加锁，循环写入所有结果（复用 apply_upstream_check_result）。
+    // 注：原子性事务化写入见优化文档 C1（需将写库方法改为接收 &Connection 以兼容 rusqlite Transaction）。
     let db = state.db.lock()?;
     let mut results = Vec::new();
     for result in &check_results {
@@ -348,61 +350,37 @@ pub async fn check_selected_upstream(
                 .upstream_version
                 .strip_prefix('v')
                 .unwrap_or(&result.upstream_version);
-
             let upstream_license_id = result.license_spdx_id.clone();
-
             let language_ids = db.resolve_language_ids(&result.language_names)?;
+            // 仅当用户未手动设置语言列表时，才用自动检测到的语言列表填充
+            let fill_languages = lang_by_id
+                .get(&result.software_id)
+                .map(|l| l.is_empty())
+                .unwrap_or(false)
+                && !language_ids.is_empty();
 
-            if let Err(e) = db.update_software_outdated(result.software_id, result.is_outdated) {
-                error!(
-                    "[版本检查] 更新 {} 的 is_outdated 失败: {}",
-                    result.pkgname, e
-                );
-            }
-
-            // 只有当用户没有手动设置语言列表时，才用自动检测到的语言列表填充
-            if let Some(existing_langs) = lang_by_id.get(&result.software_id) {
-                if existing_langs.is_empty() && !language_ids.is_empty() {
-                    if let Err(e) = db.update_software_languages(result.software_id, &language_ids)
-                    {
-                        error!(
-                            "[版本检查] 更新 {} 的 languages 失败: {}",
-                            result.pkgname, e
-                        );
-                    }
-                }
-            }
-
-            let upstream_info = UpstreamInfo {
-                software_id: result.software_id,
-                upstream_version: Some(cleaned_version.to_string()),
+            apply_upstream_check_result(
+                &db,
+                result.software_id,
+                cleaned_version,
+                result.is_outdated,
                 upstream_license_id,
-                last_checked: Some(Utc::now().timestamp()),
-                upstream_url_status: None,
-            };
-            if let Err(e) = db.upsert_upstream_info(&upstream_info) {
-                error!(
-                    "[版本检查] 更新 {} 的 upstream_info 失败: {}",
-                    result.pkgname, e
-                );
-            } else {
-                info!(
-                    "[版本检查结果] {}: AUR={:?} 上游={} 需更新={}",
-                    result.pkgname,
-                    aur_map.get(&result.software_id),
-                    result.upstream_version,
-                    result.is_outdated
-                );
-            }
+                &language_ids,
+                fill_languages,
+            )?;
+
+            info!(
+                "[版本检查结果] {}: AUR={:?} 上游={} 需更新={}",
+                result.pkgname,
+                aur_map.get(&result.software_id),
+                result.upstream_version,
+                result.is_outdated
+            );
 
             results.push((result.pkgname.clone(), result.upstream_version.clone()));
         } else {
-            if let Err(e) = db.update_software_outdated(result.software_id, false) {
-                error!(
-                    "[版本检查] 更新 {} 的 is_outdated 失败: {}",
-                    result.pkgname, e
-                );
-            }
+            // 检查失败 / 无可解析版本：置为未过期，不写 upstream_info
+            db.update_software_outdated(result.software_id, false)?;
         }
     }
 

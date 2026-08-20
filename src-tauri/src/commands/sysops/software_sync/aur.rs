@@ -16,7 +16,7 @@
 use log::{debug, info, warn};
 use tauri::State;
 
-use super::super::proxy_utils::{build_client, get_active_proxy};
+use super::super::proxy_utils::build_client;
 use super::utils::{get_setting_opt, parse_aur_fields, parse_u32, parse_u64, AurSyncResult};
 use crate::aur;
 use crate::errors::{AppError, AppResult};
@@ -37,7 +37,7 @@ use crate::AppState;
 #[tauri::command]
 pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
     info!("正在从 AUR 同步软件包");
-    let (username, timeout, proxy_url, batch_size, batch_interval) = {
+    let (username, timeout, batch_size, batch_interval) = {
         let db = state.db.lock()?;
         let username = db
             .get_setting("aur_username")?
@@ -47,7 +47,6 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
             &get_setting_opt(&db, "http_timeout").unwrap_or_default(),
             30,
         );
-        let proxy_url = get_active_proxy(&db);
         let batch_size = parse_u32(
             &get_setting_opt(&db, "aur_batch_size").unwrap_or_default(),
             50,
@@ -56,12 +55,12 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
             &get_setting_opt(&db, "aur_batch_interval").unwrap_or_default(),
             5,
         );
-        (username, timeout, proxy_url, batch_size, batch_interval)
+        (username, timeout, batch_size, batch_interval)
     };
     if username.is_empty() {
         return Err(AppError::ConfigError("AUR 用户名未配置".to_string()));
     }
-    let client = build_client(timeout, proxy_url.as_deref());
+    let client = build_client(timeout, false);
 
     let pkgnames = {
         let db = state.db.lock()?;
@@ -181,16 +180,14 @@ pub async fn update_aur_info(
             .map(|s| s.pkgname)
             .collect()
     };
-    let (timeout, proxy_url) = {
+    let timeout = {
         let db = state.db.lock()?;
-        let timeout = parse_u64(
+        parse_u64(
             &get_setting_opt(&db, "http_timeout").unwrap_or_default(),
             30,
-        );
-        let proxy_url = get_active_proxy(&db);
-        (timeout, proxy_url)
+        )
     };
-    let client = build_client(timeout, proxy_url.as_deref());
+    let client = build_client(timeout, false);
 
     // 并行获取所有 AUR 信息
     let mut handles = Vec::new();

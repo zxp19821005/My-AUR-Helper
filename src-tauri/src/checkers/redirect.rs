@@ -34,6 +34,9 @@ const MAX_REDIRECTS: usize = 5;
 static REDIRECT_CLIENT: OnceLock<Client> = OnceLock::new();
 
 /// 获取重定向检查专用客户端单例
+///
+/// 注意：代理不在此处全局配置。RedirectChecker 检查的是任意 URL（包括
+/// 非 GitHub 域名），不应强制走代理。如需代理，仅在具体请求中按需注入。
 fn redirect_client() -> &'static Client {
     REDIRECT_CLIENT.get_or_init(|| {
         Client::builder()

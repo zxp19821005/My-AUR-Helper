@@ -27,6 +27,9 @@ pub struct ValidateResult {
 }
 
 /// 上游 URL 验证专用客户端（10 秒超时），进程级复用以避免每次验证重建连接池
+///
+/// 注意：代理不在此处全局配置。URL 验证涉及任意域名（包括 AUR、SPDX 等），
+/// 不应强制走代理。
 static VALIDATE_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
 
 /// 获取上游验证客户端单例

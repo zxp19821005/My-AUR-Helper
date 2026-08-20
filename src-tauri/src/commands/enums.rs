@@ -7,7 +7,7 @@
 use log::{debug, info};
 use tauri::State;
 
-use crate::commands::sysops::proxy_utils::{build_client, get_active_proxy};
+use crate::commands::sysops::proxy_utils::build_client;
 use crate::errors::{AppError, AppResult};
 use crate::models::*;
 use crate::AppState;
@@ -38,20 +38,17 @@ pub async fn get_licenses(state: State<'_, AppState>) -> AppResult<Vec<EnumLicen
 #[tauri::command]
 pub async fn sync_licenses_from_spdx(state: State<'_, AppState>) -> AppResult<usize> {
     info!("正在从 SPDX 同步 License 数据");
-    let (timeout, proxy_url) = {
+    let timeout = {
         let db = state.db.lock()?;
-        let timeout = parse_u64(
+        parse_u64(
             &get_setting_opt(&db, "http_timeout").unwrap_or_default(),
             30,
-        );
-        let proxy_url = get_active_proxy(&db);
-        (timeout, proxy_url)
+        )
     };
-    let client = build_client(timeout, proxy_url.as_deref());
-    let resp = client
-        .get("https://raw.githubusercontent.com/spdx/license-list-data/main/json/licenses.json")
-        .send()
-        .await?;
+    let client = build_client(timeout, true);
+    let req = client
+        .get("https://raw.githubusercontent.com/spdx/license-list-data/main/json/licenses.json");
+    let resp = req.send().await?;
     let data: serde_json::Value = resp.json().await?;
     let licenses = data["licenses"]
         .as_array()

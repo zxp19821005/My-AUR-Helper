@@ -205,10 +205,8 @@ export function usePackageList() {
           Object.assign(list[i], updated);
         }
       }
-      // 仅当存在被删除的条目时才替换数组引用（删除操作需移除行）
       if (removed.size) {
         entries.value = list.filter((e) => !removed.has(e.pkgname));
-        currentPage.value = 1;
       } else {
         // 行内字段已就地更新，但 shallowRef 不追踪嵌套对象变化，需手动触发刷新
         triggerRef(entries);

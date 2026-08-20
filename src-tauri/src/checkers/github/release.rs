@@ -17,6 +17,8 @@ use crate::checkers::utils::{clean_version, extract_version_with_regex};
 use crate::errors::AppResult;
 
 /// 构建带认证头的 GitHub API 请求
+///
+/// 代理在客户端级别配置，调用方传入的 client 已根据域名决定是否启用代理。
 pub(crate) fn build_github_request<'a>(
     client: &'a Client,
     url: &str,

@@ -66,6 +66,10 @@ impl CheckerType {
             CheckerType::Browser,
         ]
     }
+
+    pub fn is_github(&self) -> bool {
+        matches!(self, CheckerType::GitHubTags | CheckerType::GitHubAPI)
+    }
 }
 
 impl From<CheckerType> for i32 {

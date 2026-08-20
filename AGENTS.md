@@ -96,8 +96,8 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/logger.rs` | 日志系统配置（tracing） |
 | `src-tauri/src/db/` | 数据库层 |
 | `src-tauri/src/db/mod.rs` | 数据库模块入口和导出 |
-| `src-tauri/src/db/connection.rs` | Database 结构体、连接创建、表初始化和迁移 |
-| `src-tauri/src/db/schema.rs` | 数据库 Schema 定义 |
+| `src-tauri/src/db/connection.rs` | Database 结构体、连接创建、表初始化和迁移；`new()` 开启 `PRAGMA foreign_keys=ON`，引用完整性由子表 `ON DELETE CASCADE` 保证（原 `ensure_no_fk_constraints` 死代码已移除） |
+| `src-tauri/src/db/schema.rs` | 数据库 Schema 定义（子表 `aur_info`/`upstream_info` 通过 `ON DELETE CASCADE` 关联 `software_info`） |
 | `src-tauri/src/db/migration_aur.rs` | aur_info 表迁移 |
 | `src-tauri/src/db/migration_software.rs` | software_info 表迁移 |
 | `src-tauri/src/db/migration_upstream.rs` | upstream_info 表迁移 |
@@ -111,7 +111,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/db/cache_software.rs` | 缓存软件表 |
 | `src-tauri/src/db/logs.rs` | 日志表 |
 | `src-tauri/src/db/settings.rs` | 设置表（含缓存目录配置、启用/禁用） |
-| `src-tauri/src/db/stats.rs` | 仪表盘统计聚合查询（各模块 COUNT 汇总） |
+| `src-tauri/src/db/stats.rs` | 仪表盘统计聚合查询（各模块计数）；单次 SQL 内 8 个标量子查询合并，仅一次 DB 往返（原 8 次独立 COUNT 已合并） |
 | `src-tauri/src/commands/` | Tauri IPC 命令（software/sys_command/enums 等） |
 | `src-tauri/src/commands/dashboard.rs` | 仪表盘统计命令（get_dashboard_stats，聚合各模块计数） |
 | `src-tauri/src/commands/fe_log.rs` | 前端诊断日志命令（frontend_log，仅 println! 到终端、不写文件） |

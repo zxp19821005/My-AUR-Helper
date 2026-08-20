@@ -17,7 +17,7 @@ use std::collections::HashMap;
 
 use tauri::State;
 
-use super::super::proxy_utils::{build_client, get_active_proxy};
+use super::super::proxy_utils::build_client;
 use super::batch::{batch_check_upstream, PackageTask};
 use super::utils::{
     build_checker_settings, get_setting_opt, parse_u32, parse_u64, UpstreamCheckResult,
@@ -29,7 +29,7 @@ use crate::AppState;
 #[tauri::command]
 pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(String, String)>> {
     info!("正在检查所有软件包的上游版本");
-    let (packages, settings, timeout, retry, proxy_url) = {
+    let (packages, settings, timeout, retry) = {
         let db = state.db.lock()?;
         let packages = db.get_all_software()?;
         let settings = build_checker_settings(&db);
@@ -41,8 +41,7 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
             &get_setting_opt(&db, "http_retry_count").unwrap_or_default(),
             2,
         );
-        let proxy_url = get_active_proxy(&db);
-        (packages, settings, timeout, retry, proxy_url)
+        (packages, settings, timeout, retry)
     };
 
     // 预先提取每个包的已有语言 ID：初始 get_all_software 已携带该字段，
@@ -67,10 +66,11 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
         })
         .collect();
 
-    let client = build_client(timeout, proxy_url.as_deref());
+    let client = build_client(timeout, false);
+    let github_client = build_client(timeout, true);
 
     // 分类并行检查：Manual 跳过网络，Browser 限严格并发，其余限全局并发
-    let outcome = batch_check_upstream(tasks, client, settings, retry).await;
+    let outcome = batch_check_upstream(tasks, client, github_client, settings, retry).await;
 
     // 一次性批量读取所有 AUR 版本（单条 SQL + 单次加锁），替代循环内逐包
     // get_aur_info 的 N+1 查询与反复加锁，显著降低批量检查的数据库开销

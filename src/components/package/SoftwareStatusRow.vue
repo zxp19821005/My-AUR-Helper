@@ -3,13 +3,20 @@
 
   功能：
   - 显示自动检查、测试版本、二进制文件的状态
+  - 显示上游检查器类型
 -->
 <script setup lang="ts">
+import { computed } from "vue";
 import type { SoftwareDetail } from "../../types";
+import { checkerTypeOptions } from "../../utils/enums";
 
-defineProps<{
+const props = defineProps<{
   detail: SoftwareDetail;
 }>();
+
+const checkerTypeName = computed(() => {
+  return checkerTypeOptions.find(c => c.id === props.detail.checker_type_id)?.label || "未知";
+});
 </script>
 
 <template>
@@ -46,6 +53,10 @@ defineProps<{
       >
         {{ detail.check_binary_files ? "已启用" : "已禁用" }}
       </span>
+    </span>
+    <span class="status-item">
+      <span class="status-label">上游检查器</span>
+      <span class="status-value info">{{ checkerTypeName }}</span>
     </span>
   </div>
 </template>
@@ -85,5 +96,10 @@ defineProps<{
 .status-value.disabled {
   color: var(--error);
   background: var(--error-bg);
+}
+
+.status-value.info {
+  color: var(--accent);
+  background: var(--accent-bg, var(--bg-secondary));
 }
 </style>

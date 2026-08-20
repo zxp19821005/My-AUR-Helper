@@ -70,14 +70,10 @@ pub struct BatchOutcome {
 
 /// 分类并行检查所有软件包的上游版本
 ///
-/// 工作流程：
-/// 1. 按检查器类型分类为 Manual / Browser / 网络三类
-/// 2. Browser 走独立严格并发信号量，网络类走全局并发信号量
-/// 3. 收集结果，Manual 仅返回包名列表（不发起网络请求）
-///
 /// # 参数
 /// - `tasks`: 待检查的软件包任务列表
-/// - `client`: 共享 HTTP 客户端
+/// - `client`: 普通 HTTP 客户端（非 GitHub 请求）
+/// - `github_client`: 带代理的 HTTP 客户端（GitHub 请求）
 /// - `settings`: 检查器配置（各平台 Token）
 /// - `retry`: 单包最大重试次数
 ///
@@ -86,6 +82,7 @@ pub struct BatchOutcome {
 pub async fn batch_check_upstream(
     tasks: Vec<PackageTask>,
     client: Client,
+    github_client: Client,
     settings: CheckerSettings,
     retry: u32,
 ) -> BatchOutcome {
@@ -152,7 +149,7 @@ pub async fn batch_check_upstream(
     // 注：github_handle 返回 Vec<GithubBatchOutcome>，与 run_one 的返回类型异构，
     // 故保留独立 tokio::spawn，不并入下方同构的 JoinSet。
     let github_handle = {
-        let client = client.clone();
+        let client = github_client.clone();
         // 仅克隆 token 字段，settings 仍需用于下方 REST 任务
         let token = settings.github_token.clone();
         let items = github_items;
@@ -207,7 +204,7 @@ pub async fn batch_check_upstream(
     // 回落任务之间并行执行，无需单独开第二组 await / 第二组 JoinSet。
     for origin in github_origin {
         if !processed.contains(&origin.pkgname) {
-            let client = client.clone();
+            let client = github_client.clone();
             let settings = settings.clone();
             let sem = network_sem.clone();
             let task = origin;
