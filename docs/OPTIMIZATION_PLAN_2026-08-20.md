@@ -219,3 +219,28 @@ SELECT
 | `src-tauri/src/models/upstream_info.rs` | `from_str` → `parse_from_str`（避免与 `FromStr` trait 混淆） |
 | `src-tauri/src/proxy/test.rs` | 独立 `///` 改为 `//` 普通注释 |
 | `cargo clippy --fix` 自动修复 | 12 个 `needless_borrow` / `redundant_closure` / `to_string` 等 |
+
+### 编译性能优化：移除 rusqlite bundled + profile.dev
+
+**问题**：`tauri dev` 编译耗时 2m23s，且系统内存压力大。根因：rusqlite `bundled` feature 每次编译 SQLite C 源码（sccache 不覆盖 C 编译），且无 `[profile.dev]` 配置导致链接阶段生成完整 DWARF 调试信息。
+
+| 文件 | 改动 |
+|------|------|
+| `src-tauri/Cargo.toml` | 移除 rusqlite `bundled` feature，改用系统 SQLite（Arch Linux 自带 3.53.4）；追加 `[profile.dev] debug = 1` 仅保留行号调试信息 |
+
+**验证结果**：
+
+| 检查项 | 结果 |
+|--------|------|
+| `cargo check --lib` | ✅ 通过（不再编译 libsqlite3-sys C 源码） |
+| `cargo clippy --lib` | ✅ 0 warning（11.81s） |
+| `cargo test --lib` | ✅ 63 passed; 0 failed |
+| `pnpm run build`（vite） | ✅ 构建成功（2.10s） |
+
+> **注意**：移除 `bundled` 后首次触发全量重编（~10min，因 feature + profile 变更），之后增量编译省去 SQLite C 编译开销。`debug = 1` 对 515 crate 的 debug 链接有显著加速。如需完整调试信息可临时设 `debug = 2`。
+
+### 路由注释更新
+
+| 文件 | 改动 |
+|------|------|
+| `src/router/index.ts` | 移除对已删除 `preloadRoutes()` 的过时引用；更新注释说明 dev 模式不做预取的原因 |

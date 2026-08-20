@@ -35,8 +35,9 @@ tauri-plugin-shell = "2"
 serde = { version = "1", features = ["derive"] }
 # serde_json: JSON 序列化/反序列化库
 serde_json = "1"
-# rusqlite: SQLite 数据库驱动，bundled 表示编译时捆绑 SQLite，chrono 启用时间类型支持
-rusqlite = { version = "0.31", features = ["bundled", "chrono"] }
+# rusqlite: SQLite 数据库驱动，chrono 启用时间类型支持
+# 不使用 bundled：直接链接系统 SQLite（Arch Linux 自带），避免每次编译 SQLite C 源码
+rusqlite = { version = "0.31", features = ["chrono"] }
 # reqwest: HTTP 客户端，用于 AUR API 调用和版本检查
 reqwest = { version = "0.12", features = ["json"] }
 # tokio: 异步运行时，full 特性启用所有组件
@@ -59,3 +60,13 @@ csv = "1"
 dirs = "5"
 # log: Rust 标准日志 API facade（兼容层）
 log = "0.4"
+
+# ====================================================================
+# Profile 配置
+# ====================================================================
+
+[profile.dev]
+# 仅保留行号调试信息（不生成完整 DWARF），加速链接阶段
+# 对 Tauri dev 模式下 515 crate 的 debug 链接有显著加速
+# 完整调试信息可用 debug = 2 恢复
+debug = 1
