@@ -20,7 +20,7 @@ use tauri::State;
 use super::super::proxy_utils::build_client;
 use super::batch::{batch_check_upstream, PackageTask};
 use super::utils::{
-    build_checker_settings, get_setting_opt, parse_u32, parse_u64, UpstreamCheckResult,
+    build_checker_settings, read_http_settings, UpstreamCheckResult,
 };
 use crate::errors::AppResult;
 use crate::AppState;
@@ -33,14 +33,7 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
         let db = state.db.lock()?;
         let packages = db.get_all_software()?;
         let settings = build_checker_settings(&db);
-        let timeout = parse_u64(
-            &get_setting_opt(&db, "http_timeout").unwrap_or_default(),
-            30,
-        );
-        let retry = parse_u32(
-            &get_setting_opt(&db, "http_retry_count").unwrap_or_default(),
-            2,
-        );
+        let (timeout, retry) = read_http_settings(&db);
         (packages, settings, timeout, retry)
     };
 

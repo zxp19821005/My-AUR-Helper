@@ -8,21 +8,10 @@ use log::{debug, info};
 use tauri::State;
 
 use crate::commands::sysops::proxy_utils::build_client;
+use crate::commands::sysops::software_sync::utils::read_http_timeout;
 use crate::errors::{AppError, AppResult};
 use crate::models::*;
 use crate::AppState;
-
-fn get_setting_opt(db: &crate::db::Database, key: &str) -> Option<String> {
-    db.get_setting(key)
-        .ok()
-        .flatten()
-        .map(|s| s.value)
-        .filter(|v| !v.is_empty())
-}
-
-fn parse_u64(val: &str, default: u64) -> u64 {
-    val.parse().unwrap_or(default)
-}
 
 /// 获取所有 License 列表
 #[tauri::command]
@@ -40,10 +29,7 @@ pub async fn sync_licenses_from_spdx(state: State<'_, AppState>) -> AppResult<us
     info!("正在从 SPDX 同步 License 数据");
     let timeout = {
         let db = state.db.lock()?;
-        parse_u64(
-            &get_setting_opt(&db, "http_timeout").unwrap_or_default(),
-            30,
-        )
+        read_http_timeout(&db)
     };
     let client = build_client(timeout, true);
     let req = client

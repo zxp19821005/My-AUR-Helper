@@ -221,8 +221,12 @@ impl Log for RotatingLogger {
         }
 
         if let Some(ref mut file) = state.file {
-            let _ = writeln!(file, "{}", msg);
-            let _ = file.flush();
+            if let Err(e) = writeln!(file, "{}", msg) {
+                eprintln!("[logger] 写入日志文件失败: {}", e);
+            }
+            if let Err(e) = file.flush() {
+                eprintln!("[logger] flush 日志文件失败: {}", e);
+            }
             state.file_size += msg.len() as u64 + 1;
         }
     }
@@ -230,7 +234,9 @@ impl Log for RotatingLogger {
     fn flush(&self) {
         if let Ok(mut state) = self.state.lock() {
             if let Some(ref mut file) = state.file {
-                let _ = file.flush();
+                if let Err(e) = file.flush() {
+                    eprintln!("[logger] flush 日志文件失败: {}", e);
+                }
             }
         }
     }

@@ -71,15 +71,22 @@
 
 **效果**：批量检查的全部写库操作原子化（全有或全无），任一失败整体回滚；单包检查同样事务化。借贷冲突通过「低层 `&Connection` 函数 + `&self` 委托」模式解决。验证：`cargo check --lib` / `cargo clippy --lib` / `cargo test --lib`（63 passed）均通过。
 
-### C4：HTTP 超时 / 重试解析重复 — Low — 建议（轻量）
+### C4：HTTP 超时 / 重试解析重复 — Low — ✅ 已实施
 
-**问题**：`check_upstream_version` 与 `check_selected_upstream` 都重复 `parse_u64(get_setting_opt(...).unwrap_or_default(), 30)` / `parse_u32(..., 2)`。
+**问题**：`check_upstream_version` 与 `check_selected_upstream` 都重复 `parse_u64(get_setting_opt(...).unwrap_or_default(), 30)` / `parse_u32(..., 2)`，共 6 处散落在 `software_check.rs`(2)、`upstream.rs`(1)、`aur.rs`(2)、`enums.rs`(1)。
 
-**改造思路**：在 `software_sync::utils` 抽取 `read_http_settings(db) -> (timeout: u64, retry: u32)`，两处调用。低风险，可顺手做。
+**实施**：在 `software_sync::utils` 抽取两个函数：
+- `read_http_timeout(db) -> u64`：读取 `http_timeout` 设置，解析失败回退 30。
+- `read_http_settings(db) -> (timeout: u64, retry: u32)`：一次性读取 `http_timeout` + `http_retry_count`，回退 30 / 2。
+6 处调用方统一替换。`enums.rs` 移除本地 `get_setting_opt` / `parse_u64` 副本，改用共享函数。
 
-### C3：日志 / 错误被静默吞掉 — Low — 沿用既有加固
+**效果**：HTTP 超时/重试配置解析逻辑单一来源，新增配置项只需改一处。
 
-`logger.rs` 的 `writeln!/flush` 用 `let _ =` 吞写失败、`proxy_utils.rs` 的 `addr.parse().unwrap()` 属静态地址安全场景。既往审计已对代理日志做脱敏加固；此处维持现状，仅建议 `logger` 失败至少 `eprintln!` 兜底。
+### C3：日志写入失败被静默吞掉 — Low — ✅ 已实施
+
+**问题**：`logger.rs` 的 `writeln!/flush` 用 `let _ =` 吞写失败，文件写入异常时无任何可见反馈，排障困难。
+
+**实施**：`logger.rs` 三处 `let _ = writeln!(...)` / `let _ = file.flush()` 改为失败时 `eprintln!` 兜底输出到 stderr，确保文件写入失败至少在终端可见。`proxy_utils.rs` 的 `addr.parse().unwrap()` 属静态地址安全场景，沿用既有加固。
 
 ---
 
@@ -103,11 +110,18 @@ SELECT
 ```
 删除原 `count(conn, sql)` 辅助函数及 `use rusqlite::Connection`。语义不变，往返次数 8→1。
 
-### D2：software_info 重复 SQL / 行映射 — Low/Medium — 建议（延后）
+### D2：software_info 重复 SQL / 行映射 — Low/Medium — ✅ 已实施
 
-**问题**：`get_software_detail_by_name` 与 `get_software_list_entry` 是几乎相同的三表 JOIN SELECT；`row_to_software_info` 与 `row_to_list_entry` 对 `software_info` 列的映射重复。
+**问题**：`get_software_detail_by_name` 与 `get_software_list_entry` 是几乎相同的三表 JOIN SELECT；`row_to_software_info` 与 `row_to_list_entry` 对 `software_info` 列的映射重复，列序错位有数据错位先例。
 
-**改造思路**：抽取共享列清单 / 基础查询构造器，减少映射漂移。属低风险但需谨慎核对列序（曾有列序错位导致数据错位的先例），建议配对单测，本次未实施。
+**实施**：在 `db/software_info.rs` 抽取 3 个共享 SQL 列清单常量：
+- `SW_INFO_COLS`：单表 SELECT 列清单（11 列，无前缀）
+- `SW_INFO_COLS_S`：多表 JOIN 列清单（`s.` 前缀）
+- `SW_LIST_COLS`：列表视图 JOIN 列清单（software_info + aur_info + upstream_info）
+
+`get_software_detail_by_name` 复用 `row_to_software_info` 映射前 11 列（0-10），仅手动读取 aur/upstream 扩展列（11+），消除重复行映射。所有 SQL 查询改用 `format!("SELECT {SW_INFO_COLS} ...")` 引用常量，修改列序只需改一处。
+
+**效果**：列名单一来源，消除映射漂移风险。验证：`cargo test --lib` 63 passed（含 schema 一致性单测）。
 
 ### D4：高频过滤列索引核查 — Low — 无动作
 
@@ -120,8 +134,8 @@ SELECT
 | 检查项 | 结果 |
 |--------|------|
 | `cargo check --lib` | ✅ 0 error / 0 warning |
-| `cargo clippy --lib` | ✅ 无新增 warning |
-| `cargo test --lib` | ✅ 全部通过（含既有路径校验单测） |
+| `cargo clippy --lib` | ✅ 0 error（32 既有 warning，无新增） |
+| `cargo test --lib` | ✅ 63 passed / 0 failed |
 | `vue-tsc --noEmit` | ✅ 0 error |
 | `vite build` | ✅ 通过 |
 
@@ -165,3 +179,25 @@ SELECT
 | `src/types/proxy.ts` | 新增 `ProxyTestResult` 接口（从 `useProxyList.ts` 迁移） |
 | `src/composables/useSudoers.ts` | 重构为接受 api 回调函数（消除动态命令名调度） |
 | `src/composables/*.ts`、`src/stores/*.ts`、`src/components/**/*.vue`、`src/views/*.vue`（30 个文件） | 移除 `import { invoke }`，改用 `import * as xxxApi from "@/api/xxx"` |
+
+### C4：HTTP 超时 / 重试解析去重
+
+| 文件 | 改动 |
+|------|------|
+| `src-tauri/src/commands/sysops/software_sync/utils.rs` | 新增 `read_http_timeout` / `read_http_settings` 共享函数 |
+| `src-tauri/src/commands/sysops/software_check.rs` | 2 处重复调用替换为 `read_http_settings` |
+| `src-tauri/src/commands/sysops/software_sync/upstream.rs` | 1 处替换为 `read_http_settings` |
+| `src-tauri/src/commands/sysops/software_sync/aur.rs` | 2 处替换为 `read_http_timeout` |
+| `src-tauri/src/commands/enums.rs` | 移除本地 `get_setting_opt`/`parse_u64` 副本，改用共享函数 |
+
+### C3：logger 写入失败兜底
+
+| 文件 | 改动 |
+|------|------|
+| `src-tauri/src/logger.rs` | 3 处 `let _ = writeln!/flush` 改为失败时 `eprintln!` 兜底 |
+
+### D2：software_info SQL 列清单去重
+
+| 文件 | 改动 |
+|------|------|
+| `src-tauri/src/db/software_info.rs` | 抽取 `SW_INFO_COLS` / `SW_INFO_COLS_S` / `SW_LIST_COLS` 常量；`get_software_detail_by_name` 复用 `row_to_software_info` 映射前 11 列 |

@@ -13,7 +13,7 @@ use tauri::State;
 use super::proxy_utils::build_client;
 use super::software_sync::batch::{batch_check_upstream, PackageTask};
 use super::software_sync::utils::{
-    build_checker_settings, get_setting_opt, parse_u32, parse_u64, UpstreamCheckResult,
+    build_checker_settings, read_http_settings, UpstreamCheckResult,
 };
 use crate::checkers::{self, CheckOptions, CheckResult};
 use crate::errors::{AppError, AppResult};
@@ -172,14 +172,7 @@ pub async fn check_upstream_version(
             .get_software_by_name(&pkgname)?
             .ok_or_else(|| AppError::PackageNotFound(pkgname.clone()))?;
         let settings = build_checker_settings(&db);
-        let timeout = parse_u64(
-            &get_setting_opt(&db, "http_timeout").unwrap_or_default(),
-            30,
-        );
-        let retry = parse_u32(
-            &get_setting_opt(&db, "http_retry_count").unwrap_or_default(),
-            2,
-        );
+        let (timeout, retry) = read_http_settings(&db);
         (sw, settings, timeout, retry)
     };
     let has_aur_version = {
@@ -259,14 +252,7 @@ pub async fn check_selected_upstream(
             }
         }
         let settings = build_checker_settings(&db);
-        let timeout = parse_u64(
-            &get_setting_opt(&db, "http_timeout").unwrap_or_default(),
-            30,
-        );
-        let retry = parse_u32(
-            &get_setting_opt(&db, "http_retry_count").unwrap_or_default(),
-            2,
-        );
+        let (timeout, retry) = read_http_settings(&db);
         (packages, settings, timeout, retry)
     };
 

@@ -153,6 +153,28 @@ pub fn build_checker_settings(db: &crate::db::Database) -> crate::checkers::Chec
     }
 }
 
+/// 读取 HTTP 超时设置（默认 30 秒）
+///
+/// 统一入口，避免各调用方重复 `parse_u64(get_setting_opt(...))` 模式。
+pub fn read_http_timeout(db: &crate::db::Database) -> u64 {
+    parse_u64(
+        &get_setting_opt(db, "http_timeout").unwrap_or_default(),
+        30,
+    )
+}
+
+/// 读取 HTTP 超时和重试设置（默认 30 秒超时 / 2 次重试）
+///
+/// 返回 `(timeout, retry)`，供需要两个设置的调用方一次性获取。
+pub fn read_http_settings(db: &crate::db::Database) -> (u64, u32) {
+    let timeout = read_http_timeout(db);
+    let retry = parse_u32(
+        &get_setting_opt(db, "http_retry_count").unwrap_or_default(),
+        2,
+    );
+    (timeout, retry)
+}
+
 /// 从 AUR JSON 数据中提取通用字段
 ///
 /// 从 AUR RPC 返回的 JSON 对象中提取描述、版本、URL、修改时间等通用字段，

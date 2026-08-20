@@ -3,13 +3,23 @@
  *
  * 提供 software_info 表的查询、写入、详情获取等数据库操作，
  * 是软件包元信息的持久化核心。
+ *
+ * D2 优化：抽取共享 SQL 列清单常量，消除列名重复；detail 查询复用
+ * row_to_software_info 映射，消除行映射漂移风险。
  */
 use crate::errors::AppResult;
-
 use crate::models::*;
 use rusqlite::Connection;
-
 use super::Database;
+
+/// software_info 基础列清单，列序与 row_to_software_info 一一对应
+const SW_INFO_COLS: &str = "software_id, pkgname, upstream_url, package_type_id, checker_type_id, is_outdated, check_test_versions, check_binary_files, auto_check_enabled, language_id, version_extract_regex";
+
+/// software_info 列清单（含 s. 前缀），用于多表 JOIN SELECT
+const SW_INFO_COLS_S: &str = "s.software_id, s.pkgname, s.upstream_url, s.package_type_id, s.checker_type_id, s.is_outdated, s.check_test_versions, s.check_binary_files, s.auto_check_enabled, s.language_id, s.version_extract_regex";
+
+/// 列表视图 JOIN 查询列清单（software_info + aur_info + upstream_info）
+const SW_LIST_COLS: &str = "s.software_id, s.pkgname, s.package_type_id, s.checker_type_id, s.is_outdated, a.aur_version, CAST(a.last_updated AS INTEGER), u.upstream_version, CAST(u.last_checked AS INTEGER), s.upstream_url, u.upstream_url_status, u.upstream_license_id";
 
 impl Database {
     pub fn insert_software(&self, sw: &SoftwareInfo) -> AppResult<i64> {
@@ -70,6 +80,7 @@ impl Database {
         serde_json::from_str(json_str).unwrap_or_default()
     }
 
+    /// 将查询行映射为 SoftwareInfo（列序与 SW_INFO_COLS 一一对应）
     fn row_to_software_info(row: &rusqlite::Row) -> rusqlite::Result<SoftwareInfo> {
         let lang_json: String = row.get(9)?;
         Ok(SoftwareInfo {
@@ -89,10 +100,7 @@ impl Database {
 
     pub fn get_all_software(&self) -> AppResult<Vec<SoftwareInfo>> {
         let mut stmt = self.conn.prepare(
-            "SELECT software_id, pkgname, upstream_url, package_type_id, checker_type_id, \
-             is_outdated, check_test_versions, check_binary_files, auto_check_enabled, \
-             language_id, version_extract_regex \
-             FROM software_info ORDER BY pkgname",
+            &format!("SELECT {SW_INFO_COLS} FROM software_info ORDER BY pkgname"),
         )?;
         let rows = stmt.query_map([], |row| Self::row_to_software_info(row))?;
         let mut items = Vec::new();
@@ -104,10 +112,7 @@ impl Database {
 
     pub fn get_software_by_name(&self, pkgname: &str) -> AppResult<Option<SoftwareInfo>> {
         let mut stmt = self.conn.prepare(
-            "SELECT software_id, pkgname, upstream_url, package_type_id, checker_type_id, \
-             is_outdated, check_test_versions, check_binary_files, auto_check_enabled, \
-             language_id, version_extract_regex \
-             FROM software_info WHERE pkgname=?1",
+            &format!("SELECT {SW_INFO_COLS} FROM software_info WHERE pkgname=?1"),
         )?;
         let mut rows = stmt.query_map(rusqlite::params![pkgname], |row| {
             Self::row_to_software_info(row)
@@ -139,12 +144,7 @@ impl Database {
         let escaped_keyword = keyword.replace('%', "\\%").replace('_', "\\_");
         let pattern = format!("%{}%", escaped_keyword);
         let mut stmt = self.conn.prepare(
-            "SELECT software_id, pkgname, upstream_url, package_type_id, checker_type_id, \
-             is_outdated, check_test_versions, check_binary_files, auto_check_enabled, \
-             language_id, version_extract_regex \
-             FROM software_info \
-             WHERE pkgname LIKE ?1 ESCAPE '\\' OR upstream_url LIKE ?1 ESCAPE '\\' \
-             ORDER BY pkgname",
+            &format!("SELECT {SW_INFO_COLS} FROM software_info WHERE pkgname LIKE ?1 ESCAPE '\\' OR upstream_url LIKE ?1 ESCAPE '\\' ORDER BY pkgname"),
         )?;
         let rows = stmt.query_map(rusqlite::params![pattern], |row| {
             Self::row_to_software_info(row)
@@ -158,42 +158,28 @@ impl Database {
 
     pub fn get_software_detail_by_name(&self, pkgname: &str) -> AppResult<Option<SoftwareDetail>> {
         let mut stmt = self.conn.prepare(
-            "SELECT s.software_id, s.pkgname, s.upstream_url, s.package_type_id, s.checker_type_id,
-                    s.is_outdated, s.check_test_versions, s.check_binary_files, s.auto_check_enabled,
-                    s.language_id, s.version_extract_regex,
-                    a.aur_version, CAST(a.last_updated AS INTEGER), a.pkgdesc,
-                    a.depends, a.makedepends, a.optdepends,
-                    a.license_id,
-                    u.upstream_version, CAST(u.last_checked AS INTEGER),
-                    u.upstream_license_id
-             FROM software_info s
-             LEFT JOIN aur_info a ON s.software_id = a.software_id
-             LEFT JOIN upstream_info u ON s.software_id = u.software_id
-             WHERE s.pkgname = ?1"
+            &format!("SELECT {SW_INFO_COLS_S}, a.aur_version, CAST(a.last_updated AS INTEGER), a.pkgdesc, a.depends, a.makedepends, a.optdepends, a.license_id, u.upstream_version, CAST(u.last_checked AS INTEGER), u.upstream_license_id FROM software_info s LEFT JOIN aur_info a ON s.software_id = a.software_id LEFT JOIN upstream_info u ON s.software_id = u.software_id WHERE s.pkgname = ?1"),
         )?;
         let mut rows = stmt.query_map(rusqlite::params![pkgname], |row| {
+            let sw = Self::row_to_software_info(row)?; // 复用共享映射（列 0-10）
             let aur_license_json: Option<String> = row.get(17)?;
             let upstream_license_json: Option<String> = row.get(20)?;
-            let lang_json: String = row.get(9)?;
-            // 仅记录是否命中而非完整 JSON 载荷，避免每次详情查询输出噪声与潜在敏感信息泄露
             log::debug!(
                 "get_software_detail: pkgname={}, has_aur_license={}, has_upstream_license={}",
-                pkgname,
-                aur_license_json.is_some(),
-                upstream_license_json.is_some()
+                pkgname, aur_license_json.is_some(), upstream_license_json.is_some()
             );
             Ok(SoftwareDetail {
-                software_id: Some(row.get(0)?),
-                pkgname: row.get(1)?,
-                upstream_url: row.get(2)?,
-                package_type_id: PackageType::from_id(row.get(3)?),
-                checker_type_id: CheckerType::from_id(row.get(4)?),
-                is_outdated: row.get::<_, i32>(5)? != 0,
-                check_test_versions: row.get::<_, i32>(6)? != 0,
-                check_binary_files: row.get::<_, i32>(7)? != 0,
-                auto_check_enabled: row.get::<_, i32>(8)? != 0,
-                language_ids: Self::parse_language_ids(&lang_json),
-                version_extract_regex: row.get(10)?,
+                software_id: sw.software_id,
+                pkgname: sw.pkgname,
+                upstream_url: sw.upstream_url,
+                package_type_id: sw.package_type_id,
+                checker_type_id: sw.checker_type_id,
+                is_outdated: sw.is_outdated,
+                check_test_versions: sw.check_test_versions,
+                check_binary_files: sw.check_binary_files,
+                auto_check_enabled: sw.auto_check_enabled,
+                language_ids: sw.language_ids,
+                version_extract_regex: sw.version_extract_regex,
                 aur_version: row.get(11)?,
                 aur_last_updated: row.get(12)?,
                 aur_pkgdesc: row.get(13)?,
@@ -253,14 +239,7 @@ impl Database {
 
     pub fn get_software_list_entries(&self) -> AppResult<Vec<SoftwareListEntry>> {
         let mut stmt = self.conn.prepare(
-            "SELECT s.software_id, s.pkgname, s.package_type_id, s.checker_type_id, s.is_outdated,
-                    a.aur_version, CAST(a.last_updated AS INTEGER),
-                    u.upstream_version, CAST(u.last_checked AS INTEGER),
-                    s.upstream_url, u.upstream_url_status, u.upstream_license_id
-             FROM software_info s
-             LEFT JOIN aur_info a ON s.software_id = a.software_id
-             LEFT JOIN upstream_info u ON s.software_id = u.software_id
-             ORDER BY s.pkgname",
+            &format!("SELECT {SW_LIST_COLS} FROM software_info s LEFT JOIN aur_info a ON s.software_id = a.software_id LEFT JOIN upstream_info u ON s.software_id = u.software_id ORDER BY s.pkgname"),
         )?;
         let rows = stmt.query_map([], |row| Self::row_to_list_entry(row))?;
         let mut items = Vec::new();
@@ -271,18 +250,9 @@ impl Database {
     }
 
     /// 按 pkgname 获取单条列表视图条目（用于定向刷新，避免整表重载）
-    /// @param pkgname - 软件包名
-    /// @returns 若存在返回 Some，否则 None（例如已被删除）
     pub fn get_software_list_entry(&self, pkgname: &str) -> AppResult<Option<SoftwareListEntry>> {
         let mut stmt = self.conn.prepare(
-            "SELECT s.software_id, s.pkgname, s.package_type_id, s.checker_type_id, s.is_outdated,
-                    a.aur_version, CAST(a.last_updated AS INTEGER),
-                    u.upstream_version, CAST(u.last_checked AS INTEGER),
-                    s.upstream_url, u.upstream_url_status, u.upstream_license_id
-             FROM software_info s
-             LEFT JOIN aur_info a ON s.software_id = a.software_id
-             LEFT JOIN upstream_info u ON s.software_id = u.software_id
-             WHERE s.pkgname = ?1",
+            &format!("SELECT {SW_LIST_COLS} FROM software_info s LEFT JOIN aur_info a ON s.software_id = a.software_id LEFT JOIN upstream_info u ON s.software_id = u.software_id WHERE s.pkgname = ?1"),
         )?;
         let mut rows = stmt.query_map(rusqlite::params![pkgname], |row| {
             Self::row_to_list_entry(row)
@@ -291,8 +261,6 @@ impl Database {
     }
 
     /// 更新软件的语言 ID 列表
-    /// @param software_id - 软件 ID
-    /// @param language_ids - 语言 ID 列表
     pub fn update_software_languages(
         &self,
         software_id: i64,
