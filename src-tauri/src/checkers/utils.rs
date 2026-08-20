@@ -21,7 +21,7 @@ struct StaticRegexes {
 fn static_regexes() -> &'static StaticRegexes {
     static RE: OnceLock<StaticRegexes> = OnceLock::new();
     RE.get_or_init(|| StaticRegexes {
-        clean: regex::Regex::new(r"[^0-9]*?(v?\d[\d.]*)").expect("正则 clean 编译失败"),
+        clean: regex::Regex::new(r"^[^0-9]*?(v?\d\S*)$").expect("正则 clean 编译失败"),
         url_v: regex::Regex::new(r"[/-]v?(\d+\.\d+\.\d+[a-zA-Z0-9._+-]*)")
             .expect("正则 url_v 编译失败"),
         url_num: regex::Regex::new(r"[/-](\d+\.\d+\.\d+[a-zA-Z0-9._+-]*)")
@@ -231,4 +231,47 @@ pub fn extract_version_from_html(body: &str) -> Option<String> {
         return Some(cap[1].to_string());
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// clean_version 必须保留 prerelease/build 元数据，否则 GitHub GraphQL 批量
+    /// 检查会把 v1.0.0-alpha.16 错误地截断为 1.0.0，导致版本比较失真。
+    /// 真实 bug 复现：deskaide/deskaide 仓库全部 tag 都是 v1.0.0-alpha.X，
+    /// 旧正则 `[^0-9]*?(v?\d[\d.]*)` 把它们全部截为 1.0.0，max_by_vercmp 比较
+    /// 全部返回 Equal，最终返回 1.0.0（错的），用户 AUR 1.0.0_alpha.16 被认为无需更新。
+    #[test]
+    fn test_clean_version_preserves_prerelease() {
+        assert_eq!(clean_version("v1.0.0-alpha.16"), "1.0.0-alpha.16");
+        assert_eq!(clean_version("1.0.0-alpha.16"), "1.0.0-alpha.16");
+        assert_eq!(clean_version("v1.0.0-beta.2"), "1.0.0-beta.2");
+        assert_eq!(clean_version("v2.0.0-rc.1"), "2.0.0-rc.1");
+    }
+
+    #[test]
+    fn test_clean_version_strips_v_prefix() {
+        assert_eq!(clean_version("v1.0.0"), "1.0.0");
+        assert_eq!(clean_version("V1.0.0"), "1.0.0");
+        assert_eq!(clean_version("v1.2.3"), "1.2.3");
+    }
+
+    #[test]
+    fn test_clean_version_appname_prefix() {
+        assert_eq!(clean_version("appname-v1.0.0"), "1.0.0");
+        assert_eq!(clean_version("my-app-v1.2.3"), "1.2.3");
+    }
+
+    #[test]
+    fn test_clean_version_keeps_pkgrel() {
+        assert_eq!(clean_version("v1.0.0-1"), "1.0.0-1");
+    }
+
+    #[test]
+    fn test_clean_version_passthrough_non_version() {
+        // 看起来不像版本号的字符串（无数字）原样保留
+        assert_eq!(clean_version("continuous"), "continuous");
+        assert_eq!(clean_version("latest"), "latest");
+    }
 }
