@@ -28,6 +28,9 @@ pub mod proxy;
 /// 设置管理命令
 pub mod settings;
 
+/// 内存缓存管理命令
+pub mod memory_cache;
+
 /// 软件包 CRUD 和设置命令
 pub mod software;
 

@@ -7,7 +7,7 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
-import type { CacheSoftwareEntry } from "@/types";
+import type { CacheSoftwareEntry, MemoryCacheStats } from "@/types";
 
 /** 清空缓存软件表，返回清空条目数 */
 export async function clearCacheSoftware(): Promise<number> {
@@ -64,4 +64,21 @@ export async function backupCacheToExisting(
   return await invoke<[number, string[]]>("backup_cache_to_existing", {
     backupPath,
   });
+}
+
+// ===================== 内存缓存管理 =====================
+
+/** 获取内存缓存运行状态（配置 + 各域状态） */
+export async function getMemoryCacheStats(): Promise<MemoryCacheStats> {
+  return await invoke<MemoryCacheStats>("get_memory_cache_stats");
+}
+
+/** 立即将脏缓存写盘，返回写入的缓存域数量 */
+export async function flushMemoryCache(): Promise<number> {
+  return await invoke<number>("flush_memory_cache");
+}
+
+/** 清空内存缓存与磁盘缓存文件 */
+export async function clearMemoryCache(): Promise<void> {
+  await invoke("clear_memory_cache");
 }

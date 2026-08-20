@@ -16,6 +16,7 @@ use super::git_version::{extract_commit_count, is_r_format};
 use log::debug;
 
 mod parser;
+#[cfg(test)]
 mod tests;
 
 pub use parser::{compare_component, is_prerelease_component, split_components, split_epoch};

@@ -85,6 +85,7 @@ import {
   // 设置动作
   Save,
   RotateCcw,
+  MemoryStick,
 } from "@lucide/vue";
 
 /**
@@ -109,6 +110,7 @@ export const Icon = {
   settingsChecker: Search, // 上游检查器设置
   settingsBackup: HardDrive, // 备份管理设置
   settingsCache: Database, // 缓存软件设置
+  settingsMemoryCache: MemoryStick, // 内存缓存设置
   settingsProxy: Wifi, // 代理管理设置
   settingsLog: ScrollText, // 日志管理设置
 

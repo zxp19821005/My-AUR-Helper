@@ -37,3 +37,41 @@ export interface CacheSoftwareEntry {
   /** 完整文件路径（cache_directory/filename） */
   full_path: string;
 }
+
+/** 单个缓存域的运行状态（后端 CacheDomainStats 映射） */
+export interface CacheDomainStats {
+  /** 域标识 */
+  domain: string;
+  /** 中文展示名 */
+  label: string;
+  /** 该域是否已加载到内存 */
+  loaded: boolean;
+  /** 数据条目数 */
+  size: number;
+  /** 缓存创建时间（Unix 秒） */
+  created_at: number | null;
+  /** 过期时间（Unix 秒），0 表示永不过期 */
+  expires_at: number | null;
+  /** 是否支持磁盘持久化 */
+  persistent: boolean;
+  /** 磁盘缓存文件大小（字节） */
+  file_size: number;
+}
+
+/** 内存缓存整体统计（后端 MemoryCacheStats 映射） */
+export interface MemoryCacheStats {
+  /** 是否启用内存缓存 */
+  enabled: boolean;
+  /** 缓存条目上限 */
+  max_entries: number;
+  /** 缓存有效期（秒），0 表示永不过期 */
+  ttl_secs: number;
+  /** 自动写盘周期（秒），0 表示关闭定时写 */
+  write_interval_secs: number;
+  /** 缓存写入目录 */
+  cache_dir: string;
+  /** 各缓存域状态 */
+  domains: CacheDomainStats[];
+  /** 全部域条目总数 */
+  total_entries: number;
+}

@@ -14,6 +14,7 @@ mod checker_type; // 检查器类型枚举
 mod dashboard_stats; // 仪表盘统计模型
 mod enum_license; // License 枚举模型
 mod enum_programming_language; // 编程语言枚举模型
+mod memory_cache_stats; // 内存缓存统计模型
 mod package_type; // 包类型枚举
 mod proxy_info; // 代理信息模型
 mod proxy_test; // 代理测试结果模型
@@ -33,6 +34,7 @@ pub use checker_type::CheckerType;
 pub use dashboard_stats::DashboardStats;
 pub use enum_license::EnumLicense;
 pub use enum_programming_language::EnumProgrammingLanguage;
+pub use memory_cache_stats::{CacheDomainStats, MemoryCacheStats};
 pub use package_type::PackageType;
 pub use proxy_info::ProxyInfo;
 pub use proxy_test::ProxyTest;

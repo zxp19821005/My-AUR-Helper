@@ -26,6 +26,7 @@ const menuItems = [
   { path: "/settings/checker", label: "上游检查器设置", icon: Icon.settingsChecker }, // 检查器设置
   { path: "/settings/backup", label: "备份管理设置", icon: Icon.settingsBackup },  // 备份设置
   { path: "/settings/cache", label: "缓存软件设置", icon: Icon.settingsCache },    // 缓存设置
+  { path: "/settings/memory-cache", label: "内存缓存设置", icon: Icon.settingsMemoryCache }, // 内存缓存设置
   { path: "/settings/proxy", label: "代理管理设置", icon: Icon.settingsProxy },    // 代理设置
   { path: "/settings/log", label: "日志管理设置", icon: Icon.settingsLog },        // 日志管理设置
 ];

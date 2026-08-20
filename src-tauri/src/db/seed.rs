@@ -179,6 +179,37 @@ impl Database {
                 "自定义缓存目录配置（JSON 格式）",
                 "cache",
             ),
+            // 内存缓存配置
+            (
+                "memory_cache_enabled",
+                "true",
+                "是否启用内存缓存（将常用数据缓存到内存，减少数据库查询）",
+                "memory_cache",
+            ),
+            (
+                "memory_cache_size",
+                "100",
+                "内存缓存条目上限（超出后按最近最少使用淘汰）",
+                "memory_cache",
+            ),
+            (
+                "memory_cache_ttl",
+                "300",
+                "内存缓存有效期（秒），0 表示永不过期",
+                "memory_cache",
+            ),
+            (
+                "memory_cache_write_interval",
+                "60",
+                "内存缓存自动写盘周期（秒），0 表示关闭定时写（仅退出时写）",
+                "memory_cache",
+            ),
+            (
+                "memory_cache_dir",
+                "",
+                "内存缓存写入目录（留空使用默认配置目录下的 cache 子目录）",
+                "memory_cache",
+            ),
         ];
         for (key, value, description, category) in defaults {
             self.conn.execute(

@@ -10,6 +10,7 @@
  * - 处理窗口关闭事件
  */
 pub mod aur; // AUR RPC API 交互模块
+pub mod cache; // 内存缓存模块
 pub mod checkers; // 版本检查器模块
 pub mod commands; // Tauri IPC 命令模块
 pub mod db; // 数据库操作模块
@@ -25,10 +26,12 @@ use std::path::PathBuf; // 路径缓冲区，用于构建文件路径
 use std::sync::Mutex; // 互斥锁，保证数据库连接的线程安全访问
 use tauri::Manager; // Tauri 应用管理器 trait
 
-/// 应用状态，包含数据库连接
+/// 应用状态，包含数据库连接与内存缓存管理器
 pub struct AppState {
     /// 数据库连接（线程安全）
     pub db: Mutex<db::Database>,
+    /// 内存缓存管理器（线程安全，锁序约定：先 memory_cache 后 db）
+    pub memory_cache: Mutex<cache::CacheManager>,
 }
 
 /// 窗口关闭动作配置
@@ -127,10 +130,44 @@ pub fn run() {
             // 如果启用，创建系统托盘
             tray::create_tray(app, show_tray)?;
 
-            // 将数据库存储到应用状态，供命令使用
+            // 初始化内存缓存：读取配置 → 尝试从磁盘加载未过期条目
+            let cache_config = cache::CacheConfig::from_db(&database);
+            let mut memory_cache = cache::CacheManager::new(cache_config.clone());
+            if let Err(e) = memory_cache.load_from_disk() {
+                log::warn!("内存缓存磁盘加载失败（将回源数据库）: {}", e);
+            }
+
+            // 将数据库与内存缓存存储到应用状态，供命令使用
             app.manage(AppState {
                 db: Mutex::new(database),
+                memory_cache: Mutex::new(memory_cache),
             });
+
+            // 注册定时写盘任务（写入周期 > 0 且缓存启用时）
+            let write_interval = cache_config.write_interval_secs;
+            if cache_config.enabled && write_interval > 0 {
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    let mut ticker =
+                        tokio::time::interval(std::time::Duration::from_secs(write_interval));
+                    ticker.tick().await; // 跳过首个立即触发的 tick
+                    loop {
+                        ticker.tick().await;
+                        if let Some(state) = handle.try_state::<AppState>() {
+                            if let Ok(mut cache) = state.memory_cache.lock() {
+                                if let Err(e) = cache.flush() {
+                                    log::warn!("内存缓存定时写盘失败: {}", e);
+                                }
+                            }
+                        }
+                    }
+                });
+                log::info!(
+                    "内存缓存定时写盘已启动: 周期={}秒, 目录={}",
+                    write_interval,
+                    cache_config.dir.display()
+                );
+            }
 
             Ok(())
         })
@@ -231,6 +268,10 @@ pub fn run() {
             commands::settings::get_setting,        // 获取单个设置
             commands::settings::set_setting,        // 设置配置值
             commands::settings::apply_log_settings, // 应用日志轮转设置
+            // 内存缓存管理
+            commands::memory_cache::get_memory_cache_stats, // 获取内存缓存状态
+            commands::memory_cache::flush_memory_cache, // 立即写盘内存缓存
+            commands::memory_cache::clear_memory_cache, // 清空内存缓存
             // 枚举值管理
             commands::enums::get_licenses, // 获取所有 License
             commands::enums::sync_licenses_from_spdx, // 从 SPDX 同步 License
@@ -243,6 +284,19 @@ pub fn run() {
             // 前端诊断日志转发（仅终端，不写文件）
             commands::fe_log::frontend_log, // 接收前端诊断日志并打印到终端
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            // 退出前将内存缓存写盘（托盘「退出」/窗口关闭退出均触发 RunEvent::Exit）
+            if let tauri::RunEvent::Exit = event {
+                if let Some(state) = app_handle.try_state::<AppState>() {
+                    if let Ok(mut cache) = state.memory_cache.lock() {
+                        match cache.flush() {
+                            Ok(n) => log::info!("退出前内存缓存已写盘: {} 个域", n),
+                            Err(e) => log::warn!("退出前内存缓存写盘失败: {}", e),
+                        }
+                    }
+                }
+            }
+        });
 }

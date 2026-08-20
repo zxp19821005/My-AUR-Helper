@@ -16,6 +16,7 @@ import { useRoute } from "vue-router";
 import SettingsDynamicSection from "../components/settings/SettingsDynamicSection.vue";
 import SettingsLogSection from "../components/settings/SettingsLogSection.vue";
 import SettingsCacheSection from "../components/settings/SettingsCacheSection.vue";
+import SettingsMemoryCacheSection from "../components/settings/SettingsMemoryCacheSection.vue";
 import SettingsProxySection from "../components/settings/SettingsProxySection.vue";
 import AppearanceSettings from "../components/settings/AppearanceSettings.vue";
 
@@ -28,6 +29,7 @@ const categoryMap: Record<string, string> = {
   "/settings/checker": "checker",
   "/settings/backup": "backup",
   "/settings/cache": "cache",
+  "/settings/memory-cache": "memory_cache",
   "/settings/proxy": "proxy",
   "/settings/log": "log",
 };
@@ -52,6 +54,9 @@ const category = computed(() => categoryMap[route.path] || "general");
 
     <!-- 缓存目录设置 -->
     <SettingsCacheSection v-else-if="category === 'cache'" />
+
+    <!-- 内存缓存设置 -->
+    <SettingsMemoryCacheSection v-else-if="category === 'memory_cache'" />
 
     <!-- 代理管理设置 -->
     <SettingsProxySection v-else-if="category === 'proxy'" />
