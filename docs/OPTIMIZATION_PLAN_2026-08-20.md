@@ -134,7 +134,7 @@ SELECT
 | 检查项 | 结果 |
 |--------|------|
 | `cargo check --lib` | ✅ 0 error / 0 warning |
-| `cargo clippy --lib` | ✅ 0 error（32→4 warning，剩余需 API 重构） |
+| `cargo clippy --lib` | ✅ 0 error / **0 warning**（32→0，全部清零） |
 | `cargo test --lib` | ✅ 63 passed / 0 failed |
 | `vue-tsc --noEmit` | ✅ 0 error |
 | `vite build` | ✅ 通过 |
@@ -201,3 +201,21 @@ SELECT
 | 文件 | 改动 |
 |------|------|
 | `src-tauri/src/db/software_info.rs` | 抽取 `SW_INFO_COLS` / `SW_INFO_COLS_S` / `SW_LIST_COLS` 常量；`get_software_detail_by_name` 复用 `row_to_software_info` 映射前 11 列 |
+
+### L-008 / L-010 + clippy warning 清零（32→0）
+
+| 文件 | 改动 |
+|------|------|
+| `src-tauri/src/checkers/github/api_checker.rs` | L-010：提取 `build_result` 辅助函数消除 4 处重复 CheckResult 构造；`/** */`→`//!` 模块文档 |
+| `src/composables/packageActions.ts` | L-008：`rowDelete` → `rowDeleteSelected`，与 `deleteSelected` 命名一致 |
+| `src/views/PackageList.vue` | 适配 `rowDeleteSelected` 重命名 |
+| `src-tauri/src/checkers/github/release_history.rs` | 提取 `ReleaseScanParams<'a>` struct，`check_github_releases` 从 8 参数降为 2（`too_many_arguments` 消除） |
+| `src-tauri/src/checkers/github/release.rs` | 2 处调用适配 `ReleaseScanParams` |
+| `src-tauri/src/checkers/github/api_checker.rs` | 1 处调用适配 `ReleaseScanParams` |
+| `src-tauri/src/commands/fileops/backup_dedup.rs` | 提取 `BackupPkgEntry` struct + `PkgBackupMap` type alias 替代 tuple，消除 `type_complexity` 告警 |
+| `src-tauri/src/commands/software.rs` | `add_software`(10 参数) / `update_software`(12 参数) 加 `#[allow(clippy::too_many_arguments)]`（Tauri IPC 契约约束，改 struct 会破坏前端扁平传参一致性） |
+| `src-tauri/src/checkers/github/mod.rs` 等 7 个 mod.rs | `/** */` 块注释 → `//!` 模块级文档（消除 `empty_line_after_doc_comment` + `doc_lazy_continuation`） |
+| `src-tauri/src/checkers/github/repo_info.rs` | `sort_by` → `sort_by_key(std::cmp::Reverse)` |
+| `src-tauri/src/models/upstream_info.rs` | `from_str` → `parse_from_str`（避免与 `FromStr` trait 混淆） |
+| `src-tauri/src/proxy/test.rs` | 独立 `///` 改为 `//` 普通注释 |
+| `cargo clippy --fix` 自动修复 | 12 个 `needless_borrow` / `redundant_closure` / `to_string` 等 |

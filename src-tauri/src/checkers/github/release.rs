@@ -12,7 +12,7 @@ use reqwest::Client;
 use crate::checkers::github::binary_check::{
     check_release_assets, extract_version_from_assets, has_linux_binary,
 };
-use crate::checkers::github::release_history::check_github_releases;
+use crate::checkers::github::release_history::{check_github_releases, ReleaseScanParams};
 use crate::checkers::utils::{clean_version, extract_version_with_regex};
 use crate::errors::AppResult;
 
@@ -82,13 +82,15 @@ pub async fn check_github_release_latest(
                     );
                     return check_github_releases(
                         client,
-                        owner,
-                        repo,
-                        token,
-                        version_extract_regex,
-                        true,
-                        true,
-                        pkgname,
+                        &ReleaseScanParams {
+                            owner,
+                            repo,
+                            token,
+                            version_extract_regex,
+                            check_test_versions: true,
+                            check_binary_files: true,
+                            pkgname,
+                        },
                     )
                     .await;
                 }
@@ -125,13 +127,15 @@ pub async fn check_github_release_latest(
             );
             return check_github_releases(
                 client,
-                owner,
-                repo,
-                token,
-                version_extract_regex,
-                true,
-                false,
-                pkgname,
+                &ReleaseScanParams {
+                    owner,
+                    repo,
+                    token,
+                    version_extract_regex,
+                    check_test_versions: true,
+                    check_binary_files: false,
+                    pkgname,
+                },
             )
             .await;
         }

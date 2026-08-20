@@ -86,7 +86,12 @@ pub async fn search_software(
     Ok(result)
 }
 
+/// 添加软件包（Tauri IPC 命令）
+///
+/// 参数过多（10/7）是 Tauri IPC 契约约束：前端 invoke 按名扁平传递每个字段，
+/// 改为 struct 参数会导致前端调用嵌套化，破坏与其他命令的一致性。
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn add_software(
     state: State<'_, AppState>,
     pkgname: String,
@@ -119,7 +124,12 @@ pub async fn add_software(
     Ok(id)
 }
 
+/// 更新软件包（Tauri IPC 命令）
+///
+/// 参数过多（12/7）是 Tauri IPC 契约约束：前端 invoke 按名扁平传递每个字段，
+/// 改为 struct 参数会导致前端调用嵌套化，破坏与其他命令的一致性。
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn update_software(
     state: State<'_, AppState>,
     software_id: i64,

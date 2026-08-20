@@ -1,12 +1,10 @@
-/**
- * backup_dedup.rs - 备份去重逻辑
- *
- * 功能：
- * - collect_pkg_map: 按包名分组所有备份记录
- * - collect_files_to_delete: 比较版本，收集需要删除的旧版本文件
- * - DeduplicateResult: 去重结果结构体
- * - deduplicate_backups: 软件去重（保留最新版本，删除旧版本文件和记录）
- */
+//! backup_dedup.rs - 备份去重逻辑
+//!
+//! 功能：
+//! - collect_pkg_map: 按包名分组所有备份记录
+//! - collect_files_to_delete: 比较版本，收集需要删除的旧版本文件
+//! - DeduplicateResult: 去重结果结构体
+//! - deduplicate_backups: 软件去重（保留最新版本，删除旧版本文件和记录）
 use crate::db::Database;
 use crate::errors::AppResult;
 use log::info;
@@ -22,6 +20,22 @@ pub struct DeduplicateResult {
     pub removed_records: usize,
     pub errors: Vec<String>,
 }
+
+/// 单条备份包条目（替代 (i64, String, String, String) tuple，消除类型复杂度告警）
+#[derive(Clone)]
+pub struct BackupPkgEntry {
+    /// 备份记录 ID
+    pub id: i64,
+    /// 文件名
+    pub filename: String,
+    /// 完整版本字符串（epoch:version-pkgrel）
+    pub version: String,
+    /// 文件完整路径
+    pub full_path: String,
+}
+
+/// 按包名分组的备份条目映射（type alias 消除复杂类型重复）
+pub type PkgBackupMap = std::collections::HashMap<String, Vec<BackupPkgEntry>>;
 
 /// 解析 .pkg.tar.zst 文件名（提取包名、epoch、版本、pkgrel、架构）
 pub fn parse_pkg_filename(filename: &str) -> Option<(String, i64, String, String, String)> {
@@ -48,12 +62,9 @@ pub fn parse_pkg_filename(filename: &str) -> Option<(String, i64, String, String
 }
 
 /// 从数据库读取所有备份记录并按包名分组
-pub fn collect_pkg_map(
-    db: &Database,
-) -> AppResult<std::collections::HashMap<String, Vec<(i64, String, String, String)>>> {
+pub fn collect_pkg_map(db: &Database) -> AppResult<PkgBackupMap> {
     let entries = db.get_all_backup_software()?;
-    let mut pkg_map: std::collections::HashMap<String, Vec<(i64, String, String, String)>> =
-        std::collections::HashMap::new();
+    let mut pkg_map: PkgBackupMap = std::collections::HashMap::new();
 
     for entry in &entries {
         if let Some(id) = entry.id {
@@ -64,12 +75,12 @@ pub fn collect_pkg_map(
                 } else {
                     format!("{}-{}", version, pkgrel)
                 };
-                pkg_map.entry(name).or_default().push((
+                pkg_map.entry(name).or_default().push(BackupPkgEntry {
                     id,
-                    entry.filename.clone(),
-                    full_ver,
-                    entry.full_path.clone(),
-                ));
+                    filename: entry.filename.clone(),
+                    version: full_ver,
+                    full_path: entry.full_path.clone(),
+                });
             }
         }
     }
@@ -77,9 +88,7 @@ pub fn collect_pkg_map(
 }
 
 /// 比较版本，收集需要删除的旧版本文件
-pub fn collect_files_to_delete(
-    pkg_map: &std::collections::HashMap<String, Vec<(i64, String, String, String)>>,
-) -> Vec<(String, i64, String)> {
+pub fn collect_files_to_delete(pkg_map: &PkgBackupMap) -> Vec<BackupPkgEntry> {
     let mut files_to_delete = Vec::new();
     let compare_versions = crate::versions::comparison::compare_versions;
 
@@ -89,17 +98,17 @@ pub fn collect_files_to_delete(
         }
         let mut best_idx = 0;
         for i in 1..entries.len() {
-            let cmp = compare_versions(&entries[i].2, &entries[best_idx].2);
+            let cmp = compare_versions(&entries[i].version, &entries[best_idx].version);
             if cmp == crate::versions::comparison::VersionComparison::GreaterThan {
                 best_idx = i;
             }
         }
-        for (i, (id, filename, _ver, full_path)) in entries.iter().enumerate() {
+        for (i, entry) in entries.iter().enumerate() {
             if i != best_idx {
-                files_to_delete.push((filename.clone(), *id, full_path.clone()));
+                files_to_delete.push(entry.clone());
                 info!(
                     "[备份管理] 标记删除旧版本: {} (最新: {})",
-                    filename, entries[best_idx].1
+                    entry.filename, entries[best_idx].filename
                 );
             }
         }
@@ -137,17 +146,17 @@ pub async fn deduplicate_backups(
 
     let files_to_delete = collect_files_to_delete(&pkg_map);
 
-    for (_filename, _id, full_path) in &files_to_delete {
-        let file_path = std::path::Path::new(full_path);
+    for entry in &files_to_delete {
+        let file_path = std::path::Path::new(&entry.full_path);
         match fs::remove_file(file_path).await {
             Ok(()) => {
                 result.removed_files += 1;
-                info!("[备份管理] 已删除旧备份文件: {}", full_path);
+                info!("[备份管理] 已删除旧备份文件: {}", entry.full_path);
             }
             Err(e) => {
                 result
                     .errors
-                    .push(format!("删除文件失败 {}: {}", full_path, e));
+                    .push(format!("删除文件失败 {}: {}", entry.full_path, e));
             }
         }
     }
@@ -157,15 +166,15 @@ pub async fn deduplicate_backups(
             crate::errors::AppError::DatabaseError(format!("获取数据库锁失败: {}", e))
         })?;
 
-        for (_filename, id, _full_path) in &files_to_delete {
-            match db.delete_backup_software(*id) {
+        for entry in &files_to_delete {
+            match db.delete_backup_software(entry.id) {
                 Ok(()) => {
                     result.removed_records += 1;
                 }
                 Err(e) => {
                     result
                         .errors
-                        .push(format!("删除数据库记录失败 id={}: {}", id, e));
+                        .push(format!("删除数据库记录失败 id={}: {}", entry.id, e));
                 }
             }
         }

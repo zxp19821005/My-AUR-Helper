@@ -1,16 +1,14 @@
-/**
- * release_history.rs - GitHub Releases 历史遍历扫描
- *
- * 功能：分页遍历仓库的全部 releases，提取并比较版本号。
- * 主要用于：测试版本（prerelease）检查、资产过滤、以及 latest release
- * 无匹配二进制文件时回退查找历史版本。
- *
- * 设计要点：
- * - releases 列表按发布时间倒序返回，首个通过校验的 release 即「最新且含
- *   匹配二进制」的 release，命中后立即结束扫描（避免大响应超时）。
- * - 每页数量限制为 30（release 多的仓库单页 JSON 可达数 MB，慢速/代理网络
- *   下极易在读取响应体时超时，即 "error decoding response body"）。
- */
+//! release_history.rs - GitHub Releases 历史遍历扫描
+//!
+//! 功能：分页遍历仓库的全部 releases，提取并比较版本号。
+//! 主要用于：测试版本（prerelease）检查、资产过滤、以及 latest release
+//! 无匹配二进制文件时回退查找历史版本。
+//!
+//! 设计要点：
+//! - releases 列表按发布时间倒序返回，首个通过校验的 release 即「最新且含
+//!   匹配二进制」的 release，命中后立即结束扫描（避免大响应超时）。
+//! - 每页数量限制为 30（release 多的仓库单页 JSON 可达数 MB，慢速/代理网络
+//!   下极易在读取响应体时超时，即 "error decoding response body"）。
 use log::{debug, warn};
 use reqwest::Client;
 
@@ -20,17 +18,32 @@ use crate::checkers::utils::clean_version;
 use crate::errors::AppResult;
 use crate::versions;
 
+/// GitHub Releases 历史扫描参数（打包以避免函数参数过多）
+///
+/// 持有调用方数据的引用，无所有权转移。
+#[derive(Clone, Copy)]
+pub struct ReleaseScanParams<'a> {
+    /// GitHub 仓库所有者
+    pub owner: &'a str,
+    /// GitHub 仓库名称
+    pub repo: &'a str,
+    /// GitHub API Token（可选）
+    pub token: Option<&'a str>,
+    /// 版本提取正则表达式（可选）
+    pub version_extract_regex: Option<&'a str>,
+    /// 是否包含测试版本（prerelease）
+    pub check_test_versions: bool,
+    /// 是否检查二进制文件
+    pub check_binary_files: bool,
+    /// 软件包名称（用于日志）
+    pub pkgname: &'a str,
+}
+
 /// 遍历 releases，提取并比较版本号（支持分页）
 ///
 /// # 参数
 /// - `client`: HTTP 客户端
-/// - `owner`: GitHub 仓库所有者
-/// - `repo`: GitHub 仓库名称
-/// - `token`: GitHub API Token（可选）
-/// - `version_extract_regex`: 版本提取正则表达式（可选）
-/// - `check_test_versions`: 是否包含测试版本（prerelease）
-/// - `check_binary_files`: 是否检查二进制文件
-/// - `pkgname`: 软件包名称（用于日志）
+/// - `params`: 扫描参数（仓库、token、正则、检查标志、包名）
 ///
 /// # 返回
 /// - `Ok(Some(version))`: 找到的最新版本
@@ -38,14 +51,17 @@ use crate::versions;
 /// - `Err(e)`: 请求失败
 pub async fn check_github_releases(
     client: &Client,
-    owner: &str,
-    repo: &str,
-    token: Option<&str>,
-    version_extract_regex: Option<&str>,
-    check_test_versions: bool,
-    check_binary_files: bool,
-    pkgname: &str,
+    params: &ReleaseScanParams<'_>,
 ) -> AppResult<Option<String>> {
+    let ReleaseScanParams {
+        owner,
+        repo,
+        token,
+        version_extract_regex,
+        check_test_versions,
+        check_binary_files,
+        pkgname,
+    } = *params;
     let mut best_version: Option<String> = None;
     let mut page = 1;
     // 降低每页数量以减小单次响应体积：releases 列表接口在 release 较多的仓库下
