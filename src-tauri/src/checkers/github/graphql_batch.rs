@@ -166,7 +166,7 @@ fn build_query(repos: &[(String, String)]) -> String {
               refs(first: 100, refPrefix: \"refs/tags/\") {{ nodes {{ name }} }} \
               releases(first: 20, orderBy: {{ field: CREATED_AT, direction: DESC }}) {{ \
                 nodes {{ tagName name isPrerelease isDraft createdAt \
-                  assets(first: 12) {{ nodes {{ name }} }} }} }} \
+                  releaseAssets(first: 12) {{ nodes {{ name }} }} }} }} \
             }}"
         ));
     }
@@ -205,8 +205,21 @@ async fn query_chunk(
             return None;
         }
     };
+    // 顶层 errors（schema 不兼容 / 限流 / 字段错误等）：记录但继续尝试部分结果
+    if let Some(errs) = data.get("errors").and_then(|d| d.as_array()) {
+        warn!(
+            "[GitHub GraphQL] GraphQL errors ({} 项)，可能 schema 不兼容或限流；将尝试部分结果",
+            errs.len()
+        );
+    }
     // 单个仓库不存在时 GitHub 对该 alias 返回 null；errors 仅记录、不阻断整批
-    let data_obj = data.get("data").and_then(|d| d.as_object())?;
+    let data_obj = match data.get("data").and_then(|d| d.as_object()) {
+        Some(o) => o,
+        None => {
+            // 整个 data 缺失：queries 全部失败，本次查询无产出
+            return None;
+        }
+    };
     let mut map = HashMap::new();
     for (k, v) in data_obj.iter() {
         if !v.is_null() {

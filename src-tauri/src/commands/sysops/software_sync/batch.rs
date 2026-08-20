@@ -15,7 +15,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use log::warn;
+use log::{info, warn};
 use reqwest::Client;
 use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
@@ -143,6 +143,13 @@ pub async fn batch_check_upstream(
         fallback_definite.push(task);
     }
 
+    // 诊断：批量引擎分流汇总（便于排查 GraphQL 是否被命中、为何走 REST fallback）
+    info!(
+        "[批量检查] 分流汇总: GraphQL待处理={} GitHub-可能回落={} 必然REST={}",
+        github_items.len(),
+        github_origin.len(),
+        fallback_definite.len()
+    );
     // 并发点：GraphQL 批量查询与「必然 REST」桶同时启动，压平墙钟时间。
     // 成功命中 GraphQL 的包不再发 REST；仅未命中的 github 包后续补回落，
     // 既避免重复请求（保住限流收益），又避免同一包被双重处理。

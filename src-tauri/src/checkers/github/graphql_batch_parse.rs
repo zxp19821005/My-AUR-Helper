@@ -85,7 +85,7 @@ pub fn parse_snapshot(repo: &Value) -> RepoSnapshot {
                         .unwrap_or("")
                         .to_string(),
                     assets: r
-                        .get("assets")
+                        .get("releaseAssets")
                         .and_then(|a| a.get("nodes"))
                         .and_then(|n| n.as_array())
                         .map(|arr| {
