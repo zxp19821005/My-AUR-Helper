@@ -244,3 +244,13 @@ SELECT
 | 文件 | 改动 |
 |------|------|
 | `src/router/index.ts` | 移除对已删除 `preloadRoutes()` 的过时引用；更新注释说明 dev 模式不做预取的原因 |
+
+### WebKitGTK 2.52.6 DMABUF 渲染回归（外部依赖问题，2026-08-20 下午）
+
+**问题**：webkit2gtk-4.1 升级 2.52.5-2 → 2.52.6-1 后，应用所有页面卡顿（切换 15-37s）、WebKitWebProcess CPU 占用高、温度高。Chromium 系浏览器不受影响（不同引擎）。
+
+**根因**：2.52.6 的 DMABUF 硬件加速渲染路径在 Intel i915 + X11 环境回归。
+
+**应急修复**：`scripts/dev.sh` 中 `export WEBKIT_DISABLE_DMABUF_RENDERER=1`（禁用 DMABUF，回退软件渲染）。验证：页面切换降至 0.1-2.4s。上游修复后删除该行。
+
+**彻底方案**：`sudo pacman -U https://archive.archlinux.org/packages/w/webkit2gtk-4.1/webkit2gtk-4.1-2.52.5-2-x86_64.pkg.tar.zst` 降级恢复硬件加速，并在 `/etc/pacman.conf` 加 `IgnorePkg = webkit2gtk-4.1` 防自动升级；建议向上游（bugs.webkit.org / Arch）报 bug。

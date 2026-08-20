@@ -26,6 +26,14 @@ export RUSTC_WRAPPER="${RUSTC_WRAPPER:-sccache}"
 export CC="${CC:-ccache gcc}"
 export CXX="${CXX:-ccache g++}"
 
+# ---------- WebKitGTK 2.52.6 DMABUF 渲染回归应急 ----------
+# 2026-08-20: webkit2gtk-4.1 2.52.6-1 在 Intel + X11 上 DMABUF 加速路径回归，
+# 表现为所有页面卡顿（切换 15-37s）+ WebKitWebProcess CPU 占用高。
+# 禁用 DMABUF 回退软件渲染后恢复流畅（页面切换 0.1-2.4s），代价是 CPU 略高。
+# 恢复硬件加速：降级 webkit2gtk-4.1 到 2.52.5-2（Arch Linux Archive）。
+# 上游修复后删除此行；临时恢复加速可设 WEBKIT_DISABLE_DMABUF_RENDERER=0。
+export WEBKIT_DISABLE_DMABUF_RENDERER="${WEBKIT_DISABLE_DMABUF_RENDERER:-1}"
+
 # 确保 sccache 守护进程在运行
 ensure_sccache() {
     if command -v sccache &>/dev/null; then
