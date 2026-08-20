@@ -55,13 +55,21 @@
 
 **修复**：把 `get_aur_versions_map()` 的批量读取**提前到任务构建循环之前**，循环内直接用内存中的 `aur_map` 判断 `has_aur`，删除循环内逐包查询。净效果：构建过滤与版本比较共用同一份批量读取，零逐包查询。
 
-### C1：批量写库未包裹事务（数据一致性）— High — 建议（延后，附方案）
+### C1：批量写库未包裹事务（数据一致性）— High — ✅ 已实施
 
 **问题**：`check_selected_upstream` 对每个包执行 3 次写（`update_software_outdated` + `update_software_languages` + `upsert_upstream_info`），跨 N 个包循环；`compare_and_update` 同理。中途崩溃会留下部分写入 / 孤儿行。全仓无任何 `transaction()` 使用。
 
-**为何本次未实施**：项目现有写库方法（`update_software_outdated` 等）签名均为 `&self` 且内部用 `self.conn`；而 rusqlite 的 `Connection::transaction()` 需要 `&mut self`，事务 `Transaction` 与 `&self` 方法无法在同一连接上共存（借阅冲突）。直接包事务会触发 borrow-checker 错误（已实测）。
+**原阻碍**：项目现有写库方法（`update_software_outdated` 等）签名均为 `&self` 且内部用 `self.conn`；而 rusqlite 的 `Connection::transaction()` 需要 `&mut self`，事务 `Transaction` 与 `&self` 方法无法在同一连接上共存（借阅冲突）。
 
-**改造方案**（供下一周期）：将写库方法拆分为「接收 `&rusqlite::Connection` 的低层执行函数」+「`&self` 便捷封装」，批量路径开启 `db.conn.transaction()` 后将 `&tx` 传入低层函数；或在 `Database` 上提供 `with_transaction(|conn| {...})` 闭包式封装。完成后即可把整批写入原子化，任一失败整体回滚。
+**改造方案（已落地）**：将写库方法拆分为「接收 `&rusqlite::Connection` 的低层执行函数」+「`&self` 便捷封装」：
+- `db/software_info.rs`：新增 `update_software_outdated_conn(conn, ...)` / `update_software_languages_conn(conn, ...)`，`update_software_outdated` / `update_software_languages` 改为委托 `Self::*_conn`。
+- `db/upstream_info.rs`：新增 `upsert_upstream_info_conn(conn, ...)`，`upsert_upstream_info` 委托 `Self::upsert_upstream_info_conn`。
+- `commands/sysops/software_check.rs`：
+  - `apply_upstream_check_result` 改为接收 `&rusqlite::Connection`（事务兼容）。
+  - `compare_and_update` 接收 `&mut Database`，单包三段写入包裹于 `db.conn.transaction()`。
+  - `check_selected_upstream` 批量写库改为：事务外**预解析**各结果语言 ID（`resolve_language_ids` 需写库，避免与 `&mut db` 借阅冲突）→ 开启 `let mut db = state.db.lock()?; let tx = db.conn.transaction()?;` → 循环内以 `&tx` 调用 `apply_upstream_check_result` / `update_software_outdated_conn` → 末尾 `tx.commit()?;`。
+
+**效果**：批量检查的全部写库操作原子化（全有或全无），任一失败整体回滚；单包检查同样事务化。借贷冲突通过「低层 `&Connection` 函数 + `&self` 委托」模式解决。验证：`cargo check --lib` / `cargo clippy --lib` / `cargo test --lib`（63 passed）均通过。
 
 ### C4：HTTP 超时 / 重试解析重复 — Low — 建议（轻量）
 

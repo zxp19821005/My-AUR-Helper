@@ -1,12 +1,21 @@
 use crate::errors::AppResult;
 
 use crate::models::*;
+use rusqlite::Connection;
 
 use super::Database;
 
 impl Database {
     pub fn upsert_upstream_info(&self, info: &UpstreamInfo) -> AppResult<()> {
-        self.conn.execute(
+        Self::upsert_upstream_info_conn(&self.conn, info)
+    }
+
+    /// `upsert_upstream_info` 的底层变体：在指定连接（含事务）上执行
+    pub(crate) fn upsert_upstream_info_conn(
+        conn: &Connection,
+        info: &UpstreamInfo,
+    ) -> AppResult<()> {
+        conn.execute(
             "INSERT INTO upstream_info (software_id, upstream_version, upstream_license_id, last_checked, upstream_url_status)
              VALUES (?1, ?2, ?3, ?4, ?5)
              ON CONFLICT(software_id) DO UPDATE SET

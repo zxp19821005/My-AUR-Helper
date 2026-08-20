@@ -7,6 +7,7 @@
 use crate::errors::AppResult;
 
 use crate::models::*;
+use rusqlite::Connection;
 
 use super::Database;
 
@@ -49,7 +50,16 @@ impl Database {
     }
 
     pub fn update_software_outdated(&self, software_id: i64, is_outdated: bool) -> AppResult<()> {
-        self.conn.execute(
+        Self::update_software_outdated_conn(&self.conn, software_id, is_outdated)
+    }
+
+    /// `update_software_outdated` 的底层变体：在指定连接（含事务）上执行
+    pub(crate) fn update_software_outdated_conn(
+        conn: &Connection,
+        software_id: i64,
+        is_outdated: bool,
+    ) -> AppResult<()> {
+        conn.execute(
             "UPDATE software_info SET is_outdated=?1 WHERE software_id=?2",
             rusqlite::params![is_outdated as i32, software_id],
         )?;
@@ -288,8 +298,17 @@ impl Database {
         software_id: i64,
         language_ids: &[i64],
     ) -> AppResult<()> {
+        Self::update_software_languages_conn(&self.conn, software_id, language_ids)
+    }
+
+    /// `update_software_languages` 的底层变体：在指定连接（含事务）上执行
+    pub(crate) fn update_software_languages_conn(
+        conn: &Connection,
+        software_id: i64,
+        language_ids: &[i64],
+    ) -> AppResult<()> {
         let language_ids_json = serde_json::to_string(language_ids).unwrap_or_default();
-        self.conn.execute(
+        conn.execute(
             "UPDATE software_info SET language_id = ?1 WHERE software_id = ?2",
             rusqlite::params![language_ids_json, software_id],
         )?;

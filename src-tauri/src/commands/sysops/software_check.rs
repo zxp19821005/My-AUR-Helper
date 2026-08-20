@@ -74,18 +74,18 @@ async fn check_with_retry(
 
 /// 写入单个软件包的上游检查结果（is_outdated / 语言列表 / upstream_info）
 ///
-/// 函数内不含事务；调用方按需用 `db.conn.transaction()` 包裹，保证批量写入原子性。
+/// 在调用方传入的连接（可处于事务中）上执行，便于批量写入原子化。
 ///
 /// # Arguments
-/// - `db` 数据库连接
+/// - `conn` 数据库连接（可为事务连接）
 /// - `software_id` 软件包 ID
 /// - `cleaned_version` 已去除 `v` 前缀的上游版本
 /// - `is_outdated` 与 AUR 相比是否落后
 /// - `upstream_license_id` 上游 License SPDX ID（可选）
-/// - `language_ids` 解析后的语言 ID 列表
+/// - `language_ids` 解析后的语言 ID 列表（已在外层解析，避免在事务内借阅冲突）
 /// - `fill_languages` 是否填充语言列表（仅当用户未手动设置时）
 fn apply_upstream_check_result(
-    db: &crate::db::Database,
+    conn: &rusqlite::Connection,
     software_id: i64,
     cleaned_version: &str,
     is_outdated: bool,
@@ -93,9 +93,9 @@ fn apply_upstream_check_result(
     language_ids: &[i64],
     fill_languages: bool,
 ) -> AppResult<()> {
-    db.update_software_outdated(software_id, is_outdated)?;
+    crate::db::Database::update_software_outdated_conn(conn, software_id, is_outdated)?;
     if fill_languages && !language_ids.is_empty() {
-        db.update_software_languages(software_id, language_ids)?;
+        crate::db::Database::update_software_languages_conn(conn, software_id, language_ids)?;
     }
     let upstream_info = UpstreamInfo {
         software_id,
@@ -104,12 +104,12 @@ fn apply_upstream_check_result(
         last_checked: Some(Utc::now().timestamp()),
         upstream_url_status: None,
     };
-    db.upsert_upstream_info(&upstream_info)?;
+    crate::db::Database::upsert_upstream_info_conn(conn, &upstream_info)?;
     Ok(())
 }
 
 fn compare_and_update(
-    db: &crate::db::Database,
+    db: &mut crate::db::Database,
     software_id: i64,
     pkgname: &str,
     version: &str,
@@ -144,9 +144,11 @@ fn compare_and_update(
         .map(|sw| sw.language_ids.is_empty())
         .unwrap_or(false);
 
-    // 单包三次写入（is_outdated / languages / upstream_info）
+    // 单包三次写入（is_outdated / languages / upstream_info）包裹于同一事务，
+    // 避免中途失败时留下部分写入。
+    let tx = db.conn.transaction()?;
     apply_upstream_check_result(
-        db,
+        &tx,
         software_id,
         cleaned_version,
         is_outdated,
@@ -154,6 +156,7 @@ fn compare_and_update(
         &language_ids,
         fill_languages,
     )?;
+    tx.commit()?;
     Ok(())
 }
 
@@ -225,9 +228,9 @@ pub async fn check_upstream_version(
         .version
         .ok_or_else(|| AppError::VersionCheckError(format!("无法确定 {} 的上游版本", pkgname)))?;
 
-    let db = state.db.lock()?;
+    let mut db = state.db.lock()?;
     compare_and_update(
-        &db,
+        &mut db,
         sw.software_id.unwrap_or(0),
         &sw.pkgname,
         &version,
@@ -340,9 +343,26 @@ pub async fn check_selected_upstream(
         });
     }
 
-    // 批量写入数据库：单次加锁，循环写入所有结果（复用 apply_upstream_check_result）。
-    // 注：原子性事务化写入见优化文档 C1（需将写库方法改为接收 &Connection 以兼容 rusqlite Transaction）。
-    let db = state.db.lock()?;
+    // 预先解析所有结果的语言 ID：解析过程会写库（get_or_create），
+    // 须在事务外加锁完成，避免与下方 &mut db 的事务借阅冲突。
+    let lang_ids_by_sw: HashMap<i64, Vec<i64>> = {
+        let db = state.db.lock()?;
+        let mut map = HashMap::new();
+        for result in &check_results {
+            if !result.upstream_version.is_empty() && !result.language_names.is_empty() {
+                map.insert(
+                    result.software_id,
+                    db.resolve_language_ids(&result.language_names)?,
+                );
+            }
+        }
+        map
+    };
+
+    // 批量写入数据库：单个事务包裹全部写操作（is_outdated / 语言 / upstream_info），
+    // 保证「全有或全无」的原子性，避免中途失败时留下部分写入（优化文档 C1）。
+    let mut db = state.db.lock()?;
+    let tx = db.conn.transaction()?;
     let mut results = Vec::new();
     for result in &check_results {
         if !result.upstream_version.is_empty() {
@@ -351,8 +371,11 @@ pub async fn check_selected_upstream(
                 .strip_prefix('v')
                 .unwrap_or(&result.upstream_version);
             let upstream_license_id = result.license_spdx_id.clone();
-            let language_ids = db.resolve_language_ids(&result.language_names)?;
-            // 仅当用户未手动设置语言列表时，才用自动检测到的语言列表填充
+            // 语言 ID 已在事务外预解析；仅当用户未手动设置语言列表时填充
+            let language_ids = lang_ids_by_sw
+                .get(&result.software_id)
+                .cloned()
+                .unwrap_or_default();
             let fill_languages = lang_by_id
                 .get(&result.software_id)
                 .map(|l| l.is_empty())
@@ -360,7 +383,7 @@ pub async fn check_selected_upstream(
                 && !language_ids.is_empty();
 
             apply_upstream_check_result(
-                &db,
+                &tx,
                 result.software_id,
                 cleaned_version,
                 result.is_outdated,
@@ -380,9 +403,10 @@ pub async fn check_selected_upstream(
             results.push((result.pkgname.clone(), result.upstream_version.clone()));
         } else {
             // 检查失败 / 无可解析版本：置为未过期，不写 upstream_info
-            db.update_software_outdated(result.software_id, false)?;
+            crate::db::Database::update_software_outdated_conn(&tx, result.software_id, false)?;
         }
     }
+    tx.commit()?;
 
     // Manual 检查器包：跳过网络与写库，仅回传包名标记
     for pkgname in outcome.manual {
