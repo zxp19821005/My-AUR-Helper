@@ -83,6 +83,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 - 类型定义放在 `src/types/` 目录
 - 状态管理使用 Pinia store
 - **Tauri 命令调用（强制）**：禁止在 composable/store/component/view 中直接 `import { invoke } from "@tauri-apps/api/core"`；所有 IPC 调用必须经 `src/api/` 对应领域模块封装，命令字符串与参数形状集中管理
+- **StandardizedTable 选中状态同步（强制）**：`StandardizedTable` 内部以 `useTableState.selectedRows` 独立维护选中，仅通过 `selection-change` 事件向父组件回传选中行；任何依赖"已选集合"的工具栏/批量逻辑必须在中间层（如 `PackageTable`）订阅此事件并将 rowKey 转换为业务键后向上 emit，父组件再同步到外部 ref，否则工具栏按钮会因外部集合始终为空而误走"全量操作"分支（PackageList 真实发生过「勾选 13 个 → 全量更新上游」）。详细见 `docs/COMPONENTS_GUIDE.md` StandardizedTable 章节"重要约定"段
 
 <!-- ========== 关键文件：项目入口和核心模块位置 ========== -->
 ## 关键文件

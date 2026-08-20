@@ -37,6 +37,13 @@ const emit = defineEmits<{
   (e: "sync-pkgbuild", pkgname: string): void;
   (e: "check-upstream", pkgname: string): void;
   (e: "delete", pkgname: string): void;
+  /**
+   * 选中行变化：把 StandardizedTable 内部的 rowKey 集合转回 pkgname 集合，
+   * 让 usePackageList 的 selectedPkgnames 与表格 UI 选中状态保持同步，
+   * 否则工具栏所有依赖 selectedPkgnames 的按钮会因收到空集合而误走「全选」分支
+   * （如 checkAllUpstream 全量更新）。
+   */
+  (e: "selection-change", selectedPkgnames: Set<string>): void;
 }>();
 
 /** 表格列配置 */
@@ -78,6 +85,7 @@ const columns: Column[] = [
     :showPagination="false"
     emptyText="暂无软件包"
     @row-click="(row: any) => emit('row-click', row.pkgname)"
+    @selection-change="(rows: any[]) => emit('selection-change', new Set(rows.map((r) => r.pkgname)))"
   >
     <template #cell-pkgname="{ row }">
       <strong :class="{ 'pkg-outdated': row.is_outdated }">

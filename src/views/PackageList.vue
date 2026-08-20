@@ -216,6 +216,7 @@ async function handleFormSaved() {
       @sync-pkgbuild="rowSyncFromPkgbuild"
       @check-upstream="rowCheckUpstream"
       @delete="(pkgname) => rowDeleteSelected(pkgname, selectedPkgnames, setSelected)"
+      @selection-change="(pkgnames: Set<string>) => setSelected(pkgnames)"
     />
 
     <SoftwareFormModal

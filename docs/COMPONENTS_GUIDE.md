@@ -520,6 +520,39 @@ function handleRowClick(row: any) {
 </template>
 ```
 
+> ⚠️ **重要约定：选中状态必须向上同步**
+>
+> `StandardizedTable` 内部以 `useTableState.selectedRows`（`Set<rowKey>`）独立维护选中状态，
+> 并通过 `selection-change` 事件向父组件回传选中行。父组件若在工具栏/批量逻辑中使用"已选集合"，
+> **必须**订阅此事件并把行数据转换为业务键（通常 `pkgname`）写入外部 ref，否则工具栏所有依赖
+> "已选集合"的按钮会因外部集合始终为空而误走"全选/全量操作"分支。
+>
+> **典型错误（已在 PackageList 实际发生）**：用户在表格勾选 13 个包 → 工具栏"更新上游信息"
+> → 因外部 `selectedPkgnames` 始终为空 → `Array.from(set).length === 0` → 走到
+> `checkAllUpstream()` → **全量更新所有软件包**。
+>
+> **正确写法（PackageTable 已修复）**：
+> ```vue
+> <!-- 子组件：监听 StandardizedTable.selection-change → 转换键后向上 emit -->
+> <StandardizedTable
+>   ...
+>   @selection-change="(rows: any[]) => emit('selection-change', new Set(rows.map(r => r.pkgname)))"
+> />
+> ```
+> ```vue
+> <!-- 父组件：监听 → setSelected 同步外部 ref -->
+> <PackageTable
+>   ...
+>   @selection-change="(pkgnames: Set<string>) => setSelected(pkgnames)"
+> />
+> ```
+>
+> 审查清单：所有使用 `StandardizedTable` 且依赖"选中集合"的视图（工具栏批量按钮、删除按钮、批量验证等）
+> 都必须在子组件透传 `selection-change`，并在父组件同步到外部状态。审查命令：
+> ```bash
+> grep -rn "@selection-change" src/views src/components
+> ```
+
 ---
 
 ### 2. StandardizedModal - 增强模态框
