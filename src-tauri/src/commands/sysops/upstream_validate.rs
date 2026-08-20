@@ -63,7 +63,7 @@ async fn validate_single_url(
                 UpstreamUrlStatus::NotFound
             } else if status_code == 403 || status_code == 401 {
                 UpstreamUrlStatus::Forbidden
-            } else if status_code >= 300 && status_code < 400 {
+            } else if (300..400).contains(&status_code) {
                 UpstreamUrlStatus::Redirected
             } else if status_code >= 500 {
                 UpstreamUrlStatus::ServerError

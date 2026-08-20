@@ -1,20 +1,18 @@
-/**
- * sysops/mod.rs - 系统操作命令模块
- *
- * 本模块包含所有与系统操作相关的 Tauri 命令：
- * - sys_command: 系统命令执行（获取包版本、列出已安装包）
- * - backup_install: 备份包安装和信息查询（pacman -Qip、sudoers 配置）
- * - backup_basic: 备份基础操作（查询、清空备份表、删除备份）
- * - software_check: 版本检查（上游版本检查、批量检查）
- * - software_sync: 软件包同步（AUR 同步、上游检查、PKGBUILD 同步）
- * - upstream_validate: 上游 URL 验证（批量验证 URL 可达性）
- * - cache_cleanup: 缓存清理（系统缓存、自定义缓存目录）
- *
- * 模块设计原则：
- * - mod.rs 仅负责模块声明和导出，不包含具体实现
- * - 每个子文件负责单一功能，保持代码可维护性
- * - 所有文件严格控制在 300 行以内
- */
+//! sysops/mod.rs - 系统操作命令模块
+//!
+//! 本模块包含所有与系统操作相关的 Tauri 命令：
+//! - sys_command: 系统命令执行（获取包版本、列出已安装包）
+//! - backup_install: 备份包安装和信息查询（pacman -Qip、sudoers 配置）
+//! - backup_basic: 备份基础操作（查询、清空备份表、删除备份）
+//! - software_check: 版本检查（上游版本检查、批量检查）
+//! - software_sync: 软件包同步（AUR 同步、上游检查、PKGBUILD 同步）
+//! - upstream_validate: 上游 URL 验证（批量验证 URL 可达性）
+//! - cache_cleanup: 缓存清理（系统缓存、自定义缓存目录）
+//!
+//! 模块设计原则：
+//! - mod.rs 仅负责模块声明和导出，不包含具体实现
+//! - 每个子文件负责单一功能，保持代码可维护性
+//! - 所有文件严格控制在 300 行以内
 
 /// 系统命令执行（获取包版本、列出已安装包）
 pub mod sys_command;

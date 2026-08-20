@@ -44,7 +44,7 @@ pub fn normalize_proxy_url(url: &str) -> (String, bool) {
         Some(p) => p + 3,
         None => {
             return (
-                url.trim_end_matches(|c| c == '/' || c == '?').to_string(),
+                url.trim_end_matches(['/', '?']).to_string(),
                 false,
             )
         }

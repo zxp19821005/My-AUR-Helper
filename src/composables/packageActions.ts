@@ -203,7 +203,7 @@ export function usePackageActions(
     }
   }
 
-  async function rowDelete(
+  async function rowDeleteSelected(
     pkgname: string,
     selectedPkgnames: Set<string>,
     setSelectedPkgnames: (v: Set<string>) => void
@@ -238,6 +238,6 @@ export function usePackageActions(
     rowSyncFromAur,
     rowSyncFromPkgbuild,
     rowCheckUpstream,
-    rowDelete,
+    rowDeleteSelected,
   };
 }

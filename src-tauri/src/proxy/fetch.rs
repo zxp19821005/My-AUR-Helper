@@ -200,11 +200,10 @@ fn parse_proxy_entry(entry: &str) -> Option<FetchedProxy> {
     }
     // 去除引号和空白，并规整为干净的源站基址，同时推断「目标协议头约定」
     let (url, strip_target_protocol) = super::parse::normalize_proxy_url(
-        &parts[0]
+        parts[0]
             .trim()
             .trim_matches('\'')
-            .trim_matches('"')
-            .to_string(),
+            .trim_matches('"'),
     );
     let region = parts
         .get(1)

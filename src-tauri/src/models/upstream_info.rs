@@ -24,7 +24,7 @@ pub enum UpstreamUrlStatus {
 
 impl UpstreamUrlStatus {
     /// 从字符串解析状态
-    pub fn from_str(s: &str) -> Self {
+    pub fn parse_from_str(s: &str) -> Self {
         match s {
             "ok" => Self::Ok,
             "not_found" => Self::NotFound,

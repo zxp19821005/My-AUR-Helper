@@ -29,6 +29,19 @@ use crate::checkers::trait_def::{CheckOptions, CheckResult, VersionChecker};
 use crate::checkers::utils::extract_owner_repo;
 use crate::errors::AppResult;
 
+/// 构造 CheckResult，消除 4 处重复构造（L-010）
+fn build_result(
+    version: Option<String>,
+    license: Option<String>,
+    language_names: Vec<String>,
+) -> CheckResult {
+    CheckResult {
+        version,
+        license,
+        language_names,
+    }
+}
+
 /// GitHub API 检查器
 /// 通过 Release API 获取最新版本，支持二进制文件检查
 pub struct GitHubAPIChecker {
@@ -126,11 +139,7 @@ impl VersionChecker for GitHubAPIChecker {
             } else {
                 debug!("[版本检查] 检查完成: {} -> 未找到上游版本", pkgname);
             }
-            return Ok(CheckResult {
-                version,
-                license,
-                language_names,
-            });
+            return Ok(build_result(version, license, language_names));
         }
 
         // 如果启用测试版本检查，遍历所有 releases
@@ -149,11 +158,7 @@ impl VersionChecker for GitHubAPIChecker {
             if let Some(v) = &version {
                 info!("[版本检查] 检查完成: {} -> 上游版本={}", pkgname, v);
             }
-            return Ok(CheckResult {
-                version,
-                license,
-                language_names,
-            });
+            return Ok(build_result(version, license, language_names));
         }
 
         // 默认：先获取 latest release
@@ -191,11 +196,7 @@ impl VersionChecker for GitHubAPIChecker {
                     pkgname, v
                 );
             }
-            return Ok(CheckResult {
-                version: tags_version,
-                license,
-                language_names,
-            });
+            return Ok(build_result(tags_version, license, language_names));
         }
 
         if let Some(v) = &version {
@@ -203,10 +204,6 @@ impl VersionChecker for GitHubAPIChecker {
         } else {
             debug!("[版本检查] 检查完成: {} -> 未找到上游版本", pkgname);
         }
-        Ok(CheckResult {
-            version,
-            license,
-            language_names,
-        })
+        Ok(build_result(version, license, language_names))
     }
 }

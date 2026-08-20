@@ -87,7 +87,7 @@ pub async fn fetch_github_repo_languages(
             .filter_map(|(name, bytes)| bytes.as_u64().map(|b| (name.clone(), b)))
             .collect();
 
-        lang_list.sort_by(|a, b| b.1.cmp(&a.1));
+        lang_list.sort_by_key(|b| std::cmp::Reverse(b.1));
 
         let lang_names: Vec<String> = lang_list.into_iter().map(|(name, _)| name).collect();
         info!(

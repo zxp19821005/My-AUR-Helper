@@ -44,7 +44,7 @@ impl Database {
                 upstream_version: row.get(1)?,
                 upstream_license_id: row.get(2)?,
                 last_checked: row.get(3)?,
-                upstream_url_status: status_str.map(|s| UpstreamUrlStatus::from_str(&s)),
+                upstream_url_status: status_str.map(|s| UpstreamUrlStatus::parse_from_str(&s)),
             })
         })?;
         Ok(rows.next().transpose()?)

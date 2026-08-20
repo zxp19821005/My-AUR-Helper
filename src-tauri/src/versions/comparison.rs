@@ -87,8 +87,8 @@ pub(crate) fn compare_vercmp(a: &str, b: &str) -> VersionComparison {
     // 将 pkgrel（末尾的 -<数字> 段）与 pkgver 分离。
     // 关键语义：pkgrel 仅在 pkgver 完全相等时参与比较，
     // 否则 pkgrel 会被错误地当成版本组件进行错位比较（如 9.0.1-1 vs 9.0-5）。
-    let (a_ver, a_pkgrel) = split_pkgrel(&a_rest);
-    let (b_ver, b_pkgrel) = split_pkgrel(&b_rest);
+    let (a_ver, a_pkgrel) = split_pkgrel(a_rest);
+    let (b_ver, b_pkgrel) = split_pkgrel(b_rest);
 
     let a_components = split_components(a_ver);
     let b_components = split_components(b_ver);

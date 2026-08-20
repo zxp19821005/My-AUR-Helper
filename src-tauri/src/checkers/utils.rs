@@ -84,7 +84,7 @@ pub fn extract_owner_repo(repo_url: &str) -> Option<(String, String)> {
         if url.starts_with("git@") {
             let after_colon = &url[colon_pos + 1..];
             let parts: Vec<&str> = after_colon.split('/').collect();
-            if parts.len() >= 1 {
+            if !parts.is_empty() {
                 let first = parts[0];
                 if let Some(slash_pos) = first.find('/') {
                     let owner = first[..slash_pos].to_string();

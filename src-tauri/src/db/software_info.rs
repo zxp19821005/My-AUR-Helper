@@ -102,7 +102,7 @@ impl Database {
         let mut stmt = self.conn.prepare(
             &format!("SELECT {SW_INFO_COLS} FROM software_info ORDER BY pkgname"),
         )?;
-        let rows = stmt.query_map([], |row| Self::row_to_software_info(row))?;
+        let rows = stmt.query_map([], Self::row_to_software_info)?;
         let mut items = Vec::new();
         for row in rows {
             items.push(row?);
@@ -232,7 +232,7 @@ impl Database {
             upstream_version: row.get(7)?,
             upstream_last_checked: row.get(8)?,
             upstream_url: row.get(9)?,
-            upstream_url_status: status_str.map(|s| UpstreamUrlStatus::from_str(&s)),
+            upstream_url_status: status_str.map(|s| UpstreamUrlStatus::parse_from_str(&s)),
             upstream_license_id: row.get(11)?,
         })
     }
@@ -241,7 +241,7 @@ impl Database {
         let mut stmt = self.conn.prepare(
             &format!("SELECT {SW_LIST_COLS} FROM software_info s LEFT JOIN aur_info a ON s.software_id = a.software_id LEFT JOIN upstream_info u ON s.software_id = u.software_id ORDER BY s.pkgname"),
         )?;
-        let rows = stmt.query_map([], |row| Self::row_to_list_entry(row))?;
+        let rows = stmt.query_map([], Self::row_to_list_entry)?;
         let mut items = Vec::new();
         for row in rows {
             items.push(row?);

@@ -161,11 +161,10 @@ async fn find_file_recursive(dir: &std::path::Path, filename: &str) -> Option<st
             if ft.is_dir() {
                 // file_type().is_dir() 对符号链接为 false，天然排除符号链接目录
                 stack.push(path);
-            } else if ft.is_file() {
-                if path.file_name().and_then(|n| n.to_str()) == Some(filename) {
+            } else if ft.is_file()
+                && path.file_name().and_then(|n| n.to_str()) == Some(filename) {
                     return Some(path);
                 }
-            }
         }
     }
     None

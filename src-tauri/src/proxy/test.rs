@@ -33,7 +33,7 @@ fn create_test_client(proxy_id: i64, proxy_name: &str) -> AppResult<Client> {
                 "[代理#{} {}] 跟随重定向 -> {}",
                 proxy_id,
                 name,
-                mask_url(&attempt.url().to_string())
+                mask_url(attempt.url().as_ref())
             );
             attempt.follow()
         }))
@@ -41,8 +41,8 @@ fn create_test_client(proxy_id: i64, proxy_name: &str) -> AppResult<Client> {
         .map_err(|e| AppError::NetworkError(format!("创建 HTTP 客户端失败: {}", e)))
 }
 
-/// 代理基址规整复用 `crate::proxy::normalize_proxy_url`，该函数会剥离
-/// 用户脚本中可能已拼接的下载地址后缀（/https://、?https:// 等）。
+// 代理基址规整复用 `crate::proxy::normalize_proxy_url`，该函数会剥离
+// 用户脚本中可能已拼接的下载地址后缀（/https://、?https:// 等）。
 
 /// 从任意代理 URL 中提取主机名（剔除协议头、用户、端口、路径）
 fn extract_host(url: &str) -> String {

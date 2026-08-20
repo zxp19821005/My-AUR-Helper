@@ -134,7 +134,7 @@ SELECT
 | 检查项 | 结果 |
 |--------|------|
 | `cargo check --lib` | ✅ 0 error / 0 warning |
-| `cargo clippy --lib` | ✅ 0 error（32 既有 warning，无新增） |
+| `cargo clippy --lib` | ✅ 0 error（32→4 warning，剩余需 API 重构） |
 | `cargo test --lib` | ✅ 63 passed / 0 failed |
 | `vue-tsc --noEmit` | ✅ 0 error |
 | `vite build` | ✅ 通过 |

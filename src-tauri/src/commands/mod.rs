@@ -1,16 +1,14 @@
-/**
- * mod.rs - Tauri IPC 命令模块
- *
- * 定义所有前端可调用的 Tauri 命令
- * 每个子模块对应一个功能领域
- *
- * 安全审计说明（2026-07-14）：
- * - 已移除 files 模块：文件操作命令（read_file/delete_file/copy_file 等）
- *   未被前端使用，且存在路径遍历风险
- * - 已移除 sys_command 中的危险命令：run_command（任意命令执行）、
- *   install_package/remove_package（无验证的 sudo 调用）、
- *   makepkg（未使用的 makepkg 执行）、clean_cache/sync_database
- */
+//! mod.rs - Tauri IPC 命令模块
+//!
+//! 定义所有前端可调用的 Tauri 命令
+//! 每个子模块对应一个功能领域
+//!
+//! 安全审计说明（2026-07-14）：
+//! - 已移除 files 模块：文件操作命令（read_file/delete_file/copy_file 等）
+//!   未被前端使用，且存在路径遍历风险
+//! - 已移除 sys_command 中的危险命令：run_command（任意命令执行）、
+//!   install_package/remove_package（无验证的 sudo 调用）、
+//!   makepkg（未使用的 makepkg 执行）、clean_cache/sync_database
 
 /// 文件操作命令模块（目录扫描、文件拷贝、备份操作等）
 pub mod fileops;

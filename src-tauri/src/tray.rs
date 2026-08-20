@@ -23,8 +23,7 @@ pub fn create_tray(app: &tauri::App, show_tray: bool) -> tauri::Result<()> {
         // 创建托盘图标
         let _tray = TrayIconBuilder::new()
             .icon(
-                app.default_window_icon()
-                    .map(|icon| icon.clone())
+                app.default_window_icon().cloned()
                     .unwrap_or_else(|| {
                         log::warn!("默认图标加载失败，使用系统默认图标");
                         // 创建一个 1x1 的透明图标作为备用

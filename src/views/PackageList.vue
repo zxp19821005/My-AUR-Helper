@@ -65,7 +65,7 @@ const {
   rowSyncFromAur,
   rowSyncFromPkgbuild,
   rowCheckUpstream,
-  rowDelete,
+  rowDeleteSelected,
 } = usePackageActions(fetchView, refreshEntries, syncToolbar);
 
 const validating = ref(false);
@@ -215,7 +215,7 @@ async function handleFormSaved() {
       @sync-aur="rowSyncFromAur"
       @sync-pkgbuild="rowSyncFromPkgbuild"
       @check-upstream="rowCheckUpstream"
-      @delete="(pkgname) => rowDelete(pkgname, selectedPkgnames, setSelected)"
+      @delete="(pkgname) => rowDeleteSelected(pkgname, selectedPkgnames, setSelected)"
     />
 
     <SoftwareFormModal

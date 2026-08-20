@@ -83,7 +83,7 @@ pub fn collect_files_to_delete(
     let mut files_to_delete = Vec::new();
     let compare_versions = crate::versions::comparison::compare_versions;
 
-    for (_pkg_name, entries) in pkg_map {
+    for entries in pkg_map.values() {
         if entries.len() <= 1 {
             continue;
         }
