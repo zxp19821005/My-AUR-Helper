@@ -129,6 +129,8 @@ SELECT
 
 ## 5. 本次改动文件清单
 
+### 前置修复（编译通过）
+
 | 文件 | 改动 |
 |------|------|
 | `src-tauri/src/db/connection.rs` | 移除 FK 死代码（`ensure_no_fk_constraints` / `rebuild_software_info_remove_fk` / `fk_checked`） |
@@ -138,3 +140,28 @@ SELECT
 | `src-tauri/src/commands/sysops/software_sync/aur.rs` | `build_client` 新签名适配 |
 | `src-tauri/src/commands/sysops/software_sync/upstream.rs` | `build_client` 新签名 + 补齐 `github_client` |
 | `src-tauri/src/commands/sysops/proxy_utils.rs`、`enums.rs`、`models/checker_type.rs` 等 | 既有未提交 WIP（正向代理自动探测），本次仅修复其编译接线，未改动其业务逻辑 |
+
+### C1：批量写库事务化
+
+| 文件 | 改动 |
+|------|------|
+| `src-tauri/src/db/software_info.rs` | 新增 `update_software_outdated_conn` / `update_software_languages_conn`（接收 `&Connection`），原 `&self` 方法委托调用 |
+| `src-tauri/src/db/upstream_info.rs` | 新增 `upsert_upstream_info_conn`（接收 `&Connection`），原 `&self` 方法委托调用 |
+| `src-tauri/src/commands/sysops/software_check.rs` | `apply_upstream_check_result` 改为接收 `&Connection`；`compare_and_update` 接收 `&mut Database` 包裹事务；`check_selected_upstream` 批量路径改为预解析语言 ID → 开事务 → 循环 `&tx` 写库 → `tx.commit()` |
+
+### A1：前端统一 API 抽象层
+
+| 文件 | 改动 |
+|------|------|
+| `src/api/software.ts` | 新建：软件包领域 API（CRUD/AUR 同步/上游检查/URL 校验） |
+| `src/api/proxy.ts` | 新建：代理领域 API |
+| `src/api/license.ts` | 新建：License 领域 API |
+| `src/api/language.ts` | 新建：编程语言领域 API |
+| `src/api/settings.ts` | 新建：设置与日志领域 API |
+| `src/api/backup.ts` | 新建：备份领域 API |
+| `src/api/cache.ts` | 新建：缓存领域 API |
+| `src/api/dashboard.ts` | 新建：仪表盘领域 API |
+| `src/api/sudoers.ts` | 新建：sudoers 免密配置领域 API |
+| `src/types/proxy.ts` | 新增 `ProxyTestResult` 接口（从 `useProxyList.ts` 迁移） |
+| `src/composables/useSudoers.ts` | 重构为接受 api 回调函数（消除动态命令名调度） |
+| `src/composables/*.ts`、`src/stores/*.ts`、`src/components/**/*.vue`、`src/views/*.vue`（30 个文件） | 移除 `import { invoke }`，改用 `import * as xxxApi from "@/api/xxx"` |

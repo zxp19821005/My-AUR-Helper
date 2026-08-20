@@ -436,13 +436,14 @@ cargo test         # Rust 单元测试
 ## 数据流
 
 ### 完整调用链路
-1. 前端 Vue 组件调用 `invoke("command_name", args)` 发起 IPC 请求
-2. Tauri 路由到 `commands/` 模块中的对应处理函数
-3. 命令函数调用业务逻辑层（checkers/aur/proxy/backup）
-4. 业务逻辑层调用 `db/` 模块进行数据库操作
-5. 数据库操作通过 rusqlite 执行 SQL 查询
-6. 结果通过 serde 序列化为 JSON 返回前端
-7. 前端 store 更新状态，组件响应式渲染
+1. 前端 Vue 组件/store/composable 调用 `src/api/` 对应领域模块（如 `softwareApi.listSoftware()`）
+2. API 模块内部调用 `invoke("command_name", args)` 发起 IPC 请求（命令字符串与参数形状集中管理）
+3. Tauri 路由到 `commands/` 模块中的对应处理函数
+4. 命令函数调用业务逻辑层（checkers/aur/proxy/backup）
+5. 业务逻辑层调用 `db/` 模块进行数据库操作（批量写库包裹事务，保证原子性）
+6. 数据库操作通过 rusqlite 执行 SQL 查询
+7. 结果通过 serde 序列化为 JSON 返回前端
+8. 前端 API 模块返回 Promise<T>，store 更新状态，组件响应式渲染
 
 ### 错误处理流程
 - Rust 后端使用 `Result<T, Error>` 返回错误

@@ -7,8 +7,26 @@
 
 # Tauri Command API
 
-前后端通过 `@tauri-apps/api/core` 的 `invoke()` 通信。
+前后端通过 Tauri IPC 通信。前端所有调用统一经 `src/api/` 抽象层封装（按领域拆分为 9 个模块），composable/store/component/view 不再直接 `import { invoke }`。
 所有命令均在 `src-tauri/src/lib.rs` 的 `invoke_handler` 中注册。
+
+## 前端 API 抽象层（`src/api/`）
+
+前端禁止直接 `import { invoke } from "@tauri-apps/api/core"`，必须通过以下领域模块调用：
+
+| 模块 | 文件 | 封装命令 |
+|------|------|---------|
+| 软件包 | `src/api/software.ts` | list_software / list_software_view / get_software / get_software_detail / get_prev_next_software / search_software / add_software / update_software / delete_software / batch_delete_software / set_software_license / set_software_language / sync_from_aur / update_aur_info / sync_from_pkgbuild / check_all_upstream / check_upstream_version / check_selected_upstream / validate_upstream_urls |
+| 代理 | `src/api/proxy.ts` | get_proxies / set_proxy_active / update_proxy / delete_proxy / download_proxy_file / parse_proxy_file / clear_proxy_tables / test_proxies_batch / test_proxy_single |
+| License | `src/api/license.ts` | get_licenses / add_license / update_license / delete_license / sync_licenses_from_spdx |
+| 编程语言 | `src/api/language.ts` | get_languages / upsert_language / delete_language |
+| 设置与日志 | `src/api/settings.ts` | get_setting / set_setting / get_settings / apply_log_settings / get_logs / clear_logs |
+| 备份 | `src/api/backup.ts` | list_backup_software / scan_backup_directory / list_backup_subdirectories / deduplicate_backups / delete_backup / clear_backup_software / get_package_file_info / check_sudoers_config / get_sudoers_command / install_backup_package |
+| 缓存 | `src/api/cache.ts` | list_cache_software / scan_all_cache_dirs / clean_system_cache / clean_custom_cache_dirs / clear_cache_software / get_cache_package_info / install_cache_package / backup_cache_to_subdirectory / backup_cache_to_existing |
+| 仪表盘 | `src/api/dashboard.ts` | get_dashboard_stats |
+| sudoers | `src/api/sudoers.ts` | check_sudoers_config / get_sudoers_command / check_cache_install_sudoers / get_cache_install_sudoers_command / check_cache_cleanup_sudoers / get_cache_cleanup_sudoers_command |
+
+> **使用方式**：`import * as softwareApi from "@/api/software"` → `await softwareApi.listSoftware()`
 
 ## 软件包管理 (commands/software.rs)
 
@@ -357,4 +375,4 @@
 
 ---
 
-**最后更新**: 2026-08-18
+**最后更新**: 2026-08-20
