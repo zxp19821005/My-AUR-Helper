@@ -9,10 +9,11 @@
  * 使用场景：CacheManager.vue 页面的缓存清理按钮
  */
 import { ref, inject } from "vue";
-import { invoke } from "@tauri-apps/api/core";
 import { FOOTER_KEY, addMessage } from "./footer";
 import { openConfirm as confirm } from "./useConfirm";
 import { useSudoers } from "./useSudoers";
+import * as cacheApi from "@/api/cache";
+import * as sudoersApi from "@/api/sudoers";
 
 /**
  * 创建缓存清理操作集合
@@ -30,8 +31,8 @@ export function useCacheCleanup() {
     loadSudoersCommand,
     closeSudoersPrompt,
   } = useSudoers({
-    checkCommand: "check_cache_cleanup_sudoers",
-    getCommand: "get_cache_cleanup_sudoers_command",
+    checkFn: sudoersApi.checkCacheCleanupSudoers,
+    getCommandFn: sudoersApi.getCacheCleanupSudoersCommand,
   });
 
   /**
@@ -40,7 +41,7 @@ export function useCacheCleanup() {
   async function cleanSystemCache() {
     loading.value = true;
     try {
-      const result = await invoke<string>("clean_system_cache");
+      const result = await cacheApi.cleanSystemCache();
       addMessage(footer, "success", result);
     } catch (e) {
       const errorStr = String(e);
@@ -62,7 +63,7 @@ export function useCacheCleanup() {
   async function cleanCustomCacheDirs() {
     loading.value = true;
     try {
-      const result = await invoke<string>("clean_custom_cache_dirs");
+      const result = await cacheApi.cleanCustomCacheDirs();
       addMessage(footer, "success", result);
     } catch (e) {
       addMessage(footer, "error", `清理自定义缓存目录失败: ${e}`);
@@ -86,11 +87,11 @@ export function useCacheCleanup() {
     loading.value = true;
     try {
       // 先清理系统缓存
-      const systemResult = await invoke<string>("clean_system_cache");
+      const systemResult = await cacheApi.cleanSystemCache();
       addMessage(footer, "success", systemResult);
 
       // 再清理自定义缓存目录
-      const customResult = await invoke<string>("clean_custom_cache_dirs");
+      const customResult = await cacheApi.cleanCustomCacheDirs();
       addMessage(footer, "success", customResult);
     } catch (e) {
       const errorStr = String(e);

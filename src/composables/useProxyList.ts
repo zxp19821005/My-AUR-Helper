@@ -10,9 +10,9 @@
  * 测试状态、启停/更新/删除等操作。
  */
 import { ref } from "vue";
-import { invoke } from "@tauri-apps/api/core";
 import { useListBase } from "./useListBase";
-import type { ProxyInfo, ProxyType } from "../types";
+import type { ProxyInfo, ProxyType, ProxyTestResult } from "../types";
+import * as proxyApi from "@/api/proxy";
 
 /** 从 URL 提取代理显示名称（域名部分） */
 export function extractProxyName(url: string): string {
@@ -49,15 +49,6 @@ export const PROXY_TYPE_OPTIONS: { label: string; value: ProxyType | "" }[] = [
   { label: "SSH代理", value: "ssh" },
 ];
 
-/** 代理测试结果 */
-export interface ProxyTestResult {
-  proxy_id: number;
-  success: boolean;
-  latency: number | null;
-  error: string | null;
-  test_url: string;
-}
-
 export function useProxyList() {
   const typeFilter = ref<ProxyType | "">("");
   /** 测试结果映射（proxy_id -> 测试结果） */
@@ -92,7 +83,7 @@ export function useProxyList() {
   async function fetchEntries() {
     base.loading.value = true;
     try {
-      base.entries.value = await invoke<ProxyInfo[]>("get_proxies");
+      base.entries.value = await proxyApi.getProxies();
     } finally {
       base.loading.value = false;
       base.syncToolbar();
@@ -102,10 +93,7 @@ export function useProxyList() {
   /** 切换代理启用状态 */
   async function toggleProxyActive(proxy: ProxyInfo) {
     // 失败时让异常自然向上传播，由调用方统一处理
-    await invoke("set_proxy_active", {
-      proxyId: proxy.proxy_id,
-      isActive: !proxy.is_active,
-    });
+    await proxyApi.setProxyActive(proxy.proxy_id!, !proxy.is_active);
     proxy.is_active = !proxy.is_active;
   }
 
@@ -114,12 +102,12 @@ export function useProxyList() {
     const proxy = base.entries.value.find((p) => p.proxy_id === proxyId);
     if (!proxy) throw new Error("代理不存在");
     // invoke 失败时抛出异常，下方本地更新不会执行
-    await invoke("update_proxy", {
+    await proxyApi.updateProxy(
       proxyId,
-      proxyName: updates.proxy_name ?? proxy.proxy_name,
-      url: updates.url ?? proxy.url,
-      proxyType: updates.proxy_type ?? proxy.proxy_type,
-    });
+      updates.proxy_name ?? proxy.proxy_name,
+      updates.url ?? proxy.url,
+      updates.proxy_type ?? proxy.proxy_type,
+    );
     // 更新本地数据
     if (updates.proxy_name !== undefined) proxy.proxy_name = updates.proxy_name;
     if (updates.url !== undefined) proxy.url = updates.url;
@@ -128,7 +116,7 @@ export function useProxyList() {
 
   /** 删除代理 */
   async function deleteProxy(proxyId: number) {
-    await invoke("delete_proxy", { proxyId });
+    await proxyApi.deleteProxy(proxyId);
   }
 
   /** 批量删除代理 */
@@ -137,7 +125,7 @@ export function useProxyList() {
     base.loading.value = true;
     try {
       for (const id of base.selectedIds.value) {
-        await invoke("delete_proxy", { proxyId: id });
+        await proxyApi.deleteProxy(id);
       }
       base.selectedIds.value = new Set();
       await fetchEntries();

@@ -20,10 +20,7 @@
 import { ref, reactive, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useTabStore } from "../stores/tabs";
-import { invoke } from "@tauri-apps/api/core";
-import type {
-  DashboardStats,
-} from "../types";
+import * as dashboardApi from "@/api/dashboard";
 import { feDebug, feError } from "../utils/felog"; // 前端诊断日志（仅终端）
 import PageToolbar from "../components/common/PageToolbar.vue";
 import ModuleCard, { type DashboardModule } from "../components/dashboard/ModuleCard.vue";
@@ -146,7 +143,7 @@ async function loadAll() {
   try {
     // 一次 IPC 获取全部模块计数（后端 COUNT(*) 聚合），
     // 不再全量拉取软件包/代理/License 等列表数据。
-    const s = await invoke<DashboardStats>("get_dashboard_stats");
+    const s = await dashboardApi.getDashboardStats();
     feDebug("Dashboard", `loadAll invoke done: ${Math.round(performance.now() - t)}ms`);
     stats.pkgTotal = s.pkg_total;
     stats.pkgUpdated = s.pkg_updated;

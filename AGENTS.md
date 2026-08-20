@@ -82,6 +82,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 - 使用组合式 API（Composition API）
 - 类型定义放在 `src/types/` 目录
 - 状态管理使用 Pinia store
+- **Tauri 命令调用（强制）**：禁止在 composable/store/component/view 中直接 `import { invoke } from "@tauri-apps/api/core"`；所有 IPC 调用必须经 `src/api/` 对应领域模块封装，命令字符串与参数形状集中管理
 
 <!-- ========== 关键文件：项目入口和核心模块位置 ========== -->
 ## 关键文件
@@ -191,6 +192,16 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/main.ts` | 应用入口，初始化 Vue 实例 |
 | `src/App.vue` | 根组件，布局容器 |
 | `src/router/index.ts` | Vue Router 路由配置 |
+| `src/api/` | 前端统一 API 抽象层（集中封装全部 Tauri invoke 调用，按领域分模块） |
+| `src/api/software.ts` | 软件包领域 API（CRUD/AUR 同步/上游检查/URL 校验） |
+| `src/api/proxy.ts` | 代理领域 API（增删改查/批量测试/文件下载解析） |
+| `src/api/license.ts` | License 领域 API（增删改查/SPDX 同步） |
+| `src/api/language.ts` | 编程语言领域 API（查询/upsert/删除） |
+| `src/api/settings.ts` | 设置与日志领域 API（get/set/list + 日志读取/清空/应用） |
+| `src/api/backup.ts` | 备份领域 API（列表/扫描/去重/安装/删除/子目录） |
+| `src/api/cache.ts` | 缓存领域 API（列表/扫描/安装/清理/备份到子目录/备份到已有目录） |
+| `src/api/dashboard.ts` | 仪表盘领域 API（get_dashboard_stats 统计聚合） |
+| `src/api/sudoers.ts` | sudoers 免密配置领域 API（备份安装/缓存安装/缓存清理三组检测与命令获取） |
 | `src/views/` | 页面组件（每个页面一个文件） |
 | `src/components/base/` | 基础UI组件（Button、Card、Input、Select、Message、StatCard、Badge） |
 | `src/components/common/` | 通用组件（StandardizedTable、StandardizedModal、PaginationControls、ProgressBar、PageToolbar等） |

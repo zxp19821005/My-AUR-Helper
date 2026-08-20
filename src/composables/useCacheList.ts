@@ -10,9 +10,9 @@
  * 缓存条目因磁盘扫描结果 id 为占位值（跨页不唯一），故选择键采用「filteredEntries 全局索引」。
  */
 import { computed, ref } from "vue";
-import { invoke } from "@tauri-apps/api/core";
 import { useListBase } from "./useListBase";
 import type { CacheSoftwareEntry } from "../types";
+import * as cacheApi from "@/api/cache";
 
 /**
  * 列表展示时使用的统一条目类型（兼容两种数据源）
@@ -106,7 +106,7 @@ export function useCacheList() {
   async function loadEntries() {
     base.loading.value = true;
     try {
-      const data = await invoke<CacheSoftwareEntry[]>("list_cache_software");
+      const data = await cacheApi.listCacheSoftware();
       base.entries.value = data.map(fromCacheSoftwareEntry);
       base.selectedIds.value = new Set();
     } finally {
@@ -127,7 +127,7 @@ export function useCacheList() {
   async function rescanAllDirs() {
     base.loading.value = true;
     try {
-      await invoke<CacheSoftwareEntry[]>("scan_all_cache_dirs");
+      await cacheApi.scanAllCacheDirs();
       // 扫描结果已写入 cache_software 表，重新从数据库读取以展示完整字段
       await loadEntries();
     } finally {

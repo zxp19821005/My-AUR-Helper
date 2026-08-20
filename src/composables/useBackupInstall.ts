@@ -7,11 +7,12 @@
  * - sudoers 配置检测与提示
  */
 import { ref, inject } from "vue";
-import { invoke } from "@tauri-apps/api/core";
 import { FOOTER_KEY, addMessage } from "./footer";
 import { openConfirm as confirm } from "./useConfirm";
 import { useSudoers } from "./useSudoers";
 import type { BackupSoftwareEntry } from "../types";
+import * as backupApi from "@/api/backup";
+import * as sudoersApi from "@/api/sudoers";
 
 export function useBackupInstall() {
   const footer = inject(FOOTER_KEY)!;
@@ -28,8 +29,8 @@ export function useBackupInstall() {
     loadSudoersCommand,
     closeSudoersPrompt,
   } = useSudoers({
-    checkCommand: "check_sudoers_config",
-    getCommand: "get_sudoers_command",
+    checkFn: sudoersApi.checkBackupInstallSudoers,
+    getCommandFn: sudoersApi.getBackupInstallSudoersCommand,
   });
 
   // 信息弹窗状态
@@ -46,7 +47,7 @@ export function useBackupInstall() {
     infoDialogLoading.value = true;
     infoDialogContent.value = "";
     try {
-      const output = await invoke<string>("get_package_file_info", { fullPath: entry.full_path });
+      const output = await backupApi.getPackageFileInfo(entry.full_path);
       infoDialogContent.value = output;
     } catch (e) {
       infoDialogContent.value = `获取信息失败: ${e}`;
@@ -81,7 +82,7 @@ export function useBackupInstall() {
   async function doInstall(fullPath: string, pkgname: string) {
     installing.value = true;
     try {
-      await invoke<string>("install_backup_package", { fullPath });
+      await backupApi.installBackupPackage(fullPath);
       addMessage(footer, "success", `${pkgname} 安装成功`);
       // 成功：关闭 sudoers 提示弹窗
       showSudoersPrompt.value = false;
@@ -113,7 +114,7 @@ export function useBackupInstall() {
     for (const entry of entries) {
       if (!selectedIds.has(entry.id)) continue;
       try {
-        await invoke<string>("install_backup_package", { fullPath: entry.full_path });
+        await backupApi.installBackupPackage(entry.full_path);
         successCount++;
       } catch (e) {
         failCount++;

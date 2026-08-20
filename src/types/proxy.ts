@@ -35,3 +35,20 @@ export interface ProxyInfo {
   /** 目标协议头约定 - true 表示测试拼接时去除目标地址协议头（isteed 类），false 保留（crashmc 类） */
   strip_target_protocol?: boolean;
 }
+
+/**
+ * 代理测试结果
+ * 单次代理连通性测试返回的结构，由代理测试命令产生
+ */
+export interface ProxyTestResult {
+  /** 代理 ID */
+  proxy_id: number;
+  /** 是否测试成功 */
+  success: boolean;
+  /** 平均延迟(ms)，失败为 null */
+  latency: number | null;
+  /** 错误信息，成功为 null */
+  error: string | null;
+  /** 实际测试的 URL */
+  test_url: string;
+}

@@ -11,11 +11,11 @@
  * 内部自行 inject FOOTER_KEY 进行消息提示。
  */
 import { ref, inject } from "vue";
-import { invoke } from "@tauri-apps/api/core";
 import { FOOTER_KEY, addMessage } from "./footer";
 import { openConfirm as confirm } from "./useConfirm";
-import { useProxyList, type ProxyTestResult } from "./useProxyList";
+import { useProxyList } from "./useProxyList";
 import type { ProxyInfo } from "../types";
+import * as proxyApi from "@/api/proxy";
 
 type ProxyListApi = ReturnType<typeof useProxyList>;
 
@@ -30,7 +30,7 @@ export function useProxyActions(list: ProxyListApi) {
   async function handleDownloadProxyFile() {
     downloading.value = true;
     try {
-      const count = await invoke<number>("download_proxy_file");
+      const count = await proxyApi.downloadProxyFile();
       addMessage(footer, "success", `成功下载代理文件，获取到 ${count} 个代理`);
       await list.fetchEntries();
     } catch (e) {
@@ -44,7 +44,7 @@ export function useProxyActions(list: ProxyListApi) {
   async function handleParseProxyFile() {
     parsing.value = true;
     try {
-      const count = await invoke<number>("parse_proxy_file");
+      const count = await proxyApi.parseProxyFile();
       addMessage(footer, "success", `成功解析代理文件，新增 ${count} 个代理`);
       await list.fetchEntries();
     } catch (e) {
@@ -59,7 +59,7 @@ export function useProxyActions(list: ProxyListApi) {
     if (!(await confirm({ message: "确定要清空所有代理数据吗？此操作不可恢复。", variant: "danger" }))) return;
     clearing.value = true;
     try {
-      const count = await invoke<number>("clear_proxy_tables");
+      const count = await proxyApi.clearProxyTables();
       addMessage(footer, "success", `已清空 ${count} 个代理记录，proxy_id 已重置`);
       list.selectedIds.value = new Set();
       await list.fetchEntries();
@@ -83,9 +83,9 @@ export function useProxyActions(list: ProxyListApi) {
     }
 
     try {
-      const results = await invoke<ProxyTestResult[]>("test_proxies_batch", {
-        proxyIds: proxyIds.length > 0 ? proxyIds : null,
-      });
+      const results = await proxyApi.testProxiesBatch(
+        proxyIds.length > 0 ? proxyIds : null,
+      );
 
       for (const result of results) {
         list.setTestResult(result.proxy_id, result);
@@ -105,7 +105,7 @@ export function useProxyActions(list: ProxyListApi) {
     list.testingIds.value = new Set(list.testingIds.value);
 
     try {
-      const result = await invoke<ProxyTestResult>("test_proxy_single", { proxyId });
+      const result = await proxyApi.testProxySingle(proxyId);
       list.setTestResult(proxyId, result);
       if (result.success) {
         addMessage(footer, "success", `代理测试成功: ${result.latency}ms`);

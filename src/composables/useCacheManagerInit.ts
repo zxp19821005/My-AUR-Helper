@@ -11,10 +11,11 @@
  * @returns 初始化后共享给组件的响应式状态
  */
 import { ref, onMounted } from "vue";
-import { invoke } from "@tauri-apps/api/core";
 import { addMessage } from "./footer";
 import { loadEnabledCacheDirs } from "./useCacheDirs";
 import type { FooterState } from "../types";
+import * as settingsApi from "@/api/settings";
+import * as backupApi from "@/api/backup";
 
 export interface CacheManagerInitDeps {
   /** 从 cache_software 表读取存量数据（关键任务，失败需提示用户） */
@@ -46,17 +47,13 @@ export function useCacheManagerInit(
       console.error("加载缓存目录失败:", e);
     }
     try {
-      const setting = await invoke<{ value: string } | null>("get_setting", {
-        key: "backup_dir",
-      });
+      const setting = await settingsApi.getSetting("backup_dir");
       if (setting) backupPath.value = setting.value;
     } catch (e) {
       console.error("加载备份目录设置失败:", e);
     }
     try {
-      backupSubdirectories.value = await invoke<string[]>(
-        "list_backup_subdirectories",
-      );
+      backupSubdirectories.value = await backupApi.listBackupSubdirectories();
     } catch (e) {
       console.error("加载备份子目录失败:", e);
     }

@@ -18,8 +18,8 @@
 -->
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { invoke } from "@tauri-apps/api/core";
 import { usePackageActions } from "../composables/packageActions";
+import * as softwareApi from "@/api/software";
 import { usePackageList } from "../composables/usePackageList";
 import PageToolbar from "../components/common/PageToolbar.vue";
 import FilterBar from "../components/filter/FilterBar.vue";
@@ -28,7 +28,6 @@ import SoftwareDetailModal from "../components/package/SoftwareDetailModal.vue";
 import PackageTable from "../components/package/PackageTable.vue";
 import { Icon } from "../icons";
 import { packageTypeFilterOptions, checkerTypeFilterOptions } from "../utils/enums";
-import type { ValidateResult } from "../types";
 
 const {
   searchQuery,
@@ -75,9 +74,9 @@ async function handleValidateUrls() {
   validating.value = true;
   try {
     const pkgnameList = pageData.value.map((p) => p.pkgname);
-    await invoke<ValidateResult[]>("validate_upstream_urls", {
-      pkgnameList: pkgnameList.length > 0 ? pkgnameList : null,
-    });
+    await softwareApi.validateUpstreamUrls(
+      pkgnameList.length > 0 ? pkgnameList : null,
+    );
     await fetchView();
   } catch (error) {
     console.error("验证失败:", error);

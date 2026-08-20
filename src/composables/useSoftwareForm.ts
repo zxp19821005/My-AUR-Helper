@@ -1,7 +1,9 @@
 import { ref } from "vue";
-import { invoke } from "@tauri-apps/api/core";
 import type { SoftwareDetail, License, Language } from "../types";
 import { pkgTypeOptions, checkerTypeOptions } from "../utils/enums";
+import * as softwareApi from "@/api/software";
+import * as licenseApi from "@/api/license";
+import * as languageApi from "@/api/language";
 
 export interface SoftwareForm {
   pkgname: string;
@@ -69,8 +71,8 @@ export function useSoftwareForm() {
 
   async function loadEnums() {
     try {
-      licenses.value = await invoke<License[]>("get_licenses");
-      languages.value = await invoke<Language[]>("get_languages");
+      licenses.value = await licenseApi.getLicenses();
+      languages.value = await languageApi.getLanguages();
     } catch {
       // ignore
     }
@@ -78,7 +80,7 @@ export function useSoftwareForm() {
 
   async function loadSoftware(pkgname: string): Promise<boolean> {
     try {
-      const data = await invoke<SoftwareDetail | null>("get_software_detail", { pkgname });
+      const data = await softwareApi.getSoftwareDetail(pkgname);
       detail.value = data;
       if (data) {
         form.value = {
@@ -155,7 +157,7 @@ export function useSoftwareForm() {
       }
       let softwareId: number | null = null;
       if (mode === "add") {
-        softwareId = await invoke<number>("add_software", {
+        softwareId = await softwareApi.addSoftware({
           pkgname: form.value.pkgname.trim(),
           upstreamUrl: form.value.upstream_url || null,
           packageType: form.value.package_type_id,
@@ -169,7 +171,7 @@ export function useSoftwareForm() {
       } else {
         if (!detail.value?.software_id) return false;
         softwareId = detail.value.software_id;
-        await invoke("update_software", {
+        await softwareApi.updateSoftware({
           softwareId: detail.value.software_id,
           pkgname: detail.value.pkgname,
           upstreamUrl: form.value.upstream_url || null,
@@ -184,10 +186,7 @@ export function useSoftwareForm() {
         });
       }
       if (softwareId != null) {
-        await invoke("set_software_license", {
-          softwareId,
-          licenseId: form.value.license_ids,
-        });
+        await softwareApi.setSoftwareLicense(softwareId, form.value.license_ids);
       }
       return true;
     } catch (e) {

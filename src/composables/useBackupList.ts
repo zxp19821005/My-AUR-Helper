@@ -9,9 +9,9 @@
  * 本文件仅保留备份特有的：子目录筛选、架构筛选、加载函数。
  */
 import { computed, ref } from "vue";
-import { invoke } from "@tauri-apps/api/core";
 import { useListBase } from "./useListBase";
 import type { BackupSoftwareEntry } from "../types";
+import * as backupApi from "@/api/backup";
 
 export function useBackupList() {
   const subdirectoryFilter = ref("");
@@ -49,7 +49,7 @@ export function useBackupList() {
   async function fetchEntries() {
     base.loading.value = true;
     try {
-      base.entries.value = await invoke<BackupSoftwareEntry[]>("list_backup_software");
+      base.entries.value = await backupApi.listBackupSoftware();
     } finally {
       base.loading.value = false;
       base.syncToolbar();

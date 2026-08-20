@@ -14,10 +14,10 @@
 -->
 <script setup lang="ts">
 import { ref, computed, reactive, watch, onMounted } from "vue";
-import { invoke } from "@tauri-apps/api/core";
 import type { EnumProgrammingLanguage as ProgrammingLanguage } from "../types";
 import type { FooterState } from "../composables/footer";
 import { defaultFooterState } from "../composables/footer";
+import * as languageApi from "@/api/language";
 import BaseFormModal, { type FormField } from "../components/common/BaseFormModal.vue";
 import { useSettingsStore } from "../stores/settings";
 import { openConfirm as confirm } from "../composables/useConfirm";
@@ -86,7 +86,7 @@ onMounted(async () => {
 
 async function loadLanguages() {
   try {
-    languages.value = await invoke<ProgrammingLanguage[]>("get_languages");
+    languages.value = await languageApi.getLanguages();
   } catch (e) {
     message.value = "加载失败: " + String(e);
   }
@@ -108,12 +108,10 @@ function openEdit(lang: ProgrammingLanguage) {
 
 async function handleSave(data: Record<string, string>) {
   try {
-    await invoke("upsert_language", {
-      language: {
-        id: modalId.value,
-        name: data.name.trim(),
-        short_name: (data.short_name ?? "").trim(),
-      },
+    await languageApi.upsertLanguage({
+      id: modalId.value,
+      name: data.name.trim(),
+      short_name: (data.short_name ?? "").trim(),
     });
     showModal.value = false;
     message.value = modalMode.value === "add" ? "已添加编程语言" : "已更新编程语言";
@@ -126,7 +124,7 @@ async function handleSave(data: Record<string, string>) {
 async function handleDelete(lang: ProgrammingLanguage) {
   if (!(await confirm({ message: `确定要删除编程语言 "${lang.name}" 吗？`, variant: "danger" }))) return;
   try {
-    await invoke("delete_language", { name: lang.name });
+    await languageApi.deleteLanguage(lang.name);
     message.value = "已删除编程语言";
     await loadLanguages();
   } catch (e) {

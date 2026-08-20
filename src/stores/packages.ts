@@ -12,8 +12,8 @@
  */
 import { defineStore } from "pinia";              // Pinia 状态管理库，用于创建 Store
 import { ref, shallowRef } from "vue";            // Vue 响应式 API，shallowRef 承载千级大数组
-import { invoke } from "@tauri-apps/api/core";    // Tauri IPC 调用函数，用于调用后端 Rust 命令
 import type { SoftwareInfo } from "../types";     // 软件包类型定义
+import * as softwareApi from "@/api/software";    // 软件包领域 API
 
 /** 创建 packages Store，用于管理软件包相关的全局状态 */
 export const usePackageStore = defineStore("packages", () => {
@@ -37,7 +37,7 @@ export const usePackageStore = defineStore("packages", () => {
     loading.value = true;
     error.value = null;
     try {
-      packages.value = await invoke<SoftwareInfo[]>("list_software");
+      packages.value = await softwareApi.listSoftware();
     } catch (e) {
       error.value = String(e);
     } finally {
@@ -52,7 +52,7 @@ export const usePackageStore = defineStore("packages", () => {
    * @returns 上游版本号字符串
    */
   async function checkVersion(pkgname: string): Promise<string> {
-    return await invoke<string>("check_upstream_version", { pkgname });
+    return await softwareApi.checkUpstreamVersion(pkgname);
   }
 
   return { packages, loading, error, fetchPackages, checkVersion };

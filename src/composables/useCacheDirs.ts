@@ -7,8 +7,8 @@
  * - 统一处理缓存目录的增删改查逻辑，避免在多个组件中重复
  */
 import { ref } from "vue";
-import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "../stores/settings";
+import * as settingsApi from "@/api/settings";
 
 export interface CacheDir {
   name: string;
@@ -35,13 +35,13 @@ export async function loadCacheDirs(): Promise<CacheDir[]> {
   // 7 个设置键并行读取（Promise.all 并发，显著快于逐个 await）
   const [systemPath, systemEnabled, paruPath, paruEnabled, yayPath, yayEnabled, customDirs] =
     await Promise.all([
-      invoke<{ value: string } | null>("get_setting", { key: "cache_dir_system" }),
-      invoke<{ value: string } | null>("get_setting", { key: "cache_dir_system_enabled" }),
-      invoke<{ value: string } | null>("get_setting", { key: "cache_dir_paru" }),
-      invoke<{ value: string } | null>("get_setting", { key: "cache_dir_paru_enabled" }),
-      invoke<{ value: string } | null>("get_setting", { key: "cache_dir_yay" }),
-      invoke<{ value: string } | null>("get_setting", { key: "cache_dir_yay_enabled" }),
-      invoke<{ value: string } | null>("get_setting", { key: "cache_dirs_custom" }),
+      settingsApi.getSetting("cache_dir_system"),
+      settingsApi.getSetting("cache_dir_system_enabled"),
+      settingsApi.getSetting("cache_dir_paru"),
+      settingsApi.getSetting("cache_dir_paru_enabled"),
+      settingsApi.getSetting("cache_dir_yay"),
+      settingsApi.getSetting("cache_dir_yay_enabled"),
+      settingsApi.getSetting("cache_dirs_custom"),
     ]);
 
   // 系统缓存（默认）
@@ -101,13 +101,13 @@ export async function loadEnabledCacheDirs(): Promise<CacheDirSimple[]> {
 
   const [systemDir, systemEnabled, paruDir, paruEnabled, yayDir, yayEnabled, customDirs] =
     await Promise.all([
-      invoke<{ value: string } | null>("get_setting", { key: "cache_dir_system" }),
-      invoke<{ value: string } | null>("get_setting", { key: "cache_dir_system_enabled" }),
-      invoke<{ value: string } | null>("get_setting", { key: "cache_dir_paru" }),
-      invoke<{ value: string } | null>("get_setting", { key: "cache_dir_paru_enabled" }),
-      invoke<{ value: string } | null>("get_setting", { key: "cache_dir_yay" }),
-      invoke<{ value: string } | null>("get_setting", { key: "cache_dir_yay_enabled" }),
-      invoke<{ value: string } | null>("get_setting", { key: "cache_dirs_custom" }),
+      settingsApi.getSetting("cache_dir_system"),
+      settingsApi.getSetting("cache_dir_system_enabled"),
+      settingsApi.getSetting("cache_dir_paru"),
+      settingsApi.getSetting("cache_dir_paru_enabled"),
+      settingsApi.getSetting("cache_dir_yay"),
+      settingsApi.getSetting("cache_dir_yay_enabled"),
+      settingsApi.getSetting("cache_dirs_custom"),
     ]);
 
   // 系统缓存

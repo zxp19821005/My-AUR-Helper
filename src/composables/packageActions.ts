@@ -8,10 +8,10 @@
  * - 操作失败时在底部状态栏显示错误信息
  */
 import { ref, inject } from "vue";
-import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { FOOTER_KEY, addMessage } from "./footer";
 import { openConfirm as confirm } from "./useConfirm";
+import * as softwareApi from "@/api/software";
 
 /**
  * 软件包操作钩子
@@ -57,10 +57,10 @@ export function usePackageActions(
     try {
       const list = Array.from(selectedPkgnames);
       if (list.length) {
-        await invoke("update_aur_info", { pkgnameList: list });
+        await softwareApi.updateAurInfo(list);
         await refreshEntries(list);
       } else {
-        await invoke("sync_from_aur");
+        await softwareApi.syncFromAur();
         await fetchView();
       }
     } catch (e) {
@@ -88,11 +88,11 @@ export function usePackageActions(
       const list = Array.from(selectedPkgnames);
       if (list.length) {
         for (const pkgname of list) {
-          await invoke("sync_from_pkgbuild", { pkgname });
+          await softwareApi.syncFromPkgbuild(pkgname);
         }
         await refreshEntries(list);
       } else {
-        await invoke("sync_from_pkgbuild", { pkgname: null });
+        await softwareApi.syncFromPkgbuild(null);
         await fetchView();
       }
     } catch (e) {
@@ -111,10 +111,10 @@ export function usePackageActions(
     try {
       const list = Array.from(selectedPkgnames);
       if (list.length) {
-        await invoke("update_aur_info", { pkgnameList: list });
+        await softwareApi.updateAurInfo(list);
         await refreshEntries(list);
       } else {
-        await invoke("update_aur_info", { pkgnameList: null });
+        await softwareApi.updateAurInfo(null);
         await fetchView();
       }
     } catch (e) {
@@ -130,10 +130,10 @@ export function usePackageActions(
     try {
       const list = Array.from(selectedPkgnames);
       if (list.length) {
-        await invoke("check_selected_upstream", { pkgnameList: list });
+        await softwareApi.checkSelectedUpstream(list);
         await refreshEntries(list);
       } else {
-        await invoke("check_all_upstream");
+        await softwareApi.checkAllUpstream();
         await fetchView();
       }
     } catch (e) {
@@ -153,7 +153,7 @@ export function usePackageActions(
     if (!(await confirm({ message: `确认删除选中的 ${list.length} 个软件包？`, variant: "danger" }))) return;
     loading.value = true;
     try {
-      await invoke("batch_delete_software", { pkgnameList: list });
+      await softwareApi.batchDeleteSoftware(list);
       setSelectedPkgnames(new Set());
       await refreshEntries(list);
     } catch (e) {
@@ -167,7 +167,7 @@ export function usePackageActions(
   async function rowSyncFromAur(pkgname: string) {
     setRowLoading(pkgname, "sync-aur");
     try {
-      await invoke("update_aur_info", { pkgnameList: [pkgname] });
+      await softwareApi.updateAurInfo([pkgname]);
       await refreshEntries([pkgname]);
     } catch (e) {
       showError(`${pkgname}: ${e}`);
@@ -180,7 +180,7 @@ export function usePackageActions(
   async function rowSyncFromPkgbuild(pkgname: string) {
     setRowLoading(pkgname, "sync-pkgbuild");
     try {
-      await invoke("sync_from_pkgbuild", { pkgname });
+      await softwareApi.syncFromPkgbuild(pkgname);
       await refreshEntries([pkgname]);
     } catch (e) {
       showError(`${pkgname}: ${e}`);
@@ -193,7 +193,7 @@ export function usePackageActions(
   async function rowCheckUpstream(pkgname: string) {
     setRowLoading(pkgname, "check-upstream");
     try {
-      await invoke("check_selected_upstream", { pkgnameList: [pkgname] });
+      await softwareApi.checkSelectedUpstream([pkgname]);
       await refreshEntries([pkgname]);
     } catch (e) {
       showError(`${pkgname}: ${e}`);
@@ -211,7 +211,7 @@ export function usePackageActions(
     if (!(await confirm({ message: `确认删除 ${pkgname}？`, variant: "danger" }))) return;
     setRowLoading(pkgname, "delete");
     try {
-      await invoke("batch_delete_software", { pkgnameList: [pkgname] });
+      await softwareApi.batchDeleteSoftware([pkgname]);
       setSelectedPkgnames(
         new Set(Array.from(selectedPkgnames).filter((n) => n !== pkgname))
       );

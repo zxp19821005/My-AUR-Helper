@@ -8,17 +8,7 @@
  */
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import { invoke } from "@tauri-apps/api/core";
-
-/** Setting 类型定义 */
-interface Setting {
-  id?: number;
-  key: string;
-  value: string;
-  description?: string;
-  category: string;
-  created_at?: string;
-}
+import * as settingsApi from "@/api/settings";
 
 export const useSettingsStore = defineStore("settings", () => {
   /** 设置缓存 - 键值对形式存储所有设置 */
@@ -27,7 +17,7 @@ export const useSettingsStore = defineStore("settings", () => {
   /** 获取设置值（始终从数据库读取，避免跨窗口缓存不一致） */
   async function getSetting(key: string, defaultValue: string = ""): Promise<string> {
     try {
-      const setting = await invoke<Setting | null>("get_setting", { key });
+      const setting = await settingsApi.getSetting(key);
       if (setting && setting.value) {
         settingsCache.value[key] = setting.value;
         return setting.value;
@@ -46,14 +36,14 @@ export const useSettingsStore = defineStore("settings", () => {
 
   /** 设置值并更新缓存 */
   async function setSetting(key: string, value: string): Promise<void> {
-    await invoke("set_setting", { key, value });
+    await settingsApi.setSetting(key, value);
     settingsCache.value[key] = value;
   }
 
   /** 刷新指定设置的缓存 */
   async function refreshSetting(key: string): Promise<void> {
     try {
-      const setting = await invoke<Setting | null>("get_setting", { key });
+      const setting = await settingsApi.getSetting(key);
       if (setting && setting.value) {
         settingsCache.value[key] = setting.value;
       }
@@ -65,7 +55,7 @@ export const useSettingsStore = defineStore("settings", () => {
   /** 刷新所有设置缓存 */
   async function refreshAllSettings(): Promise<void> {
     try {
-      const allSettings = await invoke<Setting[]>("get_settings");
+      const allSettings = await settingsApi.getSettings();
       allSettings.forEach((s) => {
         if (s.value) {
           settingsCache.value[s.key] = s.value;

@@ -10,9 +10,10 @@
  * sudoers 提示弹窗。
  */
 import { ref, inject } from "vue";
-import { invoke } from "@tauri-apps/api/core";
 import { FOOTER_KEY, addMessage } from "./footer";
 import { useSudoers } from "./useSudoers";
+import * as cacheApi from "@/api/cache";
+import * as sudoersApi from "@/api/sudoers";
 
 export function useCacheInstall() {
   const footer = inject(FOOTER_KEY)!;
@@ -29,8 +30,8 @@ export function useCacheInstall() {
     loadSudoersCommand,
     closeSudoersPrompt,
   } = useSudoers({
-    checkCommand: "check_cache_install_sudoers",
-    getCommand: "get_cache_install_sudoers_command",
+    checkFn: sudoersApi.checkCacheInstallSudoers,
+    getCommandFn: sudoersApi.getCacheInstallSudoersCommand,
   });
 
   // 信息弹窗状态
@@ -55,7 +56,7 @@ export function useCacheInstall() {
     infoDialogLoading.value = true;
     infoDialogContent.value = "";
     try {
-      const output = await invoke<string>("get_cache_package_info", { fullPath });
+      const output = await cacheApi.getCachePackageInfo(fullPath);
       infoDialogContent.value = output;
     } catch (e) {
       infoDialogContent.value = `获取信息失败: ${e}`;
@@ -90,7 +91,7 @@ export function useCacheInstall() {
   async function doInstall(fullPath: string, pkgname: string) {
     installing.value = true;
     try {
-      await invoke<string>("install_cache_package", { fullPath });
+      await cacheApi.installCachePackage(fullPath);
       addMessage(footer, "success", `${pkgname} 安装成功`);
       // 成功：关闭 sudoers 提示弹窗
       showSudoersPrompt.value = false;

@@ -17,7 +17,6 @@
 -->
 <script setup lang="ts">
 import { ref, inject } from "vue";
-import { invoke } from "@tauri-apps/api/core";
 import { useCacheList } from "../composables/useCacheList";
 import { fmtEpoch } from "../composables/useBackupList";
 import { useCacheBackupActions } from "../composables/useCacheBackupActions";
@@ -27,6 +26,7 @@ import { useCacheInstall } from "../composables/useCacheInstall";
 import { useCacheInfoNav, cacheColumns } from "../composables/useCacheInfoNav";
 import { FOOTER_KEY, addMessage } from "../composables/footer";
 import { openConfirm as confirm } from "../composables/useConfirm";
+import * as cacheApi from "@/api/cache";
 import BackupToModal from "../components/backup/BackupToModal.vue";
 import BackupInfoDialog from "../components/backup/BackupInfoDialog.vue";
 import BackupSudoersDialog from "../components/backup/BackupSudoersDialog.vue";
@@ -121,7 +121,7 @@ async function handleClearTable() {
   if (!(await confirm({ message: "确定要清空缓存表吗？", variant: "danger" }))) return;
   loading.value = true;
   try {
-    const count = await invoke<number>("clear_cache_software");
+    const count = await cacheApi.clearCacheSoftware();
     await loadEntries();
     addMessage(footer, "success", `已清空缓存表，删除 ${count} 条记录`);
   } catch (e) {

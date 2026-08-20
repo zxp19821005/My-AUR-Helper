@@ -11,10 +11,10 @@
 -->
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, inject, watch } from "vue";
-import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { FOOTER_KEY, addMessage } from "../composables/footer";
 import { openConfirm as confirm } from "../composables/useConfirm";
+import * as settingsApi from "@/api/settings";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
 import StandardizedBadge from "../components/base/StandardizedBadge.vue";
 import LogToolbar from "../components/common/LogToolbar.vue";
@@ -88,7 +88,7 @@ function stopLogListener() {
 async function loadInitialLogs() {
   loading.value = true;
   try {
-    const result = await invoke<LogEntry[]>("get_logs", { limit: 500 });
+    const result = await settingsApi.getLogs(500);
     // 使用 JSON 序列化/反序列化来确保数据是普通对象
     const serialized = JSON.stringify(result);
     const parsed = JSON.parse(serialized);
@@ -113,7 +113,7 @@ async function clearLogs() {
   if (!(await confirm({ message: "确定要清空当天日志吗？", variant: "danger" }))) return;
   loading.value = true;
   try {
-    await invoke("clear_logs");
+    await settingsApi.clearLogs();
     addMessage(footer, "success", "已清空当天日志");
     await loadInitialLogs();
   } catch (e) {

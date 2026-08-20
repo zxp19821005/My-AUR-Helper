@@ -7,10 +7,10 @@
  * - 支持筛选器功能（快速筛选 + 条件筛选）
  */
 import { computed, ref, shallowRef, triggerRef, watch, inject, onMounted } from "vue";
-import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "../stores/settings";
 import { FOOTER_KEY } from "./footer";
 import type { SoftwareListEntry } from "../types";
+import * as softwareApi from "@/api/software";
 
 /** 筛选条件类型 */
 export interface FilterState {
@@ -170,7 +170,7 @@ export function usePackageList() {
 
   async function fetchView() {
     try {
-      entries.value = await invoke<SoftwareListEntry[]>("list_software_view");
+      entries.value = await softwareApi.listSoftwareView();
     } finally {
       syncToolbar();
     }
@@ -192,7 +192,7 @@ export function usePackageList() {
     try {
       const results = await Promise.all(
         pkgnames.map((name) =>
-          invoke<SoftwareListEntry | null>("get_software_list_entry", { pkgname: name })
+          softwareApi.getSoftwareListEntry(name)
         )
       );
       const byName = new Map(results.filter(Boolean).map((e) => [e!.pkgname, e!]));

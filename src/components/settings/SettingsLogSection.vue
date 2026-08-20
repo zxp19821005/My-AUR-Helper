@@ -11,9 +11,9 @@
 -->
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
-import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "../../stores/settings";
 import { useSettingsDraft } from "../../composables/useSettingsDraft";
+import * as settingsApi from "@/api/settings";
 import SettingsCard from "./SettingsCard.vue";
 import SettingRow from "./SettingRow.vue";
 import SettingsActionBar from "./SettingsActionBar.vue";
@@ -41,7 +41,7 @@ const displayLogDir = computed(() => draft.value.log_dir || defaultLogDir);
 
 onMounted(async () => {
   try {
-    const settings = await invoke<{ key: string; value: string }[]>("get_settings");
+    const settings = await settingsApi.getSettings();
     const get = (k: string) => settings.find((s) => s.key === k)?.value ?? "";
     draft.value = {
       log_max_size: get("log_max_size"),
@@ -68,7 +68,7 @@ async function handleSave() {
       settingsStore.setSetting("log_dir", draft.value.log_dir),
       settingsStore.setSetting("log_prefix", draft.value.log_prefix),
     ]);
-    await invoke("apply_log_settings");
+    await settingsApi.applyLogSettings();
     commit();
     showMessage("已保存");
   } catch {

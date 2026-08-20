@@ -6,9 +6,9 @@
   - 显示加载状态
 -->
 <script setup lang="ts">
-import { invoke } from "@tauri-apps/api/core";
 import type { SoftwareDetail } from "../../types";
 import { openConfirm as confirm } from "../../composables/useConfirm";
+import * as softwareApi from "@/api/software";
 import PackageActionButtons from "./PackageActionButtons.vue";
 
 const props = defineProps<{
@@ -38,7 +38,7 @@ async function handleDelete() {
   deleting.value = true;
   error.value = "";
   try {
-    await invoke("delete_software", { softwareId: props.detail.software_id });
+    await softwareApi.deleteSoftware(props.detail.software_id);
     emit("deleted");
   } catch (e) {
     error.value = String(e);
@@ -52,7 +52,7 @@ async function updateAurInfo() {
   updatingAur.value = true;
   error.value = "";
   try {
-    await invoke<number>("update_aur_info", { pkgnameList: [props.detail.pkgname] });
+    await softwareApi.updateAurInfo([props.detail.pkgname]);
     successMsg.value = "AUR 信息更新完成";
     emit("update-aur");
   } catch (e) {
@@ -68,7 +68,7 @@ async function updatePkgbuild() {
   updatingPkgbuild.value = true;
   error.value = "";
   try {
-    await invoke<number>("sync_from_pkgbuild", { pkgname: props.detail.pkgname });
+    await softwareApi.syncFromPkgbuild(props.detail.pkgname);
     successMsg.value = "PKGBUILD 信息更新完成";
     emit("update-pkgbuild");
   } catch (e) {
@@ -84,7 +84,7 @@ async function checkUpdate() {
   checking.value = true;
   error.value = "";
   try {
-    await invoke<string>("check_upstream_version", { pkgname: props.detail.pkgname });
+    await softwareApi.checkUpstreamVersion(props.detail.pkgname);
     successMsg.value = "上游版本检查完成";
     emit("check-update");
   } catch (e) {

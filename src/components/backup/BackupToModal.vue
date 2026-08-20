@@ -10,8 +10,8 @@
 -->
 <script setup lang="ts">
 import { ref, watch, inject } from "vue";
-import { invoke } from "@tauri-apps/api/core";
 import { FOOTER_KEY, addMessage } from "../../composables/footer";
+import * as cacheApi from "@/api/cache";
 import StandardizedModal from "../common/StandardizedModal.vue";
 import StandardizedButton from "../base/StandardizedButton.vue";
 
@@ -43,11 +43,11 @@ async function handleBackupTo() {
   }
   backingUp.value = true;
   try {
-    const result = await invoke<[number, string[]]>("backup_cache_to_subdirectory", {
-      filenames: props.selectedFilenames,
-      backupPath: props.backupPath,
-      subdirectory: backupToSubdirectory.value,
-    });
+    const result = await cacheApi.backupCacheToSubdirectory(
+      props.selectedFilenames,
+      props.backupPath,
+      backupToSubdirectory.value,
+    );
     emit("success", result);
     emit("close");
   } catch (e) {

@@ -17,8 +17,8 @@
 <script setup lang="ts">
 import { ref, onMounted, inject } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { invoke } from "@tauri-apps/api/core";
 import { FOOTER_KEY } from "../composables/footer";
+import * as softwareApi from "@/api/software";
 import { useSoftwareForm } from "../composables/useSoftwareForm";
 import SoftwareFormModal from "../components/package/SoftwareFormModal.vue";
 import PackageBasicInfoCard from "../components/package/PackageBasicInfoCard.vue";
@@ -52,7 +52,7 @@ function syncFooter() {
 
 async function loadNav(pkgname: string) {
   try {
-    const [prev, next] = await invoke<[string | null, string | null]>("get_prev_next_software", { pkgname });
+    const [prev, next] = await softwareApi.getPrevNextSoftware(pkgname);
     prevPkgname.value = prev;
     nextPkgname.value = next;
   } catch {

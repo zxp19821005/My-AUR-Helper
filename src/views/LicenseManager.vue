@@ -15,10 +15,10 @@
 -->
 <script setup lang="ts">
 import { ref, computed, reactive, watch, onMounted } from "vue";
-import { invoke } from "@tauri-apps/api/core";
 import type { License } from "../types";
 import type { FooterState } from "../composables/footer";
 import { defaultFooterState } from "../composables/footer";
+import * as licenseApi from "@/api/license";
 import BaseFormModal, { type FormField } from "../components/common/BaseFormModal.vue";
 import { useSettingsStore } from "../stores/settings";
 import { openConfirm as confirm } from "../composables/useConfirm";
@@ -88,7 +88,7 @@ onMounted(async () => {
 
 async function loadLicenses() {
   try {
-    licenses.value = await invoke<License[]>("get_licenses");
+    licenses.value = await licenseApi.getLicenses();
   } catch (e) {
     message.value = "加载失败: " + String(e);
   }
@@ -98,7 +98,7 @@ async function syncFromSPDX() {
   syncing.value = true;
   message.value = "";
   try {
-    const count = await invoke<number>("sync_licenses_from_spdx");
+    const count = await licenseApi.syncLicensesFromSpdx();
     message.value = `已同步 ${count} 个 SPDX License`;
     await loadLicenses();
   } catch (e) {
@@ -125,16 +125,9 @@ function openEdit(lic: License) {
 async function handleSave(data: Record<string, string>) {
   try {
     if (modalMode.value === "add") {
-      await invoke("add_license", {
-        spdxId: data.spdx_id.trim(),
-        fullName: data.full_name.trim(),
-      });
+      await licenseApi.addLicense(data.spdx_id.trim(), data.full_name.trim());
     } else {
-      await invoke("update_license", {
-        id: modalId.value,
-        spdxId: data.spdx_id.trim(),
-        fullName: data.full_name.trim(),
-      });
+      await licenseApi.updateLicense(modalId.value!, data.spdx_id.trim(), data.full_name.trim());
     }
     showModal.value = false;
     message.value = modalMode.value === "add" ? "已添加 License" : "已更新 License";
@@ -147,7 +140,7 @@ async function handleSave(data: Record<string, string>) {
 async function handleDelete(lic: License) {
   if (!(await confirm({ message: `确定要删除 License "${lic.spdx_id}" 吗？`, variant: "danger" }))) return;
   try {
-    await invoke("delete_license", { id: lic.id });
+    await licenseApi.deleteLicense(lic.id!);
     message.value = "已删除 License";
     await loadLicenses();
   } catch (e) {

@@ -9,10 +9,10 @@
  * 使用场景：CacheManager.vue 页面
  */
 import { ref, type Ref } from "vue";
-import { invoke } from "@tauri-apps/api/core";
 import { addMessage, type FooterState } from "./footer";
-import type { DeduplicateResult } from "../types";
 import { openConfirm as confirm } from "./useConfirm";
+import * as backupApi from "@/api/backup";
+import * as cacheApi from "@/api/cache";
 
 /**
  * 创建缓存备份操作集合
@@ -43,9 +43,7 @@ export function useCacheBackupActions(
     if (!(await confirm({ message: "确定要对备份目录进行去重吗？将删除旧版本文件。", variant: "danger" }))) return;
     loading.value = true;
     try {
-      const result = await invoke<DeduplicateResult>("deduplicate_backups", {
-        backupPath: backupPath.value,
-      });
+      const result = await backupApi.deduplicateBackups(backupPath.value);
       const msg = `去重完成：删除 ${result.removed_files} 个文件，${result.removed_records} 条记录`;
       if (result.errors.length > 0) {
         addMessage(footer, "warning", `${msg}，错误: ${result.errors.join("; ")}`);
@@ -75,11 +73,8 @@ export function useCacheBackupActions(
     }
     loading.value = true;
     try {
-      const [success, errors] = await invoke<[number, string[]]>(
-        "backup_cache_to_existing",
-        {
-          backupPath: backupPath.value,
-        }
+      const [success, errors] = await cacheApi.backupCacheToExisting(
+        backupPath.value,
       );
       notifyBackupResult(success, errors);
     } catch (e) {

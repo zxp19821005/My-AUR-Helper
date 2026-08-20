@@ -33,11 +33,11 @@
 
 **收益**：移除约 60 行死代码，消除语义矛盾，行为可预测。
 
-### A1：前端缺少统一 API 抽象层 — Medium — 建议（延后）
+### A1：前端缺少统一 API 抽象层 — Medium — ✅ 已实施
 
 **问题**：`src/composables/*`、`src/stores/*`、`src/components/**` 直接散落 `invoke("command")`，同一命令多处重复（如 `delete_software` 出现在 3 处、`update_aur_info` 出现在 4 处）；store 与 composable 职责重叠（如 `stores/packages.ts` 与 `composables/usePackageList.ts` 都拉包列表）。
 
-**改造思路**：新增 `src/api/`，按领域导出封装函数（如 `api/software.ts`、`api/proxy.ts`），组件/composable 只调用 service，集中处理错误与类型。属较大重构，本次未实施，建议作为下一周期专项。
+**实施**：新增 `src/api/` 目录，按领域拆分为 9 个模块（software/proxy/license/language/settings/backup/cache/dashboard/sudoers），集中封装全部 ~80 处 `invoke` 调用。所有 composable/store/component/view 不再直接 import `invoke`，统一通过 `api/*` 模块访问后端。`ProxyTestResult` 类型从 composable 迁移到 `types/proxy.ts`。`useSudoers` 重构为接受 api 回调函数（消除动态命令名调度）。`vue-tsc --noEmit` + `vite build` 验证 0 error。
 
 ### A3：版本比对 + 写入逻辑重复 — Medium — ✅ 已修复
 

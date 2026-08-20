@@ -11,10 +11,10 @@
 -->
 <script setup lang="ts">
 import { ref, onMounted, nextTick, computed } from "vue";
-import { invoke } from "@tauri-apps/api/core";
 import type { Setting } from "../../types";
 import { useSettingsStore } from "../../stores/settings";
 import { useSettingsDraft } from "../../composables/useSettingsDraft";
+import * as settingsApi from "@/api/settings";
 import StandardizedCard from "../base/StandardizedCard.vue";
 import StandardizedInput from "../base/StandardizedInput.vue";
 import SettingRow from "./SettingRow.vue";
@@ -52,7 +52,7 @@ onMounted(async () => {
 async function load() {
   loading.value = true;
   try {
-    const all = await invoke<Setting[]>("get_settings");
+    const all = await settingsApi.getSettings();
     const filtered = all.filter((s) => s.category === props.category);
     // 用加载结果同时初始化 saved 与 draft
     draft.value = filtered.map((s) => ({ ...s }));

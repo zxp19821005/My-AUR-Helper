@@ -18,13 +18,14 @@
 -->
 <script setup lang="ts">
 import { onMounted, ref, inject } from "vue";
-import { invoke } from "@tauri-apps/api/core";
 import { useBackupList, fmtEpoch } from "../composables/useBackupList";
 import { useBackupInstall } from "../composables/useBackupInstall";
 import { useBackupInfoNav } from "../composables/useBackupInfoNav";
 import { FOOTER_KEY, addMessage } from "../composables/footer";
 import { openConfirm as confirm } from "../composables/useConfirm";
-import type { DeduplicateResult, BackupSoftwareEntry } from "../types";
+import type { BackupSoftwareEntry } from "../types";
+import * as settingsApi from "@/api/settings";
+import * as backupApi from "@/api/backup";
 import PageToolbar from "../components/common/PageToolbar.vue";
 import StandardizedTable from "../components/common/StandardizedTable.vue";
 import BackupRowActions from "../components/backup/BackupRowActions.vue";
@@ -59,7 +60,7 @@ const scanning = ref(false);
 
 async function loadSettings() {
   try {
-    const setting = await invoke<{ value: string } | null>("get_setting", { key: "backup_dir" });
+    const setting = await settingsApi.getSetting("backup_dir");
     if (setting) backupPath.value = setting.value;
   } catch (e) {
     console.error("加载备份目录设置失败:", e);
@@ -68,7 +69,7 @@ async function loadSettings() {
 
 async function loadSubdirectories() {
   try {
-    subdirectories.value = await invoke<string[]>("list_backup_subdirectories");
+    subdirectories.value = await backupApi.listBackupSubdirectories();
   } catch (e) {
     console.error("加载备份子目录失败:", e);
   }
@@ -83,7 +84,7 @@ async function handleClearTable() {
   if (!(await confirm({ message: "确定要清空备份表吗？这只会删除数据库记录，不会删除磁盘文件。", variant: "danger" }))) return;
   loading.value = true;
   try {
-    const count = await invoke<number>("clear_backup_software");
+    const count = await backupApi.clearBackupSoftware();
     addMessage(footer, "success", `已清空备份表，删除 ${count} 条记录`);
     await fetchEntries();
     await loadSubdirectories();
@@ -101,7 +102,7 @@ async function handleScanDirectory() {
   }
   scanning.value = true;
   try {
-    const count = await invoke<number>("scan_backup_directory", { backupPath: backupPath.value });
+    const count = await backupApi.scanBackupDirectory(backupPath.value);
     addMessage(footer, "success", `扫描完成，新增 ${count} 条备份记录`);
     await fetchEntries();
     await loadSubdirectories();
@@ -120,7 +121,7 @@ async function handleDeduplicate() {
   if (!(await confirm({ message: "确定要执行软件去重吗？将删除每个包的旧版本文件和数据库记录。", variant: "danger" }))) return;
   loading.value = true;
   try {
-    const result = await invoke<DeduplicateResult>("deduplicate_backups", { backupPath: backupPath.value });
+    const result = await backupApi.deduplicateBackups(backupPath.value);
     const msg = `去重完成：删除 ${result.removed_files} 个文件，${result.removed_records} 条记录`;
     if (result.errors.length > 0) {
       addMessage(footer, "warning", `${msg}，错误: ${result.errors.join("; ")}`);
@@ -139,7 +140,7 @@ async function rowDelete(id: number, filename: string) {
   if (!(await confirm({ message: `确定要删除备份文件 ${filename} 吗？`, variant: "danger" }))) return;
   loading.value = true;
   try {
-    await invoke("delete_backup", { id, backupPath: backupPath.value });
+    await backupApi.deleteBackup(id, backupPath.value);
     addMessage(footer, "success", `已删除备份文件 ${filename}`);
     await fetchEntries();
     await loadSubdirectories();

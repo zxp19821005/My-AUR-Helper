@@ -14,9 +14,10 @@
 -->
 <script setup lang="ts">
 import { ref, watch, onMounted } from "vue";
-import { invoke } from "@tauri-apps/api/core";
 import type { SoftwareDetail, Language } from "../../types";
 import { openConfirm as confirm } from "../../composables/useConfirm";
+import * as softwareApi from "@/api/software";
+import * as languageApi from "@/api/language";
 import StandardizedModal from "../common/StandardizedModal.vue";
 import SoftwareFormModal from "./SoftwareFormModal.vue";
 import NavPager from "../common/NavPager.vue";
@@ -52,7 +53,7 @@ const languages = ref<Language[]>([]);
 
 async function loadLanguages() {
   try {
-    languages.value = await invoke<Language[]>("get_languages");
+    languages.value = await languageApi.getLanguages();
   } catch {
     // ignore
   }
@@ -67,9 +68,7 @@ async function loadSoftware() {
   loading.value = true;
   error.value = "";
   try {
-    detail.value = await invoke<SoftwareDetail | null>("get_software_detail", {
-      pkgname: props.pkgname,
-    });
+    detail.value = await softwareApi.getSoftwareDetail(props.pkgname);
     if (!detail.value) error.value = "未找到软件包";
     await loadNav();
   } catch (e) {
@@ -81,10 +80,7 @@ async function loadSoftware() {
 
 async function loadNav() {
   try {
-    const [prev, next] = await invoke<[string | null, string | null]>(
-      "get_prev_next_software",
-      { pkgname: props.pkgname }
-    );
+    const [prev, next] = await softwareApi.getPrevNextSoftware(props.pkgname);
     prevPkgname.value = prev;
     nextPkgname.value = next;
   } catch {
@@ -103,9 +99,7 @@ async function updateAurInfo() {
   updatingAur.value = true;
   error.value = "";
   try {
-    await invoke<number>("update_aur_info", {
-      pkgnameList: [detail.value.pkgname],
-    });
+    await softwareApi.updateAurInfo([detail.value.pkgname]);
     await loadSoftware();
     emit("entryUpdated", detail.value.pkgname);
   } catch (e) {
@@ -120,9 +114,7 @@ async function updatePkgbuild() {
   updatingPkgbuild.value = true;
   error.value = "";
   try {
-    await invoke<number>("sync_from_pkgbuild", {
-      pkgname: detail.value.pkgname,
-    });
+    await softwareApi.syncFromPkgbuild(detail.value.pkgname);
     await loadSoftware();
     emit("entryUpdated", detail.value.pkgname);
   } catch (e) {
@@ -137,9 +129,7 @@ async function checkUpdate() {
   checking.value = true;
   error.value = "";
   try {
-    await invoke<string>("check_upstream_version", {
-      pkgname: detail.value.pkgname,
-    });
+    await softwareApi.checkUpstreamVersion(detail.value.pkgname);
     await loadSoftware();
     emit("entryUpdated", detail.value.pkgname);
   } catch (e) {
@@ -155,7 +145,7 @@ async function handleDelete() {
   deleting.value = true;
   error.value = "";
   try {
-    await invoke("delete_software", { softwareId: detail.value.software_id });
+    await softwareApi.deleteSoftware(detail.value.software_id);
     emit("close");
   } catch (e) {
     error.value = String(e);
