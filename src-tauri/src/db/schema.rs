@@ -38,6 +38,7 @@ impl Database {
                 makedepends     TEXT,
                 optdepends      TEXT,
                 out_of_date     INTEGER,
+                last_sync_error TEXT DEFAULT NULL,
                 FOREIGN KEY (software_id) REFERENCES software_info(software_id) ON DELETE CASCADE
             );
 
@@ -48,6 +49,7 @@ impl Database {
                 upstream_license_id TEXT,
                 last_checked       INTEGER,
                 upstream_url_status TEXT DEFAULT NULL,
+                last_check_error   TEXT DEFAULT NULL,
                 FOREIGN KEY (software_id) REFERENCES software_info(software_id) ON DELETE CASCADE
             );
 

@@ -1,0 +1,70 @@
+classDiagram
+    class SettingCategoryMeta {
+        +string key
+        +string label
+        +string icon
+        +string description?
+    }
+
+    class SETTING_CATEGORIES {
+        <<constant>>
+        +SettingCategoryMeta[] categories
+    }
+
+    class LogViewer {
+        -LogEntry[] logs
+        -boolean loading
+        -string searchQuery
+        -string levelFilter
+        -number pageSize
+        -number currentPage
+        -LogEntry[] logBuffer
+        -setTimeout bufferTimer
+        +startLogListener()
+        +flushLogBuffer()
+        +loadInitialLogs()
+        +clearLogs()
+    }
+
+    class PackageListViewToggle {
+        +string viewMode
+        +toggleView(mode: string)
+    }
+
+    class PackageTable {
+        +entries: any[]
+        +searchQuery: string
+        +pageSize: number
+        +currentPage: number
+        +isRowLoading: function
+        +viewMode: "table" | "grid"
+        +columns: Column[]
+        +pageSizeOptions: number[]
+    }
+
+    class PackageGrid {
+        +entries: any[]
+        +viewMode: "grid"
+    }
+
+    class ColumnConfigPopover {
+        +columns: Column[]
+        +visibleColumns: string[]
+        +toggleColumn(key: string)
+        +saveVisibility()
+    }
+
+    class SettingsDynamicSection {
+        +category: string
+        +draft: Ref~Setting[]~
+        +dirty: ComputedRef~boolean~
+        +load()
+        +handleSave()
+        +reset()
+    }
+
+    SETTING_CATEGORIES --> SettingCategoryMeta : contains
+    PackageListViewToggle ..> PackageTable : controls
+    PackageTable ..> PackageGrid : delegates to grid mode
+    PackageTable ..> ColumnConfigPopover : uses for column config
+    SettingsDynamicSection ..> SettingCategoryMeta : uses category meta

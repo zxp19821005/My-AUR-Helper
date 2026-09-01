@@ -170,7 +170,8 @@ onMounted(() => {
 
 <template>
   <div class="dashboard">
-    <PageToolbar @refresh="loadAll" />
+    <!-- 仪表盘无筛选面板，关闭折叠筛选按钮，避免中间区出现无响应的孤立按钮 -->
+    <PageToolbar @refresh="loadAll" :show-filter-button="false" />
 
     <!-- 模块总览 -->
     <section class="module-section">

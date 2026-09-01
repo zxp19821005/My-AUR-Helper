@@ -114,6 +114,10 @@ export interface SoftwareListEntry {
   upstream_url: string | null;
   upstream_url_status: UpstreamUrlStatus | null;
   upstream_license_id: string | null;
+  /** 最近一次 AUR 同步的错误原因（成功/从未同步为 null） */
+  aur_sync_error: string | null;
+  /** 最近一次上游检查的错误原因（成功/从未检查为 null） */
+  upstream_check_error: string | null;
 }
 
 /** 上游 URL 验证结果 */

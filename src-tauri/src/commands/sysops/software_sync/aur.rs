@@ -84,37 +84,53 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
     // 收集所有同步结果到内存
     let mut sync_results: Vec<AurSyncResult> = Vec::new();
 
+    // AUR RPC 未返回的包名：视为同步失败，需打错误标记（此前静默跳过，
+    // 导致「AUR 中查不到」与「同步成功但无版本」在列表里无法区分）
+    let mut missing_ids: Vec<i64> = Vec::new();
+    let mut missing_names: Vec<String> = Vec::new();
+
     for pkgname in &pkgnames {
-        if let Some(data) = pkgname_to_data.get(pkgname) {
-            debug!("处理软件包: {}", pkgname);
-
-            let fields = parse_aur_fields(data);
-
-            let db = state.db.lock()?;
-            let sw = db.get_software_by_name(pkgname)?;
-            if let Some(existing) = sw {
-                if let Some(sid) = existing.software_id {
-                    // AUR 同步只更新 aur_info 表，不更新 software_info 表
-                    // software_info 的字段（上游URL、检查器类型、包类型等）只在用户手动设置时更新
-                    sync_results.push(AurSyncResult {
-                        pkgname: pkgname.clone(),
-                        software_id: sid,
-                        desc: fields.desc,
-                        version: fields.version,
-                        url: fields.url,
-                        last_modified: fields.last_modified,
-                        license_spdx: fields.license_spdx,
-                        depends: fields.depends,
-                        makedepends: fields.makedepends,
-                        optdepends: fields.optdepends,
-                        out_of_date: fields.out_of_date,
-                        package_type: existing.package_type_id,
-                        checker_type: existing.checker_type_id,
-                        check_test_versions: existing.check_test_versions,
-                        check_binary_files: existing.check_binary_files,
-                        need_update_software: false,
-                    });
+        let data = match pkgname_to_data.get(pkgname) {
+            Some(d) => d,
+            None => {
+                let db = state.db.lock()?;
+                if let Some(existing) = db.get_software_by_name(pkgname)? {
+                    if let Some(sid) = existing.software_id {
+                        missing_ids.push(sid);
+                        missing_names.push(pkgname.clone());
+                    }
                 }
+                continue;
+            }
+        };
+        debug!("处理软件包: {}", pkgname);
+
+        let fields = parse_aur_fields(data);
+
+        let db = state.db.lock()?;
+        let sw = db.get_software_by_name(pkgname)?;
+        if let Some(existing) = sw {
+            if let Some(sid) = existing.software_id {
+                // AUR 同步只更新 aur_info 表，不更新 software_info 表
+                // software_info 的字段（上游URL、检查器类型、包类型等）只在用户手动设置时更新
+                sync_results.push(AurSyncResult {
+                    pkgname: pkgname.clone(),
+                    software_id: sid,
+                    desc: fields.desc,
+                    version: fields.version,
+                    url: fields.url,
+                    last_modified: fields.last_modified,
+                    license_spdx: fields.license_spdx,
+                    depends: fields.depends,
+                    makedepends: fields.makedepends,
+                    optdepends: fields.optdepends,
+                    out_of_date: fields.out_of_date,
+                    package_type: existing.package_type_id,
+                    checker_type: existing.checker_type_id,
+                    check_test_versions: existing.check_test_versions,
+                    check_binary_files: existing.check_binary_files,
+                    need_update_software: false,
+                });
             }
         }
     }
@@ -135,11 +151,29 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
             makedepends: result.makedepends.clone(),
             optdepends: result.optdepends.clone(),
             out_of_date: result.out_of_date,
+            // 命中即同步成功，清空上一次留下的失败标记
+            last_sync_error: None,
         };
         if let Err(e) = db.upsert_aur_info(&aur_info) {
+            // 写入失败本身也是同步失败，回写错误原因便于列表中筛选定位
+            let _ = db.mark_aur_sync_error(result.software_id, "写入数据库失败");
             errors.push(format!("更新 {} 的 AUR 信息失败: {}", result.pkgname, e));
         }
         count += 1;
+    }
+
+    // AUR 中查不到的包：只打失败标记，保留原有版本信息
+    for sid in &missing_ids {
+        if let Err(e) = db.mark_aur_sync_error(*sid, "AUR 中未找到该包") {
+            errors.push(format!("标记 software_id={} 同步失败失败: {}", sid, e));
+        }
+    }
+    if !missing_names.is_empty() {
+        warn!(
+            "[sync_from_aur] AUR 未返回 {} 个包，已标记同步失败: {:?}",
+            missing_names.len(),
+            missing_names
+        );
     }
 
     if !errors.is_empty() {
@@ -232,6 +266,8 @@ pub async fn update_aur_info(
                     makedepends: fields.makedepends,
                     optdepends: fields.optdepends,
                     out_of_date: fields.out_of_date,
+                    // 更新成功，清空上一次失败的标记
+                    last_sync_error: None,
                 };
                 if let Err(e) = db.upsert_aur_info(&info) {
                     errors.push(format!("更新 {} 的 AUR 信息失败: {}", pkgname, e));

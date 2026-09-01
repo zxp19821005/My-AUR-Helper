@@ -3,9 +3,12 @@
  *
  * 功能：
  * - clean_system_cache: 清理系统缓存 /var/cache/pacman/pkg（删除所有文件和目录）
- * - clean_custom_cache_dirs: 清理自定义 AUR 软件助手缓存目录（删除构建目录，保留隐藏文件）
+ * - clean_custom_cache_dirs: 清理自定义 AUR 软件助手缓存目录（仅删除已知缓存产物）
  * - check_cache_cleanup_sudoers: 检测缓存清理 sudoers 配置
  * - get_cache_cleanup_sudoers_command: 获取缓存清理 sudoers 配置命令
+ *
+ * 安全修复 (R11): clean_custom_cache_dirs 仅删除已知缓存产物，
+ * 防止误设目录导致用户数据丢失。
  */
 use log::info;
 use tauri::State;
@@ -13,6 +16,21 @@ use tauri::State;
 use crate::commands::sysops::backup_install::build_pacman_install_rules;
 use crate::errors::AppResult;
 use crate::AppState;
+
+/// 已知的缓存产物文件名后缀白名单
+const CACHE_FILE_SUFFIXES: &[&str] = &[
+    ".pkg.tar.zst",  // 二进制包文件
+    ".SRCINFO",      // AUR 源码信息
+    "PKGBUILD",      // AUR 构建脚本
+];
+
+/// 已知可安全删除的子目录名（构建缓存目录）
+const CACHE_SUBDIR_WHITELIST: &[&str] = &[
+    "pkg",
+    "src",
+    ".BUILD",
+    ".SRCINFO",
+];
 
 /// 清理系统缓存 /var/cache/pacman/pkg
 ///
@@ -55,7 +73,8 @@ pub async fn clean_system_cache() -> AppResult<String> {
 
 /// 清理自定义 AUR 软件助手缓存目录
 ///
-/// 只删除构建目录内容，保留隐藏文件和文件夹
+/// 安全修复 (R11): 仅删除已知缓存产物（.pkg.tar.zst 文件及特定构建子目录），
+/// 不再删除所有非隐藏内容，防止误设目录导致用户数据丢失。
 #[tauri::command]
 pub async fn clean_custom_cache_dirs(state: State<'_, AppState>) -> AppResult<String> {
     info!("[缓存清理] 开始清理自定义缓存目录");
@@ -83,7 +102,7 @@ pub async fn clean_custom_cache_dirs(state: State<'_, AppState>) -> AppResult<St
             continue;
         }
 
-        // 读取目录内容
+        // 安全修复 (R11): 仅读取目录内容，精确删除已知缓存产物
         match tokio::fs::read_dir(&dir.path).await {
             Ok(mut entries) => {
                 while let Some(entry) = entries.next_entry().await.unwrap_or(None) {
@@ -96,7 +115,28 @@ pub async fn clean_custom_cache_dirs(state: State<'_, AppState>) -> AppResult<St
                         continue;
                     }
 
-                    // 删除非隐藏的文件和文件夹
+                    let is_deletable = if entry_path.is_file() {
+                        // 仅删除已知缓存产物文件
+                        CACHE_FILE_SUFFIXES
+                            .iter()
+                            .any(|ext| entry_name.ends_with(ext))
+                    } else if entry_path.is_dir() {
+                        // 仅删除已知构建缓存子目录
+                        CACHE_SUBDIR_WHITELIST.contains(&entry_name.as_str())
+                    } else {
+                        false
+                    };
+
+                    if !is_deletable {
+                        log::debug!(
+                            "[缓存清理] 跳过非缓存项: {} ({})",
+                            entry_path.display(),
+                            entry_name
+                        );
+                        continue;
+                    }
+
+                    // 删除已识别的缓存项
                     match tokio::fs::remove_dir_all(&entry_path).await {
                         Ok(_) => {
                             log::debug!("[缓存清理] 已删除目录: {}", entry_path.display());
@@ -105,7 +145,11 @@ pub async fn clean_custom_cache_dirs(state: State<'_, AppState>) -> AppResult<St
                         Err(_) => {
                             // 尝试删除文件
                             if let Err(e) = tokio::fs::remove_file(&entry_path).await {
-                                errors.push(format!("删除 {} 失败: {}", entry_path.display(), e));
+                                errors.push(format!(
+                                    "删除 {} 失败: {}",
+                                    entry_path.display(),
+                                    e
+                                ));
                             } else {
                                 log::debug!("[缓存清理] 已删除文件: {}", entry_path.display());
                                 cleaned_count += 1;

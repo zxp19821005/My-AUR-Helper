@@ -39,12 +39,23 @@ fn format_backup_version(entry: &crate::models::BackupSoftwareEntry) -> String {
 /// 3. 对于每个备份记录，检查是否有对应的缓存包
 /// 4. 如果缓存包版本比备份包版本更新，则复制到备份目录
 /// 5. 返回备份结果（成功数量和错误列表）
+///
+/// 安全修复 (R1): 在写入前校验 backup_path 是否落在允许的备份根目录下，防止路径穿越
 #[tauri::command]
 pub async fn backup_cache_to_existing(
     state: State<'_, AppState>,
     backup_path: String,
 ) -> AppResult<(usize, Vec<String>)> {
     info!("[缓存备份] 开始自动比较版本并备份新版本");
+
+    // 安全修复 (R1): 校验备份路径，防止路径穿越
+    let backup_root = {
+        let db = state.db.lock().map_err(|e| {
+            crate::errors::AppError::DatabaseError(format!("获取数据库锁失败: {}", e))
+        })?;
+        std::path::PathBuf::from(crate::commands::sysops::backup_install::read_backup_dir(&db))
+    };
+    crate::commands::sysops::backup_install::validate_backup_path(&backup_path, "", &backup_root)?;
 
     let mut success_count = 0;
     let mut errors = Vec::new();

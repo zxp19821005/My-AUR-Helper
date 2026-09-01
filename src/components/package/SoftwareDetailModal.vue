@@ -16,6 +16,7 @@
 import { ref, watch, onMounted } from "vue";
 import type { SoftwareDetail, Language } from "../../types";
 import { openConfirm as confirm } from "../../composables/useConfirm";
+import { feDebug } from "@/utils/felog";
 import * as softwareApi from "@/api/software";
 import * as languageApi from "@/api/language";
 import StandardizedModal from "../common/StandardizedModal.vue";
@@ -67,24 +68,23 @@ async function loadSoftware() {
   if (!props.pkgname) return;
   loading.value = true;
   error.value = "";
+  const t0 = performance.now();
   try {
-    detail.value = await softwareApi.getSoftwareDetail(props.pkgname);
-    if (!detail.value) error.value = "未找到软件包";
-    await loadNav();
+    // 并行获取「详情」与「前后导航项」：原实现为串行（先详情后导航），两个 IPC 往返叠加，
+    // 是点击查看详情后 1-2 秒延迟的主要前端来源。并行后只需一次往返。
+    const [detailRes, navRes] = await Promise.all([
+      softwareApi.getSoftwareDetail(props.pkgname),
+      softwareApi.getPrevNextSoftware(props.pkgname),
+    ]);
+    feDebug("Detail", `getSoftwareDetail + getPrevNext 并行耗时 ${Math.round(performance.now() - t0)}ms`);
+    detail.value = detailRes;
+    if (!detailRes) error.value = "未找到软件包";
+    prevPkgname.value = navRes[0];
+    nextPkgname.value = navRes[1];
   } catch (e) {
     error.value = String(e);
   } finally {
     loading.value = false;
-  }
-}
-
-async function loadNav() {
-  try {
-    const [prev, next] = await softwareApi.getPrevNextSoftware(props.pkgname);
-    prevPkgname.value = prev;
-    nextPkgname.value = next;
-  } catch {
-    /* ignore */
   }
 }
 
@@ -173,7 +173,7 @@ watch(
     <template #error v-if="error">{{ error }}</template>
 
     <div class="detail-header">
-      <h3 class="modal-title">{{ detail?.pkgname || "软件详情" }}</h3>
+      <h3 class="modal-title">{{ detail?.pkgname || props.pkgname || "软件详情" }}</h3>
     </div>
 
     <NavPager variant="floating" :prev="prevPkgname" :next="nextPkgname" @navigate="navigate" />

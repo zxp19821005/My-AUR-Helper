@@ -46,7 +46,10 @@ let unlisten: UnlistenFn | null = null;
 let nextId = 0;
 
 /** 日志内存上限：超过后丢弃最旧条目，防止长会话内存无限增长 */
-const MAX_LOG_ENTRIES = 1000;
+const MAX_LOG_ENTRIES = 2000;
+
+/** 防抖定时器 */
+let logDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 onMounted(async () => {
   // 从设置中读取每页显示行数
@@ -59,20 +62,24 @@ onUnmounted(() => {
   stopLogListener();
 });
 
-/** 监听 Tauri 日志事件 */
+/** 监听 Tauri 日志事件（带防抖） */
 async function startLogListener() {
   unlisten = await listen("log-entry", (event) => {
     const payload = event.payload as LogEntry;
     if (payload) {
-      // 新日志插入到开头（倒序：最新的在前）
-      logs.value.unshift({
-        ...payload,
-        _id: nextId++,
-      });
-      // 限制内存占用：只保留最近 MAX_LOG_ENTRIES 条
-      if (logs.value.length > MAX_LOG_ENTRIES) {
-        logs.value.length = MAX_LOG_ENTRIES;
-      }
+      // 使用防抖：避免高频日志导致频繁重渲染
+      if (logDebounceTimer) clearTimeout(logDebounceTimer);
+      logDebounceTimer = setTimeout(() => {
+        // 新日志插入到开头（倒序：最新的在前）
+        logs.value.unshift({
+          ...payload,
+          _id: nextId++,
+        });
+        // 限制内存占用：只保留最近 MAX_LOG_ENTRIES 条
+        if (logs.value.length > MAX_LOG_ENTRIES) {
+          logs.value.length = MAX_LOG_ENTRIES;
+        }
+      }, 100);
     }
   });
 }

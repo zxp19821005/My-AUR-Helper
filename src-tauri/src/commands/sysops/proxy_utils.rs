@@ -202,3 +202,38 @@ pub fn build_client_with_redirect(
 
     builder.build().unwrap_or_default()
 }
+
+/// 使用统一客户端构建策略（推荐使用）
+///
+/// 基于 http_client 模块的统一策略，优化超时配置。
+/// 代理在客户端级别配置，确保 GitHub 请求走代理，非 GitHub 请求不走代理。
+///
+/// # 参数
+/// * `timeout_secs` - 请求超时秒数
+/// * `use_proxy` - 是否为请求启用代理
+/// * `follow_redirects` - 是否自动跟随重定向
+///
+/// # Returns
+/// 配置好的 HTTP 客户端
+pub fn build_client_with_policy(
+    timeout_secs: u64,
+    use_proxy: bool,
+    follow_redirects: bool,
+) -> reqwest::Client {
+    use crate::http_client::{build_client as hc_build_client, ClientConfig};
+
+    let config = ClientConfig {
+        timeout_secs,
+        connect_timeout_secs: 10,
+        use_proxy,
+        follow_redirects,
+    };
+
+    // 对于需要代理的请求，使用专用代理客户端
+    if use_proxy {
+        return crate::http_client::build_proxy_client(timeout_secs);
+    }
+
+    // 其他请求使用默认客户端（不带代理）
+    hc_build_client(&config)
+}

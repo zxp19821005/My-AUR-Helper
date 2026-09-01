@@ -22,4 +22,9 @@ pub struct AurInfo {
     pub optdepends: Option<String>,
     /// 是否被标记为过期
     pub out_of_date: Option<bool>,
+    /// 最近一次 AUR 同步的错误原因（同步成功时为 None）
+    ///
+    /// 用于区分「从未同步 / 同步成功但 AUR 无版本」与「同步失败」两类状态：
+    /// 仅凭 aur_version 为空无法判断是接口查不到该包还是网络异常。
+    pub last_sync_error: Option<String>,
 }

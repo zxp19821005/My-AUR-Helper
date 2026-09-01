@@ -14,10 +14,13 @@
 <script setup lang="ts">
 import { useRouter } from "vue-router";
 import { useTabStore } from "../../stores/tabs";
+import { useRefreshStore } from "../../stores/refresh";
 import { Icon } from "../../icons";
+import { openPopup } from "../../composables/usePopupWindow";
 
 const router = useRouter();
 const tabStore = useTabStore();
+const refreshStore = useRefreshStore();
 
 /**
  * 切换到指定标签页
@@ -41,44 +44,100 @@ function closeTab(path: string, event: Event) {
   tabStore.closeTab(path);
   router.push(tabStore.activeTab);
 }
+
+function openEnums() {
+  openPopup("enums", "/enums", "枚举值管理");
+}
+
+function openLogs() {
+  openPopup("logs", "/logs", "日志");
+}
+
+function openSettings() {
+  openPopup("settings", "/settings", "设置");
+}
+
+/**
+ * 通用刷新按钮 - 触发当前路由页面的刷新回调
+ * 由各页面通过 useRefreshSubscription 订阅
+ */
+function handleRefresh() {
+  refreshStore.trigger();
+}
 </script>
 
 <template>
-  <!-- 标签栏容器 - 水平滚动显示所有已打开的标签 -->
+  <!-- 标签栏容器 - 水平排列，左侧标签页，右侧工具按钮 -->
   <div class="tab-bar">
-    <div
-      v-for="tab in tabStore.openTabs"
-      :key="tab.path"
-      class="tab"
-      :class="{ active: tabStore.activeTab === tab.path }"
-      @click="switchTab(tab.path)"
-    >
-      <!-- 标签图标 -->
-      <component :is="tab.icon" :size="14" class="tab-icon" />
-      <!-- 标签文字 -->
-      <span class="tab-label">{{ tab.label }}</span>
-      <!-- 关闭按钮 - 默认隐藏，悬停时显示 -->
-      <button class="tab-close" @click="closeTab(tab.path, $event)" title="关闭">
-        <component :is="Icon.actionClear" :size="12" />
+    <!-- 左侧：已打开的标签页 -->
+    <div class="tab-bar-tabs">
+      <div
+        v-for="tab in tabStore.openTabs"
+        :key="tab.path"
+        class="tab"
+        :class="{ active: tabStore.activeTab === tab.path }"
+        @click="switchTab(tab.path)"
+      >
+        <!-- 标签图标 -->
+        <component :is="tab.icon" :size="14" class="tab-icon" />
+        <!-- 标签文字 -->
+        <span class="tab-label">{{ tab.label }}</span>
+        <!-- 关闭按钮 - 默认隐藏，悬停时显示 -->
+        <button class="tab-close" @click="closeTab(tab.path, $event)" title="关闭">
+          <component :is="Icon.actionClear" :size="12" />
+        </button>
+      </div>
+    </div>
+
+    <!-- 右侧：工具按钮 -->
+    <div class="tab-bar-actions">
+      <button class="tab-action-btn" @click="openEnums" title="枚举值管理">
+        <component :is="Icon.menuEnums" :size="16" />
+      </button>
+      <button class="tab-action-btn" @click="openLogs" title="日志">
+        <component :is="Icon.menuLogs" :size="16" />
+      </button>
+      <button class="tab-action-btn" @click="openSettings" title="设置">
+        <component :is="Icon.navSettings" :size="16" />
+      </button>
+      <button class="tab-action-btn tab-action-refresh" @click="handleRefresh" title="刷新数据">
+        <component :is="Icon.actionRefresh" :size="16" />
       </button>
     </div>
   </div>
 </template>
 
 <style scoped>
-/* 标签栏容器 - 水平排列，可滚动 */
+/* 标签栏容器 - 水平排列，左右分布 */
 .tab-bar {
   display: flex;
   align-items: center;
   background-color: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
   height: 36px;
-  overflow-x: auto;
-  scrollbar-width: none;  /* Firefox 隐藏滚动条 */
 }
 
-.tab-bar::-webkit-scrollbar {
-  display: none;  /* WebKit 隐藏滚动条 */
+/* 左侧标签页容器 */
+.tab-bar-tabs {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tab-bar-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+/* 右侧工具按钮容器 */
+.tab-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding-right: 0.5rem;
+  flex-shrink: 0;
 }
 
 /* 单个标签 - 图标+文字+关闭按钮 */
@@ -131,16 +190,46 @@ function closeTab(path: string, event: Event) {
   padding: 0.125rem;
   border-radius: 3px;
   margin-left: 0.25rem;
-  opacity: 0;          /* 默认隐藏 */
+  opacity: 0;
   transition: opacity 0.15s;
 }
 
 .tab:hover .tab-close {
-  opacity: 1;          /* 悬停时显示 */
+  opacity: 1;
 }
 
 .tab-close:hover {
   background-color: var(--bg-card);
-  color: var(--error);  /* 关闭按钮悬停变红 */
+  color: var(--error);
+}
+
+/* 工具按钮 */
+.tab-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tab-action-btn:hover {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+}
+
+/* 刷新按钮 - 蓝色强调 */
+.tab-action-refresh {
+  color: #3b82f6;
+}
+
+.tab-action-refresh:hover {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
 }
 </style>

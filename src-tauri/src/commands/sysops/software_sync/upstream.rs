@@ -151,6 +151,8 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
                 upstream_license_id,
                 last_checked: Some(chrono::Utc::now().timestamp()),
                 upstream_url_status: None,
+                // 命中即检查成功，清空上一次留下的失败标记
+                last_check_error: None,
             };
             if let Err(e) = db.upsert_upstream_info(&upstream_info) {
                 error!(
@@ -166,6 +168,8 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
 
             success_results.push((result.pkgname.clone(), result.upstream_version.clone()));
         } else {
+            // 检查失败 / 未返回版本：写入错误标记，供列表「上游更新失败」筛选定位
+            let _ = db.mark_upstream_check_error(result.software_id, "检查未返回上游版本");
             if let Err(e) = db.update_software_outdated(result.software_id, false) {
                 error!(
                     "[版本检查] 更新 {} 的 is_outdated 失败: {}",

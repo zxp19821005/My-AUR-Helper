@@ -8,17 +8,21 @@ use super::Database; // 数据库结构体
 
 impl Database {
     /// 插入或更新 AUR 包信息
+    ///
+    /// 同步成功时调用方应把 `last_sync_error` 置为 None，以清除上一次失败留下
+    /// 的错误标记（错误与成功互斥，列表筛选据此区分「同步失败」与「无版本」）。
     /// @param info - AUR 包信息（按 software_id 去重）
     pub fn upsert_aur_info(&self, info: &AurInfo) -> AppResult<()> {
         self.conn.execute(
             "INSERT INTO aur_info (software_id, pkgdesc, aur_version, license_id, last_updated, \
-             depends, makedepends, optdepends, out_of_date) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) \
+             depends, makedepends, optdepends, out_of_date, last_sync_error) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10) \
              ON CONFLICT(software_id) DO UPDATE SET \
                 pkgdesc=excluded.pkgdesc, aur_version=excluded.aur_version, \
                 license_id=excluded.license_id, last_updated=excluded.last_updated, \
                 depends=excluded.depends, makedepends=excluded.makedepends, \
-                optdepends=excluded.optdepends, out_of_date=excluded.out_of_date",
+                optdepends=excluded.optdepends, out_of_date=excluded.out_of_date, \
+                last_sync_error=excluded.last_sync_error",
             rusqlite::params![
                 info.software_id,
                 info.pkgdesc,
@@ -29,7 +33,22 @@ impl Database {
                 info.makedepends,
                 info.optdepends,
                 info.out_of_date.map(|b| b as i32),
+                info.last_sync_error,
             ],
+        )?;
+        Ok(())
+    }
+
+    /// 仅记录 AUR 同步失败原因（保留原有版本等字段，只覆盖错误列）
+    ///
+    /// 用于「AUR RPC 查询不到该包」或「网络/解析异常」等无法写入完整信息的场景。
+    /// @param software_id - 软件包 ID
+    /// @param reason - 失败原因（人类可读的简短描述）
+    pub fn mark_aur_sync_error(&self, software_id: i64, reason: &str) -> AppResult<()> {
+        self.conn.execute(
+            "INSERT INTO aur_info (software_id, last_sync_error) VALUES (?1, ?2) \
+             ON CONFLICT(software_id) DO UPDATE SET last_sync_error=excluded.last_sync_error",
+            rusqlite::params![software_id, reason],
         )?;
         Ok(())
     }
@@ -40,7 +59,8 @@ impl Database {
     pub fn get_aur_info(&self, software_id: i64) -> AppResult<Option<AurInfo>> {
         let mut stmt = self.conn.prepare(
             "SELECT software_id, pkgdesc, aur_version, license_id, \
-             CAST(last_updated AS INTEGER), depends, makedepends, optdepends, out_of_date \
+             CAST(last_updated AS INTEGER), depends, makedepends, optdepends, out_of_date, \
+             last_sync_error \
              FROM aur_info WHERE software_id=?1",
         )?;
         let mut rows = stmt.query_map(rusqlite::params![software_id], |row| {
@@ -54,6 +74,7 @@ impl Database {
                 makedepends: row.get(6)?,
                 optdepends: row.get(7)?,
                 out_of_date: row.get::<_, Option<i32>>(8)?.map(|v| v != 0),
+                last_sync_error: row.get(9)?,
             })
         })?;
         Ok(rows.next().transpose()?)

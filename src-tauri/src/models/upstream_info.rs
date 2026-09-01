@@ -59,4 +59,9 @@ pub struct UpstreamInfo {
     pub upstream_license_id: Option<String>,
     pub last_checked: Option<i64>,
     pub upstream_url_status: Option<UpstreamUrlStatus>,
+    /// 最近一次上游检查的错误原因（检查成功时为 None）
+    ///
+    /// 用于区分「检查成功但上游未发布版本」与「检查失败」两类状态：
+    /// 仅凭 upstream_version 为空无法判断是上游确实无版本还是请求异常。
+    pub last_check_error: Option<String>,
 }

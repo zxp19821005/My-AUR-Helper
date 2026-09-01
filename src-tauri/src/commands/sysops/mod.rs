@@ -32,6 +32,9 @@ pub mod backup_basic;
 /// 版本检查（上游版本检查、批量检查）
 pub mod software_check;
 
+/// 单软件包版本检查（从 software_check 拆分）
+pub mod software_check_single;
+
 /// 软件包同步（AUR 同步、上游检查、PKGBUILD 同步）
 pub mod software_sync;
 
@@ -60,7 +63,8 @@ pub use cache_install::{
     check_cache_install_sudoers, get_cache_install_sudoers_command, get_cache_package_info,
     install_cache_package,
 };
-pub use software_check::{check_selected_upstream, check_upstream_version};
+pub use software_check::check_selected_upstream;
+pub use software_check_single::check_upstream_version;
 pub use software_sync::{check_all_upstream, sync_from_aur, sync_from_pkgbuild, update_aur_info};
 pub use sys_command::{get_package_version, list_installed_packages};
 pub use upstream_validate::validate_upstream_urls;

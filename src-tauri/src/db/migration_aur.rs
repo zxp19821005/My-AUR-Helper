@@ -5,6 +5,7 @@
  * - 移除已废弃的列（provides, conflicts, replaces 等）
  * - 标准化 last_updated 列为 Unix 时间戳
  * - 将 license_id 从 INTEGER 改为 TEXT（存储 JSON 数组）
+ * - 补齐 last_sync_error 列（AUR 同步失败原因，供列表「AUR更新失败」筛选使用）
  */
 use crate::errors::AppResult;
 
@@ -91,6 +92,21 @@ impl Database {
             self.conn.execute_batch("PRAGMA foreign_keys=ON;")?;
         }
 
+        self.migrate_aur_error_column()?;
+
+        Ok(())
+    }
+
+    /// 补齐 last_sync_error 列（幂等）
+    ///
+    /// 老库建表时没有该列，`CREATE TABLE IF NOT EXISTS` 不会补列，
+    /// 故在此用 ALTER TABLE 增量添加；列已存在时直接跳过。
+    pub fn migrate_aur_error_column(&self) -> AppResult<()> {
+        let columns = self.get_table_columns("aur_info")?;
+        if !columns.contains(&"last_sync_error".to_string()) {
+            self.conn
+                .execute_batch("ALTER TABLE aur_info ADD COLUMN last_sync_error TEXT DEFAULT NULL;")?;
+        }
         Ok(())
     }
 }

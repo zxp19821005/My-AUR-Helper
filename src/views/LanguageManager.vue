@@ -146,7 +146,7 @@ function handleRowClick(row: ProgrammingLanguage) {
 
 <template>
   <div class="language-manager">
-    <PageToolbar v-model="searchQuery" @refresh="loadLanguages">
+    <PageToolbar v-model="searchQuery" @refresh="loadLanguages" :show-filter-button="false">
         <button
           class="btn-icon btn-icon-success"
           @click="openAdd"

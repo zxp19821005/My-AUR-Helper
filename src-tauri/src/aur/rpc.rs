@@ -1,4 +1,5 @@
 use crate::errors::AppResult;
+use crate::network::retry::{retry_with_backoff, DEFAULT_MAX_RETRIES};
 use log::{debug, info, warn};
 use reqwest::Client;
 
@@ -18,7 +19,20 @@ pub struct AurPackageData {
     pub last_modified: Option<i64>,
 }
 
+/// 使用指数退避重试从 AUR RPC 获取用户发布的包列表
 pub async fn fetch_packages_by_user(
+    client: &Client,
+    username: &str,
+) -> AppResult<Vec<AurPackageData>> {
+    retry_with_backoff(DEFAULT_MAX_RETRIES, || {
+        let client = client.clone();
+        let username = username.to_string();
+        async move { do_fetch_packages_by_user(&client, &username).await }
+    })
+    .await
+}
+
+async fn do_fetch_packages_by_user(
     client: &Client,
     username: &str,
 ) -> AppResult<Vec<AurPackageData>> {
@@ -103,7 +117,20 @@ pub async fn fetch_packages_by_user(
     Ok(all)
 }
 
+/// 使用指数退避重试获取单个包的 AUR 信息
 pub async fn get_package_info(
+    client: &Client,
+    pkgname: &str,
+) -> AppResult<Option<serde_json::Value>> {
+    retry_with_backoff(DEFAULT_MAX_RETRIES, || {
+        let client = client.clone();
+        let pkgname = pkgname.to_string();
+        async move { do_get_package_info(&client, &pkgname).await }
+    })
+    .await
+}
+
+async fn do_get_package_info(
     client: &Client,
     pkgname: &str,
 ) -> AppResult<Option<serde_json::Value>> {
@@ -123,6 +150,7 @@ pub async fn get_package_info(
     }
 }
 
+/// 批量获取多个包的 AUR 信息（带批次间间隔，失败时不重试整个批次）
 pub async fn get_packages_info(
     client: &Client,
     pkgnames: &[String],
@@ -177,10 +205,10 @@ pub async fn get_packages_info(
 
                 if !status.is_success() {
                     warn!("[AUR 批量查询] 请求失败: HTTP {}", status);
-                    // 记录响应内容以便诊断
                     if let Ok(text) = resp.text().await {
                         warn!("[AUR 批量查询] 错误响应: {}", &text[..text.len().min(500)]);
                     }
+                    // 批次内失败不重试，继续下一批（AUR 限流保护）
                     continue;
                 }
 

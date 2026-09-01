@@ -162,7 +162,7 @@ function handleRowClick(row: License) {
 
 <template>
   <div class="license-manager">
-    <PageToolbar v-model="searchQuery" @refresh="loadLicenses">
+    <PageToolbar v-model="searchQuery" @refresh="loadLicenses" :show-filter-button="false">
       <button
         class="btn-icon btn-icon-accent"
         :disabled="syncing"

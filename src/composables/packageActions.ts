@@ -1,22 +1,30 @@
 /**
- * packageActions.ts - 软件包操作逻辑
+ * packageActions.ts - 软件包操作逻辑（组合版）
  *
  * 功能：
- * - 提供包管理的同步、检查、删除等操作
- * - 支持批量操作和单行操作
- * - 管理加载状态和进度反馈
- * - 操作失败时在底部状态栏显示错误信息
+ * - 组合同步、检查、删除等操作
+ * - 提供统一的加载状态管理
+ *
+ * 子模块：
+ * - packageSyncActions: 同步操作
+ * - packageCheckActions: 版本检查操作
+ * - packageDeleteActions: 删除操作
  */
-import { ref, inject } from "vue";
-import { listen } from "@tauri-apps/api/event";
-import { FOOTER_KEY, addMessage } from "./footer";
-import { openConfirm as confirm } from "./useConfirm";
-import * as softwareApi from "@/api/software";
+import { ref } from "vue";
+import { usePackageSyncActions } from "./packageSyncActions";
+import { usePackageCheckActions } from "./packageCheckActions";
+import { usePackageDeleteActions } from "./packageDeleteActions";
+
+export interface PackageBatchStats {
+  success: number;
+  failed: number;
+  total: number;
+}
 
 /**
- * 软件包操作钩子
- * @param fetchView - 整表刷新列表的回调函数（新增/全量同步时使用）
- * @param refreshEntries - 定向刷新指定软件包条目的回调函数（单包/多包更新时使用）
+ * 软件包操作钩子（组合版）
+ * @param fetchView - 整表刷新列表的回调函数
+ * @param refreshEntries - 定向刷新指定软件包条目的回调函数
  * @param syncToolbar - 同步工具栏状态的回调函数
  */
 export function usePackageActions(
@@ -24,220 +32,34 @@ export function usePackageActions(
   refreshEntries: (pkgnames: string[]) => Promise<void>,
   syncToolbar: () => void
 ) {
-  const footer = inject(FOOTER_KEY)!;
-
   // 全局加载状态（用于工具栏批量操作）
   const loading = ref(false);
-  // 按包名+操作类型追踪加载状态（用于行操作）
-  const loadingKeys = ref(new Set<string>());
-  let unlistenProgress: (() => void) | null = null;
+  // 批量操作统计
+  const batchStats = ref<PackageBatchStats>({ success: 0, failed: 0, total: 0 });
 
-  function isRowLoading(pkgname: string, action?: string): boolean {
-    if (action) {
-      return loadingKeys.value.has(`${pkgname}:${action}`);
-    }
-    return Array.from(loadingKeys.value).some(k => k.startsWith(`${pkgname}:`));
-  }
-
-  function setRowLoading(pkgname: string, action: string) {
-    loadingKeys.value.add(`${pkgname}:${action}`);
-  }
-
-  function clearRowLoading(pkgname: string, action: string) {
-    loadingKeys.value.delete(`${pkgname}:${action}`);
-  }
-
-  /** 显示错误信息（记录到日志面板） */
-  function showError(msg: string) {
-    addMessage(footer, "error", msg);
-  }
-
-  async function syncFromAur(selectedPkgnames: Set<string>) {
-    loading.value = true;
-    try {
-      const list = Array.from(selectedPkgnames);
-      if (list.length) {
-        await softwareApi.updateAurInfo(list);
-        await refreshEntries(list);
-      } else {
-        await softwareApi.syncFromAur();
-        await fetchView();
-      }
-    } catch (e) {
-      showError(String(e));
-    } finally {
-      loading.value = false;
-      syncToolbar();
-    }
-  }
-
-  async function syncFromPkgbuild(selectedPkgnames: Set<string>) {
-    loading.value = true;
-    footer.progress = { current: 0, total: 1, message: "准备中..." };
-    try {
-      unlistenProgress = await listen<{
-        current: number;
-        total: number;
-        pkgname: string;
-        message: string;
-      }>("sync-progress", (event) => {
-        const { current, total, message } = event.payload;
-        footer.progress = { current, total, message };
-      });
-
-      const list = Array.from(selectedPkgnames);
-      if (list.length) {
-        for (const pkgname of list) {
-          await softwareApi.syncFromPkgbuild(pkgname);
-        }
-        await refreshEntries(list);
-      } else {
-        await softwareApi.syncFromPkgbuild(null);
-        await fetchView();
-      }
-    } catch (e) {
-      showError(String(e));
-    } finally {
-      unlistenProgress?.();
-      unlistenProgress = null;
-      footer.progress = null;
-      loading.value = false;
-      syncToolbar();
-    }
-  }
-
-  async function updateAurInfo(selectedPkgnames: Set<string>) {
-    loading.value = true;
-    try {
-      const list = Array.from(selectedPkgnames);
-      if (list.length) {
-        await softwareApi.updateAurInfo(list);
-        await refreshEntries(list);
-      } else {
-        await softwareApi.updateAurInfo(null);
-        await fetchView();
-      }
-    } catch (e) {
-      showError(String(e));
-    } finally {
-      loading.value = false;
-      syncToolbar();
-    }
-  }
-
-  async function checkSelectedUpstream(selectedPkgnames: Set<string>) {
-    loading.value = true;
-    try {
-      const list = Array.from(selectedPkgnames);
-      if (list.length) {
-        await softwareApi.checkSelectedUpstream(list);
-        await refreshEntries(list);
-      } else {
-        await softwareApi.checkAllUpstream();
-        await fetchView();
-      }
-    } catch (e) {
-      showError(String(e));
-    } finally {
-      loading.value = false;
-      syncToolbar();
-    }
-  }
-
-  async function deleteSelected(
-    selectedPkgnames: Set<string>,
-    setSelectedPkgnames: (v: Set<string>) => void
-  ) {
-    const list = Array.from(selectedPkgnames);
-    if (!list.length) return;
-    if (!(await confirm({ message: `确认删除选中的 ${list.length} 个软件包？`, variant: "danger" }))) return;
-    loading.value = true;
-    try {
-      await softwareApi.batchDeleteSoftware(list);
-      setSelectedPkgnames(new Set());
-      await refreshEntries(list);
-    } catch (e) {
-      showError(String(e));
-    } finally {
-      loading.value = false;
-      syncToolbar();
-    }
-  }
-
-  async function rowSyncFromAur(pkgname: string) {
-    setRowLoading(pkgname, "sync-aur");
-    try {
-      await softwareApi.updateAurInfo([pkgname]);
-      await refreshEntries([pkgname]);
-    } catch (e) {
-      showError(`${pkgname}: ${e}`);
-    } finally {
-      clearRowLoading(pkgname, "sync-aur");
-      syncToolbar();
-    }
-  }
-
-  async function rowSyncFromPkgbuild(pkgname: string) {
-    setRowLoading(pkgname, "sync-pkgbuild");
-    try {
-      await softwareApi.syncFromPkgbuild(pkgname);
-      await refreshEntries([pkgname]);
-    } catch (e) {
-      showError(`${pkgname}: ${e}`);
-    } finally {
-      clearRowLoading(pkgname, "sync-pkgbuild");
-      syncToolbar();
-    }
-  }
-
-  async function rowCheckUpstream(pkgname: string) {
-    setRowLoading(pkgname, "check-upstream");
-    try {
-      await softwareApi.checkSelectedUpstream([pkgname]);
-      await refreshEntries([pkgname]);
-    } catch (e) {
-      showError(`${pkgname}: ${e}`);
-    } finally {
-      clearRowLoading(pkgname, "check-upstream");
-      syncToolbar();
-    }
-  }
-
-  async function rowDeleteSelected(
-    pkgname: string,
-    selectedPkgnames: Set<string>,
-    setSelectedPkgnames: (v: Set<string>) => void
-  ) {
-    if (!(await confirm({ message: `确认删除 ${pkgname}？`, variant: "danger" }))) return;
-    setRowLoading(pkgname, "delete");
-    try {
-      await softwareApi.batchDeleteSoftware([pkgname]);
-      setSelectedPkgnames(
-        new Set(Array.from(selectedPkgnames).filter((n) => n !== pkgname))
-      );
-      await refreshEntries([pkgname]);
-    } catch (e) {
-      showError(`${pkgname}: ${e}`);
-    } finally {
-      clearRowLoading(pkgname, "delete");
-      syncToolbar();
-    }
-  }
+  // 组合各操作模块
+  const syncActions = usePackageSyncActions(fetchView, refreshEntries, syncToolbar);
+  const checkActions = usePackageCheckActions(refreshEntries, syncToolbar);
+  const deleteActions = usePackageDeleteActions(refreshEntries, syncToolbar);
 
   return {
+    // 加载状态
     loading,
-    loadingKeys,
-    isRowLoading,
-    setRowLoading,
-    clearRowLoading,
-    syncFromAur,
-    syncFromPkgbuild,
-    updateAurInfo,
-    checkSelectedUpstream,
-    deleteSelected,
-    rowSyncFromAur,
-    rowSyncFromPkgbuild,
-    rowCheckUpstream,
-    rowDeleteSelected,
+    batchStats,
+    isRowLoading: syncActions.isRowLoading,
+    setRowLoading: syncActions.setRowLoading,
+    clearRowLoading: syncActions.clearRowLoading,
+    // 同步操作
+    syncFromAur: syncActions.syncFromAur,
+    syncFromPkgbuild: syncActions.syncFromPkgbuild,
+    updateAurInfo: syncActions.updateAurInfo,
+    rowSyncFromAur: syncActions.rowSyncFromAur,
+    rowSyncFromPkgbuild: syncActions.rowSyncFromPkgbuild,
+    // 检查操作
+    checkSelectedUpstream: checkActions.checkSelectedUpstream,
+    rowCheckUpstream: checkActions.rowCheckUpstream,
+    // 删除操作
+    deleteSelected: deleteActions.deleteSelected,
+    rowDeleteSelected: deleteActions.rowDeleteSelected,
   };
 }

@@ -4,6 +4,8 @@
  * 功能：
  * - scan_backup_directory: 扫描备份目录并写入数据库
  * - list_backup_subdirectories: 获取所有不重复的子目录列表
+ *
+ * 安全修复 (R8): scan_backup_directory 限制扫描路径必须在数据库配置的备份目录内
  */
 use log::{error, info};
 use tauri::State;
@@ -42,15 +44,52 @@ async fn scan_directory_recursive(
 }
 
 /// 扫描备份目录并写入数据库
+///
+/// 安全修复 (R8): 路径必须与数据库配置的备份目录之一规范后匹配，
+/// 防止任意目录递归扫描。
 #[tauri::command]
 pub async fn scan_backup_directory(
     state: State<'_, AppState>,
     backup_path: String,
 ) -> AppResult<usize> {
+    // R8: 获取允许的备份根目录
+    let backup_root_str = {
+        let db = state.db.lock().map_err(|e| {
+            crate::errors::AppError::DatabaseError(format!("获取数据库锁失败: {}", e))
+        })?;
+        crate::commands::sysops::backup_install::read_backup_dir(&db)
+    };
+    let backup_root = std::path::Path::new(&backup_root_str);
+
+    // R8: 路径必须是绝对路径
+    let request_path = std::path::Path::new(&backup_path);
+    if !request_path.is_absolute() {
+        return Err(crate::errors::AppError::InvalidInput(format!(
+            "备份路径必须是绝对路径: {}",
+            backup_path
+        )));
+    }
+
+    // R8: canonicalize 解析真实路径
+    let canon_request = std::fs::canonicalize(request_path)
+        .map_err(|e| crate::errors::AppError::InvalidInput(format!("无法访问备份路径 {}: {}", backup_path, e)))?;
+
+    // R8: canonicalize 备份根目录
+    let canon_root = std::fs::canonicalize(backup_root)
+        .map_err(|e| crate::errors::AppError::InvalidInput(format!("无法访问备份根目录 {}: {}", backup_root_str, e)))?;
+
+    // R8: 验证请求路径在备份根目录下
+    if !canon_request.starts_with(&canon_root) {
+        return Err(crate::errors::AppError::InvalidInput(format!(
+            "备份路径不在允许的备份目录内: {}（允许: {}）",
+            canon_request.display(),
+            canon_root.display()
+        )));
+    }
+
     info!("[备份管理] 开始扫描备份目录: {}", backup_path);
 
-    let dir_path = std::path::Path::new(&backup_path);
-    if !dir_path.exists() {
+    if !canon_request.exists() {
         return Err(crate::errors::AppError::FileOperation(format!(
             "备份目录不存在: {}",
             backup_path
@@ -58,7 +97,7 @@ pub async fn scan_backup_directory(
     }
 
     let mut found_paths = Vec::new();
-    scan_directory_recursive(dir_path, &mut found_paths).await?;
+    scan_directory_recursive(&canon_request, &mut found_paths).await?;
     info!("[备份管理] 找到 {} 个备份文件", found_paths.len());
 
     let mut scanned_files = Vec::new();
@@ -67,7 +106,7 @@ pub async fn scan_backup_directory(
         if let Some((name, epoch, version, pkgrel, arch)) = parse_pkg_filename(&filename) {
             let subdirectory = path
                 .parent()
-                .and_then(|p| p.strip_prefix(dir_path).ok())
+                .and_then(|p| p.strip_prefix(&canon_request).ok())
                 .map(|p| p.to_string_lossy().to_string())
                 .filter(|s| !s.is_empty());
             let full_path = path.to_string_lossy().to_string();

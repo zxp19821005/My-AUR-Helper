@@ -16,4 +16,8 @@ pub struct SoftwareListEntry {
     pub upstream_url: Option<String>,
     pub upstream_url_status: Option<UpstreamUrlStatus>,
     pub upstream_license_id: Option<String>,
+    /// 最近一次 AUR 同步的错误原因（成功/从未同步为 None）
+    pub aur_sync_error: Option<String>,
+    /// 最近一次上游检查的错误原因（成功/从未检查为 None）
+    pub upstream_check_error: Option<String>,
 }

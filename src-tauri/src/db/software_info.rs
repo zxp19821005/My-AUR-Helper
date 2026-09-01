@@ -19,7 +19,8 @@ const SW_INFO_COLS: &str = "software_id, pkgname, upstream_url, package_type_id,
 const SW_INFO_COLS_S: &str = "s.software_id, s.pkgname, s.upstream_url, s.package_type_id, s.checker_type_id, s.is_outdated, s.check_test_versions, s.check_binary_files, s.auto_check_enabled, s.language_id, s.version_extract_regex";
 
 /// 列表视图 JOIN 查询列清单（software_info + aur_info + upstream_info）
-const SW_LIST_COLS: &str = "s.software_id, s.pkgname, s.package_type_id, s.checker_type_id, s.is_outdated, a.aur_version, CAST(a.last_updated AS INTEGER), u.upstream_version, CAST(u.last_checked AS INTEGER), s.upstream_url, u.upstream_url_status, u.upstream_license_id";
+/// 末两列 last_sync_error / last_check_error 供列表筛选区分「同步失败」与「无版本」
+const SW_LIST_COLS: &str = "s.software_id, s.pkgname, s.package_type_id, s.checker_type_id, s.is_outdated, a.aur_version, CAST(a.last_updated AS INTEGER), u.upstream_version, CAST(u.last_checked AS INTEGER), s.upstream_url, u.upstream_url_status, u.upstream_license_id, a.last_sync_error, u.last_check_error";
 
 impl Database {
     pub fn insert_software(&self, sw: &SoftwareInfo) -> AppResult<i64> {
@@ -234,6 +235,8 @@ impl Database {
             upstream_url: row.get(9)?,
             upstream_url_status: status_str.map(|s| UpstreamUrlStatus::parse_from_str(&s)),
             upstream_license_id: row.get(11)?,
+            aur_sync_error: row.get(12)?,
+            upstream_check_error: row.get(13)?,
         })
     }
 

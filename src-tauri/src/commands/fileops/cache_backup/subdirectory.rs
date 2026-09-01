@@ -16,6 +16,8 @@ use crate::AppState;
 /// 将缓存包备份到指定子目录
 ///
 /// 不检查备份表是否存在，直接复制到指定子目录并插入备份记录。
+///
+/// 安全修复 (R1): 在写入前校验 backup_path 和 subdirectory，防止路径穿越
 #[tauri::command]
 pub async fn backup_cache_to_subdirectory(
     state: State<'_, AppState>,
@@ -29,6 +31,19 @@ pub async fn backup_cache_to_subdirectory(
         subdirectory
     );
 
+    // 安全修复 (R1): 校验备份路径和子目录，防止路径穿越
+    let backup_root = {
+        let db = state.db.lock().map_err(|e| {
+            crate::errors::AppError::DatabaseError(format!("获取数据库锁失败: {}", e))
+        })?;
+        std::path::PathBuf::from(crate::commands::sysops::backup_install::read_backup_dir(&db))
+    };
+    let target_dir = crate::commands::sysops::backup_install::validate_backup_path(
+        &backup_path,
+        &subdirectory,
+        &backup_root,
+    )?;
+
     let mut success_count = 0;
     let mut errors = Vec::new();
 
@@ -40,14 +55,7 @@ pub async fn backup_cache_to_subdirectory(
         get_cache_dirs(&db)?
     };
 
-    // 确定目标目录
-    let target_dir = if subdirectory.is_empty() {
-        std::path::PathBuf::from(&backup_path)
-    } else {
-        std::path::PathBuf::from(&backup_path).join(&subdirectory)
-    };
-
-    // 创建目标目录
+    // 使用校验后的 target_dir（已 canonicalize）
     if let Err(e) = tokio::fs::create_dir_all(&target_dir).await {
         return Err(crate::errors::AppError::FileOperation(format!(
             "创建目录失败: {}",

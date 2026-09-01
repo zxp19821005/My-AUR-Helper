@@ -1,0 +1,31 @@
+sequenceDiagram
+    participant User as 用户
+    participant PackageList as PackageList.vue
+    participant ViewToggle as PackageListViewToggle.vue
+    participant PackageTable as PackageTable.vue
+    participant PackageGrid as PackageGrid.vue
+    participant API as softwareApi
+
+    User->>PackageList: 打开软件包列表页面
+    PackageList->>API: fetchView() 加载软件包数据
+    API-->>PackageList: 返回 SoftwareListEntry[]
+
+    alt 表格视图 (viewMode = 'table')
+        PackageList->>PackageTable: 渲染表格
+        PackageTable->>PackageTable: 使用 StandardizedTable 渲染列
+    else 网格视图 (viewMode = 'grid')
+        PackageList->>PackageGrid: 渲染网格
+        PackageGrid->>PackageGrid: 渲染 PackageCard 卡片
+    end
+
+    User->>ViewToggle: 点击切换视图按钮
+    ViewToggle->>PackageList: emit change (table/grid)
+    PackageList->>PackageList: 更新 viewMode ref
+    PackageList->>PackageList: 持久化到 settings.software_view_mode
+
+    User->>PackageList: 点击列配置按钮
+    PackageList->>ColumnConfigPopover: 打开列配置弹窗
+    ColumnConfigPopover->>ColumnConfigPopover: 显示可勾选列列表
+    User->>ColumnConfigPopover: 勾选/取消勾选列
+    ColumnConfigPopover->>PackageList: emit column-change
+    PackageList->>PackageList: 持久化到 settings.column_visibility_software

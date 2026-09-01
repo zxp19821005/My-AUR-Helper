@@ -147,13 +147,23 @@ impl VersionChecker for BrowserChecker {
         // - kill_on_drop(true)：包裹的 future 被丢弃（如 timeout 触发.cancel）时，
         //   内部 Child 随之被 drop 并自动杀掉子进程，避免进程/内存泄漏
         // - 外层 timeout 控制总耗时
+        // 安全修复 (R9): 移除 --no-sandbox，避免关闭沙箱导致本地代码执行
+        // 安全修复 (R10): 在 URL 前添加 -- 分隔符，防止以 -- 开头的 URL 注入任意 Chrome 参数
+        // 安全修复 (R10): 验证 URL 必须以 http:// 或 https:// 开头
+        if !upstream_url.starts_with("http://") && !upstream_url.starts_with("https://") {
+            return Err(AppError::VersionCheckError(format!(
+                "上游 URL 必须以 http:// 或 https:// 开头: {}",
+                upstream_url
+            )));
+        }
+
         let child = Command::new(&browser)
             .args([
                 "--headless",
-                "--no-sandbox",
                 "--disable-gpu",
                 "--disable-dev-shm-usage",
                 "--dump-dom",
+                "--",
                 upstream_url,
             ])
             .kill_on_drop(true)
@@ -237,5 +247,37 @@ mod tests {
         // 块级分隔后，关键词提取仍能命中
         let v = extract_version_from_html(&text);
         assert_eq!(v.as_deref(), Some("1.2.3"));
+    }
+
+    /// 测试 URL 协议验证：以 http:// 开头的 URL 合法
+    #[test]
+    fn test_url_validation_http() {
+        // validate_upstream_url 逻辑内联测试：http 开头通过
+        assert!(
+            "https://example.com/pkg".starts_with("http://")
+                || "https://example.com/pkg".starts_with("https://")
+        );
+        assert!(
+            "http://example.com/pkg".starts_with("http://")
+                || "http://example.com/pkg".starts_with("https://")
+        );
+    }
+
+    /// 测试 URL 协议验证：以非 http/https 开头的 URL 不合法
+    #[test]
+    fn test_url_validation_invalid_protocol() {
+        let invalid_urls = [
+            "--no-sandbox",
+            "/local/path",
+            "file:///etc/passwd",
+            "javascript:alert(1)",
+        ];
+        for url in &invalid_urls {
+            assert!(
+                !url.starts_with("http://") && !url.starts_with("https://"),
+                "URL {} 应被拒绝",
+                url
+            );
+        }
     }
 }

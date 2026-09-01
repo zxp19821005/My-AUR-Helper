@@ -21,6 +21,7 @@ import BottomToolbar from "./components/layout/BottomToolbar.vue";
 import ToastContainer from "./components/common/ToastContainer.vue";
 import ConfirmDialog from "./components/common/ConfirmDialog.vue";
 import { useTabStore } from "./stores/tabs";
+import { useRefreshStore } from "./stores/refresh";
 import { FOOTER_KEY, defaultFooterState } from "./composables/footer";
 import type { FooterState } from "./composables/footer";
 import { Icon } from "./icons";
@@ -28,6 +29,7 @@ import { feDebug } from "./utils/felog"; // 前端诊断日志（仅终端）
 
 const route = useRoute();
 const tabStore = useTabStore();
+const refreshStore = useRefreshStore();
 
 const sidebarCollapsed = ref(true);
 // 通过路由路径判断是否为弹出窗口（更可靠）
@@ -43,6 +45,8 @@ watch(
   () => route.path,
   (path) => {
     Object.assign(footerState, defaultFooterState());
+    // 同步当前活跃路由到 refresh store，刷新按钮只能触发当前页面
+    refreshStore.setActivePath(path);
     const routeLabels: Record<string, string> = {
       "/": "仪表盘",
       "/packages": "软件管理",

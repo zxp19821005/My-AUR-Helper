@@ -7,6 +7,7 @@
  * - 标准化 last_checked 列为 Unix 时间戳
  * - 将 upstream_license_id 从 INTEGER 改为 TEXT（存储 JSON 数组）
  * - 添加 upstream_url_status 列（上游 URL 验证状态）
+ * - 补齐 last_check_error 列（上游检查失败原因，供列表「上游更新失败」筛选使用）
  */
 use crate::errors::AppResult;
 
@@ -74,6 +75,22 @@ impl Database {
             self.conn.execute_batch("PRAGMA foreign_keys=ON;")?;
         }
 
+        self.migrate_upstream_error_column()?;
+
+        Ok(())
+    }
+
+    /// 补齐 last_check_error 列（幂等）
+    ///
+    /// 老库建表时没有该列，`CREATE TABLE IF NOT EXISTS` 不会补列，
+    /// 且上方重建表分支的 DDL 也未包含该列，故在此统一用 ALTER TABLE 增量添加。
+    pub fn migrate_upstream_error_column(&self) -> AppResult<()> {
+        let columns = self.get_table_columns("upstream_info")?;
+        if !columns.contains(&"last_check_error".to_string()) {
+            self.conn.execute_batch(
+                "ALTER TABLE upstream_info ADD COLUMN last_check_error TEXT DEFAULT NULL;",
+            )?;
+        }
         Ok(())
     }
 

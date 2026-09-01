@@ -27,8 +27,8 @@ import {
   Settings,
   FileText,
   Code,
-  // 设置子页面
-  List,
+  LayoutGrid, // 块视图
+  List, // 列表视图
   Wifi,
   ScrollText,
   Search,
@@ -113,6 +113,10 @@ export const Icon = {
   settingsMemoryCache: MemoryStick, // 内存缓存设置
   settingsProxy: Wifi, // 代理管理设置
   settingsLog: ScrollText, // 日志管理设置
+
+  // ===================== 视图切换 =====================
+  listView: List, // 列表视图
+  gridView: LayoutGrid, // 块视图
 
   // ===================== 通用操作（同一语义全局统一） =====================
   actionAdd: Plus, // 新增

@@ -18,6 +18,7 @@ pub mod errors; // 统一错误处理模块
 pub mod http_client; // 共享 HTTP 客户端单例模块
 pub mod logger; // 日志轮转与输出模块
 pub mod models; // 数据模型模块
+pub mod network; // 网络工具模块（重试逻辑等）
 pub mod proxy; // 代理管理模块
 mod tray;
 pub mod versions; // 版本处理模块 // 系统托盘模块
@@ -212,7 +213,7 @@ pub fn run() {
             commands::sysops::software_sync::pkgbuild::sync_from_pkgbuild, // 从 PKGBUILD 文件同步
             commands::sysops::software_sync::upstream::check_all_upstream, // 并行检查所有软件包的上游版本
             // 版本检查（sysops 模块）
-            commands::sysops::software_check::check_upstream_version, // 检查单个软件包的上游版本
+            commands::sysops::software_check_single::check_upstream_version, // 检查单个软件包的上游版本
             commands::sysops::software_check::check_selected_upstream, // 检查选中的软件包上游版本
             // 上游 URL 验证（sysops 模块）
             commands::sysops::upstream_validate::validate_upstream_urls, // 批量验证上游 URL
