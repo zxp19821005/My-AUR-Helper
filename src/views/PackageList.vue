@@ -207,23 +207,23 @@ async function handleFormSaved() {
           </select>
 
           <!-- 单选快速筛选下拉：AUR更新失败/上游更新失败/Github地址失效/无AUR版本/无上游版本...（不支持多选）
-               未激活时为纯图标（漏斗 + 下拉箭头，与「条件筛选」按钮区分）；激活时追加当前条件名 -->
+               恒为纯图标（漏斗 + 下拉箭头，与「条件筛选」按钮区分）；激活时图标整体转为橙色，
+               条件名仅通过 title 提示与菜单内的高亮项表达——工具栏横向空间有限，追加文字会挤压换行 -->
           <div class="toolbar-quickfilter">
             <button
               class="btn-icon qf-trigger"
-              :class="{ 'btn-active': !!activeQuickFilterLabel }"
+              :class="{ 'qf-active': !!activeQuickFilterLabel }"
               @click="toggleQuickFilterMenu"
-              title="快速筛选"
+              :title="activeQuickFilterLabel ? `快速筛选：${activeQuickFilterLabel}` : '快速筛选'"
             >
               <component :is="Icon.actionFilter" :size="16" />
               <component :is="Icon.actionDropdown" :size="12" class="qf-caret" />
-              <span v-if="activeQuickFilterLabel" class="qf-label">{{ activeQuickFilterLabel }}</span>
             </button>
             <button
               v-if="activeQuickFilterLabel"
               class="btn-icon qf-clear"
               @click="clearQuickFilter"
-              title="清除筛选"
+              :title="`清除快速筛选：${activeQuickFilterLabel}`"
             >
               <component :is="Icon.actionClear" :size="14" />
             </button>
@@ -366,20 +366,21 @@ async function handleFormSaved() {
   gap: 0.25rem;
 }
 
-/* 仅激活态（图标 + 条件名）需要图标与文字的间距；
-   未激活时按钮内只有单个图标，gap 不生效，尺寸与内边距沿用 .btn-icon，保持与其他工具栏图标按钮一致 */
 .qf-trigger {
   gap: 0.25rem;
 }
 
-/* 漏斗与箭头属同一视觉整体，负外边距抵消 .qf-trigger 的 gap，使其间距小于「箭头↔条件名」 */
+/* 漏斗与箭头属同一视觉整体，负外边距抵消 .qf-trigger 的 gap，使两者贴合为一个组合图标 */
 .qf-caret {
   margin-left: -0.125rem;
 }
 
-.qf-label {
-  font-size: 0.75rem;
-  font-weight: 500;
+/* 激活态：不追加文字，改为图标整体转橙色（--warning），避免工具栏横向空间不足导致文字纵向折行。
+   特异性需覆盖 .btn-icon:hover:not(:disabled)，故补写 :hover 变体 */
+.qf-trigger.qf-active,
+.qf-trigger.qf-active:hover:not(:disabled) {
+  color: var(--warning);
+  background-color: var(--warning-bg);
 }
 
 .qf-clear {
@@ -424,9 +425,10 @@ async function handleFormSaved() {
   background: var(--bg-card);
 }
 
+/* 选中项与触发器统一使用橙色（--warning），保持「已启用快速筛选」的视觉语义一致 */
 .qf-menu-item.active {
-  background: var(--accent-light, rgba(59, 130, 246, 0.12));
-  color: var(--accent);
+  background: var(--warning-bg);
+  color: var(--warning);
   font-weight: 600;
 }
 
