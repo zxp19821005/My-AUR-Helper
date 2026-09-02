@@ -157,7 +157,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/checkers/github/api_checker.rs` | GitHubAPIChecker 检查器实现 |
 | `src-tauri/src/checkers/github/tags.rs` | GitHub Tags 分页获取和版本比较逻辑 |
 | `src-tauri/src/checkers/github/release.rs` | GitHub latest release 路径版本提取（二进制检查 + 正则回退） |
-| `src-tauri/src/checkers/github/release_history.rs` | GitHub Releases 历史遍历扫描（分页 + 资产过滤回退） |
+| `src-tauri/src/checkers/github/release_history.rs` | GitHub Releases 历史遍历扫描（分页 + 资产过滤回退；max_pages=30/per_page=30 共 900 条，为响应体积和超时折衷；老版本包如 electron2-bin 的正则匹配范围超出此限会静默返回空） |
 | `src-tauri/src/checkers/github/git_describe.rs` | Git Describe 格式化（-git 包专用） |
 | `src-tauri/src/checkers/github/graphql_batch.rs` | GitHub GraphQL 批量检查器：`batch_check_github` 用 alias 在单次请求批量查多仓库 tags/releases+license/languages；按 `owner/repo` 构建哈希索引一次性完成去重与按仓库匹配（O(n)，非 O(n²)）；分块用 `JoinSet` 并行发送请求；git 包/无 Token/仓库缺失回落逐包 REST；select_version 镜像 REST 路径 |
 | `src-tauri/src/checkers/github/graphql_batch_parse.rs` | GitHub GraphQL 快照解析（RepoSnapshot / ReleaseData / parse_snapshot） |
@@ -545,6 +545,7 @@ pub struct CheckResult {
 | `cache_software` | 缓存的软件包信息 |
 | `logs` | 应用日志（级别、时间、内容） |
 | `settings` | 应用设置项 |
+| `github_tag_cache` | GitHub tags/releases 快照缓存（按 owner+repo 存储，TTL 默认 24h，含 cached_version 用于增量校验） |
 | `enum_licenses` | License 枚举表（SPDX ID、全名） |
 
 ### AUR 批量查询设置
@@ -671,6 +672,10 @@ docs: 完善 AGENTS.md 文档
 1. 使用 `git add -A` 暂存所有更改
 2. 使用 `git commit -m "<提交信息>"` 创建提交
 3. 使用 `git push origin main` 推送到远程仓库
+
+### SSH 推送故障排查
+- 若 push 时报 `Bad owner or permissions on /etc/ssh/ssh_config.d/*.conf`：该符号链接指向的 systemd-ssh-proxy 配置由 WorkBuddy 注入，权限属主为 `nobody`，SSH 拒绝读取。可临时用 `ssh -F /dev/null` 绕过，或联系管理员修复 `/etc/ssh/ssh_config.d/` 下对应文件的所有权。
+- 若提示 `sudo: /etc/sudo.conf is owned by uid 65534`：说明 sandbox 环境 sudoers 配置异常，push 前请确认当前 shell 有正常 SSH 密钥访问权限。
 
 ### 自动提交规则
 - AI 编程助手在完成每个任务后，必须自动执行上述提交流程
