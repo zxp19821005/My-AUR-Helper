@@ -86,6 +86,9 @@ pub(crate) async fn run_one(
             is_outdated: false,
             license_spdx_id: license,
             language_names,
+            _all_tags: None,
+            _owner: String::new(),
+            _repo: String::new(),
         },
         Err(e) => {
             warn!("[批量检查] {} 检查失败: {}", task.pkgname, e);
@@ -96,6 +99,9 @@ pub(crate) async fn run_one(
                 is_outdated: false,
                 license_spdx_id: None,
                 language_names: vec![],
+                _all_tags: None,
+                _owner: String::new(),
+                _repo: String::new(),
             }
         }
     }

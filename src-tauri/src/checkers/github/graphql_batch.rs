@@ -31,6 +31,7 @@ use crate::models::PackageType;
 const MAX_REPOS_PER_QUERY: usize = 10;
 
 /// 单个软件包的 GitHub 批量检查输入（由 PackageTask 映射，携带解析出的 owner/repo）
+#[derive(Clone)]
 pub struct GithubBatchItem {
     /// 软件包名称
     pub pkgname: String,
@@ -48,6 +49,16 @@ pub struct GithubBatchItem {
     pub check_binary_files: bool,
     /// 版本提取正则表达式（可选）
     pub version_extract_regex: Option<String>,
+}
+
+/// 仓库缓存：GraphQL 查询后解析出的快照 + 完整 tag 列表（用于正则钉死 major 的包回扫）
+#[derive(Clone)]
+pub struct RepoCache {
+    /// GraphQL 快照（tags 窗口 = 500，可能不足覆盖所有 major 线）
+    pub snapshot: crate::checkers::github::graphql_batch_parse::RepoSnapshot,
+    /// 按 pushed_at DESC 排列的完整 tag 列表（GraphQL refs(500) + 后续 REST 翻页补齐）
+    /// 注意：本字段由 batch.rs 在确认需回扫时才填充；正常路径下为空。
+    pub all_tags: Vec<String>,
 }
 
 /// 单个软件包的 GitHub 批量检查结果
@@ -71,6 +82,7 @@ pub struct GithubBatchOutcome {
 /// 2. 按 owner/repo 去重并按 MAX_REPOS_PER_QUERY 分块
 /// 3. 每块发一次 GraphQL 请求，解析出各仓库快照
 /// 4. 对每个包按自身选项（测试版本 / 二进制 / 正则）挑选版本
+/// 5. 返回 (outcomes, cache_map) —— cache_map 供调用方判断哪些仓库需要 REST tags 回填
 ///
 /// # 参数
 /// - `client`: 共享 HTTP 客户端（含代理配置）
@@ -78,16 +90,18 @@ pub struct GithubBatchOutcome {
 /// - `token`: GitHub Token（可选，必需）
 ///
 /// # 返回
-/// - 已成功产出结果的软件包列表（未命中仓库不会出现在结果中）
+/// - `(Vec<GithubBatchOutcome>, HashMap<(owner,repo), RepoCache>)`
+///   - outcomes：已成功产出结果的软件包列表
+///   - cache_map：每个命中仓库的缓存，all_tags 字段由调用方按需回填
 pub async fn batch_check_github(
     client: &Client,
     items: Vec<GithubBatchItem>,
     token: Option<&str>,
-) -> Vec<GithubBatchOutcome> {
+) -> (Vec<GithubBatchOutcome>, HashMap<(String, String), RepoCache>) {
     let mut outcomes = Vec::new();
     let token = match token {
         Some(t) if !t.is_empty() => t,
-        _ => return outcomes, // 无 Token：批量不可用，全部回退 REST
+        _ => return (outcomes, HashMap::new()), // 无 Token：批量不可用，全部回退 REST
     };
 
     // 构建 (owner,repo) -> 包列表 索引：将「去重」与「按仓库匹配包」合并为一次 O(n)
@@ -116,6 +130,8 @@ pub async fn batch_check_github(
     }
 
     // 收集各分块结果（alias r{idx} -> 仓库对象），按仓库索引产出各包结果
+    // 返回 (owner,repo) -> RepoCache，供调用方决定是否启动 REST tags 回填
+    let mut cache_map: HashMap<(String, String), RepoCache> = HashMap::new();
     while let Some(join_res) = set.join_next().await {
         let (chunk, snapshot_map) = match join_res {
             Ok(v) => v,
@@ -134,9 +150,15 @@ pub async fn batch_check_github(
                 Some(s) => s,
                 None => continue, // 仓库缺失（404）：回落 REST
             };
-            if let Some(pkgs) = repo_packages.get(&(owner.clone(), repo.clone())) {
+            let cache_key = (owner.clone(), repo.clone());
+            // 建立缓存：供后续 REST 回填使用
+            cache_map.entry(cache_key.clone()).or_insert_with(|| RepoCache {
+                snapshot: snap.clone(),
+                all_tags: Vec::new(),
+            });
+            if let Some(pkgs) = repo_packages.get(&cache_key) {
                 for it in pkgs {
-                    let version = select_version(&snap, it);
+                    let version = select_version(&snap, it, None);
                     outcomes.push(GithubBatchOutcome {
                         pkgname: it.pkgname.clone(),
                         software_id: it.software_id,
@@ -148,7 +170,159 @@ pub async fn batch_check_github(
             }
         }
     }
-    outcomes
+    // 返回 (outcomes, cache_map)：调用方根据缓存决定是否需要 REST tags 回填
+    (outcomes, cache_map)
+}
+
+/// 对指定 (owner,repo) 的 tags 列表进行回填（REST 翻页，复用已扫过的 GraphQL tags）
+///
+/// GraphQL 快照的 tags 窗口（500 条，按 CREATED_AT DESC）能覆盖当前活跃 major 线，
+/// 但对钉死历史 major 线的正则（如 `v10\.\d+\.\d+`）仍可能不足。
+/// 本函数从 GraphQL 最大 pushed_at 之后的 tag 继续翻页，直到：
+/// - 命中目标正则 → 停止（节省后续请求）
+/// - 扫描完所有 tags → 停止
+/// - 达到 max_pages 上限 → 停止（避免超时）
+///
+/// 注意：tags 在 GraphQL 中已是 DESC 序（pushedAt DESC），REST `sort=pushed_at&direction=desc`
+/// 返回顺序一致，可直接拼接。
+pub async fn fill_tags(
+    client: &Client,
+    owner: &str,
+    repo: &str,
+    token: Option<&str>,
+    existing_tags: &[String],
+    regex: Option<&str>,
+    max_pages: u32,
+) -> Vec<String> {
+    use log::debug;
+    if existing_tags.len() >= max_pages as usize * 100 {
+        // GraphQL 已拿到 3000+ tag，不再翻页
+        return existing_tags.to_vec();
+    }
+
+    let per_page = 100;
+    let max_pages = max_pages as usize;
+    let mut all_tags = existing_tags.to_vec();
+
+    // 确定起始页号：GraphQL 约覆盖了 existing_tags.len() / per_page 页
+    let start_page = (existing_tags.len() + per_page - 1) / per_page + 1;
+
+    let regex_compile = regex.and_then(|r| match regex::Regex::new(r) {
+        Ok(re) => Some(re),
+        Err(e) => {
+            debug!(
+                "[tags 回填] {}:{}/tags: 正则编译失败 {}, 跳过回填",
+                owner, repo, e
+            );
+            None
+        }
+    });
+
+    for page in start_page..=start_page + max_pages - 1 {
+        let tags_url = format!(
+            "https://api.github.com/repos/{}/{}/tags?per_page={}&page={}&sort=pushed_at&direction=desc",
+            owner, repo, per_page, page
+        );
+
+        let mut req = client
+            .get(&tags_url)
+            .header("User-Agent", "my-aur-helper/0.1")
+            .header("Accept", "application/vnd.github.v3+json");
+        if let Some(t) = token {
+            req = req.header("Authorization", format!("Bearer {}", t));
+        }
+
+        let resp = match req.send().await {
+            Ok(r) => r,
+            Err(e) => {
+                debug!(
+                    "[tags 回填] {}:{}/tags page={}: send error: {}",
+                    owner, repo, page, e
+                );
+                break;
+            }
+        };
+        if !resp.status().is_success() {
+            debug!(
+                "[tags 回填] {}:{}/tags page={}: HTTP {}",
+                owner, repo, page, resp.status()
+            );
+            break;
+        }
+
+        let tags: Vec<serde_json::Value> = match resp.json().await {
+            Ok(t) => t,
+            Err(e) => {
+                debug!(
+                    "[tags 回填] {}:{}/tags page={}: json decode error: {}",
+                    owner, repo, page, e
+                );
+                break;
+            }
+        };
+
+        if tags.is_empty() {
+            break;
+        }
+
+        let mut matched_any = false;
+        for tag in &tags {
+            if let Some(name) = tag["name"].as_str() {
+                all_tags.push(name.to_string());
+                // 正则早停：命中即止
+                if let Some(re) = &regex_compile {
+                    if re.is_match(name) {
+                        matched_any = true;
+                    }
+                }
+            }
+        }
+        if matched_any {
+            debug!(
+                "[tags 回填] {}:{}/tags page={}: regex matched, stopping early (total tags: {})",
+                owner, repo, page, all_tags.len()
+            );
+            break;
+        }
+        if tags.len() < per_page {
+            break;
+        }
+    }
+
+    all_tags
+}
+
+/// 为所有有正则的包检查是否需要 tags 回填
+///
+/// 逻辑：
+/// - 若包的 GraphQL 结果 version 非空 → 命中，无需回填
+/// - 若包的 version 为空 且 有正则 → 需要回填（GraphQL 500 tag 窗口不够）
+/// - 若无正则 → 不需要回填（稳定版取 latest release，GraphQL 已覆盖）
+///
+/// 返回：`Vec<(owner, repo, regex, max_page_hint)>` 表示需要回填的包
+pub fn collect_fallback_tasks(
+    items: &[GithubBatchItem],
+    outcomes: &[GithubBatchOutcome],
+) -> Vec<(String, String, String)> {
+    // 构建 pkgname -> outcome 映射
+    let outcome_map: HashMap<&str, &GithubBatchOutcome> =
+        outcomes.iter().map(|o| (o.pkgname.as_str(), o)).collect();
+
+    let mut fallbacks: Vec<(String, String, String)> = Vec::new();
+    for item in items {
+        if item.version_extract_regex.is_none() {
+            continue;
+        }
+        // version 为空 → GraphQL 未找到匹配版本，需要 REST tags 回填
+        if outcome_map
+            .get(item.pkgname.as_str())
+            .map(|o| o.version.is_none())
+            .unwrap_or(false)
+        {
+            fallbacks.push((item.owner.clone(), item.repo.clone(), item.version_extract_regex.clone().unwrap()));
+        }
+    }
+    fallbacks
 }
 
 /// 构建针对一批仓库的 GraphQL 查询（alias 批量查询）
@@ -163,8 +337,8 @@ fn build_query(repos: &[(String, String)]) -> String {
             "{alias}: repository(owner: {owner_json}, name: {repo_json}) {{ \
               licenseInfo {{ spdxId }} \
               languages(first: 5, orderBy: {{ field: SIZE, direction: DESC }}) {{ nodes {{ name }} }} \
-              refs(first: 100, refPrefix: \"refs/tags/\") {{ nodes {{ name }} }} \
-              releases(first: 20, orderBy: {{ field: CREATED_AT, direction: DESC }}) {{ \
+              refs(first: 500, refPrefix: \"refs/tags/\", orderBy: {{ field: CREATED_AT, direction: DESC }}) {{ nodes {{ name pushedAt }} }} \
+              releases(first: 50, orderBy: {{ field: CREATED_AT, direction: DESC }}) {{ \
                 nodes {{ tagName name isPrerelease isDraft createdAt \
                   releaseAssets(first: 12) {{ nodes {{ name }} }} }} }} \
             }}"

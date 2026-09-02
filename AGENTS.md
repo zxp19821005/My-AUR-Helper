@@ -161,6 +161,8 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/checkers/github/git_describe.rs` | Git Describe 格式化（-git 包专用） |
 | `src-tauri/src/checkers/github/graphql_batch.rs` | GitHub GraphQL 批量检查器：`batch_check_github` 用 alias 在单次请求批量查多仓库 tags/releases+license/languages；按 `owner/repo` 构建哈希索引一次性完成去重与按仓库匹配（O(n)，非 O(n²)）；分块用 `JoinSet` 并行发送请求；git 包/无 Token/仓库缺失回落逐包 REST；select_version 镜像 REST 路径 |
 | `src-tauri/src/checkers/github/graphql_batch_parse.rs` | GitHub GraphQL 快照解析（RepoSnapshot / ReleaseData / parse_snapshot） |
+| `src-tauri/src/db/github_tag_cache.rs` | GitHub tags 缓存模块（SQLite 表 CRUD、增量校验 CacheCheckResult 枚举、recompute_version_from_cache、check_and_extend_cache 同步函数用 reqwest::blocking） |
+| `src-tauri/src/db/migration_github_tag_cache.rs` | github_tag_cache 表迁移（含 cached_version 列 ALTER） |
 | `src-tauri/src/versions/` | 版本处理模块（解析、标准化、比较） |
 | `src-tauri/src/versions/mod.rs` | versions 模块入口 |
 | `src-tauri/src/versions/utils.rs` | 版本处理工具函数（比较、排序、查找最新版本） |
@@ -478,6 +480,7 @@ GitHub 检查器采用目录结构（`checkers/github/`），包含以下文件�
 - `git_describe.rs`: Git Describe 格式化（-git 包专用），通过 GitHub API 生成类似 `git describe` 的版本字符串
 - `graphql_batch.rs`: GitHub GraphQL 批量检查器（`batch_check_github`）：用 alias 在单次请求里批量查多个仓库的 tags/releases + license/languages，按 `owner/repo` 去重；git 包/无 Token/仓库缺失回落逐包 REST；`select_version` 严格镜像 REST 路径保证结果一致
 - `graphql_batch_parse.rs`: GitHub GraphQL 响应解析（`RepoSnapshot` / `ReleaseData` / `parse_snapshot`）
+- `github_tag_cache.rs`（db 层）: GitHub tags 缓存模块——SQLite 表 CRUD、`CacheCheckResult` 枚举（Hit/Extend/Recalculate/Deleted/Miss）、`recompute_version_from_cache`（从缓存 tags JSON 重算版本）、同步函数 `check_and_extend_cache`（缓存过期时调 `releases/latest` 轻量验证，版本一致则顺延 TTL，不一致则用缓存 tags 重算避免全量重拉）；注意：因 `Database` 不可 Send，该方法为同步函数，内部用 `reqwest::blocking::get`，调用侧在 `state.db.lock()` 内串行执行
 
 ### 工具模块
 - `checkers/utils.rs` — 通用工具函数（版本号正则提取、URL 解析等）

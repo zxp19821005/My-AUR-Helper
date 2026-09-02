@@ -57,7 +57,8 @@ pub use backup_install::{
 };
 pub use cache_cleanup::{
     check_cache_cleanup_sudoers, clean_custom_cache_dirs, clean_system_cache,
-    get_cache_cleanup_sudoers_command,
+    clear_expired_github_tag_cache, clear_github_tag_cache, get_cache_cleanup_sudoers_command,
+    get_github_tag_cache_stats,
 };
 pub use cache_install::{
     check_cache_install_sudoers, get_cache_install_sudoers_command, get_cache_package_info,

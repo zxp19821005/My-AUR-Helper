@@ -134,6 +134,18 @@ impl Database {
             CREATE INDEX IF NOT EXISTS idx_cache_software_name ON cache_software(name);
             CREATE INDEX IF NOT EXISTS idx_proxies_test_proxy ON proxies_test(proxy_id);
             CREATE INDEX IF NOT EXISTS idx_settings_category ON settings(category);
+
+            -- GitHub tags 缓存表：按 (owner, repo) 存储 GraphQL + REST 拉取的 tags/releases 快照
+            -- TTL 由 settings.github_cache_ttl 控制（默认 86400s = 24h）
+            CREATE TABLE IF NOT EXISTS github_tag_cache (
+                owner            TEXT NOT NULL,
+                repo             TEXT NOT NULL,
+                last_synced_at   INTEGER NOT NULL,
+                tag_count        INTEGER NOT NULL DEFAULT 0,
+                data_json        TEXT NOT NULL DEFAULT '',
+                cached_version   TEXT DEFAULT NULL,
+                PRIMARY KEY (owner, repo)
+            );
             ",
         )?;
         Ok(())

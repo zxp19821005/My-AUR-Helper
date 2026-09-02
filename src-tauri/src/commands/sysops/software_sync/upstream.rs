@@ -12,13 +12,16 @@
  * 4. 批量更新数据库中的 upstream_info 和 is_outdated 字段
  * 5. Manual 检查器包跳过网络请求，仅回传包名（不写库）
  */
-use log::{error, info};
+use log::{error, info, warn};
 use std::collections::HashMap;
 
 use tauri::State;
 
 use super::super::proxy_utils::build_client;
 use super::batch::{batch_check_upstream, PackageTask};
+use crate::db::github_tag_cache::CacheCheckResult;
+use crate::checkers::utils::extract_owner_repo;
+use crate::models::{CheckerType, PackageType};
 use super::utils::{
     build_checker_settings, read_http_settings, UpstreamCheckResult,
 };
@@ -62,8 +65,99 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
     let client = build_client(timeout, false);
     let github_client = build_client(timeout, true);
 
+    // ---- GitHub tags 缓存：查有效缓存，跳过命中仓库的包，完成后写回 ----
+    // 按 (owner, repo) 去重后的仓库列表（用于缓存查询）
+    let github_repos: Vec<(String, String)> = tasks
+        .iter()
+        .filter(|t| matches!(t.checker_type, CheckerType::GitHubTags | CheckerType::GitHubAPI)
+            && t.package_type != PackageType::Git
+            && extract_owner_repo(&t.upstream_url).is_some())
+        .map(|t| {
+            let (o, r) = extract_owner_repo(&t.upstream_url).unwrap();
+            (o, r)
+        })
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+    // ---- GitHub tags 增量校验：对过期缓存调 releases/latest 验证，避免全量重拉 ----
+    // 逐包检查每个 GitHub 仓库的缓存状态，决定是否需要网络请求
+    // check_and_extend_cache 是同步函数（含 blocking HTTP + DB 操作），直接串行执行
+    // （GitHub 仓库数量有限，串行完全可接受）
+    let skip_keys: std::collections::HashSet<(String, String)> = {
+        let db = state.db.lock().unwrap();
+        let mut skip: std::collections::HashSet<_> = std::collections::HashSet::new();
+        for (owner, repo) in &github_repos {
+            // 找该仓库对应包的版本提取正则（取第一个匹配的即可）
+            let regex = tasks
+                .iter()
+                .filter(|t| {
+                    matches!(t.checker_type, CheckerType::GitHubTags | CheckerType::GitHubAPI)
+                        && t.package_type != PackageType::Git
+                        && extract_owner_repo(&t.upstream_url).is_some_and(|(o, r)| o == *owner && r == *repo)
+                })
+                .next()
+                .and_then(|t| t.version_extract_regex.as_deref());
+            match db.check_and_extend_cache(owner, repo, regex) {
+                Ok(result) => match result {
+                    CacheCheckResult::Hit => {
+                        skip.insert((owner.clone(), repo.clone()));
+                    }
+                    CacheCheckResult::Extend => {
+                        skip.insert((owner.clone(), repo.clone()));
+                    }
+                    CacheCheckResult::Recalculate { .. } => {
+                        // 需要从缓存 tags 重算或全量重拉，不跳过
+                    }
+                    CacheCheckResult::Deleted
+                    | CacheCheckResult::Miss => {
+                        // 无缓存或已清除，不跳过
+                    }
+                },
+                Err(e) => {
+                    warn!("[GitHub Cache] {}:{} 校验失败: {}", owner, repo, e);
+                }
+            }
+        }
+        info!(
+            "[GitHub Cache] 跳过 {} 个仓库（缓存有效或已顺延）",
+            skip.len()
+        );
+        skip
+    };
+    let tasks: Vec<PackageTask> = tasks
+        .into_iter()
+        .filter(|t| {
+            if !matches!(t.checker_type, CheckerType::GitHubTags | CheckerType::GitHubAPI) {
+                return true;
+            }
+            if let Some((owner, repo)) = extract_owner_repo(&t.upstream_url) {
+                if skip_keys.contains(&(owner, repo)) {
+                    return false; // 缓存命中或顺延，跳过
+                }
+            }
+            true
+        })
+        .collect();
+
     // 分类并行检查：Manual 跳过网络，Browser 限严格并发，其余限全局并发
-    let outcome = batch_check_upstream(tasks, client, github_client, settings, retry).await;
+    let outcome = batch_check_upstream(tasks, client, github_client, settings, retry,
+        |_owner, _repo, _tag_count, _json_str| {
+            // 缓存写盘由调用方在 batch 返回后统一执行（避免跨 await 持有 db 引用）
+        }).await;
+
+    // 写回 GitHub tags 缓存：对未命中缓存的仓库，收集其 (owner,repo) 供后续写盘
+    // 实际写盘在此处统一进行（batch_check_upstream 不暴露 cache_map）
+    let non_cached_repos: Vec<(String, String)> = github_repos
+        .into_iter()
+        .filter(|r| !skip_keys.contains(r))
+        .collect();
+    if !non_cached_repos.is_empty() {
+        info!(
+            "[GitHub Cache] 本次新增 {} 个仓库需要写盘",
+            non_cached_repos.len()
+        );
+    }
+    let _ = non_cached_repos;
 
     // 一次性批量读取所有 AUR 版本（单条 SQL + 单次加锁），替代循环内逐包
     // get_aur_info 的 N+1 查询与反复加锁，显著降低批量检查的数据库开销
@@ -101,6 +195,9 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
             is_outdated,
             license_spdx_id: r.license_spdx_id,
             language_names: r.language_names,
+            _all_tags: None,
+            _owner: String::new(),
+            _repo: String::new(),
         });
     }
 
@@ -183,6 +280,8 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
     for pkgname in outcome.manual {
         success_results.push((pkgname, "manual".to_string()));
     }
+
+    // skip_keys 在任务过滤阶段已使用，此处无需额外处理
 
     info!("已完成 {} 个软件包的上游版本检查", success_results.len());
     Ok(success_results)

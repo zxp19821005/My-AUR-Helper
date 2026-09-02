@@ -71,6 +71,16 @@ pub struct UpstreamCheckResult {
     pub license_spdx_id: Option<String>,
     /// 编程语言名称列表
     pub language_names: Vec<String>,
+    // ---- 以下为内部扩展字段，不序列化，不对外暴露 ----
+    /// tags 回填任务的结果：回填后的完整 tag 列表（仅回填任务时使用）
+    #[serde(skip)]
+    pub _all_tags: Option<Vec<String>>,
+    /// 回填任务的仓库 owner（仅回填任务时使用）
+    #[serde(skip)]
+    pub _owner: String,
+    /// 回填任务的仓库 repo（仅回填任务时使用）
+    #[serde(skip)]
+    pub _repo: String,
 }
 
 /// 安全获取数据库设置项

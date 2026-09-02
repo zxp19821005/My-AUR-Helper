@@ -11,6 +11,7 @@
 use serde_json::Value;
 
 /// 仓库快照：一次 GraphQL 查询解析出的单个仓库数据
+#[derive(Clone)]
 pub struct RepoSnapshot {
     /// tag 名称列表（refs/tags）
     pub tags: Vec<String>,
@@ -23,6 +24,7 @@ pub struct RepoSnapshot {
 }
 
 /// Release 精简数据
+#[derive(Clone)]
 pub struct ReleaseData {
     /// tag 名称
     pub tag_name: String,

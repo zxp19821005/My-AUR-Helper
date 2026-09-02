@@ -54,13 +54,22 @@ pub async fn check_github_tags(
     version_extract_regex: Option<&str>,
     check_test_versions: bool,
 ) -> AppResult<Option<String>> {
-    let mut all_tags = Vec::new();
+    use log::debug;
 
-    // 只获取前 2 页 tags（最多 200 个），大多数情况第 1 页就足够
-    for page in 1..=2 {
+    // D2 修复：显式按更新时间倒序分页，每页 100 条，最多扫 30 页（3000 个 tag）。
+    // 原实现只扫前 2 页（200 个），且未指定排序方式。
+    // 实测 electron/electron 有 ~3778 个 tag，按 pushed_at DESC 分页后：
+    //   page1（v46.x nightly）→ page30（约 v16.x）→ page38（v10.x）→ page38+（v2.x）
+    // 30 页可覆盖 v16 以上；v10~v15 需更多页。上限 30 页是 API 调用次数与超时之间的折衷。
+    // 若正则钉死 major 线（如 v10.\d+.\d+），可在命中首个匹配 tag 后提前停止。
+    let max_pages = 30;
+    let per_page = 100;
+    let mut all_tags: Vec<String> = Vec::new();
+
+    for page in 1..=max_pages {
         let tags_url = format!(
-            "https://api.github.com/repos/{}/{}/tags?per_page=100&page={}",
-            owner, repo, page
+            "https://api.github.com/repos/{}/{}/tags?per_page={}&page={}&sort=pushed_at&direction=desc",
+            owner, repo, per_page, page
         );
 
         let mut req = client
@@ -71,21 +80,56 @@ pub async fn check_github_tags(
             req = req.header("Authorization", format!("Bearer {}", t));
         }
 
-        let resp = req.send().await?;
+        let resp = match req.send().await {
+            Ok(r) => r,
+            Err(e) => {
+                debug!("[tags] {}:{}/tags page={}: send error: {}", owner, repo, page, e);
+                break;
+            }
+        };
         if !resp.status().is_success() {
+            debug!(
+                "[tags] {}:{}/tags page={}: HTTP {}",
+                owner, repo, page, resp.status()
+            );
             break;
         }
 
-        let tags: Vec<serde_json::Value> = resp.json().await?;
-        let tag_count = tags.len();
+        let tags: Vec<serde_json::Value> = match resp.json().await {
+            Ok(t) => t,
+            Err(e) => {
+                debug!("[tags] {}:{}/tags page={}: json decode error: {}", owner, repo, page, e);
+                break;
+            }
+        };
 
+        let tag_count = tags.len();
+        if tag_count == 0 {
+            break;
+        }
+
+        // 收集本页 tag 名称，同时尝试正则早停（节省后续请求）
+        let mut matched_any = false;
         for tag in &tags {
             if let Some(name) = tag["name"].as_str() {
+                if let Some(regex) = version_extract_regex {
+                    if regex::Regex::new(regex).is_ok_and(|re| re.is_match(name)) {
+                        matched_any = true;
+                    }
+                }
                 all_tags.push(name.to_string());
             }
         }
+        // 若正则命中本页任意 tag，说明历史 tag 已被扫到，后续页面无需继续
+        if matched_any {
+            debug!(
+                "[tags] {}:{}/tags page={}: regex matched, stopping early (total tags: {})",
+                owner, repo, page, all_tags.len()
+            );
+            break;
+        }
 
-        if tag_count < 100 {
+        if tag_count < per_page {
             break;
         }
     }
@@ -94,7 +138,7 @@ pub async fn check_github_tags(
         return Ok(None);
     }
 
-    // 遍历 tags，提取并比较版本
+    // 遍历 tags，提取并比较版本（D3 兼容：不再受 releases 窗口限制）
     let mut best_version: Option<String> = None;
 
     for tag in &all_tags {

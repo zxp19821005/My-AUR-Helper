@@ -256,6 +256,9 @@ pub fn run() {
             commands::sysops::cache_cleanup::clean_custom_cache_dirs, // 清理自定义缓存目录
             commands::sysops::cache_cleanup::check_cache_cleanup_sudoers, // 检测缓存清理 sudoers 配置
             commands::sysops::cache_cleanup::get_cache_cleanup_sudoers_command, // 获取缓存清理 sudoers 配置命令
+            commands::sysops::cache_cleanup::clear_github_tag_cache, // 清除 GitHub tags 缓存
+            commands::sysops::cache_cleanup::clear_expired_github_tag_cache, // 清除过期 GitHub tags 缓存
+            commands::sysops::cache_cleanup::get_github_tag_cache_stats, // 获取 GitHub tags 缓存统计
             commands::sysops::cache_install::get_cache_package_info, // 获取缓存包文件信息
             commands::sysops::cache_install::install_cache_package,  // 安装缓存包
             commands::sysops::cache_install::check_cache_install_sudoers, // 检测缓存安装 sudoers 配置

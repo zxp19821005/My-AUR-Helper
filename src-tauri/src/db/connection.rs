@@ -32,6 +32,7 @@ impl Database {
         self.migrate_cache_software()?;
         self.migrate_proxies()?;
         self.migrate_drop_logs_table()?;
+        self.migrate_github_tag_cache()?;
         self.seed_defaults()?;
         Ok(())
     }

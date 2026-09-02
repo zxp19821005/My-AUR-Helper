@@ -176,7 +176,7 @@ pub async fn check_selected_upstream(
     let github_client = build_client(timeout, true);
 
     // 并行检查：复用 batch_check_upstream 的分类并发引擎
-    let outcome = batch_check_upstream(tasks, client, github_client, settings, retry).await;
+    let outcome = batch_check_upstream(tasks, client, github_client, settings, retry, |_, _, _, _| {}).await;
 
     // 在内存中比较版本，得出 is_outdated
     let mut check_results: Vec<UpstreamCheckResult> = Vec::new();
@@ -203,6 +203,9 @@ pub async fn check_selected_upstream(
             is_outdated,
             license_spdx_id: r.license_spdx_id,
             language_names: r.language_names,
+            _all_tags: None,
+            _owner: String::new(),
+            _repo: String::new(),
         });
     }
 

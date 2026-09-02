@@ -16,13 +16,26 @@ use crate::versions;
 
 /// 根据软件包选项从仓库快照中挑选上游版本
 ///
+/// # 参数
+/// - `snap`: GraphQL 批量查询的仓库快照
+/// - `item`: 软件包检查项
+/// - `all_tags`: 可选的完整 tag 列表（已按 pushed_at DESC 排列，含 REST 回填数据）
+///   若为 Some，当 GraphQL tags 窗口不够时会使用该列表；为 None 时仅使用快照内 tags
+///
 /// 逻辑与 GitHubAPIChecker / GitHubTagsChecker 的 REST 路径保持一致：
 /// - 测试版本分支：扫描所有 release 取匹配正则的最大版本，回退 tags
 /// - 二进制分支：按时间倒序找首个含匹配 Linux 二进制的 release，优先从资产文件名提取版本
 /// - 稳定版本分支：取最新非 prerelease release，正则失败回退扫描 releases / tags
-pub(crate) fn select_version(snap: &RepoSnapshot, item: &GithubBatchItem) -> Option<String> {
+pub(crate) fn select_version(
+    snap: &RepoSnapshot,
+    item: &GithubBatchItem,
+    all_tags: Option<&[String]>,
+) -> Option<String> {
     let regex = item.version_extract_regex.as_deref();
     let is_asset_regex = regex.map(has_file_extension).unwrap_or(false);
+
+    // 选择要使用的 tag 列表：优先使用全量（含 REST 回填），回退到快照内窗口
+    let tags_to_scan = all_tags.unwrap_or(&snap.tags);
 
     // ---- 测试版本分支 ----
     if item.check_test_versions {
@@ -43,13 +56,14 @@ pub(crate) fn select_version(snap: &RepoSnapshot, item: &GithubBatchItem) -> Opt
                 best = max_by_vercmp(best, v);
             }
         }
-        return best.or_else(|| tags_max_version(&snap.tags, regex, true));
+        return best.or_else(|| tags_max_version(tags_to_scan, regex, true, None));
     }
 
     // ---- 二进制分支 ----
     if item.check_binary_files {
         let mut sorted: Vec<&ReleaseData> = snap.releases.iter().filter(|r| !r.is_draft).collect();
-        sorted.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        // D6 修复：stable release 同 createdAt 时按 tag_name 字典序取最大（更稳定）
+        sorted.sort_by(|a, b| b.created_at.cmp(&a.created_at).then_with(|| a.tag_name.cmp(&b.tag_name)));
         for r in sorted {
             if has_linux_binary(&r.assets, regex) {
                 if let Some(filter) = regex {
@@ -60,15 +74,17 @@ pub(crate) fn select_version(snap: &RepoSnapshot, item: &GithubBatchItem) -> Opt
                 return Some(clean_version(&r.tag_name));
             }
         }
-        return None;
+        // D4 修复：二进制分支找不到匹配资产时回退到 tags
+        return tags_max_version(tags_to_scan, regex, false, None);
     }
 
     // ---- 稳定版本分支 ----
+    // D6 修复：stable release 同 createdAt 时按 tag_name 字典序取最大
     let latest = snap
         .releases
         .iter()
         .filter(|r| !r.is_draft && !r.is_prerelease)
-        .max_by(|a, b| a.created_at.cmp(&b.created_at));
+        .max_by(|a, b| a.created_at.cmp(&b.created_at).then_with(|| a.tag_name.cmp(&b.tag_name)));
 
     match latest {
         Some(r) => {
@@ -80,11 +96,11 @@ pub(crate) fn select_version(snap: &RepoSnapshot, item: &GithubBatchItem) -> Opt
                 }
                 // 正则不匹配 latest：扫描所有 release 取匹配最大版本（含 prerelease），再回退 tags
                 return releases_max_version(&snap.releases, regex, true)
-                    .or_else(|| tags_max_version(&snap.tags, regex, true));
+                    .or_else(|| tags_max_version(tags_to_scan, regex, true, None));
             }
             Some(clean_version(&r.tag_name))
         }
-        None => tags_max_version(&snap.tags, regex, false),
+        None => tags_max_version(tags_to_scan, regex, false, None),
     }
 }
 
@@ -103,13 +119,22 @@ fn max_by_vercmp(current: Option<String>, candidate: String) -> Option<String> {
 }
 
 /// 从 tags 列表中挑选最新版本（与 check_github_tags 一致）
-fn tags_max_version(
+///
+/// # 参数
+/// - `tags`: tag 名称列表，按 pushed_at DESC 排列（最早在尾部）
+/// - `regex`: 版本提取正则（可选）
+/// - `include_prerelease`: 是否包含 prerelease
+/// - `max_search`: 最多从前 N 个 tag 中搜索；None 表示扫描全部
+///   用于「大窗口早停」场景：已知某 tag 之后无更新，只搜前 max_search 个
+pub(crate) fn tags_max_version(
     tags: &[String],
     regex: Option<&str>,
     include_prerelease: bool,
+    max_search: Option<usize>,
 ) -> Option<String> {
+    let limit = max_search.unwrap_or(tags.len());
     let mut best: Option<String> = None;
-    for tag in tags {
+    for tag in tags.iter().take(limit) {
         if !include_prerelease && versions::is_prerelease(tag) {
             continue;
         }
@@ -154,7 +179,7 @@ fn releases_max_version(
 }
 
 /// 判断版本提取正则是否用于匹配资产文件名（含常见文件扩展名）
-fn has_file_extension(regex: &str) -> bool {
+pub(crate) fn has_file_extension(regex: &str) -> bool {
     regex.contains(".rpm")
         || regex.contains(".deb")
         || regex.contains(".zip")

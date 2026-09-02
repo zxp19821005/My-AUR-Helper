@@ -258,3 +258,30 @@ pub async fn get_cache_cleanup_sudoers_command(state: State<'_, AppState>) -> Ap
         }
     }
 }
+
+/// 清除所有 GitHub tags 缓存
+#[tauri::command]
+pub async fn clear_github_tag_cache(state: State<'_, AppState>) -> AppResult<i64> {
+    let db = state.db.lock()?;
+    let count = db.clear_all_caches()?;
+    info!("[GitHub Cache] 已清除 {} 条缓存记录", count);
+    Ok(count)
+}
+
+/// 清除已过期的 GitHub tags 缓存（超过 github_cache_ttl 秒的记录）
+#[tauri::command]
+pub async fn clear_expired_github_tag_cache(state: State<'_, AppState>) -> AppResult<i64> {
+    let db = state.db.lock()?;
+    let count = db.clear_expired_caches()?;
+    info!("[GitHub Cache] 已清除 {} 条过期缓存记录", count);
+    Ok(count)
+}
+
+/// 获取 GitHub tags 缓存统计信息
+#[tauri::command]
+pub async fn get_github_tag_cache_stats(state: State<'_, AppState>) -> AppResult<serde_json::Value> {
+    let db = state.db.lock()?;
+    let count = db.cache_count()?;
+    let ttl = db.get_cache_ttl_seconds()?;
+    Ok(serde_json::json!({ "count": count, "ttl_seconds": ttl }))
+}

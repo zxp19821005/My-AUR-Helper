@@ -68,7 +68,11 @@ pub async fn check_github_releases(
     // 单页 JSON 可达数 MB，慢速/代理网络下极易在读取响应体时超时
     // （"error decoding response body"）。30 条/页足够覆盖绝大多数"最新含二进制"场景。
     let per_page = 30;
-    let max_pages = 5;
+    // D5 修复：max_pages 从 5（150 条）改为 30（900 条）。
+    // electron 仓库有 ~3000 个 release，原值只覆盖最近 150 条，
+    // 对 electron39-bin 及更早版本的正则钉死包会静默返回空。
+    // 30 页足够覆盖当前活跃 major 线，同时避免大响应超时。
+    let max_pages = 30;
 
     let tag_filter = if let Some(regex) = version_extract_regex {
         // 如果正则包含明显的文件扩展名，说明是用于匹配 asset 文件名的，
