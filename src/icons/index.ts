@@ -126,6 +126,7 @@ export const Icon = {
   actionClear: X, // 清除 / 关闭
   actionRefresh: RefreshCw, // 刷新数据
   actionFilter: Filter, // 筛选
+  actionDropdown: ChevronDown, // 下拉菜单箭头（指示可向下展开，与「条件筛选」漏斗按钮区分）
   actionDownload: Download, // 下载
   actionUpload: Upload, // 上传
   actionCopy: Copy, // 复制

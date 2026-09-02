@@ -206,7 +206,8 @@ async function handleFormSaved() {
             </option>
           </select>
 
-          <!-- 单选快速筛选下拉：AUR更新失败/上游更新失败/Github地址失效/无AUR版本/无上游版本...（不支持多选） -->
+          <!-- 单选快速筛选下拉：AUR更新失败/上游更新失败/Github地址失效/无AUR版本/无上游版本...（不支持多选）
+               未激活时为纯图标（漏斗 + 下拉箭头，与「条件筛选」按钮区分）；激活时追加当前条件名 -->
           <div class="toolbar-quickfilter">
             <button
               class="btn-icon qf-trigger"
@@ -215,8 +216,8 @@ async function handleFormSaved() {
               title="快速筛选"
             >
               <component :is="Icon.actionFilter" :size="16" />
+              <component :is="Icon.actionDropdown" :size="12" class="qf-caret" />
               <span v-if="activeQuickFilterLabel" class="qf-label">{{ activeQuickFilterLabel }}</span>
-              <span v-else>筛选</span>
             </button>
             <button
               v-if="activeQuickFilterLabel"
@@ -365,8 +366,15 @@ async function handleFormSaved() {
   gap: 0.25rem;
 }
 
+/* 仅激活态（图标 + 条件名）需要图标与文字的间距；
+   未激活时按钮内只有单个图标，gap 不生效，尺寸与内边距沿用 .btn-icon，保持与其他工具栏图标按钮一致 */
 .qf-trigger {
   gap: 0.25rem;
+}
+
+/* 漏斗与箭头属同一视觉整体，负外边距抵消 .qf-trigger 的 gap，使其间距小于「箭头↔条件名」 */
+.qf-caret {
+  margin-left: -0.125rem;
 }
 
 .qf-label {
