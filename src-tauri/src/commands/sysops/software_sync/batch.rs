@@ -72,6 +72,11 @@ pub struct BatchOutcome {
     pub checked: Vec<UpstreamCheckResult>,
     /// 手动检查器包名列表
     pub manual: Vec<String>,
+    /// GitHub tags 快照缓存，供调用方写盘（避免跨 await 持有 db 引用）
+    pub github_cache_map: std::collections::HashMap<
+        (String, String),
+        crate::checkers::github::graphql_batch::RepoCache,
+    >,
 }
 
 /// 分类并行检查所有软件包的上游版本
@@ -350,7 +355,11 @@ pub async fn batch_check_upstream(
     // 合并 GraphQL 批量命中结果
     checked.append(&mut checked_from_graphql);
 
-    BatchOutcome { checked, manual }
+    BatchOutcome {
+        checked,
+        manual,
+        github_cache_map: cache_map,
+    }
 }
 
 /// GitHub tags 缓存辅助函数：按 (owner,repo) 批量查询有效缓存

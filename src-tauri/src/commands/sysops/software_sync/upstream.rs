@@ -18,7 +18,7 @@ use std::collections::HashMap;
 use tauri::State;
 
 use super::super::proxy_utils::build_client;
-use super::batch::{batch_check_upstream, PackageTask};
+use super::batch::{batch_check_upstream, PackageTask, write_github_tag_cache};
 use crate::db::github_tag_cache::CacheCheckResult;
 use crate::checkers::utils::extract_owner_repo;
 use crate::models::{CheckerType, PackageType};
@@ -142,22 +142,16 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
     // 分类并行检查：Manual 跳过网络，Browser 限严格并发，其余限全局并发
     let outcome = batch_check_upstream(tasks, client, github_client, settings, retry,
         |_owner, _repo, _tag_count, _json_str| {
-            // 缓存写盘由调用方在 batch 返回后统一执行（避免跨 await 持有 db 引用）
+            // 缓存写盘由 batch 返回后统一执行（避免跨 await 持有 db 引用）
         }).await;
 
-    // 写回 GitHub tags 缓存：对未命中缓存的仓库，收集其 (owner,repo) 供后续写盘
-    // 实际写盘在此处统一进行（batch_check_upstream 不暴露 cache_map）
-    let non_cached_repos: Vec<(String, String)> = github_repos
-        .into_iter()
-        .filter(|r| !skip_keys.contains(r))
-        .collect();
-    if !non_cached_repos.is_empty() {
-        info!(
-            "[GitHub Cache] 本次新增 {} 个仓库需要写盘",
-            non_cached_repos.len()
-        );
+    // 写回 GitHub tags 缓存
+    if !outcome.github_cache_map.is_empty() {
+        let db = state.db.lock().unwrap();
+        if let Err(e) = write_github_tag_cache(&db, &outcome.github_cache_map) {
+            error!("[GitHub Cache] 写盘失败: {}", e);
+        }
     }
-    let _ = non_cached_repos;
 
     // 一次性批量读取所有 AUR 版本（单条 SQL + 单次加锁），替代循环内逐包
     // get_aur_info 的 N+1 查询与反复加锁，显著降低批量检查的数据库开销
