@@ -154,6 +154,7 @@ impl VersionChecker for GitHubAPIChecker {
                     check_test_versions: true,
                     check_binary_files: options.check_binary_files,
                     pkgname,
+                    start_page: 0,
                 },
             )
             .await?;

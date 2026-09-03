@@ -14,6 +14,7 @@ export interface SoftwareForm {
   check_test_versions: boolean;
   check_binary_files: boolean;
   auto_check_enabled: boolean;
+  skip_check_upstream: boolean;
   license_ids: string | null;
   language_ids: number[];
   version_extract_regex: string;
@@ -28,6 +29,7 @@ const defaultForm: SoftwareForm = {
   check_test_versions: false,
   check_binary_files: false,
   auto_check_enabled: false,
+  skip_check_upstream: false,
   license_ids: null,
   language_ids: [],
   version_extract_regex: "",
@@ -54,6 +56,7 @@ export function useSoftwareForm() {
       form.value.check_test_versions !== original.check_test_versions ||
       form.value.check_binary_files !== original.check_binary_files ||
       form.value.auto_check_enabled !== original.auto_check_enabled ||
+      form.value.skip_check_upstream !== original.skip_check_upstream ||
       JSON.stringify(form.value.language_ids) !== JSON.stringify(original.language_ids ?? []) ||
       form.value.version_extract_regex !== (original.version_extract_regex ?? "")
     );
@@ -92,6 +95,7 @@ export function useSoftwareForm() {
           check_test_versions: data.check_test_versions,
           check_binary_files: data.check_binary_files,
           auto_check_enabled: data.auto_check_enabled,
+          skip_check_upstream: data.skip_check_upstream ?? false,
           license_ids: data.aur_license_name ?? null,
           language_ids: data.language_ids ?? [],
           version_extract_regex: data.version_extract_regex ?? "",
@@ -115,6 +119,7 @@ export function useSoftwareForm() {
         check_test_versions: detail.value.check_test_versions,
         check_binary_files: detail.value.check_binary_files,
         auto_check_enabled: detail.value.auto_check_enabled,
+        skip_check_upstream: detail.value.skip_check_upstream ?? false,
         license_ids: detail.value.aur_license_name ?? null,
         language_ids: detail.value.language_ids ?? [],
         version_extract_regex: detail.value.version_extract_regex ?? "",
@@ -165,6 +170,7 @@ export function useSoftwareForm() {
           checkTestVersions: form.value.check_test_versions,
           checkBinaryFiles: form.value.check_binary_files,
           autoCheckEnabled: form.value.auto_check_enabled,
+          skipCheckUpstream: form.value.skip_check_upstream,
           languageIds: form.value.language_ids,
           versionExtractRegex: form.value.version_extract_regex || null,
         });
@@ -181,6 +187,7 @@ export function useSoftwareForm() {
           checkTestVersions: form.value.check_test_versions,
           checkBinaryFiles: form.value.check_binary_files,
           autoCheckEnabled: form.value.auto_check_enabled,
+          skipCheckUpstream: form.value.skip_check_upstream,
           languageIds: form.value.language_ids,
           versionExtractRegex: form.value.version_extract_regex || null,
         });

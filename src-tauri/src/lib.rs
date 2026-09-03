@@ -210,11 +210,13 @@ pub fn run() {
             // 软件包同步（sysops 模块）
             commands::sysops::software_sync::aur::sync_from_aur, // 从 AUR 同步软件包
             commands::sysops::software_sync::aur::update_aur_info, // 更新 AUR 信息
+            commands::sysops::software_sync::import_aur::search_aur_packages, // 搜索 AUR 包
+            commands::sysops::software_sync::import_aur::import_aur_package, // 导入 AUR 包
             commands::sysops::software_sync::pkgbuild::sync_from_pkgbuild, // 从 PKGBUILD 文件同步
             commands::sysops::software_sync::upstream::check_all_upstream, // 并行检查所有软件包的上游版本
             // 版本检查（sysops 模块）
             commands::sysops::software_check_single::check_upstream_version, // 检查单个软件包的上游版本
-            commands::sysops::software_check::check_selected_upstream, // 检查选中的软件包上游版本
+            commands::sysops::software_check::selected::check_selected_upstream, // 检查选中的软件包上游版本
             // 上游 URL 验证（sysops 模块）
             commands::sysops::upstream_validate::validate_upstream_urls, // 批量验证上游 URL
             // 扫描和缓存管理（fileops 模块）

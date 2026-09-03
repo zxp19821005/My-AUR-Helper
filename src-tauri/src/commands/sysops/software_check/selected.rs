@@ -1,90 +1,26 @@
-/**
- * software_check.rs - 版本检查命令
- *
- * 功能：
- * - check_upstream_version: 检查单个软件包的上游版本
- * - check_selected_upstream: 检查选中的软件包上游版本（并行检查 + 批量写入）
- */
+//! selected.rs — 选中包上游版本检查（缓存校验→并行检查→批量写库）
 use chrono::Utc;
-use log::{debug, error, info};
+use log::{error, info};
 use std::collections::HashMap;
 use tauri::State;
 
-use super::proxy_utils::build_client;
-use super::software_sync::batch::{batch_check_upstream, PackageTask};
-use super::software_sync::utils::{
+use super::super::proxy_utils::build_client;
+use super::super::software_sync::batch::{batch_check_upstream, PackageTask};
+use super::super::software_sync::batch_cache::write_github_tag_cache;
+use super::super::software_sync::cache::check_github_cache;
+use super::super::software_sync::cache_fill::{
+    collect_missing_repos, fetch_repo_tags, write_back,
+};
+use super::super::software_sync::utils::{
     build_checker_settings, read_http_settings, UpstreamCheckResult,
 };
-use crate::checkers::{self, CheckOptions, CheckResult};
-use crate::errors::{AppError, AppResult};
+use crate::errors::AppResult;
 use crate::models::*;
 use crate::versions;
 use crate::AppState;
 
-pub(crate) async fn check_with_retry(
-    checker: &dyn checkers::VersionChecker,
-    client: &reqwest::Client,
-    upstream_url: &str,
-    pkgname: &str,
-    version_extract_regex: Option<&str>,
-    options: &CheckOptions,
-    retry_count: u32,
-) -> AppResult<CheckResult> {
-    let mut last_error = None;
-    for attempt in 0..=retry_count {
-        if attempt > 0 {
-            // 指数退避延迟：1s, 2s, 4s ...
-            let delay_secs = 1u64 << (attempt - 1);
-            info!(
-                "[重试] 第 {} 次重试 {} (等待 {}s)",
-                attempt, pkgname, delay_secs
-            );
-            tokio::time::sleep(std::time::Duration::from_secs(delay_secs)).await;
-        }
-        match checker
-            .check(
-                client,
-                upstream_url,
-                pkgname,
-                version_extract_regex,
-                options,
-            )
-            .await
-        {
-            Ok(result) => return Ok(result),
-            Err(e) => {
-                error!(
-                    "检查 {} 失败 (尝试 {}/{}): {}",
-                    pkgname,
-                    attempt + 1,
-                    retry_count + 1,
-                    e
-                );
-                // 永久性错误（DNS 失败、404、403 等）不重试
-                if !e.is_retryable() {
-                    debug!("错误不可重试，跳过剩余重试");
-                    return Err(e);
-                }
-                last_error = Some(e);
-            }
-        }
-    }
-    Err(last_error.unwrap_or(AppError::VersionCheckError("检查失败".to_string())))
-}
-
-/// 写入单个软件包的上游检查结果（is_outdated / 语言列表 / upstream_info）
-///
-/// 在调用方传入的连接（可处于事务中）上执行，便于批量写入原子化。
-///
-/// # Arguments
-/// - `conn` 数据库连接（可为事务连接）
-/// - `software_id` 软件包 ID
-/// - `cleaned_version` 已去除 `v` 前缀的上游版本
-/// - `is_outdated` 与 AUR 相比是否落后
-/// - `upstream_license_id` 上游 License SPDX ID（可选）
-/// - `language_ids` 解析后的语言 ID 列表（已在外层解析，避免在事务内借阅冲突）
-/// - `fill_languages` 是否填充语言列表（仅当用户未手动设置时）
-pub(crate) fn apply_upstream_check_result(
+/// 写入单个软件包的上游检查结果
+pub fn apply_upstream_check_result(
     conn: &rusqlite::Connection,
     software_id: i64,
     cleaned_version: &str,
@@ -103,15 +39,13 @@ pub(crate) fn apply_upstream_check_result(
         upstream_license_id,
         last_checked: Some(Utc::now().timestamp()),
         upstream_url_status: None,
-        // 检查成功，清空上一次失败的标记
         last_check_error: None,
     };
     crate::db::Database::upsert_upstream_info_conn(conn, &upstream_info)?;
     Ok(())
 }
 
-// check_all_upstream 已移至 software_sync.rs 实现并行检查
-
+/// 检查选中的软件包上游版本
 #[tauri::command]
 pub async fn check_selected_upstream(
     state: State<'_, AppState>,
@@ -119,7 +53,6 @@ pub async fn check_selected_upstream(
 ) -> AppResult<Vec<(String, String)>> {
     info!("正在检查 {} 个软件包的上游版本", pkgname_list.len());
 
-    // 一次性读取所有选中软件包的信息 + 配置，单次加锁
     let (packages, settings, timeout, retry) = {
         let db = state.db.lock()?;
         let mut packages = Vec::new();
@@ -133,20 +66,16 @@ pub async fn check_selected_upstream(
         (packages, settings, timeout, retry)
     };
 
-    // 预先提取每个包的已有语言 ID，避免写库阶段逐包回查（消除 N+1 查询）
     let lang_by_id: HashMap<i64, Vec<i64>> = packages
         .iter()
         .map(|p| (p.software_id.unwrap_or(0), p.language_ids.clone()))
         .collect();
 
-    // 一次性批量读取所有 AUR 版本（单条 SQL + 单次加锁），
-    // 同时用于「无 AUR 版本前置过滤」与「版本比较」，避免循环内逐包回查（原 N+1 残留）。
     let aur_map: HashMap<i64, String> = {
         let db = state.db.lock()?;
         db.get_aur_versions_map()?
     };
 
-    // 过滤掉没有 AUR 版本的包（前置检查，避免浪费网络请求）
     let mut tasks = Vec::new();
     for sw in &packages {
         let has_aur = aur_map
@@ -175,11 +104,62 @@ pub async fn check_selected_upstream(
     let client = build_client(timeout, false);
     let github_client = build_client(timeout, true);
 
-    // 并行检查：复用 batch_check_upstream 的分类并发引擎
-    let outcome = batch_check_upstream(tasks, client, github_client, settings, retry, |_, _, _, _| {}).await;
+    // ---- GitHub tags 缓存：查有效缓存，跳过命中仓库的包 ----
+    use crate::checkers::utils::extract_owner_repo;
+    use crate::models::{CheckerType, PackageType};
 
-    // 在内存中比较版本，得出 is_outdated
+    let github_repos: Vec<(String, String)> = tasks
+        .iter()
+        .filter(|t| matches!(t.checker_type, CheckerType::GitHubTags | CheckerType::GitHubAPI)
+            && t.package_type != PackageType::Git
+            && extract_owner_repo(&t.upstream_url).is_some())
+        .map(|t| {
+            let (o, r) = extract_owner_repo(&t.upstream_url).unwrap();
+            (o, r)
+        })
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+
+    let cache_summary = {
+        let db = state.db.lock().unwrap();
+        check_github_cache(&db, &tasks, &github_repos)
+    };
+    let skip_keys = cache_summary.skip_keys;
+    let cache_hit_results = cache_summary.cache_hit_results;
+    // 保留完整任务列表 / token / client：三者稍后都会被 move 进 batch_check_upstream
+    let all_tasks = tasks.clone();
+    let github_token = settings.github_token.clone();
+    let fill_client = github_client.clone();
+    let tasks: Vec<PackageTask> = tasks
+        .into_iter()
+        .filter(|t| {
+            if !matches!(t.checker_type, CheckerType::GitHubTags | CheckerType::GitHubAPI) {
+                return true;
+            }
+            if let Some((owner, repo)) = extract_owner_repo(&t.upstream_url) {
+                if skip_keys.contains(&(owner, repo)) {
+                    return false;
+                }
+            }
+            true
+        })
+        .collect();
+
+    let outcome = batch_check_upstream(tasks, client, github_client, settings, retry,
+        |_owner, _repo, _tag_count, _json_str| {}).await;
+
+    if !outcome.github_cache_map.is_empty() {
+        let db = state.db.lock().unwrap();
+        if let Err(e) = write_github_tag_cache(&db, &outcome.github_cache_map) {
+            error!("[GitHub Cache] 写盘失败: {}", e);
+        }
+    }
+
     let mut check_results: Vec<UpstreamCheckResult> = Vec::new();
+    for r in cache_hit_results {
+        check_results.push(r);
+    }
     for r in outcome.checked {
         if r.upstream_version.is_empty() {
             check_results.push(r);
@@ -209,8 +189,21 @@ pub async fn check_selected_upstream(
         });
     }
 
-    // 预先解析所有结果的语言 ID：解析过程会写库（get_or_create），
-    // 须在事务外加锁完成，避免与下方 &mut db 的事务借阅冲突。
+    // 补写 REST 回落场景缺失的缓存：
+    // GraphQL 失败时 batch 不产生快照，仓库不会进入 github_cache_map，
+    // 若不在此补齐，这些仓库每次检查都会重复请求 GitHub API。
+    {
+        let missing = {
+            let db = state.db.lock()?;
+            collect_missing_repos(&db, &all_tasks, &check_results, &outcome.github_cache_map)
+        };
+        if !missing.is_empty() {
+            let tags_map = fetch_repo_tags(&fill_client, missing, github_token.as_deref()).await;
+            let db = state.db.lock()?;
+            write_back(&db, tags_map)?;
+        }
+    }
+
     let lang_ids_by_sw: HashMap<i64, Vec<i64>> = {
         let db = state.db.lock()?;
         let mut map = HashMap::new();
@@ -225,8 +218,6 @@ pub async fn check_selected_upstream(
         map
     };
 
-    // 批量写入数据库：单个事务包裹全部写操作（is_outdated / 语言 / upstream_info），
-    // 保证「全有或全无」的原子性，避免中途失败时留下部分写入（优化文档 C1）。
     let mut db = state.db.lock()?;
     let tx = db.conn.transaction()?;
     let mut results = Vec::new();
@@ -237,7 +228,6 @@ pub async fn check_selected_upstream(
                 .strip_prefix('v')
                 .unwrap_or(&result.upstream_version);
             let upstream_license_id = result.license_spdx_id.clone();
-            // 语言 ID 已在事务外预解析；仅当用户未手动设置语言列表时填充
             let language_ids = lang_ids_by_sw
                 .get(&result.software_id)
                 .cloned()
@@ -268,13 +258,11 @@ pub async fn check_selected_upstream(
 
             results.push((result.pkgname.clone(), result.upstream_version.clone()));
         } else {
-            // 检查失败 / 无可解析版本：置为未过期，不写 upstream_info
             crate::db::Database::update_software_outdated_conn(&tx, result.software_id, false)?;
         }
     }
     tx.commit()?;
 
-    // Manual 检查器包：跳过网络与写库，仅回传包名标记
     for pkgname in outcome.manual {
         results.push((pkgname, "manual".to_string()));
     }

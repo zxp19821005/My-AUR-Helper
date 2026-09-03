@@ -14,6 +14,7 @@ pub struct SoftwareInfo {
     pub check_test_versions: bool,
     pub check_binary_files: bool,
     pub auto_check_enabled: bool,
+    pub skip_check_upstream: bool,
     pub language_ids: Vec<i64>,
     pub version_extract_regex: Option<String>,
 }

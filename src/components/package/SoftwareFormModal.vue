@@ -90,20 +90,27 @@ async function handleSave() {
 </script>
 
 <template>
-  <StandardizedModal :show="show" :title="mode === 'add' ? '添加软件包' : '编辑软件包'" width="600px" @close="emit('close')">
+  <StandardizedModal :show="show" :title="mode === 'add' ? '添加软件包' : '编辑软件包'" width="800px" @close="emit('close')">
     <template #error v-if="error">{{ error }}</template>
     <div class="form-container">
-      <div class="form-row-full">
-        <span v-if="mode === 'edit'" class="pkgname-text">{{ form.pkgname }}</span>
-        <input v-else v-model="form.pkgname" class="form-input pkgname-input" placeholder="输入包名" />
+      <!-- 包名（编辑模式显示文本，添加模式显示输入框）-->
+      <div class="form-row-inline" v-if="mode === 'edit'">
+        <label class="form-label">包名</label>
+        <span class="pkgname-text">{{ form.pkgname }}</span>
+      </div>
+      <div class="form-row-inline" v-else>
+        <label class="form-label">包名</label>
+        <input v-model="form.pkgname" class="form-input flex-1" placeholder="输入包名" />
       </div>
 
-      <div class="form-row-full">
+      <!-- 上游地址 + 输入框 同一行 -->
+      <div class="form-row-inline">
         <label class="form-label">上游地址</label>
-        <input v-model="form.upstream_url" class="form-input" placeholder="https://..." />
+        <input v-model="form.upstream_url" class="form-input flex-1" placeholder="https://..." />
       </div>
 
-      <div class="form-row-full">
+      <!-- 软件类型 -->
+      <div class="form-row-inline">
         <label class="form-label">软件类型</label>
         <div class="radio-group">
           <label v-for="t in pkgTypes" :key="t.id" class="radio-item">
@@ -113,8 +120,9 @@ async function handleSave() {
         </div>
       </div>
 
-      <div class="form-row-full">
-        <label class="form-label">检查器类型</label>
+      <!-- 上游检查器（原检查器类型）-->
+      <div class="form-row-inline">
+        <label class="form-label">上游检查器</label>
         <div class="radio-group">
           <label v-for="c in checkerTypes" :key="c.id" class="radio-item">
             <input type="radio" :value="c.id" v-model.number="form.checker_type_id" />
@@ -123,6 +131,7 @@ async function handleSave() {
         </div>
       </div>
 
+      <!-- 编程语言 -->
       <div class="form-row-full">
         <label class="form-label">编程语言</label>
         <div class="checkbox-group">
@@ -133,12 +142,14 @@ async function handleSave() {
         </div>
       </div>
 
-      <div class="form-row-full">
+      <!-- 版本提取关键字 + 输入框 同一行 -->
+      <div class="form-row-inline">
         <label class="form-label">版本提取关键字</label>
-        <input v-model="form.version_extract_regex" class="form-input" placeholder="输入正则表达式，如 v?(\d+\.\d+\.\d+)" />
-        <span class="form-hint">用于自定义版本号提取规则，支持正则表达式语法</span>
+        <input v-model="form.version_extract_regex" class="form-input flex-1" placeholder="如 v?(\d+\.\d+\.\d+)" />
+        <span class="form-hint">正则表达式</span>
       </div>
 
+      <!-- 复选框选项 -->
       <div class="form-row-inline">
         <label class="checkbox-label" v-if="mode === 'edit'">
           <input type="checkbox" v-model="form.is_outdated" />
@@ -147,6 +158,10 @@ async function handleSave() {
         <label class="checkbox-label">
           <input type="checkbox" v-model="form.auto_check_enabled" />
           <span>自动检查</span>
+        </label>
+        <label class="checkbox-label" v-if="mode === 'edit'">
+          <input type="checkbox" v-model="form.skip_check_upstream" />
+          <span>跳过上游检查</span>
         </label>
         <label class="checkbox-label">
           <input type="checkbox" v-model="form.check_test_versions" />
@@ -158,9 +173,10 @@ async function handleSave() {
         </label>
       </div>
 
-      <div class="form-row-full">
+      <!-- License + 下拉框 同一行 -->
+      <div class="form-row-inline">
         <label class="form-label">License</label>
-        <div ref="searchableSelectRef" class="searchable-select" @click="licenseDropdownOpen = !licenseDropdownOpen">
+        <div ref="searchableSelectRef" class="searchable-select flex-1" @click="licenseDropdownOpen = !licenseDropdownOpen">
           <div class="select-display">
             <span>{{ getSelectedLicenseLabel() }}</span>
             <span class="select-arrow">▼</span>
@@ -187,13 +203,13 @@ async function handleSave() {
 </template>
 
 <style scoped>
-.form-container { display: flex; flex-direction: column; gap: 0.75rem; }
+.form-container { display: flex; flex-direction: column; gap: 0.625rem; }
 .form-row-full { display: flex; flex-direction: column; gap: 0.375rem; }
-.form-row-inline { display: flex; align-items: center; gap: 1.5rem; }
-.inline-item { display: flex; align-items: center; }
-.form-label { font-size: 0.8125rem; font-weight: 600; color: var(--text-secondary); }
-.pkgname-text { font-size: 1.125rem; font-weight: 700; color: var(--accent); text-align: center; }
-.pkgname-input { text-align: center; font-size: 1rem; font-weight: 600; }
+.form-row-inline { display: flex; align-items: flex-start; gap: 1rem; }
+.form-field-group { flex: 1; display: flex; flex-direction: column; gap: 0.375rem; }
+.flex-1 { flex: 1; min-width: 0; }
+.form-label { font-size: 0.8125rem; font-weight: 600; color: var(--text-secondary); white-space: nowrap; width: 80px; flex-shrink: 0; }
+.pkgname-text { font-size: 1rem; font-weight: 700; color: var(--accent); }
 .radio-group { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .radio-item {
   display: inline-flex; align-items: center; gap: 0.375rem;
@@ -241,10 +257,10 @@ async function handleSave() {
 .select-option.selected { background: rgba(108, 99, 255, 0.2); color: var(--accent); }
 .form-input {
   padding: 0.375rem 0.625rem; border-radius: 6px; border: 1px solid var(--border);
-  background-color: var(--bg-primary); color: var(--text-primary); font-size: 0.8125rem; width: 100%;
+  background-color: var(--bg-primary); color: var(--text-primary); font-size: 0.8125rem;
 }
 .form-input:focus { outline: none; border-color: var(--accent); }
-.form-hint { font-size: 0.75rem; color: var(--text-secondary); }
+.form-hint { font-size: 0.75rem; color: var(--text-secondary); white-space: nowrap; }
 .checkbox-label {
   display: inline-flex; align-items: center; gap: 0.5rem;
   cursor: pointer; font-size: 0.875rem; color: var(--text-primary);

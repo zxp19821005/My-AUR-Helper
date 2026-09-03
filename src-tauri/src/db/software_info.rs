@@ -13,26 +13,27 @@ use rusqlite::Connection;
 use super::Database;
 
 /// software_info 基础列清单，列序与 row_to_software_info 一一对应
-const SW_INFO_COLS: &str = "software_id, pkgname, upstream_url, package_type_id, checker_type_id, is_outdated, check_test_versions, check_binary_files, auto_check_enabled, language_id, version_extract_regex";
+const SW_INFO_COLS: &str = "software_id, pkgname, upstream_url, package_type_id, checker_type_id, is_outdated, check_test_versions, check_binary_files, auto_check_enabled, skip_check_upstream, language_id, version_extract_regex";
 
 /// software_info 列清单（含 s. 前缀），用于多表 JOIN SELECT
-const SW_INFO_COLS_S: &str = "s.software_id, s.pkgname, s.upstream_url, s.package_type_id, s.checker_type_id, s.is_outdated, s.check_test_versions, s.check_binary_files, s.auto_check_enabled, s.language_id, s.version_extract_regex";
+const SW_INFO_COLS_S: &str = "s.software_id, s.pkgname, s.upstream_url, s.package_type_id, s.checker_type_id, s.is_outdated, s.check_test_versions, s.check_binary_files, s.auto_check_enabled, s.skip_check_upstream, s.language_id, s.version_extract_regex";
 
 /// 列表视图 JOIN 查询列清单（software_info + aur_info + upstream_info）
 /// 末两列 last_sync_error / last_check_error 供列表筛选区分「同步失败」与「无版本」
-const SW_LIST_COLS: &str = "s.software_id, s.pkgname, s.package_type_id, s.checker_type_id, s.is_outdated, a.aur_version, CAST(a.last_updated AS INTEGER), u.upstream_version, CAST(u.last_checked AS INTEGER), s.upstream_url, u.upstream_url_status, u.upstream_license_id, a.last_sync_error, u.last_check_error";
+const SW_LIST_COLS: &str = "s.software_id, s.pkgname, s.package_type_id, s.checker_type_id, s.is_outdated, a.aur_version, a.last_updated, u.upstream_version, u.last_checked, s.upstream_url, u.upstream_url_status, u.upstream_license_id, a.last_sync_error, u.last_check_error";
 
 impl Database {
     pub fn insert_software(&self, sw: &SoftwareInfo) -> AppResult<i64> {
         let language_ids_json = serde_json::to_string(&sw.language_ids).unwrap_or_default();
 
         self.conn.execute(
-            "INSERT INTO software_info (pkgname, upstream_url, package_type_id, checker_type_id, is_outdated, check_test_versions, check_binary_files, auto_check_enabled, language_id, version_extract_regex)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            "INSERT INTO software_info (pkgname, upstream_url, package_type_id, checker_type_id, is_outdated, check_test_versions, check_binary_files, auto_check_enabled, skip_check_upstream, language_id, version_extract_regex)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             rusqlite::params![
                 sw.pkgname, sw.upstream_url, sw.package_type_id.as_id(), sw.checker_type_id.as_id(),
                 sw.is_outdated as i32, sw.check_test_versions as i32, sw.check_binary_files as i32,
-                sw.auto_check_enabled as i32, language_ids_json, sw.version_extract_regex
+                sw.auto_check_enabled as i32, sw.skip_check_upstream as i32,
+                language_ids_json, sw.version_extract_regex
             ],
         )?;
         Ok(self.conn.last_insert_rowid())
@@ -42,19 +43,21 @@ impl Database {
         let language_ids_json = serde_json::to_string(&sw.language_ids).unwrap_or_default();
 
         self.conn.execute(
-            "INSERT INTO software_info (pkgname, upstream_url, package_type_id, checker_type_id, is_outdated, check_test_versions, check_binary_files, auto_check_enabled, language_id, version_extract_regex)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+            "INSERT INTO software_info (pkgname, upstream_url, package_type_id, checker_type_id, is_outdated, check_test_versions, check_binary_files, auto_check_enabled, skip_check_upstream, language_id, version_extract_regex)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
              ON CONFLICT(pkgname) DO UPDATE SET
                 upstream_url=excluded.upstream_url, package_type_id=excluded.package_type_id,
                 checker_type_id=excluded.checker_type_id, is_outdated=excluded.is_outdated,
                 check_test_versions=excluded.check_test_versions, check_binary_files=excluded.check_binary_files,
                 auto_check_enabled=excluded.auto_check_enabled,
+                skip_check_upstream=excluded.skip_check_upstream,
                 language_id=excluded.language_id,
                 version_extract_regex=excluded.version_extract_regex",
             rusqlite::params![
                 sw.pkgname, sw.upstream_url, sw.package_type_id.as_id(), sw.checker_type_id.as_id(),
                 sw.is_outdated as i32, sw.check_test_versions as i32, sw.check_binary_files as i32,
-                sw.auto_check_enabled as i32, language_ids_json, sw.version_extract_regex
+                sw.auto_check_enabled as i32, sw.skip_check_upstream as i32,
+                language_ids_json, sw.version_extract_regex
             ],
         )?;
         Ok(())
@@ -83,7 +86,7 @@ impl Database {
 
     /// 将查询行映射为 SoftwareInfo（列序与 SW_INFO_COLS 一一对应）
     fn row_to_software_info(row: &rusqlite::Row) -> rusqlite::Result<SoftwareInfo> {
-        let lang_json: String = row.get(9)?;
+        let lang_json: String = row.get(10)?;
         Ok(SoftwareInfo {
             software_id: Some(row.get(0)?),
             pkgname: row.get(1)?,
@@ -94,8 +97,9 @@ impl Database {
             check_test_versions: row.get::<_, i32>(6)? != 0,
             check_binary_files: row.get::<_, i32>(7)? != 0,
             auto_check_enabled: row.get::<_, i32>(8)? != 0,
+            skip_check_upstream: row.get::<_, i32>(9)? != 0,
             language_ids: Self::parse_language_ids(&lang_json),
-            version_extract_regex: row.get(10)?,
+            version_extract_regex: row.get(11)?,
         })
     }
 
@@ -159,12 +163,13 @@ impl Database {
 
     pub fn get_software_detail_by_name(&self, pkgname: &str) -> AppResult<Option<SoftwareDetail>> {
         let mut stmt = self.conn.prepare(
-            &format!("SELECT {SW_INFO_COLS_S}, a.aur_version, CAST(a.last_updated AS INTEGER), a.pkgdesc, a.depends, a.makedepends, a.optdepends, a.license_id, u.upstream_version, CAST(u.last_checked AS INTEGER), u.upstream_license_id FROM software_info s LEFT JOIN aur_info a ON s.software_id = a.software_id LEFT JOIN upstream_info u ON s.software_id = u.software_id WHERE s.pkgname = ?1"),
+            &format!("SELECT {SW_INFO_COLS_S}, a.aur_version, a.last_updated, a.pkgdesc, a.depends, a.makedepends, a.optdepends, a.license_id, u.upstream_version, u.last_checked, u.upstream_license_id FROM software_info s LEFT JOIN aur_info a ON s.software_id = a.software_id LEFT JOIN upstream_info u ON s.software_id = u.software_id WHERE s.pkgname = ?1"),
         )?;
         let mut rows = stmt.query_map(rusqlite::params![pkgname], |row| {
-            let sw = Self::row_to_software_info(row)?; // 复用共享映射（列 0-10）
-            let aur_license_json: Option<String> = row.get(17)?;
-            let upstream_license_json: Option<String> = row.get(20)?;
+            let sw = Self::row_to_software_info(row)?; // 复用共享映射（列 0-11）
+            // 列 12-21: aur_info + upstream_info 追加列
+            let aur_license_json: Option<String> = row.get(18)?;
+            let upstream_license_json: Option<String> = row.get(21)?;
             log::debug!(
                 "get_software_detail: pkgname={}, has_aur_license={}, has_upstream_license={}",
                 pkgname, aur_license_json.is_some(), upstream_license_json.is_some()
@@ -179,17 +184,18 @@ impl Database {
                 check_test_versions: sw.check_test_versions,
                 check_binary_files: sw.check_binary_files,
                 auto_check_enabled: sw.auto_check_enabled,
+                skip_check_upstream: sw.skip_check_upstream,
                 language_ids: sw.language_ids,
                 version_extract_regex: sw.version_extract_regex,
-                aur_version: row.get(11)?,
-                aur_last_updated: row.get(12)?,
-                aur_pkgdesc: row.get(13)?,
-                depends: row.get(14)?,
-                makedepends: row.get(15)?,
-                optdepends: row.get(16)?,
+                aur_version: row.get(12)?,
+                aur_last_updated: row.get(13)?,
+                aur_pkgdesc: row.get(14)?,
+                depends: row.get(15)?,
+                makedepends: row.get(16)?,
+                optdepends: row.get(17)?,
                 aur_license_name: aur_license_json,
-                upstream_version: row.get(18)?,
-                upstream_last_checked: row.get(19)?,
+                upstream_version: row.get(19)?,
+                upstream_last_checked: row.get(20)?,
                 upstream_license_name: upstream_license_json,
             })
         })?;

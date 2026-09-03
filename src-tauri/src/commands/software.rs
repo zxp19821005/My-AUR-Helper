@@ -101,6 +101,7 @@ pub async fn add_software(
     check_test_versions: bool,
     check_binary_files: bool,
     auto_check_enabled: bool,
+    skip_check_upstream: bool,
     language_ids: Vec<i64>,
     version_extract_regex: Option<String>,
 ) -> Result<i64, String> {
@@ -115,6 +116,7 @@ pub async fn add_software(
         check_test_versions,
         check_binary_files,
         auto_check_enabled,
+        skip_check_upstream,
         language_ids,
         version_extract_regex,
     };
@@ -141,6 +143,7 @@ pub async fn update_software(
     check_test_versions: bool,
     check_binary_files: bool,
     auto_check_enabled: bool,
+    skip_check_upstream: bool,
     language_ids: Vec<i64>,
     version_extract_regex: Option<String>,
 ) -> Result<(), String> {
@@ -155,6 +158,7 @@ pub async fn update_software(
         check_test_versions,
         check_binary_files,
         auto_check_enabled,
+        skip_check_upstream,
         language_ids,
         version_extract_regex,
     };

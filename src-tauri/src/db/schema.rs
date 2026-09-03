@@ -23,6 +23,7 @@ impl Database {
                 check_test_versions     INTEGER NOT NULL DEFAULT 0,
                 check_binary_files      INTEGER NOT NULL DEFAULT 0,
                 auto_check_enabled      INTEGER NOT NULL DEFAULT 1,
+                skip_check_upstream     INTEGER NOT NULL DEFAULT 0,
                 language_id             TEXT DEFAULT '[]',
                 version_extract_regex   TEXT
             );

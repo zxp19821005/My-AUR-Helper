@@ -14,6 +14,7 @@ import type {
   SoftwareDetail,
   SoftwareListEntry,
   ValidateResult,
+  AurSearchResult,
 } from "@/types";
 
 /** 新增软件包入参（packageType / checkerType 在前端表单中以 number 建模，与后端 i32/i64 对应） */
@@ -25,6 +26,7 @@ export interface AddSoftwareInput {
   checkTestVersions: boolean;
   checkBinaryFiles: boolean;
   autoCheckEnabled: boolean;
+  skipCheckUpstream: boolean;
   languageIds: number[];
   versionExtractRegex: string | null;
 }
@@ -95,6 +97,25 @@ export async function updateAurInfo(pkgnameList: string[] | null): Promise<numbe
 /** 从 AUR 全量同步软件包信息 */
 export async function syncFromAur(): Promise<void> {
   await invoke("sync_from_aur");
+}
+
+/** 搜索 AUR 中的软件包 */
+export async function searchAurPackages(keyword: string): Promise<AurSearchResult[]> {
+  return await invoke<AurSearchResult[]>("search_aur_packages", { searchKeyword: keyword });
+}
+
+/** 从 AUR 导入软件包到本地数据库 */
+export interface ImportAurPackageInput {
+  pkgname: string;
+  packageType: number;
+  checkerType: number;
+}
+export async function importAurPackage(input: ImportAurPackageInput): Promise<number> {
+  return await invoke<number>("import_aur_package", {
+    pkgname: input.pkgname,
+    packageType: input.packageType,
+    checkerType: input.checkerType,
+  });
 }
 
 /** 从 PKGBUILD 同步（pkgname 为 null 表示全部） */

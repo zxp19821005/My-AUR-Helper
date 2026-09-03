@@ -23,6 +23,7 @@ const SOFTWARE_NEW_SCHEMA: &str = "
         check_test_versions     INTEGER NOT NULL DEFAULT 0,
         check_binary_files      INTEGER NOT NULL DEFAULT 0,
         auto_check_enabled      INTEGER NOT NULL DEFAULT 1,
+        skip_check_upstream     INTEGER NOT NULL DEFAULT 0,
         language_id             TEXT DEFAULT '[]',
         version_extract_regex   TEXT
     );";
@@ -31,6 +32,7 @@ const SOFTWARE_INSERT_SQL: &str = "
     INSERT INTO software_info_new
     SELECT software_id, pkgname, upstream_url, package_type_id, checker_type_id,
            is_outdated, check_test_versions, check_binary_files, auto_check_enabled,
+           0,
            CASE WHEN language_id IS NULL THEN '[]'
                 ELSE '[' || CAST(language_id AS TEXT) || ']'
            END,
@@ -66,6 +68,11 @@ impl Database {
         if !columns.contains(&"version_extract_regex".to_string()) {
             self.conn.execute_batch(
                 "ALTER TABLE software_info ADD COLUMN version_extract_regex TEXT;",
+            )?;
+        }
+        if !columns.contains(&"skip_check_upstream".to_string()) {
+            self.conn.execute_batch(
+                "ALTER TABLE software_info ADD COLUMN skip_check_upstream INTEGER NOT NULL DEFAULT 0;",
             )?;
         }
 

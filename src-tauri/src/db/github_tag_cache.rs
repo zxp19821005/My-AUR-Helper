@@ -1,46 +1,56 @@
-/**
- * github_tag_cache.rs - GitHub tags 缓存读写
- *
- * 功能：
- * - 按 (owner, repo) 存储 GraphQL + REST 拉取的 tags/releases 快照
- * - TTL 机制：超过 ttl_seconds（默认 86400s = 24h）视为过期
- * - 批量检查前查缓存，命中则跳过网络请求
- * - 手动清理命令：清除全部 / 清除过期 / 按仓库清除
- *
- * 设计要点：
- * - PRIMARY KEY (owner, repo) 保证每仓库只有一条记录
- * - data_json 存 JSON：{"tags":[...], "releases":[...]}
- * - etag 字段预留 If-None-Match 优化（当前未使用，后续可扩展）
- */
+//! github_tag_cache.rs - GitHub tags 缓存读写（按 owner+repo 存储快照，TTL 86400s）
 use crate::errors::AppResult;
 use log::{debug, info, warn};
 
 use super::Database;
-
 /// 默认缓存失效时间（秒）
 pub const DEFAULT_CACHE_TTL_SECONDS: i64 = 86_400;
 
-/// 查询结果行
+/// 缓存查询结果行
 #[derive(Debug, Clone)]
 pub struct GithubTagCacheRow {
     pub owner: String,
     pub repo: String,
-    /// 最后同步时间（Unix 时间戳，秒）
-    pub last_synced_at: i64,
-    /// 缓存的 tag 数量
+    pub last_synced_at: i64,       // Unix 时间戳（秒）
     pub tag_count: i32,
-    /// JSON 数组：["v44.1.1", "v44.1.0", ...]（按 pushedAt DESC）
-    pub data_json: String,
-    /// 上次检查到的上游版本（用于增量校验）
-    pub cached_version: Option<String>,
+    pub data_json: String,        // {"tags":[...],"releases":[...]}（按 pushedAt DESC）
+    pub cached_version: Option<String>, // 增量校验用
 }
 
-/// 从缓存行构建 tags 列表（反序列化 JSON 数组）
+/// 从缓存 JSON 构建 tags 列表。支持对象 `{"tags":[...]}` 和扁平数组 `[...]` 两种格式
 pub fn decode_tags(data_json: &str) -> Vec<String> {
-    match serde_json::from_str::<Vec<String>>(data_json) {
-        Ok(tags) => tags,
-        Err(_) => Vec::new(),
+    let value: serde_json::Value = match serde_json::from_str(data_json) {
+        Ok(v) => v,
+        Err(_) => return Vec::new(),
+    };
+    if let Some(tags) = value.get("tags").and_then(|v| v.as_array()) {
+        return tags.iter().filter_map(|v| v.as_str().map(String::from)).collect();
     }
+    if let Some(arr) = value.as_array() {
+        return arr.iter().filter_map(|v| v.as_str().map(String::from)).collect();
+    }
+    Vec::new()
+}
+
+/// 从 tags 列表按正则提取版本（tags 按 pushedAt DESC，首个匹配即该 major 线最新）
+/// 无正则或无匹配时取第一个 tag（仓库最新版本）。
+pub fn recompute_version_from_tags(tags: &[String], regex: Option<&str>) -> Option<String> {
+    if tags.is_empty() {
+        return None;
+    }
+    if let Some(re_str) = regex {
+        match regex::Regex::new(re_str) {
+            Ok(re) => {
+                for tag in tags {
+                    if re.is_match(tag) {
+                        return Some(tag.clone());
+                    }
+                }
+            }
+            Err(e) => debug!("[GitHub Cache] 正则编译失败: {}", e),
+        }
+    }
+    tags.first().cloned()
 }
 
 /// 增量校验结果
@@ -58,29 +68,10 @@ pub enum CacheCheckResult {
     Miss,
 }
 
-/// 从缓存的 tags JSON 中重新计算最新版本
-/// 使用第一个包的正则（ callers 传入 regex ）从已有 tags 中挑选版本
+/// 从缓存的 tags JSON 中重新计算最新版本（便捷封装）
 pub fn recompute_version_from_cache(data_json: &str, regex: Option<&str>) -> Option<String> {
     let tags = decode_tags(data_json);
-    if tags.is_empty() {
-        return None;
-    }
-    // tags 按 pushedAt DESC 排列，第一个匹配正则的就是最新版本
-    if let Some(re) = regex.and_then(|r| match regex::Regex::new(r) {
-        Ok(rx) => Some(rx),
-        Err(e) => {
-            debug!("[GitHub Cache] 正则编译失败: {}", e);
-            None
-        }
-    }) {
-        for tag in &tags {
-            if re.is_match(tag) {
-                return Some(tag.clone());
-            }
-        }
-    }
-    // 无正则时取第一个 tag（即最新版本）
-    tags.first().cloned()
+    recompute_version_from_tags(&tags, regex)
 }
 
 impl Database {
@@ -96,8 +87,7 @@ impl Database {
         }
     }
 
-    /// 查询单条缓存（不检查 TTL，调用方自行判断是否过期）
-    /// @returns None 表示缓存不存在
+    /// 查询单条缓存（不检查 TTL）。找不到行时返回 Err(QueryReturnedNoRows)
     pub fn get_cache(&self, owner: &str, repo: &str) -> AppResult<Option<GithubTagCacheRow>> {
         let mut stmt = self.conn.prepare(
             "SELECT owner, repo, last_synced_at, tag_count, data_json, cached_version
@@ -139,11 +129,6 @@ impl Database {
     }
 
     /// 写入或更新缓存（UPSERT）
-    /// @param owner       仓库所有者
-    /// @param repo        仓库名
-    /// @param tag_count   本次缓存的 tag 数量
-    /// @param data_json   JSON 快照字符串
-    /// @param cached_version 本次检查到的上游版本（可为 None）
     pub fn upsert_cache(
         &self,
         owner: &str,
@@ -175,7 +160,6 @@ impl Database {
     }
 
     /// 清除所有过期缓存（last_synced_at < now - ttl_seconds）
-    /// @returns 删除的行数
     pub fn clear_expired_caches(&self) -> AppResult<i64> {
         let ttl = self.get_cache_ttl_seconds()?;
         let now = chrono::Utc::now().timestamp();
@@ -188,7 +172,6 @@ impl Database {
     }
 
     /// 清除全部缓存
-    /// @returns 删除的行数
     pub fn clear_all_caches(&self) -> AppResult<i64> {
         let rows = self.conn.execute("DELETE FROM github_tag_cache", [])?;
         Ok(rows as i64)
@@ -204,20 +187,8 @@ impl Database {
         Ok(count)
     }
 
-    /// 增量校验：检查缓存是否过期，如过期则调 GitHub API 验证版本
-    ///
-    /// - 缓存有效 → CacheCheckResult::Hit
-    /// - 缓存过期 + 版本一致 → CacheCheckResult::Extend（顺延 TTL）
-    /// - 缓存过期 + 版本不一致 + 有 tags → CacheCheckResult::Recalculate（用缓存 tags 重算）
-    /// - 缓存过期 + 仓库不可访问 → CacheCheckResult::Deleted
-    /// - 无缓存 → CacheCheckResult::Miss
-    ///
-    /// @param owner    仓库所有者
-    /// @param repo     仓库名
-    /// @param regex    版本提取正则（可选，用于从缓存 tags 重算版本）
-    ///
-    /// 注意：此方法为同步函数，内部使用 reqwest::blocking 进行 HTTP 请求，
-    /// 调用方应通过 spawn_blocking 包裹以避免阻塞异步运行时。
+    /// 增量校验：缓存有效→Hit；过期+版本一致→Extend；过期+版本变→Recalculate；不可访问→Deleted；无缓存→Miss
+    /// 同步函数（含 reqwest::blocking），调用方需 spawn_blocking 包裹
     pub fn check_and_extend_cache(
         &self,
         owner: &str,

@@ -58,6 +58,17 @@ const checkerTypeName = computed(() => {
       <span class="status-label">上游检查器</span>
       <span class="status-value info">{{ checkerTypeName }}</span>
     </span>
+    <span class="status-item">
+      <span class="status-label">跳过上游检查</span>
+      <span
+        :class="[
+          'status-value',
+          detail.skip_check_upstream ? 'disabled' : 'enabled',
+        ]"
+      >
+        {{ detail.skip_check_upstream ? "已跳过" : "未跳过" }}
+      </span>
+    </span>
   </div>
 </template>
 

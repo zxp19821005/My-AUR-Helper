@@ -44,6 +44,9 @@ pub mod graphql_batch;
 /// GitHub GraphQL 批量查询的快照解析
 pub mod graphql_batch_parse;
 
+/// GitHub GraphQL 批量查询的底层实现（query 构建 + 分块执行）
+pub(crate) mod graphql_batch_query;
+
 /// GitHub GraphQL 批量检查的版本挑选辅助函数（从 graphql_batch.rs 拆分以符合 300 行约束）
 pub(crate) mod graphql_batch_helpers;
 

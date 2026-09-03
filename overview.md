@@ -1,48 +1,35 @@
-# GitHub tags 缓存系统实现
+# AUR 搜索与导入功能实现
 
 ## 问题
-electron10-bin / electron2-bin 等老版本包需要翻数百页 tags，37 个 electronXX-bin 包每次检查重复请求同一仓库数千次。
+用户反馈"从 AUR 同步"按钮无法同步新提交的包（如 `electron45-bin`）。原因：`sync_from_aur` 只遍历本地已存在的包名更新 `aur_info`，不导入新包。
 
 ## 解决方案
-SQLite 表 `github_tag_cache`，按 `(owner, repo)` 存 tags/releases 快照，TTL 默认 24h。
-检查前查缓存，命中则跳过整个仓库的网络请求。
+新增 AUR 搜索 + 导入功能，让用户可以手动搜索 AUR 并导入新包。
 
-## Phase 4：增量校验（2026-09-02）
-缓存过期时不全量重拉，改为轻量验证：
-1. 调 `GET /repos/{owner}/{repo}/releases/latest`（一次 HTTP 请求）
-2. 与 `cached_version` 字段比对
-   - 一致 → 顺延 TTL（Extend），跳过网络请求
-   - 不一致 → 用缓存的 tags JSON 重算版本（不调网络），更新 cached_version（Recalculate）
-   - 仓库不可访问 → 清除缓存（Deleted）
-   - 无缓存 → 全量重拉（Miss）
+## 修改文件
 
-`check_and_extend_cache` 为同步函数（`reqwest::blocking::get`），因 `Database` 不可 `Send`，调用侧在 `state.db.lock()` 内串行执行。
+### 后端（Rust）
+| 文件 | 改动 |
+|------|------|
+| `src-tauri/src/aur/rpc.rs` | 新增 `search_packages(keyword)` 函数 |
+| `src-tauri/src/aur/mod.rs` | 导出 `search_packages` |
+| `src-tauri/src/commands/sysops/software_sync/import_aur.rs` | 新建，157 行 |
+| `src-tauri/src/commands/sysops/software_sync/mod.rs` | 添加模块声明和导出 |
+| `src-tauri/src/lib.rs` | 注册两个新命令 |
 
-## 新增 IPC 命令
-- `clear_github_tag_cache` — 清除全部 GitHub tags 缓存
-- `clear_expired_github_tag_cache` — 清除过期缓存
-- `get_github_tag_cache_stats` — 返回缓存条数和 TTL
+### 前端（Vue/TypeScript）
+| 文件 | 改动 |
+|------|------|
+| `src/api/software.ts` | 新增 `searchAurPackages` 和 `importAurPackage` |
+| `src/types/package.ts` | 新增 `AurSearchResult` 接口 |
+| `src/views/PackageList.vue` | 添加工具栏按钮 + 搜索导入对话框 |
 
-## 修改文件（13 个）
-- `src/db/github_tag_cache.rs`（新建）— CRUD + CacheCheckResult 枚举 + recompute_version_from_cache + check_and_extend_cache
-- `src/db/migration_github_tag_cache.rs`（新建）— ALTER TABLE 迁移
-- `src/db/schema.rs` — CREATE TABLE 加 cached_version 列
-- `src/db/mod.rs` — pub(crate) mod
-- `src/db/connection.rs` — initialize 调用迁移
-- `src/commands/sysops/software_sync/batch.rs` — query_valid_github_caches + on_cache_ready + write_github_tag_cache 传 cached_version
-- `src/commands/sysops/software_sync/upstream.rs` — skip_keys 增量校验逻辑
-- `src/commands/sysops/software_sync/software_check.rs` — 空回调
-- `src/commands/sysops/cache_cleanup.rs` — 3 个新命令
-- `src/commands/sysops/mod.rs` — 导出
-- `src/lib.rs` — 注册命令
-- `Cargo.toml` — reqwest 加 blocking feature
+## 新功能
+1. **工具栏新增"从AUR导入新包"按钮**（下载图标，青色）
+2. **搜索对话框**：输入包名关键词 → 搜索 → 展示匹配结果（包名/版本/描述）→ 点击"导入"
+3. **自动推断**：`-bin`/`-appimage` → 二进制包(GitHubAPI)；`-git` → Git仓库；其他 → 编译安装(手动检查器)
+4. **Toast 反馈**：导入成功/失败均有提示
 
 ## 验证
-- `cargo check` → 0 warnings
-- `cargo test --lib` → 83 passed
-- `npx vue-tsc` → 0 错误
-
-## 注意事项
-- Database 不可 Send，跨 await 传引用会编译报错；用 on_cache_ready 回调在 batch.rs 内部同步调用
-- 缓存命中时跳过整个仓库的所有包，不只跳过 tags 翻页
-- check_and_extend_cache 是同步函数，HTTP 用 reqwest::blocking；调用侧用 state.db.lock() 包裹后串行执行
+- `cargo check` ✅ 0 错误 0 警告
+- `vue-tsc --noEmit` ✅ 通过

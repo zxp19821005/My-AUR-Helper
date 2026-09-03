@@ -42,6 +42,7 @@ export interface SoftwareInfo {
   check_test_versions: boolean;
   check_binary_files: boolean;
   auto_check_enabled: boolean;
+  skip_check_upstream: boolean;
   language_ids: number[];
   version_extract_regex: string | null;
 }
@@ -60,6 +61,7 @@ export interface SoftwareDetail {
   check_test_versions: boolean;
   check_binary_files: boolean;
   auto_check_enabled: boolean;
+  skip_check_upstream: boolean;
   language_ids: number[];
   version_extract_regex: string | null;
   aur_version: string | null;
@@ -126,4 +128,18 @@ export interface ValidateResult {
   pkgname: string;
   upstream_url: string | null;
   status: UpstreamUrlStatus;
+}
+
+/** AUR 搜索包结果（来自 AUR RPC search API） */
+export interface AurSearchResult {
+  Name: string;
+  Version: string;
+  Description: string;
+  URL: string;
+  License?: string[];
+  OutOfDate?: number;
+  LastModified?: number;
+  Depends?: string[];
+  MakeDepends?: string[];
+  OptDepends?: string[];
 }

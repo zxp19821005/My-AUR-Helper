@@ -90,6 +90,7 @@ pub async fn check_github_release_latest(
                             check_test_versions: true,
                             check_binary_files: true,
                             pkgname,
+                            start_page: 0,
                         },
                     )
                     .await;
@@ -135,6 +136,7 @@ pub async fn check_github_release_latest(
                     check_test_versions: true,
                     check_binary_files: false,
                     pkgname,
+                    start_page: 0,
                 },
             )
             .await;

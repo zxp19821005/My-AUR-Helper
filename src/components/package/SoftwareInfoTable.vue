@@ -21,6 +21,14 @@ defineProps<{
         <td class="label">包描述</td>
         <td class="value">{{ detail.aur_pkgdesc || '—' }}</td>
       </tr>
+      <tr v-if="detail.upstream_url">
+        <td class="label">上游地址</td>
+        <td class="value url-value">
+          <a :href="detail.upstream_url" target="_blank" rel="noopener noreferrer">
+            {{ detail.upstream_url }}
+          </a>
+        </td>
+      </tr>
       <tr>
         <td class="label">运行时依赖</td>
         <td class="value">{{ parseJsonList(detail.depends) }}</td>
@@ -59,5 +67,13 @@ defineProps<{
   padding: 0.5rem 0;
   font-size: 0.875rem;
   color: var(--text-primary);
+}
+.url-value a {
+  color: var(--accent);
+  text-decoration: none;
+  word-break: break-all;
+}
+.url-value a:hover {
+  text-decoration: underline;
 }
 </style>
