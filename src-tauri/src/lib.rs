@@ -9,55 +9,45 @@
  * - 注册所有 Tauri 命令
  * - 处理窗口关闭事件
  */
-pub mod aur; // AUR RPC API 交互模块
-pub mod cache; // 内存缓存模块
-pub mod checkers; // 版本检查器模块
-pub mod commands; // Tauri IPC 命令模块
-pub mod db; // 数据库操作模块
-pub mod errors; // 统一错误处理模块
-pub mod http_client; // 共享 HTTP 客户端单例模块
-pub mod logger; // 日志轮转与输出模块
-pub mod models; // 数据模型模块
-pub mod network; // 网络工具模块（重试逻辑等）
-pub mod proxy; // 代理管理模块
+pub mod aur;
+pub mod cache;
+pub mod checkers;
+pub mod commands;
+pub mod db;
+pub mod errors;
+pub mod http_client;
+pub mod logger;
+pub mod models;
+pub mod network;
+pub mod proxy;
 mod tray;
-pub mod versions; // 版本处理模块 // 系统托盘模块
+pub mod versions;
 
-use std::path::PathBuf; // 路径缓冲区，用于构建文件路径
-use std::sync::Mutex; // 互斥锁，保证数据库连接的线程安全访问
-use tauri::Manager; // Tauri 应用管理器 trait
+use std::path::PathBuf;
+use std::sync::Mutex;
+use tauri::Manager;
 
-/// 应用状态，包含数据库连接与内存缓存管理器
+/// 应用状态
 pub struct AppState {
-    /// 数据库连接（线程安全）
     pub db: Mutex<db::Database>,
-    /// 内存缓存管理器（线程安全，锁序约定：先 memory_cache 后 db）
     pub memory_cache: Mutex<cache::CacheManager>,
 }
 
 /// 窗口关闭动作配置
 struct CloseAction(String);
 
-/// 获取配置目录路径
-/// 优先使用系统配置目录，失败时使用当前目录
-/// @returns 配置目录的 PathBuf
 fn get_config_dir() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("com.zxp19821005.aur-helper")
 }
 
-/// 从数据库获取设置值
-/// @param db - 数据库连接引用
-/// @param key - 设置键名
-/// @param default - 默认值，当数据库中不存在该键时返回
-/// @returns 设置值的字符串
 fn get_setting_string(db: &db::Database, key: &str, default: &str) -> String {
-    db.get_setting(key) // 从数据库查询设置
-        .ok() // 将 Result 转为 Option
-        .flatten() // 展开 Option<Option<Setting>>
-        .map(|s| s.value) // 提取 Setting 的值字段
-        .unwrap_or_else(|| default.to_string()) // 不存在则返回默认值
+    db.get_setting(key)
+        .ok()
+        .flatten()
+        .map(|s| s.value)
+        .unwrap_or_else(|| default.to_string())
 }
 
 /// 运行 Tauri 应用
@@ -191,104 +181,87 @@ pub fn run() {
                 // 否则：默认行为，关闭窗口并退出应用
             }
         })
-        // 注册所有 Tauri 命令
         .invoke_handler(tauri::generate_handler![
-            // 软件包管理
-            commands::software::list_software, // 获取所有软件包列表
-            commands::software::list_software_view, // 获取软件包列表展示数据
-            commands::software::get_software_list_entry, // 获取单条列表视图条目（定向刷新）
-            commands::software::get_software,  // 根据包名获取单个软件包
-            commands::software::get_software_detail, // 获取软件包完整详情
-            commands::software::get_prev_next_software, // 获取上一个/下一个软件包（导航用）
-            commands::software::search_software, // 搜索软件包
-            commands::software::add_software,  // 添加新的软件包
-            commands::software::update_software, // 更新软件包信息
-            commands::software::delete_software, // 删除软件包
-            commands::software::batch_delete_software, // 批量删除软件包
-            commands::software::set_software_license, // 设置软件包的 License
-            commands::software::set_software_language, // 设置软件包的编程语言
-            // 软件包同步（sysops 模块）
-            commands::sysops::software_sync::aur::sync_from_aur, // 从 AUR 同步软件包
-            commands::sysops::software_sync::aur::update_aur_info, // 更新 AUR 信息
-            commands::sysops::software_sync::import_aur::search_aur_packages, // 搜索 AUR 包
-            commands::sysops::software_sync::import_aur::import_aur_package, // 导入 AUR 包
-            commands::sysops::software_sync::pkgbuild::sync_from_pkgbuild, // 从 PKGBUILD 文件同步
-            commands::sysops::software_sync::upstream::check_all_upstream, // 并行检查所有软件包的上游版本
-            // 版本检查（sysops 模块）
-            commands::sysops::software_check_single::check_upstream_version, // 检查单个软件包的上游版本
-            commands::sysops::software_check::selected::check_selected_upstream, // 检查选中的软件包上游版本
-            // 上游 URL 验证（sysops 模块）
-            commands::sysops::upstream_validate::validate_upstream_urls, // 批量验证上游 URL
-            // 扫描和缓存管理（fileops 模块）
-            commands::fileops::scan::scan_pkg_files_cmd, // 扫描 .pkg.tar.zst 包文件
-            commands::fileops::cache_scan::list_cache_software, // 直接读取 cache_software 表（页面打开时）
-            commands::fileops::cache_scan::scan_all_cache_dirs, // 扫描所有启用的缓存目录
-            commands::fileops::cache_scan::clear_cache_software, // 清空 cache_software 表
-            commands::fileops::cache_backup::backup_cache_to_existing, // 备份缓存到已有备份位置
-            commands::fileops::cache_backup::backup_cache_to_subdirectory, // 备份缓存到指定子目录
-            // 备份管理（fileops 模块）
-            commands::fileops::backup_scan::scan_backup_directory, // 扫描备份目录
-            commands::fileops::backup_scan::list_backup_subdirectories, // 获取子目录列表
-            commands::fileops::backup_dedup::deduplicate_backups,  // 软件去重
-            // 备份管理（sysops 模块 - 查询和安装）
-            commands::sysops::backup_basic::list_backup_software, // 列出所有备份记录
-            commands::sysops::backup_basic::clear_backup_software, // 清空备份表
-            commands::sysops::backup_basic::delete_backup,        // 删除单个备份
-            commands::sysops::backup_install::get_package_file_info, // 获取包文件信息
-            commands::sysops::backup_install::check_sudoers_config, // 检测 sudoers 配置
-            commands::sysops::backup_install::get_sudoers_command, // 获取 sudoers 配置命令
-            commands::sysops::backup_install::install_backup_package, // 安装备份包
-            // 代理管理
-            commands::proxy::get_proxies,         // 获取所有代理列表
-            commands::proxy::fetch_proxy_sources, // 从 Greasyfork 获取代理源
-            commands::proxy::download_proxy_file, // 下载代理文件
-            commands::proxy::parse_proxy_file,    // 解析代理文件
-            commands::proxy::test_proxy,          // 测试代理延迟
-            commands::proxy::test_proxies_batch,  // 批量测试代理
-            commands::proxy::test_proxy_single,   // 单个测试代理
-            commands::proxy::set_proxy_active,    // 设置代理启用状态
-            commands::proxy::update_proxy,        // 更新代理信息（编辑名称/URL/类型）
-            commands::proxy::delete_proxy,        // 删除代理
-            commands::proxy::clear_proxy_tables,  // 清空代理表
-            // 系统命令（sysops 模块）
-            commands::sysops::sys_command::get_package_version, // 获取已安装包的版本
-            commands::sysops::sys_command::list_installed_packages, // 列出所有已安装包
-            // 缓存清理（sysops 模块）
-            commands::sysops::cache_cleanup::clean_system_cache, // 清理系统缓存
-            commands::sysops::cache_cleanup::clean_custom_cache_dirs, // 清理自定义缓存目录
-            commands::sysops::cache_cleanup::check_cache_cleanup_sudoers, // 检测缓存清理 sudoers 配置
-            commands::sysops::cache_cleanup::get_cache_cleanup_sudoers_command, // 获取缓存清理 sudoers 配置命令
-            commands::sysops::cache_cleanup::clear_github_tag_cache, // 清除 GitHub tags 缓存
-            commands::sysops::cache_cleanup::clear_expired_github_tag_cache, // 清除过期 GitHub tags 缓存
-            commands::sysops::cache_cleanup::get_github_tag_cache_stats, // 获取 GitHub tags 缓存统计
-            commands::sysops::cache_install::get_cache_package_info, // 获取缓存包文件信息
-            commands::sysops::cache_install::install_cache_package,  // 安装缓存包
-            commands::sysops::cache_install::check_cache_install_sudoers, // 检测缓存安装 sudoers 配置
-            commands::sysops::cache_install::get_cache_install_sudoers_command, // 获取缓存安装 sudoers 配置命令
-            // 日志管理
-            commands::logs::get_logs,     // 获取日志列表
-            commands::logs::get_new_logs, // 增量获取日志
-            commands::logs::clear_logs,   // 清空日志
-            // 设置管理
-            commands::settings::get_settings,       // 获取所有设置
-            commands::settings::get_setting,        // 获取单个设置
-            commands::settings::set_setting,        // 设置配置值
-            commands::settings::apply_log_settings, // 应用日志轮转设置
-            // 内存缓存管理
-            commands::memory_cache::get_memory_cache_stats, // 获取内存缓存状态
-            commands::memory_cache::flush_memory_cache, // 立即写盘内存缓存
-            commands::memory_cache::clear_memory_cache, // 清空内存缓存
-            // 枚举值管理
-            commands::enums::get_licenses, // 获取所有 License
-            commands::enums::sync_licenses_from_spdx, // 从 SPDX 同步 License
-            commands::enums::add_license,  // 添加 License
-            commands::enums::get_languages, // 获取所有编程语言
-            commands::enums::upsert_language, // 添加或更新编程语言
-            commands::enums::delete_language, // 删除编程语言
-            // 仪表盘统计
-            commands::dashboard::get_dashboard_stats, // 获取仪表盘各模块计数
-            // 前端诊断日志转发（仅终端，不写文件）
-            commands::fe_log::frontend_log, // 接收前端诊断日志并打印到终端
+            commands::software::list_software,
+            commands::software::list_software_view,
+            commands::software::get_software_list_entry,
+            commands::software::get_software,
+            commands::software::get_software_detail,
+            commands::software::get_prev_next_software,
+            commands::software::search_software,
+            commands::software::add_software,
+            commands::software::update_software,
+            commands::software::delete_software,
+            commands::software::batch_delete_software,
+            commands::software::set_software_license,
+            commands::software::set_software_language,
+            commands::sysops::software_sync::aur::sync_from_aur,
+            commands::sysops::software_sync::aur::update_aur_info,
+            commands::sysops::software_sync::import_aur::search_aur_packages,
+            commands::sysops::software_sync::import_aur::import_aur_package,
+            commands::sysops::software_sync::pkgbuild::sync_from_pkgbuild,
+            commands::sysops::software_sync::upstream::check_all_upstream,
+            commands::sysops::software_check_single::check_upstream_version,
+            commands::sysops::software_check::selected::check_selected_upstream,
+            commands::sysops::upstream_validate::validate_upstream_urls,
+            commands::fileops::scan::scan_pkg_files_cmd,
+            commands::fileops::cache_scan::list_cache_software,
+            commands::fileops::cache_scan::scan_all_cache_dirs,
+            commands::fileops::cache_scan::clear_cache_software,
+            commands::fileops::cache_backup::backup_cache_to_existing,
+            commands::fileops::cache_backup::backup_cache_to_subdirectory,
+            commands::fileops::backup_scan::scan_backup_directory,
+            commands::fileops::backup_scan::list_backup_subdirectories,
+            commands::fileops::backup_dedup::deduplicate_backups,
+            commands::sysops::backup_basic::list_backup_software,
+            commands::sysops·backup_basic::clear_backup_software,
+            commands::sysops::backup_basic::delete_backup,
+            commands::sysops::backup_install::get_package_file_info,
+            commands::sysops::backup_install::check_sudoers_config,
+            commands::sysops::backup_install::get_sudoers_command,
+            commands::sysops::backup_install::install_backup_package,
+            commands::proxy::get_proxies,
+            commands::proxy::fetch_proxy_sources,
+            commands::proxy::download_proxy_file,
+            commands::proxy::parse_proxy_file,
+            commands::proxy::test_proxy,
+            commands::proxy::test_proxies_batch,
+            commands::proxy::test_proxy_single,
+            commands::proxy::set_proxy_active,
+            commands::proxy::update_proxy,
+            commands::proxy::delete_proxy,
+            commands::proxy::clear_proxy_tables,
+            commands::sysops::sys_command::get_package_version,
+            commands::sysops::sys_command::list_installed_packages,
+            commands::sysops::cache_cleanup::clean_system_cache,
+            commands::sysops::cache_cleanup::clean_custom_cache_dirs,
+            commands::sysops::cache_cleanup::check_cache_cleanup_sudoers,
+            commands::sysops::cache_cleanup::get_cache_cleanup_sudoers_command,
+            commands::sysops::cache_cleanup::clear_github_tag_cache,
+            commands::sysops::cache_cleanup::clear_expired_github_tag_cache,
+            commands::sysops::cache_cleanup::get_github_tag_cache_stats,
+            commands::sysops::cache_install::get_cache_package_info,
+            commands::sysops::cache_install::install_cache_package,
+            commands::sysops::cache_install::check_cache_install_sudoers,
+            commands::sysops::cache_install::get_cache_install_sudoers_command,
+            commands::logs::get_logs,
+            commands::logs::get_new_logs,
+            commands::logs::clear_logs,
+            commands::settings::get_settings,
+            commands::settings::get_setting,
+            commands::settings::set_setting,
+            commands::settings::apply_log_settings,
+            commands::memory_cache::get_memory_cache_stats,
+            commands::memory_cache::flush_memory_cache,
+            commands::memory_cache::clear_memory_cache,
+            commands::enums::get_licenses,
+            commands::enums::sync_licenses_from_spdx,
+            commands::enums::add_license,
+            commands::enums::get_languages,
+            commands::enums::upsert_language,
+            commands::enums::delete_language,
+            commands::dashboard::get_dashboard_stats,
+            commands::fe_log::frontend_log,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
