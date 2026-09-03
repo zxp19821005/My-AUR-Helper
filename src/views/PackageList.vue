@@ -417,7 +417,7 @@ async function importAurPackage(result: AurSearchResult) {
               @click="searchAur"
               :disabled="aurSearching || !aurSearchKeyword.trim()"
             >
-              {{ aurSearching ? "搜索中..." }}
+              <span v-if="aurSearching">搜索中...</span>
               <span v-else>搜索</span>
             </button>
           </div>
