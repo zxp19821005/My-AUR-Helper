@@ -56,9 +56,7 @@ impl CacheConfig {
         // 条目上限至少 1（0 视为非法，回退 1），避免 LRU 淘汰后缓存完全失效
         let max_entries = get(KEY_SIZE, "100").parse::<usize>().unwrap_or(100).max(1);
         let ttl_secs = get(KEY_TTL, "300").parse::<i64>().unwrap_or(300).max(0);
-        let write_interval_secs = get(KEY_WRITE_INTERVAL, "60")
-            .parse::<u64>()
-            .unwrap_or(60);
+        let write_interval_secs = get(KEY_WRITE_INTERVAL, "60").parse::<u64>().unwrap_or(60);
         let dir = expand_dir(&get(KEY_DIR, ""));
 
         Self {

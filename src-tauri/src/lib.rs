@@ -214,7 +214,7 @@ pub fn run() {
             commands::fileops::backup_scan::list_backup_subdirectories,
             commands::fileops::backup_dedup::deduplicate_backups,
             commands::sysops::backup_basic::list_backup_software,
-            commands::sysops·backup_basic::clear_backup_software,
+            commands::sysops::backup_basic::clear_backup_software,
             commands::sysops::backup_basic::delete_backup,
             commands::sysops::backup_install::get_package_file_info,
             commands::sysops::backup_install::check_sudoers_config,

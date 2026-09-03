@@ -84,10 +84,10 @@ pub async fn check_github_releases(
     } = *params;
     let mut best_version: Option<String> = None;
     let mut page = params.start_page.max(1); // 支持从指定页码开始（重试断点续查）
-    // GitHub REST API 限制 per_page 最大为 100。
-    // 之前设为 30 是为了减小单次响应体（避免慢速/代理网络下 "error decoding response body"），
-    // 但现已有单页内部重试机制（最多 3 次），可以安全使用最大值 100，
-    // 大幅减少翻页次数（electron/electron 约 3000+ release，30/页需 100+ 页，100/页只需 30+ 页）。
+                                             // GitHub REST API 限制 per_page 最大为 100。
+                                             // 之前设为 30 是为了减小单次响应体（避免慢速/代理网络下 "error decoding response body"），
+                                             // 但现已有单页内部重试机制（最多 3 次），可以安全使用最大值 100，
+                                             // 大幅减少翻页次数（electron/electron 约 3000+ release，30/页需 100+ 页，100/页只需 30+ 页）。
     let per_page = 100;
     // D5 修复：max_pages 从 5（150 条）改为 30（900 条），后改为 167（对应 30 条/页时约 5000 条）。
     // 2026-09-02：per_page 改为 100 后，167 页实际覆盖 16700 条，远超 electron/electron 的 ~3000 条，
@@ -154,7 +154,10 @@ pub async fn check_github_releases(
                     if retry < 4 {
                         debug!(
                             "[二进制检查] {}: 第 {} 页请求失败 (尝试 {}/5): {}",
-                            pkgname, page, retry + 1, app_err
+                            pkgname,
+                            page,
+                            retry + 1,
+                            app_err
                         );
                         page_error = Some(app_err);
                         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
@@ -187,7 +190,10 @@ pub async fn check_github_releases(
                     if retry < 4 {
                         debug!(
                             "[二进制检查] {}: 第 {} 页响应解析失败 (尝试 {}/5): {}",
-                            pkgname, page, retry + 1, app_err
+                            pkgname,
+                            page,
+                            retry + 1,
+                            app_err
                         );
                         page_error = Some(app_err);
                         tokio::time::sleep(std::time::Duration::from_secs(2)).await;

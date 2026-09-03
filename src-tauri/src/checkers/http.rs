@@ -58,7 +58,9 @@ impl VersionChecker for HttpChecker {
                 if !resp.status().is_success() {
                     // HTTP 非2xx 不可重试，直接返回错误
                     return Err(crate::errors::AppError::NetworkError(format!(
-                        "HTTP {} for {}", resp.status(), url
+                        "HTTP {} for {}",
+                        resp.status(),
+                        url
                     )));
                 }
                 let body = resp.text().await?;

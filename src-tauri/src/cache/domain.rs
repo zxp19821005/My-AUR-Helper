@@ -21,7 +21,11 @@ pub enum CacheDomain {
 impl CacheDomain {
     /// 返回全部缓存域（用于遍历初始化 / 统计）
     pub fn all() -> [CacheDomain; 3] {
-        [CacheDomain::Settings, CacheDomain::Licenses, CacheDomain::Languages]
+        [
+            CacheDomain::Settings,
+            CacheDomain::Licenses,
+            CacheDomain::Languages,
+        ]
     }
 
     /// 磁盘文件名（不含扩展名），白名单映射，杜绝路径注入

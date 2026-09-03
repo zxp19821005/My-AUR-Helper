@@ -18,16 +18,15 @@ use std::collections::HashMap;
 use tauri::State;
 
 use super::super::proxy_utils::build_client;
-use super::batch::{batch_check_upstream, PackageTask};
+use super::batch::batch_check_upstream;
 use super::batch_cache::write_github_tag_cache;
+use super::batch_engine::PackageTask;
 use super::cache::check_github_cache;
 use super::cache_fill::{collect_missing_repos, fetch_repo_tags, write_back};
+use super::utils::{build_checker_settings, read_http_settings, UpstreamCheckResult};
 use crate::checkers::utils::extract_owner_repo;
-use crate::models::{CheckerType, PackageType};
-use super::utils::{
-    build_checker_settings, read_http_settings, UpstreamCheckResult,
-};
 use crate::errors::AppResult;
+use crate::models::{CheckerType, PackageType};
 use crate::AppState;
 
 /// 并行检查上游版本
@@ -73,9 +72,13 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
     // 按 (owner, repo) 去重后的仓库列表（用于缓存查询）
     let github_repos: Vec<(String, String)> = tasks
         .iter()
-        .filter(|t| matches!(t.checker_type, CheckerType::GitHubTags | CheckerType::GitHubAPI)
-            && t.package_type != PackageType::Git
-            && extract_owner_repo(&t.upstream_url).is_some())
+        .filter(|t| {
+            matches!(
+                t.checker_type,
+                CheckerType::GitHubTags | CheckerType::GitHubAPI
+            ) && t.package_type != PackageType::Git
+                && extract_owner_repo(&t.upstream_url).is_some()
+        })
         .map(|t| {
             let (o, r) = extract_owner_repo(&t.upstream_url).unwrap();
             (o, r)
@@ -99,7 +102,10 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
     let tasks: Vec<PackageTask> = tasks
         .into_iter()
         .filter(|t| {
-            if !matches!(t.checker_type, CheckerType::GitHubTags | CheckerType::GitHubAPI) {
+            if !matches!(
+                t.checker_type,
+                CheckerType::GitHubTags | CheckerType::GitHubAPI
+            ) {
                 return true;
             }
             if let Some((owner, repo)) = extract_owner_repo(&t.upstream_url) {
@@ -112,10 +118,17 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
         .collect();
 
     // 分类并行检查：Manual 跳过网络，Browser 限严格并发，其余限全局并发
-    let outcome = batch_check_upstream(tasks, client, github_client, settings, retry,
+    let outcome = batch_check_upstream(
+        tasks,
+        client,
+        github_client,
+        settings,
+        retry,
         |_owner, _repo, _tag_count, _json_str| {
             // 缓存写盘由 batch 返回后统一执行（避免跨 await 持有 db 引用）
-        }).await;
+        },
+    )
+    .await;
 
     // 写回 GitHub tags 缓存
     if !outcome.github_cache_map.is_empty() {

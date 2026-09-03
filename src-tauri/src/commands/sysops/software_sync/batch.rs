@@ -11,6 +11,7 @@
  * 模块设计原则：
  * - 本模块仅负责「分类 + 分组并发执行」，不含数据库写入逻辑（写库交由调用方）
  * - 单个文件控制在 300 行以内
+ * - 常量与结构体定义在 batch_engine.rs
  */
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -23,60 +24,15 @@ use tokio::task::JoinSet;
 use crate::checkers::github::graphql_batch::{
     batch_check_github, collect_fallback_tasks, fill_tags, GithubBatchItem,
 };
-use crate::checkers::github::graphql_batch_helpers::select_version;
 use crate::checkers::utils::extract_owner_repo;
 use crate::checkers::CheckerSettings;
 use crate::models::{CheckerType, PackageType};
 
+use super::batch_engine::{
+    drain_fallback_results, BatchOutcome, MAX_BROWSER_CONCURRENCY, MAX_NETWORK_CONCURRENCY,
+};
 use super::batch_helpers::{classify, run_one};
 use super::utils::UpstreamCheckResult;
-use crate::errors::AppResult;
-
-/// 浏览器检查器最大并发数：每个 headless Chrome 进程内存占用较大，
-/// 过高会导致 OOM / 文件描述符耗尽。后续可改为读取设置项覆盖。
-const MAX_BROWSER_CONCURRENCY: usize = 4;
-
-/// 其余 HTTP 类检查器全局最大并发数：控制对上游的请求压力，规避限流。
-const MAX_NETWORK_CONCURRENCY: usize = 16;
-
-/// 单次批量检查待执行的软件包任务
-///
-/// 由 SoftwareInfo 映射而来，携带检查器执行所需的全部字段。
-#[derive(Clone)]
-pub struct PackageTask {
-    /// 软件包名称
-    pub pkgname: String,
-    /// 软件包数据库 ID
-    pub software_id: i64,
-    /// 上游仓库 URL
-    pub upstream_url: String,
-    /// 版本提取正则表达式（可选）
-    pub version_extract_regex: Option<String>,
-    /// 是否检查测试版本（prerelease）
-    pub check_test_versions: bool,
-    /// 是否检查二进制文件
-    pub check_binary_files: bool,
-    /// 检查器类型（决定分类归属）
-    pub checker_type: CheckerType,
-    /// 软件包类型（透传备用，为后续按包类型做批量优化预留）
-    pub package_type: PackageType,
-}
-
-/// 批量检查结果
-///
-/// - checked：通过检查器得到版本（或失败留空）的包，交由调用方写库
-/// - manual：使用 Manual 检查器、需用户手动更新的包名列表（不发起网络请求）
-pub struct BatchOutcome {
-    /// 已执行的检查结果（版本可能为空的失败项）
-    pub checked: Vec<UpstreamCheckResult>,
-    /// 手动检查器包名列表
-    pub manual: Vec<String>,
-    /// GitHub tags 快照缓存，供调用方写盘（避免跨 await 持有 db 引用）
-    pub github_cache_map: std::collections::HashMap<
-        (String, String),
-        crate::checkers::github::graphql_batch::RepoCache,
-    >,
-}
 
 /// 分类并行检查所有软件包的上游版本
 ///
@@ -86,13 +42,14 @@ pub struct BatchOutcome {
 /// - `github_client`: 带代理的 HTTP 客户端（GitHub 请求）
 /// - `settings`: 检查器配置（各平台 Token）
 /// - `retry`: 单包最大重试次数
+/// - `on_cache_ready`: 可选回调，在 GraphQL+REST 完成后调用，传入
+///   (owner, repo, tag_count, data_json)，用于在调用方线程安全地写入
+///   GitHub tags 缓存（避免跨 await 持有 db 引用）
 ///
 /// # 返回
 /// - `BatchOutcome`: 已检查结果与手动检查包名列表
-/// @param on_cache_ready: 可选回调，在 GraphQL+REST 完成后调用，传入 (owner, repo, tag_count, data_json)
-/// 用于在调用方线程安全地写入 GitHub tags 缓存（避免跨 await 持有 db 引用）
 pub async fn batch_check_upstream(
-    tasks: Vec<PackageTask>,
+    tasks: Vec<super::batch_engine::PackageTask>,
     client: Client,
     github_client: Client,
     settings: CheckerSettings,
@@ -128,8 +85,8 @@ pub async fn batch_check_upstream(
     // github_items/origin：可走 GraphQL 的包（URL 解析成功、非 git、有 Token）
     // fallback_definite：git 包 / URL 解析失败 / 非 GitHub 检查器 —— 必然走 REST
     let mut github_items: Vec<GithubBatchItem> = Vec::new();
-    let mut github_origin: Vec<PackageTask> = Vec::new();
-    let mut fallback_definite: Vec<PackageTask> = Vec::new();
+    let mut github_origin: Vec<super::batch_engine::PackageTask> = Vec::new();
+    let mut fallback_definite: Vec<super::batch_engine::PackageTask> = Vec::new();
 
     for task in network_tasks {
         let is_github = matches!(
@@ -232,9 +189,7 @@ pub async fn batch_check_upstream(
     // 优先处理 tags 回填任务（这些包 GraphQL 已查过但窗口不够，不需要重复查 releases/tags）
     // 回填结果存入 cache_map，供后续 select_version 使用（避免 REST 路径再次翻页）
     // 注意：需要 owned 的 fallback_tasks，避免借用检查器报错
-    let fallback_tasks_owned: Vec<(String, String, String)> = fallback_tasks
-        .into_iter()
-        .collect();
+    let fallback_tasks_owned: Vec<(String, String, String)> = fallback_tasks.into_iter().collect();
 
     // 记录哪些 (owner,repo) 有回填任务，供后续跳过完整 REST
     let mut fallback_set: HashSet<(String, String)> = HashSet::new();
@@ -250,9 +205,16 @@ pub async fn batch_check_upstream(
             let sem = network_sem.clone();
             handles.spawn(async move {
                 let _permit = sem.acquire().await.expect("网络并发信号量已被关闭");
-                let all_tags =
-                    fill_tags(&client, &owner, &repo, token.as_deref(), &existing, Some(&regex), 30)
-                        .await;
+                let all_tags = fill_tags(
+                    &client,
+                    &owner,
+                    &repo,
+                    token.as_deref(),
+                    &existing,
+                    Some(&regex),
+                    30,
+                )
+                .await;
                 // 回填结果包装成 UpstreamCheckResult 占位（实际结果由下方 drain 时产出）
                 UpstreamCheckResult {
                     pkgname: format!("__tags_fill__:{}:{}", owner, repo),
@@ -290,65 +252,31 @@ pub async fn batch_check_upstream(
         }
     }
 
-    // 第二段 drain：回收回填结果 + 回落 REST 任务
-    while let Some(res) = handles.join_next().await {
-        match res {
-            Ok(result) => {
-                // 回填任务结果：提取 all_tags 并产出各包版本
-                if let Some(tags_result) = result._all_tags {
-                    let owner = result._owner;
-                    let repo = result._repo;
-                    if let Some(cache) = cache_map.get_mut(&(owner.clone(), repo.clone())) {
-                        cache.all_tags = tags_result;
-                        // 找出属于本仓库且需要回填的包（github_items 中）
-                        let pkgs: Vec<_> = github_items
-                            .iter()
-                            .filter(|t| t.owner == owner && t.repo == repo)
-                            .collect();
-                        for task in pkgs {
-                            let version =
-                                select_version(&cache.snapshot, task, Some(&cache.all_tags));
-                            checked.push(UpstreamCheckResult {
-                                pkgname: task.pkgname.clone(),
-                                software_id: task.software_id,
-                                upstream_version: version.unwrap_or_default(),
-                                is_outdated: false,
-                                license_spdx_id: cache.snapshot.license.clone(),
-                                language_names: cache.snapshot.languages.clone(),
-                                _all_tags: None,
-                                _owner: String::new(),
-                                _repo: String::new(),
-                            });
-                        }
-                    }
-                } else {
-                    // 普通 REST 任务结果
-                    checked.push(result);
-                }
-            }
-            Err(e) => {
-                warn!("[批量检查] 回填或回落任务失败: {}", e);
-            }
-        }
-    }
+    // 第二段 drain：回收回填结果 + 回落 REST 任务，并将缓存快照通知回调
+    let batch_outcome =
+        drain_fallback_results(&mut handles, &mut checked, &mut cache_map, &github_items).await;
 
     // 将本次检查产生的仓库 tags 快照写入 GitHub tags 缓存
-    for ((owner, repo), cache) in &cache_map {
+    for ((owner, repo), cache) in &batch_outcome.github_cache_map {
         let tags = &cache.snapshot.tags;
-        let releases: Vec<serde_json::Value> = cache.snapshot.releases
+        let releases: Vec<serde_json::Value> = cache
+            .snapshot
+            .releases
             .iter()
-            .map(|r| serde_json::json!({
-                "tag_name": &r.tag_name,
-                "name": &r.name,
-                "is_prerelease": r.is_prerelease,
-                "is_draft": r.is_draft,
-                "created_at": &r.created_at,
-            }))
+            .map(|r| {
+                serde_json::json!({
+                    "tag_name": &r.tag_name,
+                    "name": &r.name,
+                    "is_prerelease": r.is_prerelease,
+                    "is_draft": r.is_draft,
+                    "created_at": &r.created_at,
+                })
+            })
             .collect();
         let data = serde_json::json!({ "tags": tags, "releases": releases });
         let json_str = data.to_string();
         let tag_count = tags.len() as i32;
-        (on_cache_ready)(&owner, &repo, tag_count, &json_str);
+        (on_cache_ready)(owner, repo, tag_count, &json_str);
     }
 
     // 合并 GraphQL 批量命中结果
@@ -357,6 +285,6 @@ pub async fn batch_check_upstream(
     BatchOutcome {
         checked,
         manual,
-        github_cache_map: cache_map,
+        github_cache_map: batch_outcome.github_cache_map,
     }
 }

@@ -70,9 +70,7 @@ fn invalidate_forces_reload() {
     let mut cm = CacheManager::new(test_config(dir.clone()));
     cm.get_or_load(CacheDomain::Settings, || Ok(1i64)).unwrap();
     cm.invalidate(CacheDomain::Settings);
-    let data: i64 = cm
-        .get_or_load(CacheDomain::Settings, || Ok(2i64))
-        .unwrap();
+    let data: i64 = cm.get_or_load(CacheDomain::Settings, || Ok(2i64)).unwrap();
     assert_eq!(data, 2);
     std::fs::remove_dir_all(&dir).ok();
 }

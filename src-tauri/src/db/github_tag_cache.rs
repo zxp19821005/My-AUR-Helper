@@ -11,9 +11,9 @@ pub const DEFAULT_CACHE_TTL_SECONDS: i64 = 86_400;
 pub struct GithubTagCacheRow {
     pub owner: String,
     pub repo: String,
-    pub last_synced_at: i64,       // Unix 时间戳（秒）
+    pub last_synced_at: i64, // Unix 时间戳（秒）
     pub tag_count: i32,
-    pub data_json: String,        // {"tags":[...],"releases":[...]}（按 pushedAt DESC）
+    pub data_json: String, // {"tags":[...],"releases":[...]}（按 pushedAt DESC）
     pub cached_version: Option<String>, // 增量校验用
 }
 
@@ -24,10 +24,16 @@ pub fn decode_tags(data_json: &str) -> Vec<String> {
         Err(_) => return Vec::new(),
     };
     if let Some(tags) = value.get("tags").and_then(|v| v.as_array()) {
-        return tags.iter().filter_map(|v| v.as_str().map(String::from)).collect();
+        return tags
+            .iter()
+            .filter_map(|v| v.as_str().map(String::from))
+            .collect();
     }
     if let Some(arr) = value.as_array() {
-        return arr.iter().filter_map(|v| v.as_str().map(String::from)).collect();
+        return arr
+            .iter()
+            .filter_map(|v| v.as_str().map(String::from))
+            .collect();
     }
     Vec::new()
 }
@@ -94,14 +100,16 @@ impl Database {
              FROM github_tag_cache
              WHERE owner = ?1 AND repo = ?2",
         )?;
-        let row = stmt.query_row([owner, repo], |row| Ok(GithubTagCacheRow {
-            owner: row.get(0)?,
-            repo: row.get(1)?,
-            last_synced_at: row.get(2)?,
-            tag_count: row.get(3)?,
-            data_json: row.get(4)?,
-            cached_version: row.get(5).ok(),
-        }))?;
+        let row = stmt.query_row([owner, repo], |row| {
+            Ok(GithubTagCacheRow {
+                owner: row.get(0)?,
+                repo: row.get(1)?,
+                last_synced_at: row.get(2)?,
+                tag_count: row.get(3)?,
+                data_json: row.get(4)?,
+                cached_version: row.get(5).ok(),
+            })
+        })?;
         // query_row 在找不到行时会返回 Error::QueryReturnedNoRows
         Ok(Some(row))
     }
@@ -113,14 +121,16 @@ impl Database {
              FROM github_tag_cache
              ORDER BY last_synced_at DESC",
         )?;
-        let rows = stmt.query_map([], |row| Ok(GithubTagCacheRow {
-            owner: row.get(0)?,
-            repo: row.get(1)?,
-            last_synced_at: row.get(2)?,
-            tag_count: row.get(3)?,
-            data_json: row.get(4)?,
-            cached_version: row.get(5).ok(),
-        }))?;
+        let rows = stmt.query_map([], |row| {
+            Ok(GithubTagCacheRow {
+                owner: row.get(0)?,
+                repo: row.get(1)?,
+                last_synced_at: row.get(2)?,
+                tag_count: row.get(3)?,
+                data_json: row.get(4)?,
+                cached_version: row.get(5).ok(),
+            })
+        })?;
         let mut out = Vec::new();
         for r in rows {
             out.push(r?);
@@ -179,11 +189,11 @@ impl Database {
 
     /// 统计缓存条目总数
     pub fn cache_count(&self) -> AppResult<i64> {
-        let count: i64 = self.conn.query_row(
-            "SELECT COUNT(*) FROM github_tag_cache",
-            [],
-            |row| row.get(0),
-        )?;
+        let count: i64 =
+            self.conn
+                .query_row("SELECT COUNT(*) FROM github_tag_cache", [], |row| {
+                    row.get(0)
+                })?;
         Ok(count)
     }
 
@@ -227,10 +237,7 @@ impl Database {
         if !resp.status().is_success() {
             // 仓库不存在或无权限：清除缓存
             let _ = self.delete_cache(owner, repo);
-            info!(
-                "[GitHub Cache] {}:{} 仓库不可访问，已清除缓存",
-                owner, repo
-            );
+            info!("[GitHub Cache] {}:{} 仓库不可访问，已清除缓存", owner, repo);
             return Ok(CacheCheckResult::Deleted);
         }
 
@@ -277,7 +284,9 @@ impl Database {
                                 "[GitHub Cache] {}:{} 版本变化: {} -> {}，从缓存 tags 重算",
                                 owner, repo, cached_ver, new_ver
                             );
-                            return Ok(CacheCheckResult::Recalculate { new_version: new_ver });
+                            return Ok(CacheCheckResult::Recalculate {
+                                new_version: new_ver,
+                            });
                         }
                     }
                     // 无缓存 tags：返回需要全量重拉

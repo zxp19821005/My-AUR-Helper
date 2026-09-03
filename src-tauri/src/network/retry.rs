@@ -25,10 +25,7 @@ pub const INITIAL_DELAY_SECS: u64 = 1;
 /// - 达到最大重试次数仍失败则返回最后一个错误
 ///
 /// 使用指数退避重试异步操作（示例见下方测试，非 doctest）
-pub async fn retry_with_backoff<F, Fut, T>(
-    max_retries: u32,
-    mut f: F,
-) -> AppResult<T>
+pub async fn retry_with_backoff<F, Fut, T>(max_retries: u32, mut f: F) -> AppResult<T>
 where
     F: FnMut() -> Fut,
     Fut: std::future::Future<Output = AppResult<T>>,

@@ -139,8 +139,17 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/commands/sysops/software_sync/` | 软件包同步命令模块（目录结构） |
 | `src-tauri/src/commands/sysops/software_sync/mod.rs` | 模块声明和导出（不含具体实现） |
 | `src-tauri/src/commands/sysops/software_sync/aur.rs` | AUR 信息同步命令（只更新 aur_info 表，不更新 software_info 表） |
+| `src-tauri/src/commands/sysops/software_sync/import_aur.rs` | 从 AUR RPC 搜索并导入软件包到数据库 |
 | `src-tauri/src/commands/sysops/software_sync/upstream.rs` | 上游版本批量检查命令（`check_all_upstream`）：映射任务交给 batch 引擎分类并行检查；Manual 包跳过网络仅回传标记；一次性批量读取 AUR 版本 + 内存映射语言 ID，消除写库阶段 N+1 查询与反复加锁 |
-| `src-tauri/src/commands/sysops/software_sync/batch.rs` | 上游批量分类并发执行引擎：按检查器类型分桶（Manual 跳过 / Browser 严格限并发 / 网络类全局限并发）；单一 `JoinSet<UpstreamCheckResult>` 承载所有 `run_one` 任务（浏览器桶 + 必然 REST 桶 + 未命中 GraphQL 的回落桶），分两段 `join_next()` drain（先回收浏览器+必然 REST，待 GraphQL 完成后把未命中回落任务并入同一集合再 drain）；GitHub 批量查询与「必然 REST」桶并发启动，仅未命中者补回落 REST（避免重复请求与重复处理）；迁入 check_with_retry、PackageTask、BatchOutcome |
+| `src-tauri/src/commands/sysops/software_sync/batch.rs` | 上游批量分类并发执行引擎（核心调度）：按检查器类型分桶（Manual 跳过 / Browser 严格限并发 / 网络类全局限并发）；单一 `JoinSet<UpstreamCheckResult>` 承载所有 `run_one` 任务（浏览器桶 + 必然 REST 桶 + 未命中 GraphQL 的回落桶），分两段 `join_next()` drain（先回收浏览器+必然 REST，待 GraphQL 完成后把未命中回落任务并入同一集合再 drain）；GitHub 批量查询与「必然 REST」桶并发启动，仅未命中者补回落 REST（避免重复请求与重复处理）；类型/常量/第二段 drain 已迁至 `batch_engine.rs` |
+| `src-tauri/src/commands/sysops/software_sync/batch_engine.rs` | 批量引擎的类型与辅助层（2026-09-03 从 batch.rs 拆分以符合 300 行约束）：`PackageTask` 任务结构体、`BatchOutcome` 结果结构体、`MAX_BROWSER_CONCURRENCY` / `MAX_NETWORK_CONCURRENCY` 并发常量、`drain_fallback_results` 第二段 drain（区分 tags 回填结果与普通 REST 结果，回填后按各包正则重算版本） |
+| `src-tauri/src/commands/sysops/software_sync/batch_helpers.rs` | 批量检查辅助函数（`classify` 任务分类、`run_one` 单包检查、`check_with_retry` 重试） |
+| `src-tauri/src/commands/sysops/software_sync/batch_cache.rs` | GitHub tags 缓存写盘封装（`write_github_tag_cache`）：由 batch 引擎通过 `on_cache_ready` 回调在检查完成后调用，避免跨 await 持有 `Database` 引用（`Database` 非 `Send`） |
+| `src-tauri/src/commands/sysops/software_sync/cache.rs` | 检查前的 GitHub tags 缓存读取与版本重算（`check_github_cache`）：命中缓存则整仓跳过网络；同仓库不同正则的包各自调 `recompute_version_from_tags` 计算（不可共用同一个正则） |
+| `src-tauri/src/commands/sysops/software_sync/cache_fill.rs` | 缓存补写：检查后为「成功产出版本但缓存仍缺失」的仓库补拉 tags 写盘（`collect_missing_repos` 同步判定 → `fetch_repo_tags` async 拉取 → `write_back` 同步写库）；`fill_tags` 正则传 `None`（仓库级共享，按单包正则早停会截断其他 major 线） |
+| `src-tauri/src/commands/sysops/software_check/` | 软件检查命令模块（目录结构） |
+| `src-tauri/src/commands/sysops/software_check/mod.rs` | 模块声明和导出（不含具体实现） |
+| `src-tauri/src/commands/sysops/software_check/selected.rs` | 选中包上游版本检查命令（`check_selected_upstream`，从原 software_check.rs 拆分）：缓存校验 → 并行检查 → 缓存补写 → 批量写库，与 `check_all_upstream` 保持同一套缓存逻辑 |
 | `src-tauri/src/commands/sysops/software_sync/pkgbuild.rs` | PKGBUILD 文件同步命令（保留用户手动设置的字段） |
 | `src-tauri/src/commands/sysops/software_sync/utils.rs` | 同步工具函数（AurParsedFields、parse_aur_fields 通用 AUR JSON 解析） |
 | `src-tauri/src/checkers/` | 版本检查器模块 |
@@ -159,8 +168,11 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/checkers/github/release.rs` | GitHub latest release 路径版本提取（二进制检查 + 正则回退） |
 | `src-tauri/src/checkers/github/release_history.rs` | GitHub Releases 历史遍历扫描（分页 + 资产过滤回退；max_pages=30/per_page=30 共 900 条，为响应体积和超时折衷；老版本包如 electron2-bin 的正则匹配范围超出此限会静默返回空） |
 | `src-tauri/src/checkers/github/git_describe.rs` | Git Describe 格式化（-git 包专用） |
-| `src-tauri/src/checkers/github/graphql_batch.rs` | GitHub GraphQL 批量检查器：`batch_check_github` 用 alias 在单次请求批量查多仓库 tags/releases+license/languages；按 `owner/repo` 构建哈希索引一次性完成去重与按仓库匹配（O(n)，非 O(n²)）；分块用 `JoinSet` 并行发送请求；git 包/无 Token/仓库缺失回落逐包 REST；select_version 镜像 REST 路径 |
+| `src-tauri/src/checkers/github/graphql_batch.rs` | GitHub GraphQL 批量检查器：`batch_check_github` 用 alias 在单次请求批量查多仓库 tags/releases+license/languages；按 `owner/repo` 构建哈希索引一次性完成去重与按仓库匹配（O(n)，非 O(n²)）；分块用 `JoinSet` 并行发送请求；git 包/无 Token/仓库缺失回落逐包 REST；select_version 镜像 REST 路径；定义 `GithubBatchItem` / `GithubBatchOutcome` / `RepoCache` 三个结构体并 re-export `fill_tags` / `collect_fallback_tasks`（实现在 `graphql_batch_tags.rs`） |
+| `src-tauri/src/checkers/github/graphql_batch_tags.rs` | GraphQL 批量检查的 tags 回填辅助（2026-09-03 从 graphql_batch.rs 拆分）：`fill_tags` 从 GraphQL 已扫位置继续 REST 翻页补齐 tags（正则命中早停，`MAX_TAG_PAGES=60` 上限），`collect_fallback_tasks` 识别「version 为空且有正则」需要回填的包 |
+| `src-tauri/src/checkers/github/graphql_batch_query.rs` | GraphQL 查询构建与分块执行底层（`build_query` 用 `serde_json::to_string` 生成合法 JSON 字面量；`query_chunk` 执行一次分块请求） |
 | `src-tauri/src/checkers/github/graphql_batch_parse.rs` | GitHub GraphQL 快照解析（RepoSnapshot / ReleaseData / parse_snapshot） |
+| `src-tauri/src/checkers/github/graphql_batch_helpers.rs` | GraphQL 批量检查的版本挑选辅助（`select_version` / `tags_max_version`，严格镜像 REST 路径保证结果一致）；`select_version` 接受 `all_tags: Option<&[String]>` 供回填后重算 |
 | `src-tauri/src/db/github_tag_cache.rs` | GitHub tags 缓存模块（SQLite 表 CRUD、增量校验 CacheCheckResult 枚举、recompute_version_from_cache、check_and_extend_cache 同步函数用 reqwest::blocking） |
 | `src-tauri/src/db/migration_github_tag_cache.rs` | github_tag_cache 表迁移（含 cached_version 列 ALTER） |
 | `src-tauri/src/versions/` | 版本处理模块（解析、标准化、比较） |
@@ -348,6 +360,12 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | | | `types/dashboard.ts` | 40 | | 新文件（仪表盘/Footer 状态） |
 | `src/views/CacheManager.vue` | 301 | `CacheManager.vue` | 282 | 2026-08-19 | ✅ 完成 |
 | | | `composables/useCacheManagerInit.ts` | 71 | | 新文件（onMounted 初始化聚合） |
+| `src-tauri/src/commands/sysops/software_check.rs` | 300+ | `software_check/selected.rs` | 273 | 2026-09-03 | ✅ 完成 |
+| | | `software_check/mod.rs` | — | | 新文件（模块声明与导出） |
+| `src-tauri/src/checkers/github/graphql_batch.rs` | 326 | `graphql_batch.rs` | 181 | 2026-09-03 | ✅ 完成 |
+| | | `graphql_batch_tags.rs` | 186 | | 新文件（`fill_tags` / `collect_fallback_tasks`） |
+| `src-tauri/src/commands/sysops/software_sync/batch.rs` | 362 | `batch.rs` | 299 | 2026-09-03 | ✅ 完成 |
+| | | `batch_engine.rs` | 134 | | 新文件（`PackageTask` / `BatchOutcome` / 并发常量 / `drain_fallback_results`） |
 
 <!-- ========== 前端重构记录：目录重组与样式提取 ========== -->
 ### 前端重构记录（2026-07-29）
@@ -478,8 +496,11 @@ GitHub 检查器采用目录结构（`checkers/github/`），包含以下文件�
 - `binary_check.rs`: 二进制文件检查工具
 - `repo_info.rs`: 仓库元信息获取（License + 编程语言）
 - `git_describe.rs`: Git Describe 格式化（-git 包专用），通过 GitHub API 生成类似 `git describe` 的版本字符串
-- `graphql_batch.rs`: GitHub GraphQL 批量检查器（`batch_check_github`）：用 alias 在单次请求里批量查多个仓库的 tags/releases + license/languages，按 `owner/repo` 去重；git 包/无 Token/仓库缺失回落逐包 REST；`select_version` 严格镜像 REST 路径保证结果一致
+- `graphql_batch.rs`: GitHub GraphQL 批量检查器（`batch_check_github`）：用 alias 在单次请求里批量查多个仓库的 tags/releases + license/languages，按 `owner/repo` 去重；git 包/无 Token/仓库缺失回落逐包 REST；`select_version` 严格镜像 REST 路径保证结果一致（2026-09-03 起 tags 回填辅助已拆至 `graphql_batch_tags.rs`）
+- `graphql_batch_tags.rs`: `fill_tags`（REST 翻页补齐 tags，正则命中早停）+ `collect_fallback_tasks`（识别需回填的包）
+- `graphql_batch_query.rs`: GraphQL 查询构建（`build_query`）与分块执行（`query_chunk`）
 - `graphql_batch_parse.rs`: GitHub GraphQL 响应解析（`RepoSnapshot` / `ReleaseData` / `parse_snapshot`）
+- `graphql_batch_helpers.rs`: 版本挑选辅助（`select_version` / `tags_max_version`）
 - `github_tag_cache.rs`（db 层）: GitHub tags 缓存模块——SQLite 表 CRUD、`CacheCheckResult` 枚举（Hit/Extend/Recalculate/Deleted/Miss）、`recompute_version_from_cache`（从缓存 tags JSON 重算版本）、同步函数 `check_and_extend_cache`（缓存过期时调 `releases/latest` 轻量验证，版本一致则顺延 TTL，不一致则用缓存 tags 重算避免全量重拉）；注意：因 `Database` 不可 Send，该方法为同步函数，内部用 `reqwest::blocking::get`，调用侧在 `state.db.lock()` 内串行执行
 
 ### 工具模块

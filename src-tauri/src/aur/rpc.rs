@@ -158,19 +158,13 @@ async fn do_get_package_info(
 ///
 /// # 返回
 /// - `Vec<serde_json::Value>`: 匹配的包信息列表
-pub async fn search_packages(
-    client: &Client,
-    keyword: &str,
-) -> AppResult<Vec<serde_json::Value>> {
+pub async fn search_packages(client: &Client, keyword: &str) -> AppResult<Vec<serde_json::Value>> {
     let url = format!("{}/search/?search={}&type=info", AUR_RPC_URL, keyword);
     debug!("请求 AUR search API: {}", url);
     let resp = client.get(&url).send().await?;
     let data: serde_json::Value = resp.json().await?;
     if data["resultcount"].as_i64().unwrap_or(0) > 0 {
-        let results = data["results"]
-            .as_array()
-            .cloned()
-            .unwrap_or_default();
+        let results = data["results"].as_array().cloned().unwrap_or_default();
         debug!("  search API 返回 {} 条结果", results.len());
         Ok(results)
     } else {

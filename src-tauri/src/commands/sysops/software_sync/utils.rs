@@ -167,10 +167,7 @@ pub fn build_checker_settings(db: &crate::db::Database) -> crate::checkers::Chec
 ///
 /// 统一入口，避免各调用方重复 `parse_u64(get_setting_opt(...))` 模式。
 pub fn read_http_timeout(db: &crate::db::Database) -> u64 {
-    parse_u64(
-        &get_setting_opt(db, "http_timeout").unwrap_or_default(),
-        30,
-    )
+    parse_u64(&get_setting_opt(db, "http_timeout").unwrap_or_default(), 30)
 }
 
 /// 读取 HTTP 超时和重试设置（默认 30 秒超时 / 2 次重试）

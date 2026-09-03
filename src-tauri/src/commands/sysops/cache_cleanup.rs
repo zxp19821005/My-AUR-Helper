@@ -19,18 +19,13 @@ use crate::AppState;
 
 /// 已知的缓存产物文件名后缀白名单
 const CACHE_FILE_SUFFIXES: &[&str] = &[
-    ".pkg.tar.zst",  // 二进制包文件
-    ".SRCINFO",      // AUR 源码信息
-    "PKGBUILD",      // AUR 构建脚本
+    ".pkg.tar.zst", // 二进制包文件
+    ".SRCINFO",     // AUR 源码信息
+    "PKGBUILD",     // AUR 构建脚本
 ];
 
 /// 已知可安全删除的子目录名（构建缓存目录）
-const CACHE_SUBDIR_WHITELIST: &[&str] = &[
-    "pkg",
-    "src",
-    ".BUILD",
-    ".SRCINFO",
-];
+const CACHE_SUBDIR_WHITELIST: &[&str] = &["pkg", "src", ".BUILD", ".SRCINFO"];
 
 /// 清理系统缓存 /var/cache/pacman/pkg
 ///
@@ -145,11 +140,7 @@ pub async fn clean_custom_cache_dirs(state: State<'_, AppState>) -> AppResult<St
                         Err(_) => {
                             // 尝试删除文件
                             if let Err(e) = tokio::fs::remove_file(&entry_path).await {
-                                errors.push(format!(
-                                    "删除 {} 失败: {}",
-                                    entry_path.display(),
-                                    e
-                                ));
+                                errors.push(format!("删除 {} 失败: {}", entry_path.display(), e));
                             } else {
                                 log::debug!("[缓存清理] 已删除文件: {}", entry_path.display());
                                 cleaned_count += 1;
@@ -279,7 +270,9 @@ pub async fn clear_expired_github_tag_cache(state: State<'_, AppState>) -> AppRe
 
 /// 获取 GitHub tags 缓存统计信息
 #[tauri::command]
-pub async fn get_github_tag_cache_stats(state: State<'_, AppState>) -> AppResult<serde_json::Value> {
+pub async fn get_github_tag_cache_stats(
+    state: State<'_, AppState>,
+) -> AppResult<serde_json::Value> {
     let db = state.db.lock()?;
     let count = db.cache_count()?;
     let ttl = db.get_cache_ttl_seconds()?;

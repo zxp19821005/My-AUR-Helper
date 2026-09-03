@@ -16,7 +16,7 @@ use reqwest::Client;
 use serde_json::Value;
 
 /// 构建针对一批仓库的 GraphQL 查询（alias 批量查询）
-fn build_query(repos: &[(String, String)]) -> String {
+pub fn build_query(repos: &[(String, String)]) -> String {
     let mut blocks = String::new();
     for (i, (owner, repo)) in repos.iter().enumerate() {
         let alias = format!("r{}", i);
@@ -38,7 +38,7 @@ fn build_query(repos: &[(String, String)]) -> String {
 }
 
 /// 执行一次 GraphQL 分块查询，返回 alias -> 仓库对象（跳过 null 项）
-async fn query_chunk(
+pub async fn query_chunk(
     client: &Client,
     repos: &[(String, String)],
     token: &str,

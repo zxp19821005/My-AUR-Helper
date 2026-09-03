@@ -11,7 +11,7 @@ use std::collections::HashMap;
 
 use crate::checkers::github::graphql_batch::{fill_tags, RepoCache};
 use crate::checkers::utils::extract_owner_repo;
-use crate::commands::sysops::software_sync::batch::PackageTask;
+use crate::commands::sysops::software_sync::batch_engine::PackageTask;
 use crate::commands::sysops::software_sync::utils::UpstreamCheckResult;
 use crate::db::Database;
 use crate::errors::AppResult;
@@ -42,7 +42,10 @@ pub fn collect_missing_repos(
 
     let mut repos: std::collections::HashSet<(String, String)> = std::collections::HashSet::new();
     for t in tasks {
-        if !matches!(t.checker_type, CheckerType::GitHubTags | CheckerType::GitHubAPI) {
+        if !matches!(
+            t.checker_type,
+            CheckerType::GitHubTags | CheckerType::GitHubAPI
+        ) {
             continue;
         }
         if !ok_pkgs.contains(t.pkgname.as_str()) {
@@ -75,7 +78,10 @@ pub async fn fetch_repo_tags(
     for (owner, repo) in repos {
         let tags = fill_tags(client, &owner, &repo, token, &[], None, MAX_TAG_PAGES).await;
         if tags.is_empty() {
-            warn!("[GitHub Cache] 补拉 {}/{} 未获得 tag，跳过写盘", owner, repo);
+            warn!(
+                "[GitHub Cache] 补拉 {}/{} 未获得 tag，跳过写盘",
+                owner, repo
+            );
             continue;
         }
         info!(
@@ -93,7 +99,10 @@ pub async fn fetch_repo_tags(
 ///
 /// cached_version 传 None：仓库级 tags 列表无法代表某个具体包的版本，
 /// 交由 check_and_extend_cache 在缓存过期时用 releases/latest 做增量校验。
-pub fn write_back(db: &Database, tags_map: HashMap<(String, String), Vec<String>>) -> AppResult<()> {
+pub fn write_back(
+    db: &Database,
+    tags_map: HashMap<(String, String), Vec<String>>,
+) -> AppResult<()> {
     for ((owner, repo), tags) in tags_map {
         let data = serde_json::json!({ "tags": tags, "releases": [] }).to_string();
         if let Err(e) = db.upsert_cache(&owner, &repo, tags.len() as i32, &data, None) {

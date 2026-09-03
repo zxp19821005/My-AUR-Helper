@@ -155,13 +155,9 @@ impl VersionChecker for RedirectChecker {
             // 5) 兜底：SPA 把下载地址拼在 JS 打包产物里（无 Location / 无 meta-refresh），
             //    抓取 <script src> 并对 JS 文本套用版本正则（如 flomo）
             if version.is_none() {
-                if let Some(v) = extract_version_from_scripts(
-                    client,
-                    &current_url,
-                    &body,
-                    version_extract_regex,
-                )
-                .await
+                if let Some(v) =
+                    extract_version_from_scripts(client, &current_url, &body, version_extract_regex)
+                        .await
                 {
                     version = Some(v);
                 }

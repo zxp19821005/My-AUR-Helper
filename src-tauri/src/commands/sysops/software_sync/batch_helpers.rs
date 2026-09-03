@@ -15,7 +15,7 @@ use crate::checkers::{self, CheckOptions, CheckResult, CheckerSettings};
 use crate::errors::{AppError, AppResult};
 use crate::models::CheckerType;
 
-use super::batch::PackageTask;
+use super::batch_engine::PackageTask;
 use super::utils::UpstreamCheckResult;
 
 /// 将软件包按检查器类型分为 Manual / Browser / 其余网络检查三类
@@ -25,7 +25,9 @@ use super::utils::UpstreamCheckResult;
 ///
 /// # 返回
 /// - `(browser, network, manual)`：浏览器类任务、网络类任务与手动类包名
-pub(crate) fn classify(tasks: Vec<PackageTask>) -> (Vec<PackageTask>, Vec<PackageTask>, Vec<String>) {
+pub(crate) fn classify(
+    tasks: Vec<PackageTask>,
+) -> (Vec<PackageTask>, Vec<PackageTask>, Vec<String>) {
     let mut browser = Vec::new();
     let mut network = Vec::new();
     let mut manual = Vec::new();

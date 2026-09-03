@@ -17,9 +17,7 @@ use crate::AppState;
 /// @param state - 应用状态（含数据库连接）
 /// @returns 各模块计数（DashboardStats）
 #[tauri::command]
-pub async fn get_dashboard_stats(
-    state: State<'_, AppState>,
-) -> Result<DashboardStats, String> {
+pub async fn get_dashboard_stats(state: State<'_, AppState>) -> Result<DashboardStats, String> {
     debug!("正在获取仪表盘统计");
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let stats = db.get_dashboard_stats().map_err(|e| e.to_string())?;

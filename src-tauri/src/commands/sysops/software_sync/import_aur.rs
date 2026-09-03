@@ -143,36 +143,30 @@ pub async fn import_aur_package(
         .and_then(|a| a.first())
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
-    let depends = aur_data["Depends"]
-        .as_array()
-        .map(|a| {
-            serde_json::to_string(
-                &a.iter()
-                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                    .collect::<Vec<String>>(),
-            )
-            .unwrap_or_default()
-        });
-    let makedepends = aur_data["MakeDepends"]
-        .as_array()
-        .map(|a| {
-            serde_json::to_string(
-                &a.iter()
-                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                    .collect::<Vec<String>>(),
-            )
-            .unwrap_or_default()
-        });
-    let optdepends = aur_data["OptDepends"]
-        .as_array()
-        .map(|a| {
-            serde_json::to_string(
-                &a.iter()
-                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                    .collect::<Vec<String>>(),
-            )
-            .unwrap_or_default()
-        });
+    let depends = aur_data["Depends"].as_array().map(|a| {
+        serde_json::to_string(
+            &a.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect::<Vec<String>>(),
+        )
+        .unwrap_or_default()
+    });
+    let makedepends = aur_data["MakeDepends"].as_array().map(|a| {
+        serde_json::to_string(
+            &a.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect::<Vec<String>>(),
+        )
+        .unwrap_or_default()
+    });
+    let optdepends = aur_data["OptDepends"].as_array().map(|a| {
+        serde_json::to_string(
+            &a.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect::<Vec<String>>(),
+        )
+        .unwrap_or_default()
+    });
 
     let aur_info = AurInfo {
         software_id: id,

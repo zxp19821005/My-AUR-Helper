@@ -1,3 +1,4 @@
+use super::Database;
 /**
  * software_info.rs - 软件包信息表数据访问层
  *
@@ -10,7 +11,6 @@
 use crate::errors::AppResult;
 use crate::models::*;
 use rusqlite::Connection;
-use super::Database;
 
 /// software_info 基础列清单，列序与 row_to_software_info 一一对应
 const SW_INFO_COLS: &str = "software_id, pkgname, upstream_url, package_type_id, checker_type_id, is_outdated, check_test_versions, check_binary_files, auto_check_enabled, skip_check_upstream, language_id, version_extract_regex";
@@ -104,9 +104,9 @@ impl Database {
     }
 
     pub fn get_all_software(&self) -> AppResult<Vec<SoftwareInfo>> {
-        let mut stmt = self.conn.prepare(
-            &format!("SELECT {SW_INFO_COLS} FROM software_info ORDER BY pkgname"),
-        )?;
+        let mut stmt = self.conn.prepare(&format!(
+            "SELECT {SW_INFO_COLS} FROM software_info ORDER BY pkgname"
+        ))?;
         let rows = stmt.query_map([], Self::row_to_software_info)?;
         let mut items = Vec::new();
         for row in rows {
@@ -116,9 +116,9 @@ impl Database {
     }
 
     pub fn get_software_by_name(&self, pkgname: &str) -> AppResult<Option<SoftwareInfo>> {
-        let mut stmt = self.conn.prepare(
-            &format!("SELECT {SW_INFO_COLS} FROM software_info WHERE pkgname=?1"),
-        )?;
+        let mut stmt = self.conn.prepare(&format!(
+            "SELECT {SW_INFO_COLS} FROM software_info WHERE pkgname=?1"
+        ))?;
         let mut rows = stmt.query_map(rusqlite::params![pkgname], |row| {
             Self::row_to_software_info(row)
         })?;
@@ -167,12 +167,14 @@ impl Database {
         )?;
         let mut rows = stmt.query_map(rusqlite::params![pkgname], |row| {
             let sw = Self::row_to_software_info(row)?; // 复用共享映射（列 0-11）
-            // 列 12-21: aur_info + upstream_info 追加列
+                                                       // 列 12-21: aur_info + upstream_info 追加列
             let aur_license_json: Option<String> = row.get(18)?;
             let upstream_license_json: Option<String> = row.get(21)?;
             log::debug!(
                 "get_software_detail: pkgname={}, has_aur_license={}, has_upstream_license={}",
-                pkgname, aur_license_json.is_some(), upstream_license_json.is_some()
+                pkgname,
+                aur_license_json.is_some(),
+                upstream_license_json.is_some()
             );
             Ok(SoftwareDetail {
                 software_id: sw.software_id,

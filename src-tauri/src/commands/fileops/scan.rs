@@ -147,8 +147,9 @@ pub async fn scan_pkg_files_cmd(
     }
 
     // R8: canonicalize 解析真实路径
-    let canon_request = std::fs::canonicalize(request_path)
-        .map_err(|e| crate::errors::AppError::InvalidInput(format!("无法访问路径 {}: {}", directory, e)))?;
+    let canon_request = std::fs::canonicalize(request_path).map_err(|e| {
+        crate::errors::AppError::InvalidInput(format!("无法访问路径 {}: {}", directory, e))
+    })?;
 
     // R8: 逐一与缓存目录比较（均先 canonicalize）
     let mut target_dir: Option<std::path::PathBuf> = None;

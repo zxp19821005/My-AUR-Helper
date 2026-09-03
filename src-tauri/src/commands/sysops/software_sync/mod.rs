@@ -41,6 +41,9 @@ pub mod batch;
 /// 批量检查辅助函数（从 batch.rs 拆分以符合 300 行约束）
 mod batch_helpers;
 
+/// 批量检查类型定义与常量（从 batch.rs 拆分以符合 300 行约束）
+pub mod batch_engine;
+
 /// PKGBUILD 文件同步命令
 pub mod pkgbuild;
 

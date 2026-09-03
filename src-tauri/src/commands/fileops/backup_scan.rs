@@ -71,12 +71,17 @@ pub async fn scan_backup_directory(
     }
 
     // R8: canonicalize 解析真实路径
-    let canon_request = std::fs::canonicalize(request_path)
-        .map_err(|e| crate::errors::AppError::InvalidInput(format!("无法访问备份路径 {}: {}", backup_path, e)))?;
+    let canon_request = std::fs::canonicalize(request_path).map_err(|e| {
+        crate::errors::AppError::InvalidInput(format!("无法访问备份路径 {}: {}", backup_path, e))
+    })?;
 
     // R8: canonicalize 备份根目录
-    let canon_root = std::fs::canonicalize(backup_root)
-        .map_err(|e| crate::errors::AppError::InvalidInput(format!("无法访问备份根目录 {}: {}", backup_root_str, e)))?;
+    let canon_root = std::fs::canonicalize(backup_root).map_err(|e| {
+        crate::errors::AppError::InvalidInput(format!(
+            "无法访问备份根目录 {}: {}",
+            backup_root_str, e
+        ))
+    })?;
 
     // R8: 验证请求路径在备份根目录下
     if !canon_request.starts_with(&canon_root) {

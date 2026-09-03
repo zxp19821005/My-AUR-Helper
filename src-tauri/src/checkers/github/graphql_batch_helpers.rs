@@ -63,7 +63,11 @@ pub(crate) fn select_version(
     if item.check_binary_files {
         let mut sorted: Vec<&ReleaseData> = snap.releases.iter().filter(|r| !r.is_draft).collect();
         // D6 修复：stable release 同 createdAt 时按 tag_name 字典序取最大（更稳定）
-        sorted.sort_by(|a, b| b.created_at.cmp(&a.created_at).then_with(|| a.tag_name.cmp(&b.tag_name)));
+        sorted.sort_by(|a, b| {
+            b.created_at
+                .cmp(&a.created_at)
+                .then_with(|| a.tag_name.cmp(&b.tag_name))
+        });
         for r in sorted {
             if has_linux_binary(&r.assets, regex) {
                 if let Some(filter) = regex {
@@ -84,7 +88,11 @@ pub(crate) fn select_version(
         .releases
         .iter()
         .filter(|r| !r.is_draft && !r.is_prerelease)
-        .max_by(|a, b| a.created_at.cmp(&b.created_at).then_with(|| a.tag_name.cmp(&b.tag_name)));
+        .max_by(|a, b| {
+            a.created_at
+                .cmp(&b.created_at)
+                .then_with(|| a.tag_name.cmp(&b.tag_name))
+        });
 
     match latest {
         Some(r) => {

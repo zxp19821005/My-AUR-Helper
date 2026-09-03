@@ -148,7 +148,9 @@ src-tauri/src/
 │   │   ├── repo_info.rs      # 仓库元信息获取（License + 编程语言）
 │   │   ├── git_describe.rs   # Git Describe 格式化（-git 包专用）
 │   │   ├── graphql_batch.rs  # GitHub GraphQL 批量检查器（alias 单次批量查多仓库 + REST 回退）
-│   │   └── graphql_batch_parse.rs # GitHub GraphQL 响应解析
+│   │   ├── graphql_batch_parse.rs # GitHub GraphQL 响应解析
+│   │   ├── graphql_batch_query.rs # GraphQL 查询构建与分块执行
+│   │   └── graphql_batch_tags.rs  # tags 回填辅助（fill_tags / collect_fallback_tasks）
 │   ├── gitee.rs              # Gitee 检查器
 │   ├── gitlab.rs             # GitLab 检查器
 │   ├── redirect.rs           # 重定向检查器

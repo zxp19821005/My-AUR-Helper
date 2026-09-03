@@ -16,14 +16,12 @@
 use log::{info, warn};
 use std::collections::HashSet;
 
-use super::batch::PackageTask;
+use super::batch_engine::PackageTask;
 use super::utils::UpstreamCheckResult;
 use crate::checkers::utils::extract_owner_repo;
-use crate::db::github_tag_cache::{
-    decode_tags, recompute_version_from_tags, CacheCheckResult,
-};
-use crate::models::{CheckerType, PackageType};
+use crate::db::github_tag_cache::{decode_tags, recompute_version_from_tags, CacheCheckResult};
 use crate::db::Database;
+use crate::models::{CheckerType, PackageType};
 
 /// 缓存校验结果汇总
 pub struct CacheHitSummary {
@@ -55,8 +53,10 @@ pub fn check_github_cache(
         let repo_tasks: Vec<&PackageTask> = tasks
             .iter()
             .filter(|t| {
-                matches!(t.checker_type, CheckerType::GitHubTags | CheckerType::GitHubAPI)
-                    && t.package_type != PackageType::Git
+                matches!(
+                    t.checker_type,
+                    CheckerType::GitHubTags | CheckerType::GitHubAPI
+                ) && t.package_type != PackageType::Git
                     && extract_owner_repo(&t.upstream_url)
                         .is_some_and(|(o, r)| o == *owner && r == *repo)
             })
@@ -82,8 +82,7 @@ pub fn check_github_cache(
                                 skip.insert((owner.clone(), repo.clone()));
                                 for task in &repo_tasks {
                                     let pkg_regex = task.version_extract_regex.as_deref();
-                                    let version =
-                                        recompute_version_from_tags(&tags, pkg_regex);
+                                    let version = recompute_version_from_tags(&tags, pkg_regex);
                                     if let Some(v) = version {
                                         hit_results.push(UpstreamCheckResult {
                                             pkgname: task.pkgname.clone(),
@@ -105,7 +104,10 @@ pub fn check_github_cache(
                                 };
                                 info!(
                                     "[GitHub Cache] {}:{} {}，{} 个包从缓存获取版本",
-                                    owner, repo, result_type, repo_tasks.len()
+                                    owner,
+                                    repo,
+                                    result_type,
+                                    repo_tasks.len()
                                 );
                             }
                         }
@@ -117,7 +119,10 @@ pub fn check_github_cache(
                     if !repo_tasks.is_empty() {
                         info!(
                             "[GitHub Cache] {}:{} 版本变化({})，需要重新拉取，{} 个包进入检查",
-                            owner, repo, new_version, repo_tasks.len()
+                            owner,
+                            repo,
+                            new_version,
+                            repo_tasks.len()
                         );
                     }
                 }
@@ -126,7 +131,9 @@ pub fn check_github_cache(
                     if !repo_tasks.is_empty() {
                         info!(
                             "[GitHub Cache] {}:{} 无有效缓存，{} 个包直接进入网络检查",
-                            owner, repo, repo_tasks.len()
+                            owner,
+                            repo,
+                            repo_tasks.len()
                         );
                     }
                 }

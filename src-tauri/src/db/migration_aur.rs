@@ -104,8 +104,9 @@ impl Database {
     pub fn migrate_aur_error_column(&self) -> AppResult<()> {
         let columns = self.get_table_columns("aur_info")?;
         if !columns.contains(&"last_sync_error".to_string()) {
-            self.conn
-                .execute_batch("ALTER TABLE aur_info ADD COLUMN last_sync_error TEXT DEFAULT NULL;")?;
+            self.conn.execute_batch(
+                "ALTER TABLE aur_info ADD COLUMN last_sync_error TEXT DEFAULT NULL;",
+            )?;
         }
         Ok(())
     }

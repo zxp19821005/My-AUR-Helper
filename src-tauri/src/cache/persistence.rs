@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::errors::AppResult;
 
-use super::domain::CacheDomain;
 use super::config::CacheConfig;
+use super::domain::CacheDomain;
 
 /// 磁盘缓存文件元数据
 #[derive(Debug, Clone, Serialize, Deserialize)]

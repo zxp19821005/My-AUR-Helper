@@ -42,12 +42,7 @@ pub fn normalize_proxy_url(url: &str) -> (String, bool) {
     let url = url.trim();
     let after_scheme = match url.find("://") {
         Some(p) => p + 3,
-        None => {
-            return (
-                url.trim_end_matches(['/', '?']).to_string(),
-                false,
-            )
-        }
+        None => return (url.trim_end_matches(['/', '?']).to_string(), false),
     };
     let rest = &url[after_scheme..];
     // 源站之后第一个路径/查询分隔符，分隔符之后即为已拼接的下载地址后缀

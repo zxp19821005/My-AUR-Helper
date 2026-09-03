@@ -5,12 +5,11 @@ use std::collections::HashMap;
 use tauri::State;
 
 use super::super::proxy_utils::build_client;
-use super::super::software_sync::batch::{batch_check_upstream, PackageTask};
+use super::super::software_sync::batch::batch_check_upstream;
 use super::super::software_sync::batch_cache::write_github_tag_cache;
+use super::super::software_sync::batch_engine::PackageTask;
 use super::super::software_sync::cache::check_github_cache;
-use super::super::software_sync::cache_fill::{
-    collect_missing_repos, fetch_repo_tags, write_back,
-};
+use super::super::software_sync::cache_fill::{collect_missing_repos, fetch_repo_tags, write_back};
 use super::super::software_sync::utils::{
     build_checker_settings, read_http_settings, UpstreamCheckResult,
 };
@@ -110,9 +109,13 @@ pub async fn check_selected_upstream(
 
     let github_repos: Vec<(String, String)> = tasks
         .iter()
-        .filter(|t| matches!(t.checker_type, CheckerType::GitHubTags | CheckerType::GitHubAPI)
-            && t.package_type != PackageType::Git
-            && extract_owner_repo(&t.upstream_url).is_some())
+        .filter(|t| {
+            matches!(
+                t.checker_type,
+                CheckerType::GitHubTags | CheckerType::GitHubAPI
+            ) && t.package_type != PackageType::Git
+                && extract_owner_repo(&t.upstream_url).is_some()
+        })
         .map(|t| {
             let (o, r) = extract_owner_repo(&t.upstream_url).unwrap();
             (o, r)
@@ -134,7 +137,10 @@ pub async fn check_selected_upstream(
     let tasks: Vec<PackageTask> = tasks
         .into_iter()
         .filter(|t| {
-            if !matches!(t.checker_type, CheckerType::GitHubTags | CheckerType::GitHubAPI) {
+            if !matches!(
+                t.checker_type,
+                CheckerType::GitHubTags | CheckerType::GitHubAPI
+            ) {
                 return true;
             }
             if let Some((owner, repo)) = extract_owner_repo(&t.upstream_url) {
@@ -146,8 +152,15 @@ pub async fn check_selected_upstream(
         })
         .collect();
 
-    let outcome = batch_check_upstream(tasks, client, github_client, settings, retry,
-        |_owner, _repo, _tag_count, _json_str| {}).await;
+    let outcome = batch_check_upstream(
+        tasks,
+        client,
+        github_client,
+        settings,
+        retry,
+        |_owner, _repo, _tag_count, _json_str| {},
+    )
+    .await;
 
     if !outcome.github_cache_map.is_empty() {
         let db = state.db.lock().unwrap();

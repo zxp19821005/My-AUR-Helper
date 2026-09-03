@@ -57,21 +57,9 @@ fn get_env_proxy() -> Option<String> {
     std::env::var("http_proxy")
         .ok()
         .filter(|v| !v.is_empty())
-        .or_else(|| {
-            std::env::var("https_proxy")
-                .ok()
-                .filter(|v| !v.is_empty())
-        })
-        .or_else(|| {
-            std::env::var("ALL_PROXY")
-                .ok()
-                .filter(|v| !v.is_empty())
-        })
-        .or_else(|| {
-            std::env::var("all_proxy")
-                .ok()
-                .filter(|v| !v.is_empty())
-        })
+        .or_else(|| std::env::var("https_proxy").ok().filter(|v| !v.is_empty()))
+        .or_else(|| std::env::var("ALL_PROXY").ok().filter(|v| !v.is_empty()))
+        .or_else(|| std::env::var("all_proxy").ok().filter(|v| !v.is_empty()))
 }
 
 /// 获取 GNOME/KDE 系统代理设置

@@ -53,7 +53,9 @@ pub async fn backup_cache_to_existing(
         let db = state.db.lock().map_err(|e| {
             crate::errors::AppError::DatabaseError(format!("获取数据库锁失败: {}", e))
         })?;
-        std::path::PathBuf::from(crate::commands::sysops::backup_install::read_backup_dir(&db))
+        std::path::PathBuf::from(crate::commands::sysops::backup_install::read_backup_dir(
+            &db,
+        ))
     };
     crate::commands::sysops::backup_install::validate_backup_path(&backup_path, "", &backup_root)?;
 

@@ -83,14 +83,20 @@ pub async fn check_github_tags(
         let resp = match req.send().await {
             Ok(r) => r,
             Err(e) => {
-                debug!("[tags] {}:{}/tags page={}: send error: {}", owner, repo, page, e);
+                debug!(
+                    "[tags] {}:{}/tags page={}: send error: {}",
+                    owner, repo, page, e
+                );
                 break;
             }
         };
         if !resp.status().is_success() {
             debug!(
                 "[tags] {}:{}/tags page={}: HTTP {}",
-                owner, repo, page, resp.status()
+                owner,
+                repo,
+                page,
+                resp.status()
             );
             break;
         }
@@ -98,7 +104,10 @@ pub async fn check_github_tags(
         let tags: Vec<serde_json::Value> = match resp.json().await {
             Ok(t) => t,
             Err(e) => {
-                debug!("[tags] {}:{}/tags page={}: json decode error: {}", owner, repo, page, e);
+                debug!(
+                    "[tags] {}:{}/tags page={}: json decode error: {}",
+                    owner, repo, page, e
+                );
                 break;
             }
         };
@@ -124,7 +133,10 @@ pub async fn check_github_tags(
         if matched_any {
             debug!(
                 "[tags] {}:{}/tags page={}: regex matched, stopping early (total tags: {})",
-                owner, repo, page, all_tags.len()
+                owner,
+                repo,
+                page,
+                all_tags.len()
             );
             break;
         }

@@ -6,4 +6,4 @@
  */
 pub mod retry;
 
-pub use retry::{retry_with_backoff, is_retryable_error};
+pub use retry::{is_retryable_error, retry_with_backoff};
