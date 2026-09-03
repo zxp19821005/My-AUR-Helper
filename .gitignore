@@ -8,3 +8,11 @@ src-tauri/target/
 .trae/
 .workbuddy/
 pnpm-lock.yaml
+.cargo/
+.rustup/
+opencode.jsonc
+.trae/
+.workbuddy/
+.sccache/
+.pnpm_cache/
+.pnpm_store/

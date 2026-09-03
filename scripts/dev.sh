@@ -22,9 +22,32 @@ err()   { echo -e "${RED}[$(ts)] [ERROR]${NC} $1"; }
 
 # ---------- Cache 加速 ----------
 
+export CARGO_HOME="${CARGO_HOME:-/run/media/zxp/LocalBak/git/My-AUR-Helper/.cargo}"
+export RUSTUP_HOME="${RUSTUP_HOME:-/run/media/zxp/LocalBak/git/My-AUR-Helper/.rustup}"
+export SCCACHE_DIR="${SCCACHE_DIR:-/run/media/zxp/LocalBak/git/My-AUR-Helper/.sccache}"
 export RUSTC_WRAPPER="${RUSTC_WRAPPER:-sccache}"
 export CC="${CC:-ccache gcc}"
 export CXX="${CXX:-ccache g++}"
+
+# 镜像源（阿里云 / npmmirror）
+export RUSTUP_DIST_SERVER="https://mirrors.aliyun.com/rustup"
+export RUSTUP_UPDATE_ROOT="https://mirrors.aliyun.com/rustup/rustup"
+export pnpm_config_registry="https://registry.npmmirror.com"
+export npm_config_registry="https://registry.npmmirror.com"
+
+# 确保使用稳定 toolchain
+rustup default stable 2>/dev/null || true
+
+# ---------- PNPM 优化 ----------
+export PNPM_LINK_WORKSPACE_PACKAGES=true
+export PNPM_FETCH_RETRY_MAXTIMEOUT=10000
+export PNPM_CACHE_DIR="/run/media/zxp/LocalBak/git/My-AUR-Helper/.pnpm_cache"
+export PNPM_STORE_DIR="/run/media/zxp/LocalBak/git/My-AUR-Helper/.pnpm_store"
+export PNPM_VIRTUAL_STORE_DIR="/run/media/zxp/LocalBak/git/My-AUR-Helper/.pnpm_store"
+export PNPM_SHAMEFULLY_HOIST=true
+export PNPM_VIRTUAL_STORE_DIR_MAX_LENGTH=80
+export PNPM_NODE_LINKER=hoisted
+export PNPM_NETWORK_CONCURRENCY=32
 
 # ---------- WebKitGTK DMABUF 渲染应急 ----------
 # 2026-08-20 实测：本机（Intel i915 + X11）DMABUF 硬件加速路径异常，
