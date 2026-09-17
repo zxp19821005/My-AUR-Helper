@@ -501,7 +501,7 @@ GitHub 检查器采用目录结构（`checkers/github/`），包含以下文件�
 - `graphql_batch_query.rs`: GraphQL 查询构建（`build_query`）与分块执行（`query_chunk`）
 - `graphql_batch_parse.rs`: GitHub GraphQL 响应解析（`RepoSnapshot` / `ReleaseData` / `parse_snapshot`）
 - `graphql_batch_helpers.rs`: 版本挑选辅助（`select_version` / `tags_max_version`）
-- `github_tag_cache.rs`（db 层）: GitHub tags 缓存模块——SQLite 表 CRUD、`CacheCheckResult` 枚举（Hit/Extend/Recalculate/Deleted/Miss）、`recompute_version_from_cache`（从缓存 tags JSON 重算版本）、同步函数 `check_and_extend_cache`（缓存过期时调 `releases/latest` 轻量验证，版本一致则顺延 TTL，不一致则用缓存 tags 重算避免全量重拉）；注意：因 `Database` 不可 Send，该方法为同步函数，内部用 `reqwest::blocking::get`，调用侧在 `state.db.lock()` 内串行执行
+- `github_tag_cache.rs`（db 层）: GitHub tags 缓存模块——SQLite 表 CRUD、`CacheCheckResult` 枚举（Hit/Extend/Recalculate/Deleted/Miss）、`recompute_version_from_cache`（从缓存 tags JSON 重算版本）、同步函数 `check_and_extend_cache`（缓存过期时调 `releases/latest` 轻量验证，版本一致则顺延 TTL，不一致则用缓存 tags 重算避免全量重拉）；注意：因 `Database` 不可 Send，该方法为同步函数；其内部阻塞 HTTP 已用 `std::thread::spawn` 隔离到独立 OS 线程（避开 tokio worker 上下文，否则 `reqwest::blocking` 创建/销毁嵌套 runtime 会 panic "Cannot drop a runtime in a context where blocking is not allowed"），因此调用侧可直接在 async 命令的 `state.db.lock()` 内串行同步调用，无需再包 spawn_blocking
 
 ### 工具模块
 - `checkers/utils.rs` — 通用工具函数（版本号正则提取、URL 解析等）
