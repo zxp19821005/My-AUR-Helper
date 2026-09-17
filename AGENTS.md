@@ -75,6 +75,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
   - 前端 IPC 命令仅暴露必要功能，未使用的危险命令必须移除
   - 敏感信息（凭据、密钥、代理 URL）禁止写入日志
   - Tauri 配置必须设置 CSP 内容安全策略
+  - **异步上下文禁止直接调用 `reqwest::blocking`（强制）**：`#[tauri::command] async fn`、`tokio::spawn` 闭包等运行在 tokio worker 线程，本身已处于 runtime 上下文；在其中直接调用 `reqwest::blocking::get` 等阻塞客户端，会因创建/销毁嵌套 runtime 触发 panic `Cannot drop a runtime in a context where blocking is not allowed`。阻塞网络请求必须用 `std::thread::spawn(|| reqwest::blocking::...).join()` 或 `tokio::task::spawn_blocking` 隔离到无 runtime 上下文的线程。本项目 `db/github_tag_cache.rs::check_and_extend_cache` 即采用 `std::thread::spawn` 方案（详见该文件注释与下方「GitHub tags 缓存」模块说明）。
 
 ### Vue/TypeScript 编码规范
 - 组件命名：PascalCase（文件名和组件名一致）
@@ -173,7 +174,7 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src-tauri/src/checkers/github/graphql_batch_query.rs` | GraphQL 查询构建与分块执行底层（`build_query` 用 `serde_json::to_string` 生成合法 JSON 字面量；`query_chunk` 执行一次分块请求） |
 | `src-tauri/src/checkers/github/graphql_batch_parse.rs` | GitHub GraphQL 快照解析（RepoSnapshot / ReleaseData / parse_snapshot） |
 | `src-tauri/src/checkers/github/graphql_batch_helpers.rs` | GraphQL 批量检查的版本挑选辅助（`select_version` / `tags_max_version`，严格镜像 REST 路径保证结果一致）；`select_version` 接受 `all_tags: Option<&[String]>` 供回填后重算 |
-| `src-tauri/src/db/github_tag_cache.rs` | GitHub tags 缓存模块（SQLite 表 CRUD、增量校验 CacheCheckResult 枚举、recompute_version_from_cache、check_and_extend_cache 同步函数用 reqwest::blocking） |
+| `src-tauri/src/db/github_tag_cache.rs` | GitHub tags 缓存模块（SQLite 表 CRUD、增量校验 CacheCheckResult 枚举、recompute_version_from_cache、check_and_extend_cache 同步函数；内部阻塞 HTTP 已用 std::thread::spawn 隔离到独立 OS 线程，可在 async 命令内直接同步调用） |
 | `src-tauri/src/db/migration_github_tag_cache.rs` | github_tag_cache 表迁移（含 cached_version 列 ALTER） |
 | `src-tauri/src/versions/` | 版本处理模块（解析、标准化、比较） |
 | `src-tauri/src/versions/mod.rs` | versions 模块入口 |
