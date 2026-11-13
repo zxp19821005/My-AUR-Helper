@@ -21,6 +21,8 @@ mod redirect;
 mod redirect_parse;
 mod trait_def;
 pub mod utils;
+/// 版本字符串清洗（去文件扩展名 / 架构 / 发行版后缀）：从 utils.rs 抽出，避免单文件超限
+mod version_extract_clean;
 
 pub use factory::{get_checker, CheckerSettings};
 pub use trait_def::{CheckOptions, CheckResult, VersionChecker};

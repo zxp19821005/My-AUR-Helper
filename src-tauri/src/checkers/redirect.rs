@@ -47,6 +47,25 @@ fn redirect_client() -> &'static Client {
     })
 }
 
+/// 不校验证书的兜底客户端单例。
+///
+/// 仅当上游 TLS 证书过期/不可信导致安全请求失败时启用（如 wiz.cn 的
+/// `*.wiz.cn` 证书于 2026-11-05 过期，浏览器可手动跳过但 reqwest 默认拒绝）。
+/// 与 `redirect_client` 共享「不自动跟随重定向 + 浏览器 UA」策略，仅关闭 TLS 校验。
+/// 该客户端只用于拉取公开版本信息（无鉴权），且每次启用都会打 WARN 日志以便审计。
+static REDIRECT_CLIENT_INSECURE: OnceLock<Client> = OnceLock::new();
+
+fn insecure_redirect_client() -> &'static Client {
+    REDIRECT_CLIENT_INSECURE.get_or_init(|| {
+        Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .user_agent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            .danger_accept_invalid_certs(true)
+            .build()
+            .expect("初始化重定向检查兜底客户端失败")
+    })
+}
+
 pub struct RedirectChecker;
 
 #[async_trait]
@@ -92,13 +111,43 @@ impl VersionChecker for RedirectChecker {
             }
 
             debug!("[HTTP 重定向] 第 {} 次请求: {}", visited.len(), current_url);
-            let resp = client.get(&current_url).send().await?;
+            // 添加 Referer 头：部分服务器（如 nfschina）需要 Referer 才能返回 200，
+            // 否则返回 403。使用当前 URL 作为 Referer，模拟浏览器跳转行为。
+            // 安全请求失败时，若错误特征指向 TLS 证书问题（过期/不可信），
+            // 退化为不校验证书的兜底请求一次（仅拉取公开版本信息，并打 WARN 审计）。
+            let resp = match client
+                .get(&current_url)
+                .header("Referer", &current_url)
+                .send()
+                .await
+            {
+                Ok(r) => r,
+                // 安全请求失败：`send()` 仅在「传输层」出错时返回 Err（TLS 握手失败、
+                // 证书过期、DNS 解析失败、超时、连接被拒等），HTTP 4xx/5xx 属于 Ok 响应、
+                // 由后续状态码分支处理。这里对传输层失败降级为「不校验证书」兜底请求一次，
+                // 仅用于拉取公开版本信息，并打 WARN 日志以便审计。
+                Err(e) => {
+                    if e.is_connect() {
+                        warn!(
+                            "[HTTP 重定向] 安全请求失败（{}），启用不校验证书的兜底请求: {}",
+                            e, current_url
+                        );
+                        insecure_redirect_client()
+                            .get(&current_url)
+                            .header("Referer", &current_url)
+                            .send()
+                            .await?
+                    } else {
+                        return Err(e.into());
+                    }
+                }
+            };
 
             // 调试：打印响应状态码和所有 headers
             debug!("[HTTP 重定向] 响应状态码: {}", resp.status());
             debug!("[HTTP 重定向] 响应 Headers: {:?}", resp.headers());
 
-            // 在消费响应体之前先克隆重定向相关响应头
+            // 在消费响应体之前先克隆重定向相关响应头（这些无需下载 body 即可读取）
             let location_hdr = resp
                 .headers()
                 .get("location")
@@ -109,9 +158,8 @@ impl VersionChecker for RedirectChecker {
                 .get("content-disposition")
                 .and_then(|h| h.to_str().ok())
                 .map(|s| s.to_string());
-            let body = resp.text().await?;
 
-            // 1) HTTP 3xx Location 重定向
+            // 1) HTTP 3xx Location 重定向（纯响应头，无需下载 body）
             if let Some(loc) = location_hdr {
                 debug!("[HTTP 重定向] Location: {}", loc);
                 current_url = resolve_url(&current_url, &loc);
@@ -121,7 +169,30 @@ impl VersionChecker for RedirectChecker {
                 continue;
             }
 
-            // 2) HTML <meta http-equiv="refresh"> 重定向
+            // 2) 头级别版本提取（Content-Disposition 文件名 / 当前 URL），命中即结束。
+            //    避免下载完整响应体：二进制落点（AppImage/deb…可达上百 MB）版本号就在文件名/CD 中。
+            let cd_version = cd_hdr
+                .as_ref()
+                .and_then(|d| self.extract_version(d, version_extract_regex));
+            let url_version = self.extract_version(&current_url, version_extract_regex);
+            let from_cd = cd_version.is_some();
+            if version.is_none() {
+                version = cd_version.or(url_version);
+            }
+
+            // 是否还需下载 body：完全没提取到→必须（meta-refresh/JS/SPA）；仅 URL 命中且像 HTML→下载；CD 或二进制落点→跳过。
+            let need_body = version.is_none() || (!from_cd && !response_is_binary(&resp));
+
+            if !need_body {
+                debug!("[HTTP 重定向] 已从 URL/Content-Disposition 提取可信版本，跳过 body 下载");
+                break 'redirects;
+            }
+
+            // 仅当头级别未拿到可信版本时才下载 body（典型为 HTML 页面）
+            debug!("[HTTP 重定向] 头级别未提取到可信版本，下载 body 解析内联重定向/脚本");
+            let body = resp.text().await?;
+
+            // 3) HTML <meta http-equiv="refresh"> 重定向
             if let Some(url) = extract_meta_refresh(&body) {
                 debug!("[HTTP 重定向] 发现 meta-refresh 重定向: {}", url);
                 current_url = resolve_url(&current_url, &url);
@@ -131,7 +202,7 @@ impl VersionChecker for RedirectChecker {
                 continue;
             }
 
-            // 3) 内联 JS 重定向（字面 URL）
+            // 4) 内联 JS 重定向（字面 URL）
             if let Some(url) = extract_js_redirect(&body) {
                 debug!("[HTTP 重定向] 发现 JS 重定向: {}", url);
                 current_url = resolve_url(&current_url, &url);
@@ -139,17 +210,6 @@ impl VersionChecker for RedirectChecker {
                     version = self.extract_version(&current_url, version_extract_regex);
                 }
                 continue;
-            }
-
-            // 4) 无更多重定向：尝试从 Content-Disposition / 最终 URL 提取版本
-            if version.is_none() {
-                if let Some(disp) = &cd_hdr {
-                    debug!("[HTTP 重定向] Content-Disposition: {}", disp);
-                    version = self.extract_version(disp, version_extract_regex);
-                }
-            }
-            if version.is_none() {
-                version = self.extract_version(&current_url, version_extract_regex);
             }
 
             // 5) 兜底：SPA 把下载地址拼在 JS 打包产物里（无 Location / 无 meta-refresh），
@@ -190,5 +250,43 @@ impl RedirectChecker {
         } else {
             extract_version_from_url(text)
         }
+    }
+}
+
+/// 判断响应是否为二进制下载落点（版本号已含于 URL/文件名，无需下载 body 解析）。
+/// 命中时头级别的 CD/URL 提取结果即可信，可跳过响应体下载。
+fn response_is_binary(resp: &reqwest::Response) -> bool {
+    let ct = resp
+        .headers()
+        .get("content-type")
+        .and_then(|h| h.to_str().ok())
+        .unwrap_or("");
+    // 二进制/归档类下载落点的 Content-Type 白名单：命中时版本号已含于 URL/文件名，无需下载 body
+    const BIN_CT: &str = "\
+application/octet-stream application/x-debian-package application/x-redhat-package-manager \
+application/vnd.appimage application/zip application/x-zip-compressed application/gzip \
+application/x-gzip application/x-xz application/x-tar application/x-7z-compressed \
+application/x-rar-compressed application/x-msdownload application/x-apple-diskimage \
+application/vnd.microsoft.portable-executable application/x-executable application/x-rpm \
+application/pdf image/ video/ audio/";
+    BIN_CT.split_whitespace().any(|p| ct.starts_with(p))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 确保安全客户端与「不校验证书」兜底客户端均能成功构建，
+    /// 防止 reqwest TLS API（danger_accept_invalid_certs 等）漂移导致编译/运行时失败。
+    #[test]
+    fn test_redirect_clients_build() {
+        // 进程级单例，重复调用应返回同一实例且不 panic
+        let a = redirect_client();
+        let b = redirect_client();
+        assert!(std::ptr::eq(a, b));
+
+        let c = insecure_redirect_client();
+        let d = insecure_redirect_client();
+        assert!(std::ptr::eq(c, d));
     }
 }

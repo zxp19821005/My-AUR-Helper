@@ -7,6 +7,8 @@
 use log::debug;
 use std::sync::OnceLock;
 
+use crate::checkers::version_extract_clean::strip_file_extensions;
+
 /// 版本提取所需的静态正则集合
 /// 进程级惰性编译一次，避免每次提取版本都重新编译
 struct StaticRegexes {
@@ -160,62 +162,6 @@ pub fn extract_version_from_url(url: &str) -> Option<String> {
     None
 }
 
-/// 去除常见的文件扩展名
-/// @param version - 包含可能扩展名的版本字符串
-/// @returns 去除扩展名后的版本字符串
-fn strip_file_extensions(version: &str) -> String {
-    let extensions = [
-        ".AppImage",
-        ".appimage",
-        ".flatpak",
-        ".deb",
-        ".rpm",
-        ".exe",
-        ".msi",
-        ".dmg",
-        ".pkg",
-        ".tar.gz",
-        ".tar.xz",
-        ".zip",
-        ".tar.bz2",
-        ".tar.zst",
-        ".7z",
-        ".snap",
-        ".AppImage.zsync",
-    ];
-
-    let mut result = version.to_string();
-    for ext in &extensions {
-        if result.ends_with(ext) {
-            result = result[..result.len() - ext.len()].to_string();
-            break;
-        }
-    }
-
-    // 去除架构后缀 (如 .x86_64, .aarch64, .arm64, .amd64, .i386 等)
-    let arch_patterns = [
-        ".x86_64",
-        ".aarch64",
-        ".arm64",
-        ".amd64",
-        ".i386",
-        ".i686",
-        ".armv7l",
-        ".armhf",
-        ".noarch",
-        ".all",
-        ".universal",
-    ];
-    for arch in &arch_patterns {
-        if result.ends_with(arch) {
-            result = result[..result.len() - arch.len()].to_string();
-            break;
-        }
-    }
-
-    result
-}
-
 /// 从 HTML 内容中提取版本号
 /// 匹配常见的版本信息模式：如 "Version: 1.2.3" 或表格中的版本号
 /// @param body - HTML 页面文本内容
@@ -242,6 +188,24 @@ mod tests {
     /// 真实 bug 复现：deskaide/deskaide 仓库全部 tag 都是 v1.0.0-alpha.X，
     /// 旧正则 `[^0-9]*?(v?\d[\d.]*)` 把它们全部截为 1.0.0，max_by_vercmp 比较
     /// 全部返回 Equal，最终返回 1.0.0（错的），用户 AUR 1.0.0_alpha.16 被认为无需更新。
+    /// 正则提取：无捕获组时返回整段匹配；有捕获组时返回首个捕获组。
+    /// 实证：helio-workstation-bin 用户配置 `helio-\d\.\d+-x64.deb` 无捕获组，
+    /// 因此拿到整段 `helio-3.18-x64.deb`（含 app 名前缀与 .deb 后缀）。
+    /// 正确配置应为 `helio-(\d\.\d+)-x64\.deb`，用捕获组取 `3.18`。
+    #[test]
+    fn test_regex_extraction_capture_group_semantics() {
+        // 无捕获组 → 整段匹配
+        assert_eq!(
+            extract_version_with_regex("helio-3.18-x64.deb", r"helio-\d\.\d+-x64\.deb"),
+            Some("helio-3.18-x64.deb".to_string())
+        );
+        // 有捕获组 → 首位捕获组
+        assert_eq!(
+            extract_version_with_regex("helio-3.18-x64.deb", r"helio-(\d\.\d+)-x64\.deb"),
+            Some("3.18".to_string())
+        );
+    }
+
     #[test]
     fn test_clean_version_preserves_prerelease() {
         assert_eq!(clean_version("v1.0.0-alpha.16"), "1.0.0-alpha.16");
