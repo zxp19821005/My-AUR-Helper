@@ -20,8 +20,14 @@ mod tags;
 /// GitHub Release API 调用和资产过滤逻辑（latest 路径）
 mod release;
 
+/// latest release 无匹配资产时的 tags 回退解析（区分 tag 正则 / asset 正则）
+mod release_tags;
+
 /// GitHub Releases 历史遍历扫描（分页 + 资产过滤回退）
 mod release_history;
+
+/// GitHub Releases 单页请求与内部重试（从 release_history.rs 拆分以符合 300 行约束）
+pub mod release_page;
 
 /// 二进制文件检查工具
 mod binary_check;

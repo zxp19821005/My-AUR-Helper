@@ -199,7 +199,7 @@ impl VersionChecker for BrowserChecker {
         debug!(
             "[版本检查] 渲染后文本长度: {} (前 200 字符: {})",
             text.len(),
-            &text.chars().take(200).collect::<String>()
+            text.chars().take(200).collect::<String>()
         );
 
         let version = match version_extract_regex {

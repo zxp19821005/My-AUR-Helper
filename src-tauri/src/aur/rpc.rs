@@ -1,9 +1,9 @@
 use crate::errors::AppResult;
 use crate::network::retry::{retry_with_backoff, DEFAULT_MAX_RETRIES};
-use log::{debug, info, warn};
+use log::{debug, info};
 use reqwest::Client;
 
-const AUR_RPC_URL: &str = "https://aur.archlinux.org/rpc/v5";
+pub(crate) const AUR_RPC_URL: &str = "https://aur.archlinux.org/rpc/v5";
 
 #[derive(Debug, Clone)]
 pub struct AurPackageData {
@@ -171,104 +171,4 @@ pub async fn search_packages(client: &Client, keyword: &str) -> AppResult<Vec<se
         debug!("  search API 返回空结果");
         Ok(Vec::new())
     }
-}
-
-/// 批量获取多个包的 AUR 信息（带批次间间隔，失败时不重试整个批次）
-pub async fn get_packages_info(
-    client: &Client,
-    pkgnames: &[String],
-    batch_size: usize,
-    batch_interval: u64,
-) -> AppResult<Vec<serde_json::Value>> {
-    if pkgnames.is_empty() {
-        return Ok(Vec::new());
-    }
-
-    let mut all_results = Vec::new();
-    let chunks: Vec<&[String]> = pkgnames.chunks(batch_size).collect();
-    let total_chunks = chunks.len();
-
-    for (i, chunk) in chunks.iter().enumerate() {
-        if i > 0 {
-            info!(
-                "[AUR 批量查询] 等待 {} 秒后继续下一批 ({}/{})",
-                batch_interval,
-                i + 1,
-                total_chunks
-            );
-            tokio::time::sleep(std::time::Duration::from_secs(batch_interval)).await;
-        }
-
-        let url = format!("{}/info", AUR_RPC_URL);
-        let mut body = String::new();
-        for name in *chunk {
-            body.push_str(&format!("arg[]={}&", name));
-        }
-        body.pop();
-
-        info!(
-            "[AUR 批量查询] 第 {}/{} 批：查询 {} 个包",
-            i + 1,
-            total_chunks,
-            chunk.len()
-        );
-        debug!("[AUR 批量查询] 请求 URL: {}", url);
-        debug!("[AUR 批量查询] 请求体长度: {} 字节", body.len());
-
-        match client
-            .post(&url)
-            .header("Content-Type", "application/x-www-form-urlencoded")
-            .body(body)
-            .send()
-            .await
-        {
-            Ok(resp) => {
-                let status = resp.status();
-                info!("[AUR 批量查询] 响应状态码: {}", status);
-
-                if !status.is_success() {
-                    warn!("[AUR 批量查询] 请求失败: HTTP {}", status);
-                    if let Ok(text) = resp.text().await {
-                        warn!("[AUR 批量查询] 错误响应: {}", &text[..text.len().min(500)]);
-                    }
-                    // 批次内失败不重试，继续下一批（AUR 限流保护）
-                    continue;
-                }
-
-                match resp.text().await {
-                    Ok(text) => {
-                        debug!("[AUR 批量查询] 响应长度: {} 字节", text.len());
-                        match serde_json::from_str::<serde_json::Value>(&text) {
-                            Ok(data) => {
-                                let resultcount = data["resultcount"].as_i64().unwrap_or(0);
-                                info!("[AUR 批量查询] 返回 {} 个结果", resultcount);
-
-                                if let Some(error) = data["error"].as_str() {
-                                    warn!("[AUR 批量查询] AUR 返回错误: {}", error);
-                                    continue;
-                                }
-
-                                if let Some(results) = data["results"].as_array() {
-                                    all_results.extend(results.iter().cloned());
-                                }
-                            }
-                            Err(e) => {
-                                warn!("[AUR 批量查询] JSON 解析失败: {}", e);
-                                warn!("[AUR 批量查询] 响应内容: {}", &text[..text.len().min(500)]);
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        warn!("[AUR 批量查询] 读取响应体失败: {}", e);
-                    }
-                }
-            }
-            Err(e) => {
-                warn!("[AUR 批量查询] 请求失败: {}", e);
-            }
-        }
-    }
-
-    info!("[AUR 批量查询] 完成，共获取 {} 个结果", all_results.len());
-    Ok(all_results)
 }

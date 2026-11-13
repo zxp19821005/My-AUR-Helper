@@ -17,6 +17,7 @@
  * - proxies_test.rs   — 代理测试表 CRUD
  * - settings.rs   — 设置表 CRUD
  * - software_info.rs  — 软件包信息表 CRUD
+ * - software_update.rs — 软件更新模块跨表只读查询（无独立表）
  * - upstream_info.rs  — 上游版本信息表 CRUD
  */
 mod aur_info;
@@ -26,6 +27,7 @@ mod connection;
 mod enum_licenses;
 mod enum_programming_languages;
 pub(crate) mod github_tag_cache;
+mod github_tag_cache_extend; // GitHub tags 缓存增量校验（check_and_extend_cache）
 mod migration_aur;
 mod migration_backup;
 mod migration_cache;
@@ -41,6 +43,7 @@ mod schema;
 mod seed;
 mod settings;
 mod software_info;
+mod software_update;
 mod stats;
 mod upstream_info;
 

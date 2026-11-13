@@ -11,19 +11,19 @@
 //!   下极易在读取响应体时超时，即 "error decoding response body"）。
 //! - 单页请求超时/decode 错误会触发内部重试，**不重置分页进度**，
 //!   避免外层批量重试将 page 重置为 1 导致的无限循环。
-use log::{debug, warn};
+use log::debug;
 use reqwest::Client;
 
 use crate::checkers::github::binary_check::{extract_version_from_assets, has_linux_binary};
-use crate::checkers::github::release::build_github_request;
+use crate::checkers::github::release_page::{fetch_release_page, PageOutcome};
 use crate::checkers::utils::clean_version;
-use crate::errors::{AppError, AppResult};
+use crate::errors::AppResult;
 use crate::versions;
 
 /// GitHub Releases 历史扫描参数（打包以避免函数参数过多）
 ///
 /// 持有调用方数据的引用，无所有权转移。
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct ReleaseScanParams<'a> {
     /// GitHub 仓库所有者
     pub owner: &'a str,
@@ -41,21 +41,6 @@ pub struct ReleaseScanParams<'a> {
     pub pkgname: &'a str,
     /// 起始页码（用于重试时断点续查，默认从第 1 页开始）
     pub start_page: u32,
-}
-
-impl<'a> Default for ReleaseScanParams<'a> {
-    fn default() -> Self {
-        Self {
-            owner: "",
-            repo: "",
-            token: None,
-            version_extract_regex: None,
-            check_test_versions: false,
-            check_binary_files: false,
-            pkgname: "",
-            start_page: 0,
-        }
-    }
 }
 
 /// 遍历 releases，提取并比较版本号（支持分页）
@@ -144,81 +129,10 @@ pub async fn check_github_releases(
         // 单页请求内部重试：最多 5 次，防止偶发 decode 超时导致整段扫描重来。
         // 内部重试耗尽后返回 ParseError（非 retryable），阻止外层 check_with_retry
         // 将整个函数从 page=1 重新调用，避免无限循环。
-        let mut page_resp: Option<Vec<serde_json::Value>> = None;
-        let mut page_error: Option<AppError> = None;
-        for retry in 0..5 {
-            let resp = match build_github_request(client, &api_url, token).send().await {
-                Ok(r) => r,
-                Err(e) => {
-                    let app_err: AppError = e.into();
-                    if retry < 4 {
-                        debug!(
-                            "[二进制检查] {}: 第 {} 页请求失败 (尝试 {}/5): {}",
-                            pkgname,
-                            page,
-                            retry + 1,
-                            app_err
-                        );
-                        page_error = Some(app_err);
-                        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-                        continue;
-                    }
-                    // 5 次全败：包装为 ParseError（非 retryable），阻止外层重试
-                    return Err(AppError::ParseError(format!(
-                        "[二进制检查] {}: 第 {} 页请求 5 次均失败: {}",
-                        pkgname, page, app_err
-                    )));
-                }
-            };
-
-            if resp.status().as_u16() == 403 {
-                warn!("[二进制检查] {}: 触发 GitHub API 限流，停止搜索", pkgname);
-                break 'page_loop;
-            }
-
-            if !resp.status().is_success() {
-                return Ok(None);
-            }
-
-            match resp.json::<Vec<serde_json::Value>>().await {
-                Ok(releases) => {
-                    page_resp = Some(releases);
-                    break;
-                }
-                Err(e) => {
-                    let app_err: AppError = e.into();
-                    if retry < 4 {
-                        debug!(
-                            "[二进制检查] {}: 第 {} 页响应解析失败 (尝试 {}/5): {}",
-                            pkgname,
-                            page,
-                            retry + 1,
-                            app_err
-                        );
-                        page_error = Some(app_err);
-                        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-                        continue;
-                    }
-                    // 5 次全败：包装为 ParseError（非 retryable），阻止外层重试
-                    return Err(AppError::ParseError(format!(
-                        "[二进制检查] {}: 第 {} 页响应解析 5 次均失败: {}",
-                        pkgname, page, app_err
-                    )));
-                }
-            }
-        }
-
-        let releases = match page_resp {
-            Some(r) => r,
-            None => {
-                // 理论上不会到达这里（上方已 return），兜底返回
-                return Err(page_error.unwrap_or_else(|| {
-                    AppError::ParseError(format!(
-                        "[二进制检查] {}: 第 {} 页请求最终失败",
-                        pkgname, page
-                    ))
-                }));
-            }
+        let releases = match fetch_release_page(client, &api_url, token, pkgname, page).await? {
+            PageOutcome::Releases(r) => r,
+            PageOutcome::RateLimited => break 'page_loop,
+            PageOutcome::Abort => return Ok(None),
         };
 
         if releases.is_empty() {

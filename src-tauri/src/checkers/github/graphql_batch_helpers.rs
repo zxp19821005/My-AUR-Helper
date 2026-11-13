@@ -186,19 +186,111 @@ fn releases_max_version(
     best
 }
 
-/// 判断版本提取正则是否用于匹配资产文件名（含常见文件扩展名）
+/// 判断版本提取正则是否用于匹配**资产文件名**而非 tag 名
+///
+/// # 判据
+/// 正则里出现文件扩展名或平台标识片段，即视为 asset 正则。
+/// 扩展名列表覆盖 Arch 常见预编译产物；平台标识覆盖不带扩展名但
+/// 含平台词的资产名（如 `-linux-x64-`、`_linux_`、`x86_64.rpm`）。
+///
+/// # 为什么必须区分
+/// `version_extract_regex` 在 DB 中是单一字段，但有两种互斥语义：
+/// - **tag 正则**（`v10\.\d+\.\d+`、`^v?(\d+\.\d+\.\d+)`）→ 匹配 tag 名
+/// - **asset 正则**（`_(\d+\.\d+\.\d+)_amd64\.deb`、`x86_64.rpm`）→ 匹配资产文件名
+///
+/// asset 正则拿去匹配 tag 名必然全 false（tag 形如 `v1.3.1`，不含
+/// `_1.3.1_amd64.deb`）。凡是把二者混用的路径都会静默返回"未找到版本"。
 pub(crate) fn has_file_extension(regex: &str) -> bool {
-    regex.contains(".rpm")
-        || regex.contains(".deb")
-        || regex.contains(".zip")
-        || regex.contains(".tar")
-        || regex.contains(".pkg")
-        || regex.contains(".dmg")
-        || regex.contains(".exe")
-        || regex.contains(".AppImage")
+    const EXTENSIONS: &[&str] = &[
+        ".rpm",
+        ".deb",
+        ".zip",
+        ".tar",
+        ".pkg",
+        ".dmg",
+        ".exe",
+        ".AppImage",
+        ".snap",
+        ".pacman",
+        ".appimage",
+        ".msi",
+        ".msixbundle",
+        ".AppImage.tar",
+    ];
+    const PLATFORM_TOKENS: &[&str] = &[
+        "x86_64",
+        "amd64",
+        "aarch64",
+        "arm64",
+        "-linux",
+        "_linux",
+        "linux-",
+        "Linux_X86",
+    ];
+    EXTENSIONS.iter().any(|e| regex.contains(e))
+        || PLATFORM_TOKENS.iter().any(|p| regex.contains(p))
 }
 
 /// 判断字符串是否看起来像版本号（至少包含一个数字）
 fn looks_like_version(s: &str) -> bool {
     s.chars().any(|c| c.is_ascii_digit())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::has_file_extension;
+
+    /// asset 正则必须被识别为 asset 语义（用于匹配 release 资产文件名）
+    #[test]
+    fn detects_asset_regexes() {
+        for rx in [
+            r"_(\d+\.\d+\.\d+)_amd64\.deb", // ai-assistant-studio-bin
+            r"_(\d+\.\d+\.\d+)_amd64\.deb", // cultivation-bin
+            r"x86_64.rpm",                  // aione-bin / arctis-monitor-bin
+            r"Anytxt_(\d+\.\d+\.\d+)_Linux_X86_64\.deb",
+            r"browser360-cn-stable_([0-9.]+-[0-9]+)_amd64\.deb",
+            r"(\d+(?:\.\d+)+)-x86_64\.rpm",
+            r"Plexamp-(\d+\.\d+\.\d+)\.AppImage",
+            r"-(\d+\.\d+\.\d+)\.pacman", // csbooks-bin
+            r"115br_v(\d+(?:\.\d+)*)\.deb",
+            r"-linux-x64-",               // alpaca-electron-bin（无扩展名）
+            r"_linux_",                   // ai-infra-guard-bin（无扩展名）
+            r"[Vv](\d+(?:\.\d+)+)_linux", // sqlark-bin（无扩展名）
+        ] {
+            assert!(has_file_extension(rx), "应识别为 asset 正则: {rx}");
+        }
+    }
+
+    /// tag 正则必须被识别为 tag 语义（用于匹配 tag 名）
+    #[test]
+    fn detects_tag_regexes() {
+        for rx in [
+            r"v17\.\d+\.\d+",                 // electron17-bin
+            r"v2\.\d+\.\d+",                  // electron2-bin
+            r"v30\.\d+\.\d+\+wvcus",          // electron30-castlab-bin
+            r"^v?(\d+\.\d+\.\d+)",            // coolterm-bin
+            r"V(\d+\.\d+\.\d+)",              // baiduwenku-bin
+            r"ubuntu\s*(\d+\.\d+\.\d+\.\d+)", // atrust-bin
+        ] {
+            assert!(
+                !has_file_extension(rx),
+                "应识别为 tag 正则（不得当成 asset）: {rx}"
+            );
+        }
+    }
+
+    /// 核心回归：asset 正则对 tag 名必然全 false —— 这正是原 bug 的成因。
+    /// 若误把 asset 正则当 tag 正则，ai-assistant-studio-bin 会返回"未找到版本"。
+    #[test]
+    fn asset_regex_never_matches_tag_names() {
+        let re = regex::Regex::new(r"_(\d+\.\d+\.\d+)_amd64\.deb").unwrap();
+        for tag in ["v2.1.0", "v2.0.0", "v1.3.1", "v1.3.0", "v1.0.0"] {
+            assert!(
+                !re.is_match(tag),
+                "asset 正则不应匹配 tag 名 {tag} —— 混用会导致静默返回 None"
+            );
+        }
+        // 但它确实匹配目标资产名
+        assert!(re.is_match("ai-assistant-studio_1.3.1_amd64.deb"));
+    }
 }

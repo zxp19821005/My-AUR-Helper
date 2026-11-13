@@ -28,8 +28,13 @@ use crate::versions;
 /// # 返回
 /// - `true`: 如果字符串包含数字，可能是版本号
 /// - `false`: 如果字符串不包含任何数字（如 "continuous"、"latest"、"stable"）
-fn looks_like_version(s: &str) -> bool {
+pub fn looks_like_version(s: &str) -> bool {
     s.chars().any(|c| c.is_ascii_digit())
+}
+
+/// `looks_like_version` 的语义化别名，供 release.rs 的 asset 正则回退路径使用
+pub(crate) fn tag_looks_like_version(s: &str) -> bool {
+    looks_like_version(s)
 }
 
 /// 通过 GitHub Tags API 获取最新版本

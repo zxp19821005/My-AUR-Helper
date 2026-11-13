@@ -5,6 +5,8 @@
  * 支持两种模式：
  * 1. check_github_release_latest: 直接获取 latest release，性能最优
  * 2. check_github_releases: 遍历所有 releases（见同目录 release_history.rs）
+ *
+ * latest release 无匹配资产时的 tags 回退逻辑见同目录 release_tags.rs。
  */
 use log::info;
 use reqwest::Client;
@@ -12,7 +14,8 @@ use reqwest::Client;
 use crate::checkers::github::binary_check::{
     check_release_assets, extract_version_from_assets, has_linux_binary,
 };
-use crate::checkers::github::release_history::{check_github_releases, ReleaseScanParams};
+use crate::checkers::github::release_tags::resolve_via_tags;
+use crate::checkers::github::tags::check_github_tags;
 use crate::checkers::utils::{clean_version, extract_version_with_regex};
 use crate::errors::AppResult;
 
@@ -77,21 +80,16 @@ pub async fn check_github_release_latest(
             if let Some(assets) = data["assets"].as_array() {
                 if !has_linux_binary(assets, Some(filter)) {
                     info!(
-                        "[二进制检查] {}: 最新版本无匹配的资产文件，尝试查找历史版本",
+                        "[二进制检查] {}: 最新版本无匹配的资产文件，改从 tags 解析历史版本",
                         pkgname
                     );
-                    return check_github_releases(
+                    return resolve_via_tags(
                         client,
-                        &ReleaseScanParams {
-                            owner,
-                            repo,
-                            token,
-                            version_extract_regex,
-                            check_test_versions: true,
-                            check_binary_files: true,
-                            pkgname,
-                            start_page: 0,
-                        },
+                        owner,
+                        repo,
+                        token,
+                        version_extract_regex,
+                        pkgname,
                     )
                     .await;
                 }
@@ -123,23 +121,10 @@ pub async fn check_github_release_latest(
             }
 
             info!(
-                "[二进制检查] {}: latest release tag '{}' 不匹配正则 '{}'，尝试查找 prerelease",
+                "[二进制检查] {}: latest release tag '{}' 不匹配正则 '{}'，改从 tags 解析",
                 pkgname, tag, regex
             );
-            return check_github_releases(
-                client,
-                &ReleaseScanParams {
-                    owner,
-                    repo,
-                    token,
-                    version_extract_regex,
-                    check_test_versions: true,
-                    check_binary_files: false,
-                    pkgname,
-                    start_page: 0,
-                },
-            )
-            .await;
+            return check_github_tags(client, owner, repo, token, Some(regex), true).await;
         }
 
         return Ok(Some(clean_version(tag)));
