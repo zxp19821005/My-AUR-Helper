@@ -22,6 +22,7 @@ pub mod network;
 pub mod proxy;
 mod tray;
 pub mod versions;
+mod window_icon;
 
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -121,6 +122,9 @@ pub fn run() {
             // 如果启用，创建系统托盘
             tray::create_tray(app, show_tray)?;
 
+            // 显式设置主窗口图标，补齐 X11 _NET_WM_ICON 路径
+            window_icon::apply_window_icon(app);
+
             // 初始化内存缓存：读取配置 → 尝试从磁盘加载未过期条目
             let cache_config = cache::CacheConfig::from_db(&database);
             let mut memory_cache = cache::CacheManager::new(cache_config.clone());
@@ -201,8 +205,12 @@ pub fn run() {
             commands::sysops::software_sync::import_aur::import_aur_package,
             commands::sysops::software_sync::pkgbuild::sync_from_pkgbuild,
             commands::sysops::software_sync::upstream::check_all_upstream,
+            commands::sysops::software_sync::cache_preload::preload_github_tag_cache,
             commands::sysops::software_check_single::check_upstream_version,
             commands::sysops::software_check::selected::check_selected_upstream,
+            commands::sysops::software_update::list::list_software_updates,
+            commands::sysops::software_update::apply::preview_software_updates,
+            commands::sysops::software_update::apply::apply_software_updates,
             commands::sysops::upstream_validate::validate_upstream_urls,
             commands::fileops::scan::scan_pkg_files_cmd,
             commands::fileops::cache_scan::list_cache_software,
