@@ -6,6 +6,7 @@
 //! - backup_basic: 备份基础操作（查询、清空备份表、删除备份）
 //! - software_check: 版本检查（上游版本检查、批量检查）
 //! - software_sync: 软件包同步（AUR 同步、上游检查、PKGBUILD 同步）
+//! - software_update: 软件更新工作台（版本汇总、diff 预览、PKGBUILD 写回）
 //! - upstream_validate: 上游 URL 验证（批量验证 URL 可达性）
 //! - cache_cleanup: 缓存清理（系统缓存、自定义缓存目录）
 //!
@@ -37,6 +38,9 @@ pub mod software_check_single;
 
 /// 软件包同步（AUR 同步、上游检查、PKGBUILD 同步）
 pub mod software_sync;
+
+/// 软件更新工作台（版本汇总、diff 预览、PKGBUILD 写回）
+pub mod software_update;
 
 /// 上游 URL 验证（批量验证 URL 可达性）
 pub mod upstream_validate;

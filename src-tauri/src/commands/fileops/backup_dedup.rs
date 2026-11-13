@@ -8,7 +8,7 @@
 use crate::db::Database;
 use crate::errors::AppResult;
 use log::info;
-use tauri::State;
+use tauri::{Emitter, State};
 use tokio::fs;
 
 use crate::AppState;
@@ -127,6 +127,7 @@ pub fn collect_files_to_delete(pkg_map: &PkgBackupMap) -> Vec<BackupPkgEntry> {
 #[tauri::command]
 pub async fn deduplicate_backups(
     state: State<'_, AppState>,
+    app: tauri::AppHandle,
     backup_path: String,
 ) -> AppResult<DeduplicateResult> {
     info!("[备份管理] 开始软件去重: {}", backup_path);
@@ -145,18 +146,38 @@ pub async fn deduplicate_backups(
     };
 
     let files_to_delete = collect_files_to_delete(&pkg_map);
+    let total = files_to_delete.len();
 
-    for entry in &files_to_delete {
+    for (i, entry) in files_to_delete.iter().enumerate() {
         let file_path = std::path::Path::new(&entry.full_path);
         match fs::remove_file(file_path).await {
             Ok(()) => {
                 result.removed_files += 1;
                 info!("[备份管理] 已删除旧备份文件: {}", entry.full_path);
+                // 发送进度事件（使用 unwrap 忽略 emitter 未连接的情况）
+                let _ = app.emit(
+                    "dedup-progress",
+                    serde_json::json!({
+                        "current": i + 1,
+                        "total": total,
+                        "pkgname": &entry.filename,
+                        "message": format!("[{}/{}] 删除: {}", i + 1, total, entry.filename),
+                    }),
+                );
             }
             Err(e) => {
                 result
                     .errors
                     .push(format!("删除文件失败 {}: {}", entry.full_path, e));
+                let _ = app.emit(
+                    "dedup-progress",
+                    serde_json::json!({
+                        "current": i + 1,
+                        "total": total,
+                        "pkgname": &entry.filename,
+                        "message": format!("[{}/{}] 失败: {} ({})", i + 1, total, entry.filename, e),
+                    }),
+                );
             }
         }
     }

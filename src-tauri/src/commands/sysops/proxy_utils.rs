@@ -173,6 +173,9 @@ pub fn build_client_with_redirect(
     follow_redirects: bool,
 ) -> reqwest::Client {
     let mut builder = reqwest::Client::builder()
+        // 全局注入 User-Agent：Anubis 等反爬中间件对缺失 UA 的请求返回 200+HTML，
+        // 会导致下游 JSON 解析静默失败（AUR 批量查询曾因此返回 0 条结果）
+        .user_agent(crate::http_client::DEFAULT_USER_AGENT)
         .timeout(Duration::from_secs(timeout_secs))
         .connect_timeout(Duration::from_secs(10));
 

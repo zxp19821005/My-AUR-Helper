@@ -61,19 +61,11 @@ pub async fn get_package_file_info(
 
 /// 检测 sudoers 免密配置是否可用
 ///
-/// 检查逻辑：
-/// 1. 检查 /etc/sudoers.d/aur-helper-backup 文件是否存在
-/// 2. 检查文件内容是否包含当前用户的 pacman -U 免密规则
-/// 3. 如果文件存在且内容正确，返回 true（无需显示提示）
+/// /etc/sudoers.d 目录权限为 0750，应用进程无法直接读取该文件；
+/// 旧实现 `read_to_string` 必然失败并永远返回 false（一直误报「未配置」）。
+/// 改为解析 `sudo -n -l` 输出的、当前用户实际生效的 NOPASSWD 规则。
 #[tauri::command]
 pub async fn check_sudoers_config(state: State<'_, AppState>) -> AppResult<bool> {
-    // 获取当前用户名
-    let output = tokio::process::Command::new("whoami")
-        .output()
-        .await
-        .map_err(|e| AppError::SystemCommand(format!("获取用户名失败: {}", e)))?;
-    let username = String::from_utf8_lossy(&output.stdout).trim().to_string();
-
     let backup_dir = {
         let db = state
             .db
@@ -82,17 +74,20 @@ pub async fn check_sudoers_config(state: State<'_, AppState>) -> AppResult<bool>
         read_backup_dir(&db)
     };
 
-    // 检查 /etc/sudoers.d/aur-helper-backup 文件是否存在
-    let sudoers_path = "/etc/sudoers.d/aur-helper-backup";
-    match tokio::fs::read_to_string(sudoers_path).await {
-        Ok(content) => Ok(has_pacman_install_rule(&content, &username, &backup_dir)),
-        Err(_) => Ok(false), // 文件不存在，需要配置
-    }
+    let base = format!(
+        "/usr/bin/pacman -U --noconfirm {}",
+        backup_dir.trim_end_matches('/')
+    );
+    Ok(match sudo_privileges_text().await {
+        Some(text) => has_nopasswd_rule(&text, &base),
+        None => false,
+    })
 }
 
 /// 获取 sudoers 配置命令
 ///
 /// 将 pacman -U 的免密规则限定到备份目录（而非通配 *），缩小提权面。
+/// 使用 `tee -a` 追加：该文件同时承载缓存安装与缓存清理规则，覆盖写会冲掉它们。
 #[tauri::command]
 pub async fn get_sudoers_command(state: State<'_, AppState>) -> AppResult<String> {
     let output = tokio::process::Command::new("whoami")
@@ -111,9 +106,10 @@ pub async fn get_sudoers_command(state: State<'_, AppState>) -> AppResult<String
     };
 
     let rule = build_pacman_install_rules(&backup_dir);
+    let line = format!("{username} ALL=(ALL) NOPASSWD: {rule}");
+    // 单次 sudo 追加，不覆盖缓存安装 / 缓存清理的规则；grep 保证幂等
     Ok(format!(
-        "echo \"{} ALL=(ALL) NOPASSWD: {}\" | sudo tee /etc/sudoers.d/aur-helper-backup",
-        username, rule
+        "sudo sh -c 'grep -qF \"{rule}\" /etc/sudoers.d/aur-helper-backup || printf \"%s\\n\" \"{line}\" >> /etc/sudoers.d/aur-helper-backup; chmod 440 /etc/sudoers.d/aur-helper-backup'"
     ))
 }
 

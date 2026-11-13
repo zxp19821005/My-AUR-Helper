@@ -15,7 +15,7 @@ use tauri::State;
 
 use crate::commands::fileops::cache_dirs::get_cache_dirs;
 use crate::commands::sysops::backup_install::{
-    build_pacman_install_rules, has_pacman_install_rule, validate_package_path,
+    build_pacman_install_rules, has_nopasswd_rule, sudo_privileges_text, validate_package_path,
 };
 use crate::commands::sysops::pacman_lock::with_pacman_write_lock;
 use crate::db::Database;
@@ -111,8 +111,9 @@ pub async fn install_cache_package(
 
 /// 检测缓存安装 sudoers 免密配置是否可用
 ///
-/// 与缓存清理共用 /etc/sudoers.d/aur-helper-backup，校验其中是否包含
-/// 允许 `pacman -U --noconfirm` 作用于各缓存目录（含子目录）的规则。
+/// 与缓存清理共用 /etc/sudoers.d/aur-helper-backup。旧实现用 `sudo -n cat`
+/// 读取该文件，但 cat 不在免密白名单时必然失败、永远返回 false；
+/// 改为解析 `sudo -n -l` 实际生效的 NOPASSWD 规则。
 #[tauri::command]
 pub async fn check_cache_install_sudoers(state: State<'_, AppState>) -> AppResult<bool> {
     let dirs = {
@@ -128,27 +129,15 @@ pub async fn check_cache_install_sudoers(state: State<'_, AppState>) -> AppResul
         v
     };
 
-    let output = tokio::process::Command::new("whoami")
-        .output()
-        .await
-        .map_err(|e| AppError::SystemCommand(format!("获取用户名失败: {}", e)))?;
-    let username = String::from_utf8_lossy(&output.stdout).trim().to_string();
-
-    let sudoers_path = "/etc/sudoers.d/aur-helper-backup";
-    // 使用 -n 非交互模式：已配置免密时静默读取，未配置时立即失败而不弹出密码框
-    let output = tokio::process::Command::new("sudo")
-        .args(["-n", "cat", sudoers_path])
-        .output()
-        .await;
-
-    let content = match output {
-        Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout).to_string(),
-        _ => return Ok(false),
+    let text = match sudo_privileges_text().await {
+        Some(t) => t,
+        None => return Ok(false),
     };
 
-    Ok(dirs
-        .iter()
-        .any(|d| has_pacman_install_rule(&content, &username, d)))
+    Ok(dirs.iter().any(|d| {
+        let base = format!("/usr/bin/pacman -U --noconfirm {}", d.trim_end_matches('/'));
+        has_nopasswd_rule(&text, &base)
+    }))
 }
 
 /// 获取缓存安装 sudoers 配置命令
@@ -179,25 +168,20 @@ pub async fn get_cache_install_sudoers_command(state: State<'_, AppState>) -> Ap
     let pacman_rules: Vec<String> = dirs.iter().map(|d| build_pacman_install_rules(d)).collect();
     let rule = pacman_rules.join(", ");
 
-    let sudoers_path = "/etc/sudoers.d/aur-helper-backup";
-    // 使用 -n 非交互模式：已配置免密时静默读取，未配置时立即失败而不弹出密码框
-    let existing = tokio::process::Command::new("sudo")
-        .args(["-n", "cat", sudoers_path])
-        .output()
-        .await;
-
-    match existing {
-        Ok(o) if o.status.success() => {
-            let content = String::from_utf8_lossy(&o.stdout);
-            if dirs.iter().all(|d| has_pacman_install_rule(&content, &username, d)) {
-                return Ok("sudoers 配置已包含缓存安装规则，无需重复配置".to_string());
-            }
-            Ok(format!(
-                "echo \"{username} ALL=(ALL) NOPASSWD: {rule}\" | sudo tee -a /etc/sudoers.d/aur-helper-backup"
-            ))
+    // 用 sudo -n -l 判断规则是否已生效（读文件不可靠，见 check_cache_install_sudoers）
+    if let Some(text) = sudo_privileges_text().await {
+        let all_present = dirs.iter().all(|d| {
+            let base = format!("/usr/bin/pacman -U --noconfirm {}", d.trim_end_matches('/'));
+            has_nopasswd_rule(&text, &base)
+        });
+        if all_present {
+            return Ok("sudoers 配置已包含缓存安装规则，无需重复配置".to_string());
         }
-        _ => Ok(format!(
-            "echo \"{username} ALL=(ALL) NOPASSWD: {rule}\" | sudo tee /etc/sudoers.d/aur-helper-backup"
-        )),
     }
+
+    let line = format!("{username} ALL=(ALL) NOPASSWD: {rule}");
+    // 一律追加写入：与备份安装 / 缓存清理共用同一文件，覆盖会冲掉其它规则
+    Ok(format!(
+        "sudo sh -c 'grep -qF \"{rule}\" /etc/sudoers.d/aur-helper-backup || printf \"%s\\n\" \"{line}\" >> /etc/sudoers.d/aur-helper-backup; chmod 440 /etc/sudoers.d/aur-helper-backup'"
+    ))
 }

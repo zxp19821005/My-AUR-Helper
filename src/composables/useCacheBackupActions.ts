@@ -2,13 +2,14 @@
  * useCacheBackupActions.ts - 缓存包备份操作 composable
  *
  * 功能：
- * - 备份目录去重（deduplicate_backups）
+ * - 备份目录去重（deduplicate_backups）- 带进度反馈
  * - 备份新版到已有目录（backup_cache_to_existing）- 自动比较版本，将更新的包备份到已有位置
  * - 备份到子目录弹窗的打开与结果处理
  *
  * 使用场景：CacheManager.vue 页面
  */
 import { ref, type Ref } from "vue";
+import { listen } from "@tauri-apps/api/event";
 import { addMessage, type FooterState } from "./footer";
 import { openConfirm as confirm } from "./useConfirm";
 import * as backupApi from "@/api/backup";
@@ -33,6 +34,8 @@ export function useCacheBackupActions(
 ) {
   /** 是否显示"备份到"弹窗 */
   const showBackupToModal = ref(false);
+  /** 去重进度监听器 */
+  let unlistenDedupProgress: (() => void) | null = null;
 
   /** 对备份目录执行去重，删除旧版本文件 */
   async function handleDedup() {
@@ -43,6 +46,17 @@ export function useCacheBackupActions(
     if (!(await confirm({ message: "确定要对备份目录进行去重吗？将删除旧版本文件。", variant: "danger" }))) return;
     loading.value = true;
     try {
+      // 订阅去重进度事件
+      unlistenDedupProgress = await listen<{
+        current: number;
+        total: number;
+        pkgname: string;
+        message: string;
+      }>("dedup-progress", (event) => {
+        const { current, total, message } = event.payload;
+        footer.progress = { current, total, message };
+      });
+
       const result = await backupApi.deduplicateBackups(backupPath.value);
       const msg = `去重完成：删除 ${result.removed_files} 个文件，${result.removed_records} 条记录`;
       if (result.errors.length > 0) {
@@ -53,6 +67,9 @@ export function useCacheBackupActions(
     } catch (e) {
       addMessage(footer, "error", `去重失败: ${e}`);
     } finally {
+      unlistenDedupProgress?.();
+      unlistenDedupProgress = null;
+      footer.progress = null;
       loading.value = false;
     }
   }

@@ -5,7 +5,8 @@
  * - PKG_EXTENSIONS: 合法的 pacman 包文件扩展名白名单
  * - validate_package_path: 校验前端传入路径，防止路径遍历/任意文件读取/以 root 安装恶意包
  * - build_pacman_install_rules: 生成 pacman -U 的 NOPASSWD 规则片段
- * - has_pacman_install_rule: 判断 sudoers 内容是否已包含指定目录的免密规则
+ * - CACHE_CLEANUP_RULE / CACHE_CLEANUP_ARGS: 缓存清理免密规则与实际执行参数
+ * - sudo_privileges_text / has_nopasswd_rule: 免交互读取并匹配生效的 NOPASSWD 规则
  * - read_backup_dir: 读取备份目录设置，缺失时回退默认路径
  *
  * 这些函数被 backup_install.rs 的命令复用，也被 cache_install.rs / cache_cleanup.rs
@@ -15,6 +16,57 @@ use std::path::PathBuf;
 
 use crate::db::Database;
 use crate::errors::{AppError, AppResult};
+
+/// 缓存清理实际执行的 sudo 命令（绝对路径 + 精确参数）。
+///
+/// 必须与 `clean_system_cache` 中 `Command::new("sudo").args([...])` 完全一致：
+/// sudoers 的 NOPASSWD 规则按完整命令行匹配，命令名或任一参数不一致都会回退到密码提示。
+/// 刻意不使用 `/var/cache/pacman/pkg/*` 通配，避免 `find` 的路径参数被放宽到
+/// 形如 `/var/cache/pacman/pkg/../../` 的越权路径。
+pub(crate) const CACHE_CLEANUP_RULE: &str =
+    "/usr/bin/find /var/cache/pacman/pkg/ -mindepth 1 -delete";
+
+/// `clean_system_cache` 传给 sudo 的完整参数表。
+///
+/// 首项 `-n` 是 sudo 自身选项（不参与 sudoers 命令匹配），其后必须与
+/// `CACHE_CLEANUP_RULE` 逐 token 一致，见本文件末尾的单元测试。
+pub(crate) const CACHE_CLEANUP_ARGS: &[&str] = &[
+    "-n",
+    "/usr/bin/find",
+    "/var/cache/pacman/pkg/",
+    "-mindepth",
+    "1",
+    "-delete",
+];
+
+/// 免交互列出当前用户生效的 sudo 权限文本。
+///
+/// `sudo -l` 列自身权限本身不需要密码，配合 `-n` 可保证不会退化成密码提示阻塞 GUI。
+/// 历史上用 `sudo -n cat /etc/sudoers.d/...` 检测：cat 通常不在免密白名单里，
+/// 必然失败并被误判为「文件不存在」；且 /etc/sudoers.d 目录普通用户不可读，
+/// 直接 `read_to_string` 也同样失败。此函数是唯一无副作用且可靠的检测方式。
+pub(crate) async fn sudo_privileges_text() -> Option<String> {
+    let output = tokio::process::Command::new("sudo")
+        .args(["-n", "-l"])
+        .output()
+        .await
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let mut text = String::from_utf8_lossy(&output.stdout).to_string();
+    text.push_str(&String::from_utf8_lossy(&output.stderr));
+    Some(text)
+}
+
+/// 判断 `sudo -n -l` 输出中是否存在包含指定命令片段的 NOPASSWD 规则行。
+///
+/// 输出行格式为 `(ALL) NOPASSWD: <command>`，行首不含用户名，
+/// 故按「NOPASSWD: + 命令片段」匹配，而不校验行首用户名。
+pub(crate) fn has_nopasswd_rule(text: &str, rule: &str) -> bool {
+    text.lines()
+        .any(|line| line.contains("NOPASSWD:") && line.contains(rule))
+}
 
 /// 合法的 pacman 包文件扩展名
 const PKG_EXTENSIONS: &[&str] = &[
@@ -91,25 +143,6 @@ pub(crate) fn build_pacman_install_rules(dir: &str) -> String {
     format!(
         "/usr/bin/pacman -U --noconfirm {d}/*, /usr/bin/pacman -U --noconfirm {d}/*/*, /usr/bin/pacman -U --noconfirm {d}/*/*/*"
     )
-}
-
-/// 判断 sudoers 内容是否已包含对指定目录（含子目录）的 `pacman -U --noconfirm` 免密规则。
-///
-/// @param content - sudoers 文件内容
-/// @param username - 当前用户名
-/// @param dir - 备份/缓存目录（绝对路径）
-/// @returns 是否存在匹配的免密规则
-pub(crate) fn has_pacman_install_rule(content: &str, username: &str, dir: &str) -> bool {
-    let d = dir.trim_end_matches('/');
-    let base = format!("/usr/bin/pacman -U --noconfirm {d}");
-    content.lines().any(|raw| {
-        let line = raw.trim();
-        // 行首须为当前用户，且整体为 NOPASSWD 规则
-        if line.split_whitespace().next() != Some(username) {
-            return false;
-        }
-        line.contains("NOPASSWD:") && line.contains(&base) && line.contains("/*")
-    })
 }
 
 /// 读取备份目录设置，缺失或为空时回退到默认路径

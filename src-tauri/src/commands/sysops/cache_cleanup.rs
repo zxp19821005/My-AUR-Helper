@@ -13,7 +13,9 @@
 use log::info;
 use tauri::State;
 
-use crate::commands::sysops::backup_install::build_pacman_install_rules;
+use crate::commands::sysops::backup_install::{
+    has_nopasswd_rule, sudo_privileges_text, CACHE_CLEANUP_ARGS, CACHE_CLEANUP_RULE,
+};
 use crate::errors::AppResult;
 use crate::AppState;
 
@@ -41,15 +43,11 @@ pub async fn clean_system_cache() -> AppResult<String> {
         return Ok("系统缓存目录不存在，跳过清理".to_string());
     }
 
-    // 使用 find 命令删除所有内容（处理 glob 和特殊字符）
+    // 命令必须与 CACHE_CLEANUP_RULE 完全一致（绝对路径 + 相同参数），
+    // sudoers 才会命中 NOPASSWD 规则；-n 保证无免密时立即失败而非等待密码输入。
+    // GUI 环境没有可交互终端，缺少 -n 时 sudo 会挂起等待密码，表现为页面「卡死」。
     let output = tokio::process::Command::new("sudo")
-        .args([
-            "find",
-            "/var/cache/pacman/pkg/",
-            "-mindepth",
-            "1",
-            "-delete",
-        ])
+        .args(CACHE_CLEANUP_ARGS)
         .output()
         .await
         .map_err(|e| crate::errors::AppError::SystemCommand(format!("执行清理失败: {}", e)))?;
@@ -60,7 +58,7 @@ pub async fn clean_system_cache() -> AppResult<String> {
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
         Err(crate::errors::AppError::SystemCommand(format!(
-            "清理系统缓存失败: {}",
+            "清理系统缓存失败（sudo 免密未生效）: {}。请配置缓存清理 sudoers 规则后重试",
             stderr.trim()
         )))
     }
@@ -171,7 +169,9 @@ pub async fn clean_custom_cache_dirs(state: State<'_, AppState>) -> AppResult<St
 
 /// 检测缓存清理 sudoers 配置是否可用
 ///
-/// 直接尝试执行清理命令来检测配置是否正确
+/// 通过 `sudo -n -l` 读取当前用户实际生效的免密规则，判断是否包含
+/// `CACHE_CLEANUP_RULE`。旧实现执行 `sudo -n rm -rf ...` 探测：检测的命令
+/// 与真正执行的 `find` 无关，且一旦 rm 恰好被免密就会真的删除缓存文件。
 #[tauri::command]
 pub async fn check_cache_cleanup_sudoers() -> AppResult<bool> {
     // 检查系统缓存目录是否存在
@@ -180,74 +180,37 @@ pub async fn check_cache_cleanup_sudoers() -> AppResult<bool> {
         return Ok(true); // 目录不存在，无需清理
     }
 
-    // 直接尝试执行清理命令（使用 -n 参数避免密码提示）
-    let output = tokio::process::Command::new("sudo")
-        .args(["-n", "rm", "-rf", "/var/cache/pacman/pkg/*"])
-        .output()
-        .await;
-
-    match output {
-        Ok(output) => Ok(output.status.success()),
-        Err(_) => Ok(false),
-    }
+    Ok(match sudo_privileges_text().await {
+        Some(text) => has_nopasswd_rule(&text, CACHE_CLEANUP_RULE),
+        None => false,
+    })
 }
 
 /// 获取缓存清理 sudoers 配置命令
 ///
-/// 生成一个 sudoers 配置命令，允许当前用户免密执行缓存清理。
-/// 其中 pacman -U 的免密范围限定到备份目录（而非通配 *），缩小提权面。
+/// 只生成「缓存清理」这一条规则的追加命令，不再整文件覆盖写入：
+/// `/etc/sudoers.d/aur-helper-backup` 由备份安装 / 缓存安装 / 缓存清理三个入口共用，
+/// 任意一处用 `tee`（覆盖）都会冲掉其它两处已配置的规则。
 #[tauri::command]
-pub async fn get_cache_cleanup_sudoers_command(state: State<'_, AppState>) -> AppResult<String> {
+pub async fn get_cache_cleanup_sudoers_command() -> AppResult<String> {
+    if let Some(text) = sudo_privileges_text().await {
+        if has_nopasswd_rule(&text, CACHE_CLEANUP_RULE) {
+            return Ok("sudoers 配置已包含缓存清理规则，无需重复配置".to_string());
+        }
+    }
+
     let output = tokio::process::Command::new("whoami")
         .output()
         .await
         .map_err(|e| crate::errors::AppError::SystemCommand(format!("获取用户名失败: {}", e)))?;
-
     let username = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
-    let backup_dir = {
-        let db = state.db.lock().map_err(|e| {
-            crate::errors::AppError::DatabaseError(format!("获取数据库锁失败: {}", e))
-        })?;
-        db.get_setting("backup_dir")
-            .ok()
-            .flatten()
-            .map(|s| s.value)
-            .filter(|v| !v.is_empty())
-            .unwrap_or_else(|| "/run/media/zxp/Backup/Linux/ZST".to_string())
-    };
-
-    // 使用 sudo -n cat 检查文件是否已存在且包含缓存清理规则（非交互，避免弹出密码框）
-    let sudoers_path = "/etc/sudoers.d/aur-helper-backup";
-    let output = tokio::process::Command::new("sudo")
-        .args(["-n", "cat", sudoers_path])
-        .output()
-        .await;
-
-    match output {
-        Ok(output) if output.status.success() => {
-            let content = String::from_utf8_lossy(&output.stdout);
-
-            if content.contains("/usr/bin/find /var/cache/pacman/pkg/") {
-                // 已包含缓存清理规则
-                return Ok("sudoers 配置已包含缓存清理规则，无需重复配置".to_string());
-            }
-
-            // 文件存在但不包含缓存清理规则，追加规则
-            Ok(format!(
-                "echo \"{} ALL=(ALL) NOPASSWD: /usr/bin/find /var/cache/pacman/pkg/* -mindepth 1 -delete\" | sudo tee -a /etc/sudoers.d/aur-helper-backup",
-                username
-            ))
-        }
-        _ => {
-            // 文件不存在，创建新的配置文件（pacman -U 限定到备份目录，含子目录）
-            let pacman_rule = build_pacman_install_rules(&backup_dir);
-            Ok(format!(
-                "echo \"{} ALL=(ALL) NOPASSWD: {}, /usr/bin/find /var/cache/pacman/pkg/* -mindepth 1 -delete\" | sudo tee /etc/sudoers.d/aur-helper-backup",
-                username, pacman_rule
-            ))
-        }
-    }
+    let line = format!("{username} ALL=(ALL) NOPASSWD: {CACHE_CLEANUP_RULE}");
+    // 单次 sudo：root 内完成幂等判断 + 追加 + 修正权限，避免多次提权或吞掉密码提示。
+    // 规则与命令行均不含单引号，可安全包在 sh -c 的单引号内。
+    Ok(format!(
+        "sudo sh -c 'grep -qF \"{CACHE_CLEANUP_RULE}\" /etc/sudoers.d/aur-helper-backup || printf \"%s\\n\" \"{line}\" >> /etc/sudoers.d/aur-helper-backup; chmod 440 /etc/sudoers.d/aur-helper-backup'"
+    ))
 }
 
 /// 清除所有 GitHub tags 缓存
@@ -277,4 +240,33 @@ pub async fn get_github_tag_cache_stats(
     let count = db.cache_count()?;
     let ttl = db.get_cache_ttl_seconds()?;
     Ok(serde_json::json!({ "count": count, "ttl_seconds": ttl }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// sudoers 规则与真正传给 sudo 的命令必须逐 token 一致，否则免密规则不会命中。
+    /// `-n` 是 sudo 自身选项，不参与被授权命令的匹配，故从下标 1 开始拼接。
+    #[test]
+    fn cleanup_args_match_sudoers_rule() {
+        assert_eq!(CACHE_CLEANUP_ARGS[0], "-n");
+        assert_eq!(CACHE_CLEANUP_ARGS[1..].join(" "), CACHE_CLEANUP_RULE);
+    }
+
+    /// 规则不含 `*` 通配，避免 find 的路径参数被放宽到缓存目录之外。
+    #[test]
+    fn cleanup_rule_has_no_wildcard() {
+        assert!(!CACHE_CLEANUP_RULE.contains('*'));
+        assert!(CACHE_CLEANUP_RULE.starts_with("/usr/bin/find "));
+    }
+
+    /// `sudo -n -l` 输出中只有 NOPASSWD 行才算免密；通用 `(ALL : ALL) ALL` 不算。
+    #[test]
+    fn nopasswd_rule_detection_ignores_password_required_rules() {
+        let text = "(ALL : ALL) ALL\n(ALL) NOPASSWD: /usr/bin/pacman -U --noconfirm /bak/*";
+        assert!(!has_nopasswd_rule(text, CACHE_CLEANUP_RULE));
+        let with_rule = format!("{text}\n(ALL) NOPASSWD: {CACHE_CLEANUP_RULE}");
+        assert!(has_nopasswd_rule(&with_rule, CACHE_CLEANUP_RULE));
+    }
 }
