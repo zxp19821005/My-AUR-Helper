@@ -1,14 +1,6 @@
 <!--
-  PackageList.vue - 软件包列表页面（优化版）
-
-  功能：
-  - 显示软件包列表（含 AUR 版本和上游版本）
-  - 支持列表/块视图切换
-  - 支持搜索、分页、多选
-  - 提供批量操作：同步AUR、同步PKGBUILD、检查上游、删除
-  - 支持单行操作：查看详情、编辑、同步、检查、删除
-  - 支持筛选器：快速筛选（OR）+ 条件筛选（AND）
-  - 支持自定义每页显示条数
+  PackageList.vue - 软件包列表页面。列表/块视图切换、搜索分页多选、批量与单行操作、筛选器。
+  AUR 搜索导入弹窗 → AurSearchModal.vue；工具栏单选快速筛选 → QuickFilterDropdown.vue；样式 → PackageList.css。
 -->
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
@@ -23,11 +15,10 @@ import SoftwareFormModal from "../components/package/SoftwareFormModal.vue";
 import SoftwareDetailModal from "../components/package/SoftwareDetailModal.vue";
 import PackageTable from "../components/package/PackageTable.vue";
 import BlockView from "../components/package/BlockView.vue";
+import AurSearchModal from "../components/package/AurSearchModal.vue";
+import QuickFilterDropdown from "../components/package/QuickFilterDropdown.vue";
 import { Icon } from "../icons";
 import { packageTypeFilterOptions, checkerTypeFilterOptions } from "../utils/enums";
-import { addToast } from "../composables/useToast";
-import type { AurSearchResult } from "@/types";
-
 const viewModeStore = useViewModeStore();
 
 const {
@@ -67,6 +58,7 @@ const {
   syncFromPkgbuild,
   updateAurInfo,
   checkSelectedUpstream,
+  checkLoading,
   deleteSelected,
   rowSyncFromAur,
   rowSyncFromPkgbuild,
@@ -74,17 +66,9 @@ const {
   rowDeleteSelected,
 } = usePackageActions(fetchView, refreshEntries, syncToolbar);
 
-const validating = ref(false);
-
-// AUR 搜索导入相关状态
-const aurSearchModalOpen = ref(false);
-const aurSearchKeyword = ref("");
-const aurSearchResults = ref<AurSearchResult[]>([]);
-const aurSearching = ref(false);
-const aurImporting = ref(false);
+const aurSearchOpen = ref(false);
 
 async function handleValidateUrls() {
-  validating.value = true;
   try {
     const pkgnameList = pageData.value.map((p) => p.pkgname);
     await softwareApi.validateUpstreamUrls(
@@ -94,7 +78,6 @@ async function handleValidateUrls() {
   } catch (error) {
     console.error("验证失败:", error);
   } finally {
-    validating.value = false;
     showFilterBar.value = false;
   }
 }
@@ -117,19 +100,6 @@ function updateConditionFilter(key: "packageType" | "checkerType", value: number
   };
 }
 
-/** 工具栏快速筛选下拉：开关与单选选中（选中后自动收起菜单） */
-const quickFilterOpen = ref(false);
-function toggleQuickFilterMenu() {
-  quickFilterOpen.value = !quickFilterOpen.value;
-}
-function selectAndClose(key: typeof quickFilterOptions[number]["key"]) {
-  selectQuickFilter(key);
-  quickFilterOpen.value = false;
-}
-function closeQuickFilterMenu() {
-  quickFilterOpen.value = false;
-}
-
 onMounted(async () => {
   await fetchView();
 });
@@ -147,57 +117,9 @@ async function handleFormSaved() {
   await refreshEntries(pkgnames);
 }
 
-/** 打开 AUR 搜索导入对话框 */
-function openAurSearchModal() {
-  aurSearchModalOpen.value = true;
-  aurSearchKeyword.value = "";
-  aurSearchResults.value = [];
-}
-
-/** 搜索 AUR 包 */
-async function searchAur() {
-  const keyword = aurSearchKeyword.value.trim();
-  if (!keyword) return;
-  aurSearching.value = true;
-  try {
-    aurSearchResults.value = await softwareApi.searchAurPackages(keyword);
-  } catch (error) {
-    console.error("AUR 搜索失败:", error);
-    addToast("error", `AUR 搜索失败: ${error}`);
-  } finally {
-    aurSearching.value = false;
-  }
-}
-
-/** 导入选中的 AUR 包 */
-async function importAurPackage(result: AurSearchResult) {
-  const pkgname = result.Name;
-  // 默认包类型：-bin/-appimage → 二进制包，-git → Git仓库，其余 → 编译安装
-  let packageType = 1; // Compiled
-  if (pkgname.endsWith("-bin") || pkgname.endsWith("-appimage")) {
-    packageType = 2; // Binary
-  } else if (pkgname.endsWith("-git")) {
-    packageType = 3; // Git
-  }
-  // 默认检查器类型：-bin 用 GitHub API（因为通常有 release），其他用手动
-  let checkerType = 7; // Manual
-  if (pkgname.endsWith("-bin")) {
-    checkerType = 2; // GitHubAPI
-  }
-
-  aurImporting.value = true;
-  try {
-    await softwareApi.importAurPackage({ pkgname, packageType, checkerType });
-    addToast("success", `成功导入 ${pkgname}`);
-    // 关闭对话框并刷新列表
-    aurSearchModalOpen.value = false;
-    await fetchView();
-  } catch (error) {
-    console.error("AUR 导入失败:", error);
-    addToast("error", `导入失败: ${error}`);
-  } finally {
-    aurImporting.value = false;
-  }
+/** AUR 导入成功回调：刷新列表 */
+async function handleAurImported() {
+  await fetchView();
 }
 </script>
 
@@ -222,7 +144,7 @@ async function importAurPackage(result: AurSearchResult) {
       <button class="btn-icon btn-color-aur" @click="syncFromAur(selectedPkgnames)" :disabled="loading" title="从AUR同步">
         <component :is="Icon.syncAur" :size="16" />
       </button>
-      <button class="btn-icon btn-color-import" @click="openAurSearchModal" :disabled="loading" title="从AUR导入新包">
+      <button class="btn-icon btn-color-import" @click="aurSearchOpen = true" :disabled="loading" title="从AUR导入新包">
         <component :is="Icon.actionDownload" :size="16" />
       </button>
       <button class="btn-icon btn-color-pkgbuild" @click="syncFromPkgbuild(selectedPkgnames)" :disabled="loading" title="从PKGBUILD同步">
@@ -234,7 +156,7 @@ async function importAurPackage(result: AurSearchResult) {
       <button class="btn-icon btn-color-update" @click="updateAurInfo(selectedPkgnames)" :disabled="loading" title="更新AUR信息">
         <component :is="Icon.actionRefresh" :size="16" />
       </button>
-      <button class="btn-icon btn-color-check" @click="checkSelectedUpstream(selectedPkgnames)" :disabled="loading" title="检查上游">
+      <button class="btn-icon btn-color-check" @click="checkSelectedUpstream(selectedPkgnames)" :disabled="checkLoading || loading" title="检查上游">
         <component :is="Icon.actionSearch" :size="16" />
       </button>
       <button class="btn-icon btn-color-delete" @click="deleteSelected(selectedPkgnames, setSelected)" :disabled="selectedPkgnames.size === 0" title="删除选中">
@@ -271,40 +193,13 @@ async function importAurPackage(result: AurSearchResult) {
             </option>
           </select>
 
-          <!-- 单选快速筛选下拉：AUR更新失败/上游更新失败/Github地址失效/无AUR版本/无上游版本...（不支持多选）
-               恒为纯图标（漏斗 + 下拉箭头，与「条件筛选」按钮区分）；激活时图标整体转为橙色，
-               条件名仅通过 title 提示与菜单内的高亮项表达——工具栏横向空间有限，追加文字会挤压换行 -->
-          <div class="toolbar-quickfilter">
-            <button
-              class="btn-icon qf-trigger"
-              :class="{ 'qf-active': !!activeQuickFilterLabel }"
-              @click="toggleQuickFilterMenu"
-              :title="activeQuickFilterLabel ? `快速筛选：${activeQuickFilterLabel}` : '快速筛选'"
-            >
-              <component :is="Icon.actionFilter" :size="16" />
-              <component :is="Icon.actionDropdown" :size="12" class="qf-caret" />
-            </button>
-            <button
-              v-if="activeQuickFilterLabel"
-              class="btn-icon qf-clear"
-              @click="clearQuickFilter"
-              :title="`清除快速筛选：${activeQuickFilterLabel}`"
-            >
-              <component :is="Icon.actionClear" :size="14" />
-            </button>
-            <div v-if="quickFilterOpen" class="qf-menu">
-              <button
-                v-for="opt in quickFilterOptions"
-                :key="opt.key"
-                class="qf-menu-item"
-                :class="{ active: filterState.quickFilter === opt.key }"
-                @click="selectAndClose(opt.key)"
-              >
-                {{ opt.label }}
-              </button>
-            </div>
-          </div>
-          <div v-if="quickFilterOpen" class="qf-backdrop" @click="closeQuickFilterMenu"></div>
+          <QuickFilterDropdown
+            :options="quickFilterOptions"
+            :active-key="filterState.quickFilter"
+            :active-label="activeQuickFilterLabel"
+            @select="selectQuickFilter"
+            @clear="clearQuickFilter"
+          />
 
           <div class="toolbar-divider"></div>
           <button
@@ -336,7 +231,7 @@ async function importAurPackage(result: AurSearchResult) {
       :show="showFilterBar"
       :filter-state="filterState"
       :active-filter-count="activeFilterCount"
-      :loading="loading || validating"
+      :loading="loading"
       @update:show="showFilterBar = $event"
       @update:filter-state="handleFilterUpdate"
       @validate-urls="handleValidateUrls"
@@ -397,444 +292,8 @@ async function importAurPackage(result: AurSearchResult) {
     />
 
     <!-- AUR 搜索导入对话框 -->
-    <div v-if="aurSearchModalOpen" class="aur-search-modal-overlay" @click.self="aurSearchModalOpen = false">
-      <div class="aur-search-modal">
-        <div class="aur-search-modal-header">
-          <h3>从 AUR 导入新包</h3>
-          <button class="btn-close" @click="aurSearchModalOpen = false">×</button>
-        </div>
-        <div class="aur-search-modal-body">
-          <div class="aur-search-input-row">
-            <input
-              v-model="aurSearchKeyword"
-              type="text"
-              placeholder="输入包名搜索（如 electron45）..."
-              class="aur-search-input"
-              @keyup.enter="searchAur"
-            />
-            <button
-              class="btn btn-primary btn-sm"
-              @click="searchAur"
-              :disabled="aurSearching || !aurSearchKeyword.trim()"
-            >
-              <span v-if="aurSearching">搜索中...</span>
-              <span v-else>搜索</span>
-            </button>
-          </div>
-          <div v-if="aurSearchResults.length > 0" class="aur-search-results">
-            <div
-              v-for="result in aurSearchResults"
-              :key="result.Name"
-              class="aur-search-result-item"
-            >
-              <div class="aur-result-info">
-                <span class="aur-result-name">{{ result.Name }}</span>
-                <span class="aur-result-version">{{ result.Version }}</span>
-                <span class="aur-result-desc">{{ result.Description }}</span>
-              </div>
-              <button
-                class="btn btn-sm btn-import"
-                @click="importAurPackage(result)"
-                :disabled="aurImporting"
-              >
-                导入
-              </button>
-            </div>
-          </div>
-          <div v-else-if="!aurSearching && aurSearchResults.length === 0 && aurSearchKeyword" class="aur-search-empty">
-            未找到匹配的包
-          </div>
-          <div v-else-if="aurSearching" class="aur-search-loading">
-            搜索中...
-          </div>
-        </div>
-      </div>
-    </div>
+    <AurSearchModal v-model:open="aurSearchOpen" @imported="handleAurImported" />
   </div>
 </template>
 
-<style scoped>
-.toolbar-filter-group {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.filter-count-badge {
-  background: var(--warning);
-  color: white;
-  font-size: 0.65rem;
-  padding: 1px 5px;
-  border-radius: 8px;
-  margin-left: 2px;
-  min-width: 16px;
-  text-align: center;
-}
-
-.toolbar-divider {
-  width: 1px;
-  height: 20px;
-  background-color: var(--border);
-  margin: 0 0.375rem;
-}
-
-/* 工具栏单选快速筛选下拉 */
-.toolbar-quickfilter {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.qf-trigger {
-  gap: 0.25rem;
-}
-
-/* 漏斗与箭头属同一视觉整体，负外边距抵消 .qf-trigger 的 gap，使两者贴合为一个组合图标 */
-.qf-caret {
-  margin-left: -0.125rem;
-}
-
-/* 激活态：不追加文字，改为图标整体转橙色（--warning），避免工具栏横向空间不足导致文字纵向折行。
-   特异性需覆盖 .btn-icon:hover:not(:disabled)，故补写 :hover 变体 */
-.qf-trigger.qf-active,
-.qf-trigger.qf-active:hover:not(:disabled) {
-  color: var(--warning);
-  background-color: var(--warning-bg);
-}
-
-.qf-clear {
-  padding: 0.25rem;
-}
-
-/* 点击下拉外部关闭菜单的透明遮罩 */
-.qf-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-}
-
-.qf-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  min-width: 168px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
-  padding: 0.25rem;
-  z-index: 60;
-  display: flex;
-  flex-direction: column;
-}
-
-.qf-menu-item {
-  text-align: left;
-  padding: 0.4rem 0.6rem;
-  border: none;
-  background: none;
-  border-radius: 6px;
-  color: var(--text-primary);
-  font-size: 0.8125rem;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.qf-menu-item:hover {
-  background: var(--bg-card);
-}
-
-/* 选中项与触发器统一使用橙色（--warning），保持「已启用快速筛选」的视觉语义一致 */
-.qf-menu-item.active {
-  background: var(--warning-bg);
-  color: var(--warning);
-  font-weight: 600;
-}
-
-/* 注：.toolbar-filter-select 由全局 assets/styles/filter-styles.css 统一提供，
-   此处不再重复定义，避免各页下拉框高度/底色不一致 */
-
-.btn-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.375rem;
-  border: none;
-  border-radius: 6px;
-  background: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn-icon:hover:not(:disabled) {
-  background-color: var(--bg-card);
-  color: var(--text-primary);
-}
-
-.btn-icon:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.btn-active {
-  background-color: var(--accent-light, rgba(59, 130, 246, 0.1));
-  color: var(--accent);
-}
-
-/* 彩色操作按钮 - 每个按钮使用独特颜色 */
-.btn-color-aur {
-  color: #1793d1; /* AUR 蓝 */
-}
-.btn-color-aur:hover:not(:disabled) {
-  background-color: rgba(23, 147, 209, 0.1);
-  color: #1793d1;
-}
-
-.btn-color-pkgbuild {
-  color: #f59e0b; /* PKGBUILD 橙 */
-}
-.btn-color-pkgbuild:hover:not(:disabled) {
-  background-color: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
-}
-
-.btn-color-add {
-  color: #10b981; /* 添加 绿 */
-}
-.btn-color-add:hover:not(:disabled) {
-  background-color: rgba(16, 185, 129, 0.1);
-  color: #10b981;
-}
-
-.btn-color-update {
-  color: #3b82f6; /* 更新 蓝 */
-}
-.btn-color-update:hover:not(:disabled) {
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-}
-
-.btn-color-check {
-  color: #8b5cf6; /* 检查 紫 */
-}
-.btn-color-check:hover:not(:disabled) {
-  background-color: rgba(139, 92, 246, 0.1);
-  color: #8b5cf6;
-}
-
-.btn-color-delete {
-  color: #ef4444; /* 删除 红 */
-}
-.btn-color-delete:hover:not(:disabled) {
-  background-color: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-}
-
-.btn-color-import {
-  color: #0ea5e9; /* 导入 青色 */
-}
-.btn-color-import:hover:not(:disabled) {
-  background-color: rgba(14, 165, 233, 0.1);
-  color: #0ea5e9;
-}
-
-.batch-progress-bar {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.5rem 1rem;
-  margin-bottom: 0.5rem;
-  background: var(--muted-bg, #f3f4f6);
-  border-radius: 6px;
-  border: 1px solid var(--border, #e5e7eb);
-}
-
-.progress-track {
-  flex: 1;
-  height: 6px;
-  background: var(--border, #e5e7eb);
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: var(--success, #22c55e);
-  border-radius: 3px;
-  transition: width 0.3s ease;
-}
-
-.progress-text {
-  font-size: 0.75rem;
-  color: var(--text-muted, #6b7280);
-  white-space: nowrap;
-}
-
-/* AUR 搜索导入对话框 */
-.aur-search-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.aur-search-modal {
-  background: var(--bg, #fff);
-  border-radius: 8px;
-  width: 560px;
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-}
-
-.aur-search-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--border, #e5e7eb);
-}
-
-.aur-search-modal-header h3 {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text, #111827);
-}
-
-.btn-close {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  color: var(--text-muted, #6b7280);
-  line-height: 1;
-}
-
-.btn-close:hover {
-  color: var(--text, #111827);
-}
-
-.aur-search-modal-body {
-  padding: 1rem 1.25rem;
-  overflow-y: auto;
-  flex: 1;
-}
-
-.aur-search-input-row {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.aur-search-input {
-  flex: 1;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 6px;
-  font-size: 0.875rem;
-  outline: none;
-}
-
-.aur-search-input:focus {
-  border-color: var(--accent, #3b82f6);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-}
-
-.btn-sm {
-  padding: 0.5rem 1rem;
-  font-size: 0.875rem;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.btn-primary {
-  background: var(--accent, #3b82f6);
-  color: #fff;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: var(--accent-hover, #2563eb);
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-import {
-  background: var(--success, #22c55e);
-  color: #fff;
-  padding: 0.375rem 0.75rem;
-}
-
-.btn-import:hover:not(:disabled) {
-  background: var(--success-hover, #16a34a);
-}
-
-.btn-import:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.aur-search-results {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.aur-search-result-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.75rem;
-  background: var(--muted-bg, #f9fafb);
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 6px;
-}
-
-.aur-result-info {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex: 1;
-  min-width: 0;
-}
-
-.aur-result-name {
-  font-weight: 600;
-  color: var(--text, #111827);
-  white-space: nowrap;
-}
-
-.aur-result-version {
-  color: var(--accent, #3b82f6);
-  font-size: 0.875rem;
-  white-space: nowrap;
-}
-
-.aur-result-desc {
-  color: var(--text-muted, #6b7280);
-  font-size: 0.875rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.aur-search-empty,
-.aur-search-loading {
-  text-align: center;
-  padding: 2rem;
-  color: var(--text-muted, #6b7280);
-  font-size: 0.875rem;
-}
-</style>
+<style scoped src="./PackageList.css"></style>

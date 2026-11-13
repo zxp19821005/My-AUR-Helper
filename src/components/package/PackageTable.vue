@@ -11,7 +11,7 @@
   - PackageRowActions: 行操作按钮组
 -->
 <script setup lang="ts">
-import { fmtTimestamp } from "../../composables/usePackageList";
+import { fmtTimestamp } from "@/utils/format";
 import type { Column } from "../../composables/useTableState";
 import StandardizedTable from "../common/StandardizedTable.vue";
 import PackageRowActions from "./PackageRowActions.vue";

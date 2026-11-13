@@ -77,3 +77,21 @@ export function getLanguageNames(
       .join(", ") || "—"
   );
 }
+
+/**
+ * 格式化 Unix 时间戳为 ISO 风格日期字符串（YYYY-MM-DD）
+ *
+ * 与 formatTimestamp 不同：本函数输出定长 "YYYY-MM-DD" 形式，空值返回 "-"，
+ * 用于表格/卡片中对齐显示的版本时间戳。
+ *
+ * @param ts Unix 时间戳（秒）
+ * @returns 格式化后的日期字符串，如 "2024-01-15"
+ */
+export function fmtTimestamp(ts: number | null): string {
+  if (ts == null) return "-";
+  const d = new Date(ts * 1000);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}

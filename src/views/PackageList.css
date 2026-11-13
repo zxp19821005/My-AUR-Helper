@@ -1,0 +1,149 @@
+/*
+ * PackageList.css - 软件包列表页样式（从 PackageList.vue 外置，保持 ≤300 行约束）
+ *
+ * 仅保留本页工具栏操作按钮 / 筛选分组 / 批量进度条相关样式；
+ * 工具栏单选快速筛选下拉（.qf-*）已随 QuickFilterDropdown.vue 迁移，
+ * AUR 搜索导入弹窗（.aur-search-*）已随 AurSearchModal.vue 迁移。
+ */
+
+.toolbar-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filter-count-badge {
+  background: var(--warning);
+  color: white;
+  font-size: 0.65rem;
+  padding: 1px 5px;
+  border-radius: 8px;
+  margin-left: 2px;
+  min-width: 16px;
+  text-align: center;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background-color: var(--border);
+  margin: 0 0.375rem;
+}
+
+/* 工具栏操作按钮基础样式 */
+.btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.375rem;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-icon:hover:not(:disabled) {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.btn-icon:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-active {
+  background-color: var(--accent-light, rgba(59, 130, 246, 0.1));
+  color: var(--accent);
+}
+
+/* 彩色操作按钮 - 每个按钮使用独特颜色 */
+.btn-color-aur {
+  color: #1793d1; /* AUR 蓝 */
+}
+.btn-color-aur:hover:not(:disabled) {
+  background-color: rgba(23, 147, 209, 0.1);
+  color: #1793d1;
+}
+
+.btn-color-pkgbuild {
+  color: #f59e0b; /* PKGBUILD 橙 */
+}
+.btn-color-pkgbuild:hover:not(:disabled) {
+  background-color: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.btn-color-add {
+  color: #10b981; /* 添加 绿 */
+}
+.btn-color-add:hover:not(:disabled) {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.btn-color-update {
+  color: #3b82f6; /* 更新 蓝 */
+}
+.btn-color-update:hover:not(:disabled) {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.btn-color-check {
+  color: #8b5cf6; /* 检查 紫 */
+}
+.btn-color-check:hover:not(:disabled) {
+  background-color: rgba(139, 92, 246, 0.1);
+  color: #8b5cf6;
+}
+
+.btn-color-delete {
+  color: #ef4444; /* 删除 红 */
+}
+.btn-color-delete:hover:not(:disabled) {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.btn-color-import {
+  color: #0ea5e9; /* 导入 青色 */
+}
+.btn-color-import:hover:not(:disabled) {
+  background-color: rgba(14, 165, 233, 0.1);
+  color: #0ea5e9;
+}
+
+.batch-progress-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  margin-bottom: 0.5rem;
+  background: var(--muted-bg, #f3f4f6);
+  border-radius: 6px;
+  border: 1px solid var(--border, #e5e7eb);
+}
+
+.progress-track {
+  flex: 1;
+  height: 6px;
+  background: var(--border, #e5e7eb);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--success, #22c55e);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 0.75rem;
+  color: var(--text-muted, #6b7280);
+  white-space: nowrap;
+}

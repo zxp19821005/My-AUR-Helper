@@ -1,87 +1,25 @@
 /**
  * usePackageList.ts - 软件包列表页面逻辑
  *
- * 功能：
- * - 管理列表分页、搜索、选择状态
- * - 提供格式化函数和弹窗控制逻辑
- * - 支持筛选器功能（多重快速筛选 OR + 单选快速筛选 OR + 条件筛选 AND）
- *
- * 筛选说明：
- * - 多重快速筛选（quickFilters）：由筛选面板 FilterBar 以复选框控制，OR 逻辑
- * - 单选快速筛选（quickFilter）：由工具栏下拉控制，仅允许同时选中一项，
- *   与多重快速筛选之间同样为 OR 关系（命中任一即通过）
- * - 条件筛选（conditionFilters）：软件包类型 / 检查器类型，AND 逻辑
+ * 管理列表分页、搜索、选择状态，提供格式化函数和弹窗控制逻辑。
+ * 筛选相关的类型 / 选项 / 默认态 / 纯匹配函数已拆分至 filterConfig.ts，
+ * 仅在此 re-export 以兼容 FilterBar 等既有引用方。
  */
 import { computed, ref, shallowRef, triggerRef, watch, inject, onMounted } from "vue";
 import { useSettingsStore } from "../stores/settings";
 import { FOOTER_KEY } from "./footer";
 import type { SoftwareListEntry } from "../types";
 import * as softwareApi from "@/api/software";
+import type { FilterState, QuickFilterKey } from "./filterConfig";
+import {
+  createDefaultFilterState,
+  matchesQuickFilters,
+  matchesConditionFilters,
+  quickFilterOptions,
+} from "./filterConfig";
 
-/** 筛选状态 */
-export interface FilterState {
-  /** 多重快速筛选条件（OR 逻辑，由筛选面板 FilterBar 控制） */
-  quickFilters: {
-    /** 上游 URL 为空 */
-    upstreamUrlEmpty: boolean;
-    /** AUR 版本为空（旧语义，保留给 FilterBar） */
-    aurUpdateFailed: boolean;
-    /** 上游版本为空（旧语义，保留给 FilterBar） */
-    upstreamUpdateFailed: boolean;
-    /** 上游地址异常（upstream_url_status != "ok" 且非空） */
-    upstreamUrlAbnormal: boolean;
-    /** License 缺失（upstream_license_id 为空） */
-    licenseMissing: boolean;
-  };
-  /** 单选快速筛选（工具栏下拉，与多重筛选 OR 叠加） */
-  quickFilter: QuickFilterKey | null;
-  /** 条件筛选（AND 逻辑） */
-  conditionFilters: {
-    /** 软件包类型 */
-    packageType: number | null;
-    /** 检查器类型 */
-    checkerType: number | null;
-  };
-}
-
-/** 单选快速筛选条件键（工具栏下拉，不支持多选） */
-export type QuickFilterKey =
-  | "aur_sync_failed"
-  | "upstream_check_failed"
-  | "github_url_invalid"
-  | "no_aur_version"
-  | "no_upstream_version"
-  | "no_upstream_url"
-  | "license_missing";
-
-/** 工具栏快速筛选下拉选项（单选，不支持多选） */
-export const quickFilterOptions: { key: QuickFilterKey; label: string }[] = [
-  { key: "aur_sync_failed", label: "AUR更新失败" },
-  { key: "upstream_check_failed", label: "上游更新失败" },
-  { key: "github_url_invalid", label: "Github地址失效" },
-  { key: "no_aur_version", label: "无AUR版本" },
-  { key: "no_upstream_version", label: "无上游版本" },
-  { key: "no_upstream_url", label: "无上游地址" },
-  { key: "license_missing", label: "License缺失" },
-];
-
-/** 默认筛选状态 */
-function createDefaultFilterState(): FilterState {
-  return {
-    quickFilters: {
-      upstreamUrlEmpty: false,
-      aurUpdateFailed: false,
-      upstreamUpdateFailed: false,
-      upstreamUrlAbnormal: false,
-      licenseMissing: false,
-    },
-    quickFilter: null,
-    conditionFilters: {
-      packageType: null,
-      checkerType: null,
-    },
-  };
-}
+export type { FilterState, QuickFilterKey } from "./filterConfig";
+export { quickFilterOptions };
 
 export function usePackageList() {
   const footer = inject(FOOTER_KEY)!;
@@ -111,55 +49,6 @@ export function usePackageList() {
   onMounted(async () => {
     pageSize.value = await settingsStore.getSettingNumber("list_page_size_software", 50);
   });
-
-  /** 判断单条是否命中某个单选快速筛选条件（基于新错误字段，语义准确） */
-  function matchesSingleQuickFilter(entry: SoftwareListEntry, key: QuickFilterKey): boolean {
-    switch (key) {
-      case "aur_sync_failed":
-        // AUR 同步失败：最近一次同步写入了错误原因（aur_version 是否为空另算「无AUR版本」）
-        return entry.aur_sync_error != null;
-      case "upstream_check_failed":
-        // 上游检查失败：最近一次检查写入了错误原因
-        return entry.upstream_check_error != null;
-      case "github_url_invalid":
-        // Github 地址失效：URL 已配置但验证状态非 ok
-        return !!entry.upstream_url_status && entry.upstream_url_status !== "ok";
-      case "no_aur_version":
-        return entry.aur_version == null;
-      case "no_upstream_version":
-        return entry.upstream_version == null;
-      case "no_upstream_url":
-        return entry.upstream_url == null;
-      case "license_missing":
-        return entry.upstream_license_id == null;
-      default:
-        return false;
-    }
-  }
-
-  /** 检查是否满足快速筛选条件（多重 OR + 单选 OR，任一命中即通过） */
-  function matchesQuickFilters(entry: SoftwareListEntry): boolean {
-    const qf = filterState.value.quickFilters;
-    const checks: boolean[] = [];
-    if (qf.upstreamUrlEmpty) checks.push(entry.upstream_url == null);
-    if (qf.aurUpdateFailed) checks.push(entry.aur_version == null);
-    if (qf.upstreamUpdateFailed) checks.push(entry.upstream_version == null);
-    if (qf.upstreamUrlAbnormal)
-      checks.push(!!entry.upstream_url_status && entry.upstream_url_status !== "ok");
-    if (qf.licenseMissing) checks.push(entry.upstream_license_id == null);
-    const single = filterState.value.quickFilter;
-    if (single) checks.push(matchesSingleQuickFilter(entry, single));
-    // 没有任何激活的快筛 → 通过；有激活的 → 任一命中即通过
-    return checks.length === 0 || checks.some((v) => v);
-  }
-
-  /** 检查是否满足条件筛选（AND 逻辑） */
-  function matchesConditionFilters(entry: SoftwareListEntry): boolean {
-    const cf = filterState.value.conditionFilters;
-    if (cf.packageType !== null && entry.package_type_id !== cf.packageType) return false;
-    if (cf.checkerType !== null && entry.checker_type_id !== cf.checkerType) return false;
-    return true;
-  }
 
   /** 计算活跃筛选条件数量（含单选快速筛选与条件筛选） */
   const activeFilterCount = computed(() => {
@@ -197,15 +86,10 @@ export function usePackageList() {
   });
 
   const filteredEntries = computed(() => {
-    let result = entries.value;
-
-    // 快速筛选（多重 OR + 单选 OR）
-    result = result.filter(matchesQuickFilters);
-
-    // 条件筛选（AND 逻辑）
-    result = result.filter(matchesConditionFilters);
-
-    return result;
+    const state = filterState.value;
+    return entries.value
+      .filter((e) => matchesQuickFilters(e, state))
+      .filter((e) => matchesConditionFilters(e, state));
   });
 
   const totalRecords = computed(() => filteredEntries.value.length);
@@ -278,9 +162,7 @@ export function usePackageList() {
     }
     try {
       const results = await Promise.all(
-        pkgnames.map((name) =>
-          softwareApi.getSoftwareListEntry(name)
-        )
+        pkgnames.map((name) => softwareApi.getSoftwareListEntry(name)),
       );
       const byName = new Map(results.filter(Boolean).map((e) => [e!.pkgname, e!]));
       const removed = new Set(pkgnames.filter((name) => !byName.has(name)));
@@ -335,7 +217,9 @@ export function usePackageList() {
     showDetailModal.value = true;
   }
 
-  const setSelected = (v: Set<string>) => { selectedPkgnames.value = v; };
+  const setSelected = (v: Set<string>) => {
+    selectedPkgnames.value = v;
+  };
 
   function resetFilters() {
     filterState.value = createDefaultFilterState();
@@ -373,18 +257,4 @@ export function usePackageList() {
     syncToolbar,
     resetFilters,
   };
-}
-
-/**
- * 格式化时间戳为中文日期
- * @param ts - Unix 时间戳（秒）
- * @returns 格式化的日期字符串，如 "2024-01-15"
- */
-export function fmtTimestamp(ts: number | null): string {
-  if (ts == null) return "-";
-  const d = new Date(ts * 1000);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
 }
