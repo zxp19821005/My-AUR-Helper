@@ -31,6 +31,12 @@ impl Database {
                 "aur",
             ),
             (
+                "aur_use_metadata_archive",
+                "1",
+                "AUR 批量同步优先使用全量元数据归档（0=改用 RPC v5 分批查询）",
+                "aur",
+            ),
+            (
                 "backup_dir",
                 "/run/media/zxp/Backup/Linux/ZST",
                 "默认备份目录",
@@ -98,6 +104,12 @@ impl Database {
                 "list_page_size_software",
                 "50",
                 "软件管理列表每页显示行数",
+                "list",
+            ),
+            (
+                "list_page_size_update",
+                "50",
+                "软件更新列表每页显示行数",
                 "list",
             ),
             (

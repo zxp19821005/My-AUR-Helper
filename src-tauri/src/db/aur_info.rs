@@ -2,7 +2,7 @@ use crate::errors::AppResult; // 通用错误处理
 
 use crate::models::*; // 数据模型
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use super::Database; // 数据库结构体
 
@@ -126,5 +126,25 @@ impl Database {
             map.insert(id, ver);
         }
         Ok(map)
+    }
+
+    /// 批量读取被 AUR 标记为 out-of-date 的软件包 ID 集合
+    ///
+    /// 上游检查时把 AUR RPC v5 的 `OutOfDate` 字段作为补充信号使用。
+    /// 单条 SQL 一次取出全部标记，避免循环内逐包调用 `get_aur_info`
+    /// 造成的 N+1 查询与反复加锁。
+    ///
+    /// # 返回
+    /// - `HashSet<i64>`: `out_of_date=1` 的 software_id 集合
+    pub fn get_aur_out_of_date_ids(&self) -> AppResult<HashSet<i64>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT software_id FROM aur_info WHERE out_of_date = 1")?;
+        let rows = stmt.query_map([], |row| row.get::<_, i64>(0))?;
+        let mut ids = HashSet::new();
+        for r in rows {
+            ids.insert(r?);
+        }
+        Ok(ids)
     }
 }
