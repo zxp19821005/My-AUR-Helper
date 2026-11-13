@@ -14,6 +14,7 @@
 -->
 <script setup lang="ts">
 import { ref, watch, reactive, provide, computed, onMounted } from "vue";
+import type { Component } from "vue";
 import { useRoute } from "vue-router";
 import Sidebar from "./components/layout/Sidebar.vue";
 import TabBar from "./components/layout/TabBar.vue";
@@ -40,25 +41,33 @@ const isPopupWindow = computed(() => popupPaths.some(p => route.path.startsWith(
 const footerState = reactive<FooterState>(defaultFooterState());
 provide(FOOTER_KEY, footerState);
 
-/** 监听路由变化 - 重置分页/信息文本/进度 */
+/**
+ * 路由 → 标签页文案与图标
+ * 图标必须与 Sidebar.vue 的对应导航项一致；新增主窗口路由时须同步登记，
+ * 否则刷新页面后标签栏不会自动打开该标签，或复用错误的图标。
+ */
+const routeTabs: Record<string, { label: string; icon: Component }> = {
+  "/": { label: "仪表盘", icon: Icon.navDashboard },
+  "/packages": { label: "软件管理", icon: Icon.navPackages },
+  "/updates": { label: "软件更新", icon: Icon.navUpdates },
+  "/backup": { label: "备份管理", icon: Icon.navBackup },
+  "/cache": { label: "缓存管理", icon: Icon.navCache },
+  "/proxy": { label: "代理管理", icon: Icon.navProxy },
+};
+
+/** 监听路由变化 - 重置分页/信息文本/进度，并同步标签页 */
 watch(
   () => route.path,
   (path) => {
     Object.assign(footerState, defaultFooterState());
     // 同步当前活跃路由到 refresh store，刷新按钮只能触发当前页面
     refreshStore.setActivePath(path);
-    const routeLabels: Record<string, string> = {
-      "/": "仪表盘",
-      "/packages": "软件管理",
-      "/backup": "备份管理",
-      "/cache": "缓存管理",
-      "/proxy": "代理管理",
-    };
     if (path.startsWith("/packages/")) {
       const pkgName = path.split("/packages/")[1];
       tabStore.openTab({ path, label: pkgName || "软件详情", icon: Icon.navPackages });
-    } else if (routeLabels[path]) {
-      tabStore.openTab({ path, label: routeLabels[path], icon: Icon.navPackages });
+    } else if (routeTabs[path]) {
+      const tab = routeTabs[path];
+      tabStore.openTab({ path, label: tab.label, icon: tab.icon });
     }
   },
   { immediate: true }

@@ -182,6 +182,25 @@ pub fn read_http_settings(db: &crate::db::Database) -> (u64, u32) {
     (timeout, retry)
 }
 
+/// 读取「批量同步是否优先使用 AUR 元数据归档」设置（默认启用）
+///
+/// 关闭后回退到 AUR RPC v5 批量查询，便于在归档服务异常或网络受限时排查。
+///
+/// # 参数
+/// - `db`: 数据库连接
+///
+/// # 返回
+/// - `bool`: 设置值为 0/false/no/off 时返回 false，其余（含未配置）返回 true
+pub fn read_archive_preference(db: &crate::db::Database) -> bool {
+    !matches!(
+        get_setting_opt(db, "aur_use_metadata_archive")
+            .unwrap_or_default()
+            .to_ascii_lowercase()
+            .as_str(),
+        "0" | "false" | "no" | "off"
+    )
+}
+
 /// 从 AUR JSON 数据中提取通用字段
 ///
 /// 从 AUR RPC 返回的 JSON 对象中提取描述、版本、URL、修改时间等通用字段，

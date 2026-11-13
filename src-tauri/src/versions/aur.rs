@@ -1,5 +1,5 @@
 use super::remove_git_describe_metadata;
-use log::debug;
+use log::trace;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AurVersion {
@@ -35,9 +35,13 @@ impl AurVersion {
 
         let normalized_version = Self::normalize(&version_part);
 
-        debug!(
+        trace!(
             "解析AUR版本 '{}': epoch={:?}, version={}, pkgrel={:?}, normalized={}",
-            raw, epoch_part, version_part, pkgrel_part, normalized_version
+            raw,
+            epoch_part,
+            version_part,
+            pkgrel_part,
+            normalized_version
         );
 
         AurVersion {

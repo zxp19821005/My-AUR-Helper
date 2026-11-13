@@ -39,7 +39,7 @@ export function usePackageActions(
 
   // 组合各操作模块
   const syncActions = usePackageSyncActions(fetchView, refreshEntries, syncToolbar);
-  const checkActions = usePackageCheckActions(refreshEntries, syncToolbar);
+  const checkActions = usePackageCheckActions(refreshEntries, syncToolbar, syncActions.setRowLoading, syncActions.clearRowLoading);
   const deleteActions = usePackageDeleteActions(refreshEntries, syncToolbar);
 
   return {
@@ -56,6 +56,7 @@ export function usePackageActions(
     rowSyncFromAur: syncActions.rowSyncFromAur,
     rowSyncFromPkgbuild: syncActions.rowSyncFromPkgbuild,
     // 检查操作
+    checkLoading: checkActions.loading,
     checkSelectedUpstream: checkActions.checkSelectedUpstream,
     rowCheckUpstream: checkActions.rowCheckUpstream,
     // 删除操作

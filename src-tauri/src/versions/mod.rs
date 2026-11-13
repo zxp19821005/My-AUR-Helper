@@ -13,4 +13,6 @@ pub use git_version::extract_commit_count;
 pub use git_version::is_r_format;
 pub use git_version::remove_git_describe_metadata;
 pub use upstream::UpstreamVersion;
-pub use utils::{compare_versions, find_latest_version, is_outdated, sort_versions};
+pub use utils::{
+    compare_versions, find_latest_version, is_outdated, is_outdated_with_aur_signal, sort_versions,
+};

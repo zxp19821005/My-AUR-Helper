@@ -23,6 +23,7 @@ mod setting; // 设置模型
 mod software_detail; // 软件包详情模型（含AUR+上游）
 mod software_info; // 软件包信息模型
 mod software_list_entry; // 软件包列表展示模型
+mod software_update; // 软件更新工作台 DTO（无独立表）
 mod upstream_info; // 上游版本信息模型
 
 pub use aur_info::AurInfo;
@@ -43,4 +44,8 @@ pub use setting::Setting;
 pub use software_detail::SoftwareDetail;
 pub use software_info::SoftwareInfo;
 pub use software_list_entry::SoftwareListEntry;
+pub use software_update::{
+    SoftwareUpdateApplyResult, SoftwareUpdateItem, SoftwareUpdatePreview, SoftwareUpdateStatus,
+    UpdateCandidateRow,
+};
 pub use upstream_info::{UpstreamInfo, UpstreamUrlStatus};

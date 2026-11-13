@@ -39,6 +39,11 @@ export const useTabStore = defineStore("tabs", () => {
     const exists = openTabs.value.find((t) => t.path === tab.path);
     if (!exists) {
       openTabs.value.push(tab);
+    } else {
+      // 路由 watch 与侧边栏都可能打开同一标签；以最新一次为准同步文案与图标，
+      // 避免旧标签保留已修正前的错误图标。
+      exists.label = tab.label;
+      exists.icon = tab.icon;
     }
     activeTab.value = tab.path;
   }

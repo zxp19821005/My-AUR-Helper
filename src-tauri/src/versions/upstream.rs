@@ -1,7 +1,7 @@
 use std::sync::OnceLock;
 
 use super::remove_git_describe_metadata;
-use log::debug;
+use log::trace;
 use regex::Regex;
 
 use super::rules::CleanupRules;
@@ -38,11 +38,20 @@ fn re_build_metadata() -> &'static Regex {
 }
 
 impl UpstreamVersion {
+    /// 静默归一化：只做字符串清洗，不输出任何日志。
+    ///
+    /// 供「软件更新」列表等一次处理数百条记录的高频展示链路使用。
+    /// `parse` / `parse_with_rules` 复用同一套 `cleanup*` 逻辑，保证写回
+    /// PKGBUILD 的目标值与列表状态判定规则严格一致；逐条调试日志已降为 TRACE。
+    pub fn normalized(raw: &str) -> String {
+        Self::cleanup(raw.trim())
+    }
+
     pub fn parse(raw: &str) -> Self {
         let raw = raw.trim().to_string();
-        let normalized_version = Self::cleanup(&raw);
+        let normalized_version = Self::normalized(&raw);
 
-        debug!("解析上游版本 '{}': 标准化后='{}'", raw, normalized_version);
+        trace!("解析上游版本 '{}': 标准化后='{}'", raw, normalized_version);
 
         UpstreamVersion {
             raw,
@@ -54,9 +63,10 @@ impl UpstreamVersion {
         let raw = raw.trim().to_string();
         let normalized_version = Self::cleanup_with_rules(&raw, rules);
 
-        debug!(
+        trace!(
             "使用规则解析上游版本 '{}': 标准化后='{}'",
-            raw, normalized_version
+            raw,
+            normalized_version
         );
 
         UpstreamVersion {
@@ -223,5 +233,28 @@ mod tests {
         let v = UpstreamVersion::parse("2.0.1.r5.g9a27946");
         assert_eq!(v.raw, "2.0.1.r5.g9a27946");
         assert_eq!(v.normalized_version, "2.0.1");
+    }
+
+    /// 静默归一化与 parse 必须完全一致：写回链路与列表状态判定都依赖它，
+    /// 两者一旦漂移，写回后的包会被误判为「待写回」。
+    #[test]
+    fn normalized_matches_parse() {
+        let cases = [
+            "1.2.3",
+            "v2.4.5",
+            "1.0.0-beta1",
+            "1.7.0.r0.gb9a08cc",
+            "2.0.5-1",
+            "1.2.3+build123",
+            "1.0.0-release",
+            "",
+        ];
+        for raw in cases {
+            assert_eq!(
+                UpstreamVersion::normalized(raw),
+                UpstreamVersion::parse(raw).normalized_version,
+                "归一化规则漂移: {raw:?}"
+            );
+        }
     }
 }

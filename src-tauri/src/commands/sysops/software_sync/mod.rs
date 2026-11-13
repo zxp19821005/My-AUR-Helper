@@ -28,6 +28,10 @@ pub use cache::check_github_cache;
 /// GraphQL 失败时 batch 不产生快照，仓库永不写缓存，需在此补齐
 pub mod cache_fill;
 
+/// GitHub tags 缓存预置命令（手动播种缓存，打破巨型仓库检查超时的死锁）
+pub mod cache_preload;
+pub use cache_preload::preload_github_tag_cache;
+
 /// GitHub tags 缓存写盘辅助函数（从 batch.rs 拆分以符合 300 行约束）
 pub mod batch_cache;
 pub use batch_cache::{query_valid_github_caches, write_github_tag_cache};

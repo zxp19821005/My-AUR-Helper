@@ -18,7 +18,8 @@ use tauri::State;
 
 use super::super::proxy_utils::build_client;
 use super::utils::{
-    get_setting_opt, parse_aur_fields, parse_u32, parse_u64, read_http_timeout, AurSyncResult,
+    get_setting_opt, parse_aur_fields, parse_u32, parse_u64, read_archive_preference,
+    read_http_timeout, AurSyncResult,
 };
 use crate::aur;
 use crate::errors::{AppError, AppResult};
@@ -39,7 +40,7 @@ use crate::AppState;
 #[tauri::command]
 pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
     info!("正在从 AUR 同步软件包");
-    let (username, timeout, batch_size, batch_interval) = {
+    let (username, timeout, batch_size, batch_interval, prefer_archive) = {
         let db = state.db.lock()?;
         let username = db
             .get_setting("aur_username")?
@@ -54,7 +55,14 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
             &get_setting_opt(&db, "aur_batch_interval").unwrap_or_default(),
             5,
         );
-        (username, timeout, batch_size, batch_interval)
+        let prefer_archive = read_archive_preference(&db);
+        (
+            username,
+            timeout,
+            batch_size,
+            batch_interval,
+            prefer_archive,
+        )
     };
     if username.is_empty() {
         return Err(AppError::ConfigError("AUR 用户名未配置".to_string()));
@@ -70,8 +78,15 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
     };
     info!("准备同步 {} 个软件包的 AUR 信息", pkgnames.len());
 
-    let aur_results =
-        aur::get_packages_info(&client, &pkgnames, batch_size.min(100), batch_interval).await?;
+    // 默认走全量元数据归档（一次请求 + 本地过滤），失败自动降级到 RPC v5 批量查询
+    let aur_results = aur::get_packages_info_smart(
+        &client,
+        &pkgnames,
+        batch_size.min(100),
+        batch_interval,
+        prefer_archive,
+    )
+    .await?;
     debug!("批量查询返回 {} 条结果", aur_results.len());
 
     let mut pkgname_to_data = std::collections::HashMap::new();
@@ -219,32 +234,22 @@ pub async fn update_aur_info(
     };
     let client = build_client(timeout, false);
 
-    // 并行获取所有 AUR 信息
-    let mut handles = Vec::new();
-    for pkgname in &pkgnames {
-        let client = client.clone();
-        let pkgname_clone = pkgname.clone();
-        let pkgname_for_handle = pkgname.clone();
-        let handle = tokio::spawn(async move {
-            debug!("请求 AUR 信息: {}", pkgname_clone);
-            match aur::get_package_info(&client, &pkgname_clone).await {
-                Ok(opt) => opt,
-                Err(e) => {
-                    warn!("获取 {} 的 AUR 信息失败: {}", pkgname_clone, e);
-                    None
-                }
-            }
-        });
-        handles.push((pkgname_for_handle, handle));
-    }
-
-    // 收集结果到内存
-    let mut results: Vec<(String, serde_json::Value)> = Vec::new();
-    for (pkgname, handle) in handles {
-        if let Ok(Some(data)) = handle.await {
-            results.push((pkgname, data));
-        }
-    }
+    // 批量获取 AUR 信息：默认一次归档请求 + 本地过滤，失败自动降级到 RPC v5。
+    // 旧实现逐包 tokio::spawn 打 info，包多时易触发 4000 req/day/IP 限流与 Anubis 拦截。
+    let prefer_archive = {
+        let db = state.db.lock()?;
+        read_archive_preference(&db)
+    };
+    let results: Vec<(String, serde_json::Value)> =
+        aur::get_packages_info_smart(&client, &pkgnames, 100, 0, prefer_archive)
+            .await?
+            .into_iter()
+            .filter_map(|data| {
+                data["Name"]
+                    .as_str()
+                    .map(|name| (name.to_string(), data.clone()))
+            })
+            .collect();
 
     // 批量写入数据库
     let db = state.db.lock()?;

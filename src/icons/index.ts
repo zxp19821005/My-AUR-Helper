@@ -48,6 +48,7 @@ import {
   Copy,
   FolderDown,
   GitMerge,
+  Tag, // 标签缓存（预置 GitHub tags 缓存）
   Zap,
   TestTube,
   FileCode,
@@ -86,6 +87,10 @@ import {
   Save,
   RotateCcw,
   MemoryStick,
+  // 软件更新
+  CircleArrowUp, // 导航：软件更新（与既有导航图标互不相同）
+  FileDiff, // 预览 PKGBUILD 变更 diff
+  PackageCheck, // 执行 PKGBUILD 版本写回
 } from "@lucide/vue";
 
 /**
@@ -96,6 +101,7 @@ export const Icon = {
   // ===================== 导航 / 页面（彼此必须互不相同） =====================
   navDashboard: LayoutDashboard, // 仪表盘
   navPackages: Package, // 软件管理
+  navUpdates: CircleArrowUp, // 软件更新
   navBackup: HardDrive, // 备份管理
   navCache: Database, // 缓存管理
   navProxy: Globe, // 代理管理
@@ -146,6 +152,9 @@ export const Icon = {
   clearTable: Eraser, // 清空表（擦除全部记录，与垃圾桶区分）
   deleteSelected: Trash2, // 删除选中（丢进垃圾桶）
   fullCleanup: FileX2, // 缓存清理（删除磁盘缓存文件）
+  preloadTagCache: Tag, // 预置 GitHub 标签缓存（加速带版本锁定的 -bin 包上游检查）
+  updatePreview: FileDiff, // 预览 PKGBUILD 变更 diff（dry-run）
+  updateApply: PackageCheck, // 执行 PKGBUILD 版本写回
 
   // ===================== 面板 / 工具栏 =====================
   panelLeftClose: PanelLeftClose, // 收起侧边栏

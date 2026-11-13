@@ -13,7 +13,7 @@
  * - rc/dev/pre: 1.0.0rc1, 1.0.0dev
  */
 use super::git_version::{extract_commit_count, is_r_format};
-use log::debug;
+use log::trace;
 
 mod parser;
 #[cfg(test)]
@@ -94,7 +94,7 @@ pub(crate) fn compare_vercmp(a: &str, b: &str) -> VersionComparison {
     let a_components = split_components(a_ver);
     let b_components = split_components(b_ver);
 
-    debug!("比较组件: a={:?}, b={:?}", a_components, b_components);
+    trace!("比较组件: a={:?}, b={:?}", a_components, b_components);
 
     match compare_components_list(&a_components, &b_components) {
         // pkgver 相等时才比较 pkgrel（缺失 pkgrel 视作 0）
@@ -142,9 +142,10 @@ fn compare_r_format(a: &str, b: &str) -> VersionComparison {
 
     match (a_count, b_count) {
         (Some(a_count), Some(b_count)) => {
-            debug!(
+            trace!(
                 "[版本比较] r格式比较: AUR commit_count={} vs 上游 commit_count={}",
-                a_count, b_count
+                a_count,
+                b_count
             );
             match a_count.cmp(&b_count) {
                 std::cmp::Ordering::Less => VersionComparison::LessThan,

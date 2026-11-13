@@ -70,9 +70,9 @@ pub async fn check_selected_upstream(
         .map(|p| (p.software_id.unwrap_or(0), p.language_ids.clone()))
         .collect();
 
-    let aur_map: HashMap<i64, String> = {
+    let (aur_map, aur_flagged_ids) = {
         let db = state.db.lock()?;
-        db.get_aur_versions_map()?
+        (db.get_aur_versions_map()?, db.get_aur_out_of_date_ids()?)
     };
 
     let mut tasks = Vec::new();
@@ -182,10 +182,12 @@ pub async fn check_selected_upstream(
             .get(&r.software_id)
             .filter(|v| !v.is_empty())
             .map(|s| s.as_str());
+        // AUR RPC v5 的 OutOfDate 作为补充信号：仅在 vercmp 判定「版本相同」时兜底，
+        // 覆盖上游未打新 tag / 提取正则抓错版本导致的 checker 漏报。
+        let flagged = aur_flagged_ids.contains(&r.software_id);
         let is_outdated = match aur_ver {
             Some(aur) => {
-                versions::compare_versions(aur, &r.upstream_version)
-                    == versions::VersionComparison::LessThan
+                versions::is_outdated_with_aur_signal(aur, &r.upstream_version, flagged, &r.pkgname)
             }
             None => true,
         };

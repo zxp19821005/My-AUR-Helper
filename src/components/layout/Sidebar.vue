@@ -28,6 +28,7 @@ const tabStore = useTabStore();
 const navItems = [
   { path: "/", label: "仪表盘", icon: Icon.navDashboard },
   { path: "/packages", label: "软件管理", icon: Icon.navPackages },
+  { path: "/updates", label: "软件更新", icon: Icon.navUpdates },
   { path: "/backup", label: "备份管理", icon: Icon.navBackup },
   { path: "/cache", label: "缓存管理", icon: Icon.navCache },
   { path: "/proxy", label: "代理管理", icon: Icon.navProxy },

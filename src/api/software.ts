@@ -138,6 +138,20 @@ export async function checkAllUpstream(): Promise<[string, string][]> {
   return await invoke<[string, string][]>("check_all_upstream");
 }
 
+/**
+ * 预置 GitHub 标签缓存（上游版本检查加速）
+ *
+ * 为库内全部 GitHub 仓库（或指定的 owner/repo）拉取 tags 并写入 github_tag_cache，
+ * 使带版本锁定的 -bin 包（如 electron10-bin）后续检查直接命中缓存、零网络、瞬时完成。
+ * 返回成功写入缓存的仓库数量。
+ */
+export async function preloadGithubTagCache(owner?: string, repo?: string): Promise<number> {
+  return await invoke<number>("preload_github_tag_cache", {
+    owner: owner ?? null,
+    repo: repo ?? null,
+  });
+}
+
 /** 校验上游 URL 可达性 */
 export async function validateUpstreamUrls(pkgnameList: string[] | null): Promise<ValidateResult[]> {
   return await invoke<ValidateResult[]>("validate_upstream_urls", { pkgnameList });

@@ -20,6 +20,26 @@ use reqwest::Client;
 
 use crate::commands::sysops::proxy_utils::get_forward_proxy;
 
+/// 全局默认 User-Agent
+///
+/// 采用自述式（self-identifying）字符串，包含 crate 名称、编译期版本号与项目主页，
+/// 符合 RFC 9110 对 User-Agent 的建议。
+///
+/// # 为什么必须显式设置
+/// 部分站点（如 aur.archlinux.org）前置了 Anubis 反爬中间件，对于**完全不携带**
+/// User-Agent 的请求，它会返回 `HTTP 200` + 一段 "Oh noes!" 的 HTML 拦截页，
+/// 而不是 4xx/403。此时 JSON API 调用方会拿到 HTML、解析失败并静默吞掉错误，
+/// 表现为"查询成功但结果为空"。因此所有出站请求都必须带上本 UA。
+///
+/// # 为什么不伪装浏览器 UA
+/// `checkers/redirect.rs` 中的 Chrome UA 仅用于抓取重定向目标的**网页内容**，
+/// 不适用于 API 请求。伪装浏览器 UA 既不符合自述式约定，也可能触发更严格的校验。
+pub const DEFAULT_USER_AGENT: &str = concat!(
+    "my-aur-helper/",
+    env!("CARGO_PKG_VERSION"),
+    " (+https://github.com/zxp19821005/My-AUR-Helper)"
+);
+
 /// 默认请求超时时间（秒）
 pub const DEFAULT_TIMEOUT_SECS: u64 = 30;
 
@@ -113,6 +133,8 @@ fn build_default_client() -> Client {
 /// 配置好的 HTTP 客户端
 pub fn build_client(config: &ClientConfig) -> Client {
     let mut builder = Client::builder()
+        // 全局注入 User-Agent，避免被 Anubis 之类反爬中间件以 200+HTML 拦截
+        .user_agent(DEFAULT_USER_AGENT)
         .timeout(Duration::from_secs(config.timeout_secs))
         .connect_timeout(Duration::from_secs(config.connect_timeout_secs));
 
@@ -135,6 +157,8 @@ pub fn build_client(config: &ClientConfig) -> Client {
 /// 启用代理的 HTTP 客户端
 pub fn build_proxy_client(timeout_secs: u64) -> Client {
     let mut builder = Client::builder()
+        // 与 build_client 保持一致：代理客户端同样必须携带 User-Agent
+        .user_agent(DEFAULT_USER_AGENT)
         .timeout(Duration::from_secs(timeout_secs))
         .connect_timeout(Duration::from_secs(DEFAULT_CONNECT_TIMEOUT_SECS));
 

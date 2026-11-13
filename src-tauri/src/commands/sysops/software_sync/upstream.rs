@@ -140,9 +140,9 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
 
     // 一次性批量读取所有 AUR 版本（单条 SQL + 单次加锁），替代循环内逐包
     // get_aur_info 的 N+1 查询与反复加锁，显著降低批量检查的数据库开销
-    let aur_map: HashMap<i64, String> = {
+    let (aur_map, aur_flagged_ids) = {
         let db = state.db.lock()?;
-        db.get_aur_versions_map()?
+        (db.get_aur_versions_map()?, db.get_aur_out_of_date_ids()?)
     };
 
     // 收集检查结果，与 AUR 版本比较得出是否过期
@@ -165,11 +165,16 @@ pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(St
             .filter(|v| !v.is_empty())
             .map(|s| s.as_str());
 
+        // AUR RPC v5 的 OutOfDate 作为补充信号：仅在 vercmp 判定「版本相同」时兜底，
+        // 覆盖上游未打新 tag / 提取正则抓错版本导致的 checker 漏报。
+        let flagged = aur_flagged_ids.contains(&r.software_id);
         let is_outdated = match aur_ver {
-            Some(aur) => {
-                crate::versions::compare_versions(aur, &r.upstream_version)
-                    == crate::versions::VersionComparison::LessThan
-            }
+            Some(aur) => crate::versions::is_outdated_with_aur_signal(
+                aur,
+                &r.upstream_version,
+                flagged,
+                &r.pkgname,
+            ),
             None => true,
         };
 

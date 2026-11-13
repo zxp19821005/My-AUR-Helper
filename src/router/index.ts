@@ -4,7 +4,7 @@
  * 功能：
  * - 定义应用所有页面的路由规则
  * - 管理路由路径到组件的映射
- * - 主窗口路由：仪表盘、软件管理、备份管理、缓存管理、代理管理
+ * - 主窗口路由：仪表盘、软件管理、软件更新、备份管理、缓存管理、代理管理
  * - 弹出窗口路由：设置、枚举值管理、日志
  *
  * 路由结构：
@@ -25,6 +25,7 @@ import { feDebug } from "../utils/felog"; // 前端诊断日志（仅终端）
 const Dashboard = () => import("../views/Dashboard.vue");
 const PackageList = () => import("../views/PackageList.vue");
 const PackageDetail = () => import("../views/PackageDetail.vue");
+const SoftwareUpdate = () => import("../views/SoftwareUpdate.vue");
 const BackupManager = () => import("../views/BackupManager.vue");
 const CacheManager = () => import("../views/CacheManager.vue");
 const ProxySettings = () => import("../views/ProxySettings.vue");
@@ -50,6 +51,9 @@ const routes = [
 
   /** 软件包详情 - :pkgname 为动态路由参数，表示软件包名称 */
   { path: "/packages/:pkgname", name: "PackageDetail", component: PackageDetail },
+
+  /** 软件更新工作台（导航中位于软件管理之后） */
+  { path: "/updates", name: "SoftwareUpdate", component: SoftwareUpdate },
 
   /** 备份管理 */
   { path: "/backup", name: "BackupManager", component: BackupManager },
