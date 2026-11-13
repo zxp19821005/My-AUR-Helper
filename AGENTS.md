@@ -237,7 +237,8 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | `src/composables/useCacheDirs.ts` | 缓存目录管理 composable（SettingsCacheSection 和 CacheManager 复用；加载函数并行读取全部设置键） |
 | `src/composables/footer.ts` | 底部状态栏状态管理 |
 | `src/composables/packageActions.ts` | 软件包操作逻辑（同步、检查、删除） |
-| `src/composables/usePackageList.ts` | 软件包列表页逻辑（分页、搜索、选择） |
+| `src/composables/usePackageList.ts` | 软件包列表页逻辑（分页、搜索、选择；筛选类型/选项/默认态/纯匹配函数已拆至 filterConfig.ts） |
+| `src/composables/filterConfig.ts` | 软件包列表筛选配置与纯匹配函数（FilterState/QuickFilterKey/quickFilterOptions/createDefaultFilterState + matchesSingleQuickFilter/matchesQuickFilters/matchesConditionFilters） |
 | `src/composables/useBackupList.ts` | 备份管理列表页逻辑（分页、搜索、选择） |
 | `src/composables/useBackupInstall.ts` | 备份包安装逻辑（sudoers 检测、安装、包信息查询） |
 | `src/composables/useCacheList.ts` | 缓存管理列表页逻辑（分页、搜索、选择） |
@@ -367,6 +368,14 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 | | | `graphql_batch_tags.rs` | 186 | | 新文件（`fill_tags` / `collect_fallback_tasks`） |
 | `src-tauri/src/commands/sysops/software_sync/batch.rs` | 362 | `batch.rs` | 299 | 2026-09-03 | ✅ 完成 |
 | | | `batch_engine.rs` | 134 | | 新文件（`PackageTask` / `BatchOutcome` / 并发常量 / `drain_fallback_results`） |
+| `src/composables/usePackageList.ts` | 390 | `usePackageList.ts` | 260 | 2026-11-13 | ✅ 完成 |
+| | | `filterConfig.ts` | 140 | | 新文件（composables，筛选类型/选项/默认态/纯匹配函数） |
+| `src/views/PackageList.vue` | 841 | `PackageList.vue` | 299 | 2026-11-13 | ✅ 完成 |
+| | | `AurSearchModal.vue` | 295 | | 新文件（components/package，AUR 搜索导入弹窗） |
+| | | `QuickFilterDropdown.vue` | 157 | | 新文件（components/package，工具栏单选快速筛选下拉） |
+| | | `PackageList.css` | 149 | | 新文件（views，页面样式外置） |
+| `src/components/package/BlockView.vue` | 376 | `BlockView.vue` | 182 | 2026-11-13 | ✅ 完成 |
+| | | `BlockView.css` | 198 | | 新文件（components/package，块视图样式外置） |
 
 <!-- ========== 前端重构记录：目录重组与样式提取 ========== -->
 ### 前端重构记录（2026-07-29）
@@ -546,12 +555,64 @@ pub struct CheckResult {
 - `rules.rs` — 版本清洗规则配置
 
 ### 核心功能
-1. **AUR 版本处理**：提取完整版本信息，比较时仅使用 version 部分
+1. **AUR 版本处理**：提取完整版本信息（epoch / version / pkgrel）；归一化只用于对齐上游 tag 表示差异，比较时必须把 epoch 与 pkgrel 补回可比较串，否则 vercmp 语义被绕过（见 `utils.rs::build_aur_comparable`）
 2. **上游版本处理**：清洗和标准化版本号，支持自定义规则
 3. **版本比较**：基于 vercmp 算法，支持多种版本格式
    - **pkgrel 比较语义（重要）**：pkgrel（末尾 `-<纯数字>` 段）仅在 pkgver 完全相等时才参与比较；pkgver 不等时以 pkgver 为准，**禁止把 pkgrel 当作版本组件错位比较**。例如 `9.0.1-1` 必须判定为大于 `9.0-5`（pkgver `9.0.1` > `9.0`），而非因 pkgrel `1` < `5` 误判更旧。实现见 `comparison.rs` 的 `split_pkgrel` + `compare_vercmp`。
-   - **缓存备份 / 上游检查共用**：`compare_vercmp` 是缓存备份「备份新版」与「上游 vs AUR」检查的唯一比较入口，pkgrel 修复同时修正两者。
+   - **两个比较入口**：「上游 vs AUR」检查用 `versions::compare_versions`（`utils.rs`，归一化后补回 epoch/pkgrel）；缓存备份「备份新版」用 `versions::compare_vercmp`（`comparison.rs`，直接比较原始串）。两者均基于 vercmp，禁止 semver 语义。
+   - **git describe 快路径**：两边版本都含 `.rN.gHASH` 时跳过归一化直接按 vercmp 比较，保留 revision，避免 -git 包漏报更新。
+   - **系统 vercmp 对照**：`comparison/tests.rs` 以系统 `vercmp` 实测值做一致性回归；自实现含项目自定义预发布/tilde 扩展，与系统 vercmp 并非逐位等价（`1.0a`、`1.0~beta` 两组刻意不同）。
+   - **AUR 补充信号**：AUR RPC v5 的 `OutOfDate` 由 `versions::is_outdated_with_aur_signal` 纳入判定，仅在 vercmp 判为「版本相同」时兜底，不得压过确定的版本关系。
 4. **特殊字符处理**：将 `-` 转换为 `_` 符合 AUR 规范
+5. **AUR 批量基线**：`aur/metadata.rs` 从 `packages-meta-ext-v1.json.gz` 一次拉取全量元数据建索引（ext 版才含 Depends/MakeDepends/OptDepends/License），失败自动降级到 RPC v5 批量；设置项 `aur_use_metadata_archive` 可关闭
+
+### 日志规约（高频纯计算链路）
+- `logger.rs::init` 全局 `LevelFilter::Debug`，且 `enabled()` 仅放行 `<= Level::Debug` → **TRACE 不落盘**。版本模块所有逐条 `debug!` 已统一降为 `trace!`（`utils.rs` / `upstream.rs` / `comparison.rs` / `aur.rs` 共 19 处）。
+- 原因：这些纯计算函数被批量检查（1891 包）与列表浏览（387 包）高频调用，逐条 DEBUG 单日产生约 1.3 万行噪声；一次进入 `/updates` 曾刷出 765 行「解析上游版本」（每包 2 次 `UpstreamVersion::parse` × 387）。
+- 高频展示链路优先用静默归一化 `UpstreamVersion::normalized()`（只清洗、不打日志），不要用带日志的 `parse` / `parse_with_rules`；两者共用 `cleanup*`，由单测 `normalized_matches_parse` 锁定一致性。
+- 需要逐条排障时临时把 `logger.rs::init` 的 `LevelFilter::Debug` 调成 `LevelFilter::Trace`，不要把这些调用改回 `debug!`。
+
+<!-- ========== sudoers 免密配置规约 ========== -->
+## sudoers 免密配置（备份安装 / 缓存安装 / 缓存清理共用）
+
+### 硬性规约
+1. **单一文件**：三类规则统一写在 `/etc/sudoers.d/aur-helper-backup`，权限 `0440`。任何入口**禁止 `tee`（覆盖）**，必须 `tee -a` / `>>` 追加，并用 `grep -qF` 保证幂等；历史上 `get_sudoers_command` 用覆盖写冲掉其它两类规则，导致「已配置 policy 仍要求密码」。
+2. **规则与实执行命令逐 token 一致**：`CACHE_CLEANUP_RULE`（`backup_install_helpers.rs`）定义清理规则，`CACHE_CLEANUP_ARGS` 定义传给 `sudo` 的参数表，两者由单测 `cleanup_args_match_sudoers_rule` 约束。sudoers 按完整命令行匹配，命令名须用绝对路径 `/usr/bin/find`，参数不得含 `*` 通配（否则 `/var/cache/pacman/pkg/../../` 可被放行）。
+3. **一律 `sudo -n`**：GUI 无可交互终端，不带 `-n` 时免密未生效会让 sudo 挂起等待密码，表现为页面「卡死」。检测与执行都不得退化成密码提示。
+4. **检测用 `sudo -n -l`**：`sudo_privileges_text()` + `has_nopasswd_rule()` 解析实际生效的 NOPASSWD 行。禁止用 `sudo -n cat <sudoers文件>`（cat 通常不在免密白名单，必然失败）、禁止直接 `read_to_string`（`/etc/sudoers.d` 为 0750，普通进程读不到）、更禁止用 `sudo -n rm -rf ...` 之类的探测命令（一旦命中规则会真的删文件，且与实际命令无关）。注意 `sudo -l <cmd>` 在存在 `(ALL:ALL) ALL` 通用规则时会返回 0，**不能**据此判断免密。
+5. **配置命令单次提权**：生成 `sudo sh -c '...'`，在 root 内完成幂等判断 + 追加 + `chmod 440`，避免多次 sudo 调用或 `2>/dev/null` 吞掉密码提示。
+
+<!-- ========== 软件更新模块 ========== -->
+## 软件更新模块（导航中位于「软件管理」之后）
+
+### 页面与文件
+- 路由 `/updates`，页面 `src/views/SoftwareUpdate.vue`；弹窗 `src/components/update/UpdateDiffDialog.vue`
+- 复用 `PageToolbar`（三段式工具栏）+ `StandardizedTable` + `StandardizedBadge` + `useListBase`；图标令牌 `navUpdates / updatePreview / updateApply` 统一注册在 `src/icons/index.ts`
+- 弹窗内容区自然撑开、禁用滚动条；底部统一「确认 / 取消」两个图标+文本按钮
+- 前端类型 `src/types/update.ts`、IPC 封装 `src/api/update.ts`；后端 `models/software_update.rs`、`db/software_update.rs`、`commands/sysops/software_update/`
+
+### 列表范围与状态推导（重要：不新增表、不改 schema）
+- **列表只显示 `software_info.is_outdated = 1` 的包**：`db/software_update.rs::list_update_candidates` 的 JOIN 必须带 `WHERE s.is_outdated = 1`（已有 `idx_software_outdated` 索引）。该字段由版本检查链路写入，是「是否需要更新」的唯一事实来源；页面浏览时**禁止重新跑 vercmp 判定筛选**，也不扫描未过期的包
+- 「是否已写回」**不落库**：写回本地 PKGBUILD 后 AUR 现网版本并未改变，故以 `<aur_packages_dir>/<pkgname>/PKGBUILD` 的实际 pkgver 实时推导，rescan 即刷新
+- 状态 `SoftwareUpdateStatus` 仅描述本地写回进度：`pending`（待写回）/ `local_updated`（已写回·待推送 AUR）/ `missing`（PKGBUILD 缺失）/ `no_upstream`；**不含 `up_to_date`**，未过期的包根本不进列表
+- **浏览时零版本比较、零逐包日志**：列表仅对上游版本做一次静默归一化 `UpstreamVersion::normalized()` 得到 `target_version`（即写回写入 pkgver 的值），再与本地 `local.pkgver` 做字面相等比较区分 `pending` / `local_updated`；不调用 `versions::compare_versions` / `is_outdated_with_aur_signal`，也不用带日志的 `parse`
+- 每包只做 1 次纯字符串清洗 + 1 次本地 PKGBUILD 读取；`apply.rs::plan_rewrite` 同样用 `normalized()`，保证写回值与列表状态判定同源
+
+### dry-run + diff 预览（强制）
+- 调用链：`list_software_updates` → `preview_software_updates`（纯读，生成 diff）→ 弹窗确认 → `apply_software_updates`
+- `apply` 从数据库重读上游版本，不信任前端传参，避免预览与执行之间版本过期
+- 只改 `pkgver=` 与 `pkgrel=1`，不触碰 sha256sums / source；写前备份为同目录 `PKGBUILD.bak`，写失败尝试从备份恢复
+- `validate_pkgname` 白名单 + 路径越界校验，防止目录穿越；单包失败不影响整批
+- 写回不更新数据库；推送 AUR 后由既有「同步 AUR」链路刷新 `aur_info.aur_version`
+
+<!-- ========== 标签栏与窗口图标 ========== -->
+## 标签栏 / 窗口图标规约
+1. **新增主窗口路由必须同步登记 `App.vue::routeTabs`**：映射 `path → { label, icon }`，图标须与 `Sidebar.vue` 对应导航项一致。历史上 watch 只维护 `routeLabels` 且对所有路由复用 `Icon.navPackages`，导致标签图标全部显示成「软件包」，且新增 `/updates` 后刷新页面不会自动打开标签。
+2. `stores/tabs.ts::openTab` 对已存在的标签同步 `label` / `icon`，保证侧边栏与路由 watch 两条入口结果一致，重启或重新导航即可纠正旧图标。
+3. **`bundle.icon` 首项必须是小尺寸 PNG（当前 `icons/32x32.png`）**：`tauri-codegen::find_icon` 取列表中**第一个** `.png` 作为 `default_window_icon`，编译期解码为 RGBA 内嵌；512×512 大图作为窗口/托盘默认图标在 GTK/X11 下可能只落地为旧式 `WM_HINTS` 单色位图，且徒增二进制体积。列表其余项（128/256/512 PNG + `icon.ico`）供打包器使用。
+4. **Linux 任务栏图标走 `.desktop` + hicolor，而不是仅靠窗口属性**：XFCE/KDE 面板用 `WM_CLASS`（实测 `my-aur-helper`）匹配 `.desktop` 的 `StartupWMClass`，再由 `Icon=` 从 hicolor 主题取图。`scripts/install-dev-icon.sh` 负责生成 `~/.local/share/applications/my-aur-helper.desktop` 并安装 `~/.local/share/icons/hicolor/<size>/apps/my-aur-helper.png`，随后刷新 `update-desktop-database` / `gtk-update-icon-cache` / `xfce4-panel -r`。dev 模式没有安装打包产物，**必须执行该脚本**；只改 `bundle.icon` 不足以修正任务栏图标。
+5. **`window_icon.rs::apply_window_icon` 在 setup 阶段对 `main` 窗口显式 `set_icon()`**：补齐 X11 `_NET_WM_ICON` ARGB 路径，作为生产打包环境的兜底；`tray.rs` 仍用 `default_window_icon()`，两者共用同一图标。
+6. `index.html` 的 favicon 指向 `public/icon.png`（Vite 拷入 `dist/`），不要再引用仓库中不存在的 `/vite.svg`。
 
 <!-- ========== 数据库结构：核心数据表概述 ========== -->
 ## 数据库结构
@@ -573,18 +634,25 @@ pub struct CheckResult {
 ### AUR 批量查询设置
 | 设置键 | 默认值 | 说明 |
 |--------|--------|------|
-| `aur_batch_size` | 50 | AUR 批量查询每批数量上限（最大100） |
+| `aur_batch_size` | 50 | AUR 批量查询每批数量上限（代码 `min(100)` 硬上限） |
 | `aur_batch_interval` | 5 | AUR 批量查询间隔时间（秒） |
+| `aur_use_metadata_archive` | 1 | 优先使用全量元数据归档；设 0/false/no/off 回退到 RPC v5 分批 |
 
 **AUR RPC API 限制**：
-- URI 最大长度 4443 字节，Info 请求超过约 200 个包时需要分批处理
+- URI 最大长度 4443 字节，Info 请求超过约 200 个包时需要分批处理——**这是阈值，不是批次大小**；当前实现用 POST form body（`arg[]`），实际批次取 `aur_batch_size`，硬上限 100
 - 每天每个 IP 最多 4000 次请求
 - 搜索结果超过 5000 个时会失败
+
+**AUR 全量元数据归档（`aur/metadata*`）规约**：
+- 归档 `packages-meta-ext-v1.json.gz` 实测压缩后约 14 MiB、解压后约 74 MiB，顶层是 **JSON 数组**（不是 RPC v5 的 `{"results":[...]}`）；`parse.rs::parse_archive` 必须同时兼容两种形状，单测须用真实数组格式，否则真实归档会被误判「缺少 results 数组」后静默降级。
+- `decompress_gzip` **必须在独立线程写 stdin，同时由 `wait_with_output` 并发读 stdout**：解压输出远超管道缓冲区（64 KiB），先 `write_all` 再读会双向死锁，表现为「starting new connection 之后永久无输出」，且不受 `http_timeout` 约束（HTTP 阶段已结束）。由 `parse_archive_large_payload_no_pipe_deadlock` 单测锁定。
+- 下载 / 解压 / 解析 / 建立索引各阶段必须有 INFO 日志与耗时；归档失败降级到 RPC 时须打印降级参数（包数 / 每批 / 间隔），便于区分「卡死」与「19 批 × 5 秒的正常等待」。
 
 ### 列表每页行数设置
 | 设置键 | 默认值 | 说明 |
 |--------|--------|------|
 | `list_page_size_software` | 50 | 软件管理页面每页行数 |
+| `list_page_size_update` | 50 | 软件更新页面每页行数 |
 | `list_page_size_backup` | 50 | 备份管理页面每页行数 |
 | `list_page_size_cache` | 50 | 缓存管理页面每页行数 |
 | `list_page_size_proxy` | 50 | 代理管理页面每页行数 |
