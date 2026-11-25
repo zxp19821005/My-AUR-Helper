@@ -6,10 +6,10 @@
  * - 组件与 composable 统一通过本模块访问后端，避免 invoke 命令字符串散落各处
  */
 
-import { invoke } from "@tauri-apps/api/core";
+import { commands } from "@/bindings";
 import type { DashboardStats } from "@/types";
 
 /** 获取仪表盘统计（各模块计数汇总） */
 export async function getDashboardStats(): Promise<DashboardStats> {
-  return await invoke<DashboardStats>("get_dashboard_stats");
+  return await commands.getDashboardStats();
 }

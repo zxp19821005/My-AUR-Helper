@@ -1,3 +1,4 @@
+use log::info;
 /**
  * scan.rs - 包文件扫描模块
  *
@@ -7,7 +8,7 @@
  *
  * 安全修复 (R8): scan_pkg_files_cmd 仅允许扫描数据库配置的可信缓存目录
  */
-use log::info;
+use specta::Type;
 use tauri::State;
 use tokio::fs;
 
@@ -19,7 +20,7 @@ use crate::AppState;
 // ════════════════════════════════════════════════════════════
 
 /// .pkg.tar.zst 包文件信息
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, Type)]
 pub struct PkgFileInfo {
     pub filename: String,
     /// 文件绝对路径（递归扫描时含子目录，用于后续定位与复制）
@@ -125,6 +126,7 @@ fn parse_pkg_filename(filename: &str) -> Option<PkgFileInfo> {
 /// 安全修复 (R8): 路径必须与数据库配置的缓存目录之一规范后完全匹配或在其子目录下，
 /// 防止任意目录递归扫描（如扫描 /etc/shadow 所在目录）。
 #[tauri::command]
+#[specta::specta]
 pub async fn scan_pkg_files_cmd(
     state: State<'_, AppState>,
     directory: String,

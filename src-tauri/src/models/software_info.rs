@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use super::{CheckerType, PackageType};
 
 /// 软件包信息
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct SoftwareInfo {
     pub software_id: Option<i64>,
     pub pkgname: String,

@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 /// 上游 URL 验证状态枚举
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Type)]
 #[serde(rename_all = "snake_case")]
 pub enum UpstreamUrlStatus {
     /// URL 可达，返回 200
@@ -52,7 +53,7 @@ impl UpstreamUrlStatus {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct UpstreamInfo {
     pub software_id: i64,
     pub upstream_version: Option<String>,

@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use super::{CheckerType, PackageType, UpstreamUrlStatus};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct SoftwareListEntry {
     pub software_id: i64,
     pub pkgname: String,

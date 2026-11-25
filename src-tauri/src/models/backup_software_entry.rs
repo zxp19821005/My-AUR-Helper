@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 /// 备份软件包列表展示条目
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct BackupSoftwareEntry {
     pub id: i64,
     pub pkgname: String,

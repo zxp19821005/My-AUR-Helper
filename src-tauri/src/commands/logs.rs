@@ -1,9 +1,10 @@
+use log::{debug, info};
 /**
  * logs.rs - 日志管理命令
  *
  * 提供日志文件的读取和清理功能
  */
-use log::{debug, info};
+use specta::Type;
 use tauri::State;
 
 use crate::errors::AppResult;
@@ -11,6 +12,7 @@ use crate::AppState;
 
 /// 获取日志列表（从文件读取，倒序）
 #[tauri::command]
+#[specta::specta]
 pub async fn get_logs(
     state: State<'_, AppState>,
     limit: Option<i64>,
@@ -45,6 +47,7 @@ pub async fn get_logs(
 
 /// 增量读取新增日志（类似 tail -f）
 #[tauri::command]
+#[specta::specta]
 pub async fn get_new_logs(
     state: State<'_, AppState>,
     last_position: u64,
@@ -92,7 +95,7 @@ pub async fn get_new_logs(
 }
 
 /// 增量读取日志的响应
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, Type)]
 pub struct NewLogsResponse {
     pub entries: Vec<crate::logger::FileLogEntry>,
     pub new_position: u64,
@@ -101,6 +104,7 @@ pub struct NewLogsResponse {
 
 /// 清空当天日志
 #[tauri::command]
+#[specta::specta]
 pub async fn clear_logs(state: State<'_, AppState>) -> AppResult<()> {
     info!("正在清空当天日志");
     let db = state.db.lock()?;

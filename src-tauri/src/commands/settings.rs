@@ -15,6 +15,7 @@ use crate::AppState;
 
 /// 获取所有设置（走 Settings 缓存，miss 时回源 DB 全量加载并填充缓存）
 #[tauri::command]
+#[specta::specta]
 pub async fn get_settings(state: State<'_, AppState>) -> AppResult<Vec<Setting>> {
     debug!("正在获取所有设置");
     let mut cache = state.memory_cache.lock()?;
@@ -28,6 +29,7 @@ pub async fn get_settings(state: State<'_, AppState>) -> AppResult<Vec<Setting>>
 
 /// 获取单个设置（从 Settings 缓存整域查找，未命中键回源时自动重建缓存）
 #[tauri::command]
+#[specta::specta]
 pub async fn get_setting(state: State<'_, AppState>, key: String) -> AppResult<Option<Setting>> {
     debug!("正在获取设置: {}", key);
     let mut cache = state.memory_cache.lock()?;
@@ -42,6 +44,7 @@ pub async fn get_setting(state: State<'_, AppState>, key: String) -> AppResult<O
 /// 写库成功后使 Settings 缓存失效，保证后续读取一致
 /// 注意：不记录 value 内容，防止敏感信息（如代理凭据）泄露到日志
 #[tauri::command]
+#[specta::specta]
 pub async fn set_setting(state: State<'_, AppState>, key: String, value: String) -> AppResult<()> {
     debug!("正在设置配置: key={}, value_len={}", key, value.len());
     let mut cache = state.memory_cache.lock()?;
@@ -54,6 +57,7 @@ pub async fn set_setting(state: State<'_, AppState>, key: String, value: String)
 
 /// 应用日志轮转设置（运行时更新）
 #[tauri::command]
+#[specta::specta]
 pub async fn apply_log_settings(max_size: u64, max_files: usize) -> AppResult<()> {
     info!(
         "正在更新日志设置: 最大大小={}KB, 最大文件数={}",

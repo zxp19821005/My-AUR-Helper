@@ -1,10 +1,11 @@
-use serde::{Deserialize, Serialize}; // serde 序列化/反序列化支持
+use serde::{Deserialize, Serialize};
+use specta::Type; // serde 序列化/反序列化支持
 
 use super::ProxyType; // 代理类型枚举
 
 /// 代理信息
 /// 对应数据库 proxies_info 表，并可选关联 proxies_test 统计
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ProxyInfo {
     /// 代理 ID，数据库自增主键
     pub proxy_id: Option<i64>,

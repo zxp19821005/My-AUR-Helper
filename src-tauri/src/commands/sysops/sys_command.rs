@@ -6,7 +6,6 @@
  * 和未使用的命令，消除安全风险
  */
 use log::debug;
-use tauri::command;
 
 use crate::errors::{AppError, AppResult};
 
@@ -19,7 +18,8 @@ fn is_valid_pkgname(name: &str) -> bool {
 }
 
 /// 获取已安装包的版本号
-#[command]
+#[tauri::command]
+#[specta::specta]
 pub async fn get_package_version(pkgname: String) -> AppResult<String> {
     if !is_valid_pkgname(&pkgname) {
         return Err(AppError::InvalidInput(format!("无效的包名: {}", pkgname)));
@@ -46,7 +46,8 @@ pub async fn get_package_version(pkgname: String) -> AppResult<String> {
 }
 
 /// 列出所有已安装的包
-#[command]
+#[tauri::command]
+#[specta::specta]
 pub async fn list_installed_packages() -> AppResult<Vec<String>> {
     debug!("正在列出已安装的软件包");
     let output = tokio::process::Command::new("pacman")

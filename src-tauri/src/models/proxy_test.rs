@@ -1,9 +1,10 @@
 use chrono::NaiveDateTime; // 日期时间类型
-use serde::{Deserialize, Serialize}; // serde 序列化/反序列化支持
+use serde::{Deserialize, Serialize};
+use specta::Type; // serde 序列化/反序列化支持
 
 /// 代理测试结果
 /// 对应数据库 proxies_test 表
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ProxyTest {
     /// 测试记录 ID，数据库自增主键
     pub id: Option<i64>,

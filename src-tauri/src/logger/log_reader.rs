@@ -7,6 +7,7 @@
  * - 支持清空当天日志文件
  * - 返回倒序排列的日志条目（最新的在前）
  */
+use specta::Type;
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
@@ -25,7 +26,7 @@ fn expand_tilde(path: &str) -> String {
 }
 
 /// 日志条目（从文件解析）
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, Type)]
 pub struct FileLogEntry {
     pub timestamp: String,
     pub level: String,

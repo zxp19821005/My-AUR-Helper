@@ -14,6 +14,7 @@ use crate::AppState;
 
 /// 获取所有代理列表（附带最新测试统计）
 #[tauri::command]
+#[specta::specta]
 pub async fn get_proxies(state: State<'_, AppState>) -> AppResult<Vec<ProxyInfo>> {
     debug!("正在获取所有代理");
     let db = state.db.lock()?;
@@ -24,6 +25,7 @@ pub async fn get_proxies(state: State<'_, AppState>) -> AppResult<Vec<ProxyInfo>
 
 /// 从 Greasyfork 用户脚本获取代理源
 #[tauri::command]
+#[specta::specta]
 pub async fn fetch_proxy_sources(state: State<'_, AppState>) -> AppResult<usize> {
     info!("正在从用户脚本获取代理源");
     let client = crate::http_client::shared_client();
@@ -57,6 +59,7 @@ pub async fn fetch_proxy_sources(state: State<'_, AppState>) -> AppResult<usize>
 /// 下载代理文件
 /// 从配置的 URL 下载代理规则 JS 文件到本地
 #[tauri::command]
+#[specta::specta]
 pub async fn download_proxy_file(state: State<'_, AppState>) -> AppResult<usize> {
     info!("开始下载代理文件");
 
@@ -82,6 +85,7 @@ pub async fn download_proxy_file(state: State<'_, AppState>) -> AppResult<usize>
 /// 解析代理文件
 /// 读取已下载的代理规则 JS 文件，解析代理信息并写入数据库
 #[tauri::command]
+#[specta::specta]
 pub async fn parse_proxy_file(state: State<'_, AppState>) -> AppResult<usize> {
     info!("开始解析代理文件");
     let count = parse_and_insert_proxies(&state).await?;
@@ -92,6 +96,7 @@ pub async fn parse_proxy_file(state: State<'_, AppState>) -> AppResult<usize> {
 /// 清空代理表
 /// 删除 proxies_info 和 proxies_test 表中所有数据，并重置 proxy_id 自增计数器
 #[tauri::command]
+#[specta::specta]
 pub async fn clear_proxy_tables(state: State<'_, AppState>) -> AppResult<usize> {
     info!("正在清空代理表");
     let db = state.db.lock()?;
@@ -102,6 +107,7 @@ pub async fn clear_proxy_tables(state: State<'_, AppState>) -> AppResult<usize> 
 
 /// 设置代理启用状态
 #[tauri::command]
+#[specta::specta]
 pub async fn set_proxy_active(
     state: State<'_, AppState>,
     proxy_id: i64,
@@ -114,6 +120,7 @@ pub async fn set_proxy_active(
 
 /// 删除代理
 #[tauri::command]
+#[specta::specta]
 pub async fn delete_proxy(state: State<'_, AppState>, proxy_id: i64) -> AppResult<()> {
     info!("正在删除代理 {}", proxy_id);
     let db = state.db.lock()?;
@@ -122,6 +129,7 @@ pub async fn delete_proxy(state: State<'_, AppState>, proxy_id: i64) -> AppResul
 
 /// 更新代理信息（支持手动编辑名称、URL、类型）
 #[tauri::command]
+#[specta::specta]
 pub async fn update_proxy(
     state: State<'_, AppState>,
     proxy_id: i64,

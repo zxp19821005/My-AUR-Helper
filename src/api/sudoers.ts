@@ -6,34 +6,34 @@
  * - 消除 useSudoers composable 中动态命令名调度，使命令字符串不再散落各处
  */
 
-import { invoke } from "@tauri-apps/api/core";
+import { commands } from "@/bindings";
 
 /** 检测备份安装 sudoers 免密是否已配置 */
 export async function checkBackupInstallSudoers(): Promise<boolean> {
-  return await invoke<boolean>("check_sudoers_config");
+  return await commands.checkSudoersConfig();
 }
 
 /** 获取备份安装 sudoers 配置命令文本 */
 export async function getBackupInstallSudoersCommand(): Promise<string> {
-  return await invoke<string>("get_sudoers_command");
+  return await commands.getSudoersCommand();
 }
 
 /** 检测缓存安装 sudoers 免密是否已配置 */
 export async function checkCacheInstallSudoers(): Promise<boolean> {
-  return await invoke<boolean>("check_cache_install_sudoers");
+  return await commands.checkCacheInstallSudoers();
 }
 
 /** 获取缓存安装 sudoers 配置命令文本 */
 export async function getCacheInstallSudoersCommand(): Promise<string> {
-  return await invoke<string>("get_cache_install_sudoers_command");
+  return await commands.getCacheInstallSudoersCommand();
 }
 
 /** 检测缓存清理 sudoers 免密是否已配置 */
 export async function checkCacheCleanupSudoers(): Promise<boolean> {
-  return await invoke<boolean>("check_cache_cleanup_sudoers");
+  return await commands.checkCacheCleanupSudoers();
 }
 
 /** 获取缓存清理 sudoers 配置命令文本 */
 export async function getCacheCleanupSudoersCommand(): Promise<string> {
-  return await invoke<string>("get_cache_cleanup_sudoers_command");
+  return await commands.getCacheCleanupSudoersCommand();
 }

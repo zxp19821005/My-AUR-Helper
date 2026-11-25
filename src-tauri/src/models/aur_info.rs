@@ -1,8 +1,9 @@
-use serde::{Deserialize, Serialize}; // serde 序列化/反序列化支持
+use serde::{Deserialize, Serialize};
+use specta::Type; // serde 序列化/反序列化支持
 
 /// AUR 包信息
 /// 对应数据库 aur_info 表，存储从 AUR RPC API 获取的详细信息
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct AurInfo {
     /// 关联的软件包 ID（主键）
     pub software_id: i64,

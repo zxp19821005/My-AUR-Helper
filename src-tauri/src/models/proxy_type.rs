@@ -1,8 +1,9 @@
-use serde::{Deserialize, Serialize}; // serde 序列化/反序列化支持
+use serde::{Deserialize, Serialize};
+use specta::Type; // serde 序列化/反序列化支持
 
 /// 代理类型枚举
 /// 定义代理的不同用途
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Type)]
 pub enum ProxyType {
     /// 下载代理 - 用于加速文件下载
     Download,

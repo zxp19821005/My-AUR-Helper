@@ -8,13 +8,14 @@
 use crate::db::Database;
 use crate::errors::AppResult;
 use log::info;
+use specta::Type;
 use tauri::{Emitter, State};
 use tokio::fs;
 
 use crate::AppState;
 
 /// 备份去重结果
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, Type)]
 pub struct DeduplicateResult {
     pub removed_files: usize,
     pub removed_records: usize,
@@ -125,6 +126,7 @@ pub fn collect_files_to_delete(pkg_map: &PkgBackupMap) -> Vec<BackupPkgEntry> {
 
 /// 软件去重：保留最新版本，删除旧版本文件和记录
 #[tauri::command]
+#[specta::specta]
 pub async fn deduplicate_backups(
     state: State<'_, AppState>,
     app: tauri::AppHandle,

@@ -17,6 +17,7 @@ use crate::AppState;
 
 /// 获取所有 License 列表（走 Licenses 缓存，miss 时回源 DB 全量加载并填充缓存）
 #[tauri::command]
+#[specta::specta]
 pub async fn get_licenses(state: State<'_, AppState>) -> AppResult<Vec<EnumLicense>> {
     debug!("正在获取所有 License");
     let mut cache = state.memory_cache.lock()?;
@@ -30,6 +31,7 @@ pub async fn get_licenses(state: State<'_, AppState>) -> AppResult<Vec<EnumLicen
 
 /// 从 SPDX 同步 License 数据（不删除自定义 License），写库后使 Licenses 缓存失效
 #[tauri::command]
+#[specta::specta]
 pub async fn sync_licenses_from_spdx(state: State<'_, AppState>) -> AppResult<usize> {
     info!("正在从 SPDX 同步 License 数据");
     let timeout = {
@@ -67,6 +69,7 @@ pub async fn sync_licenses_from_spdx(state: State<'_, AppState>) -> AppResult<us
 
 /// 添加新的 License（写库后使 Licenses 缓存失效）
 #[tauri::command]
+#[specta::specta]
 pub async fn add_license(
     state: State<'_, AppState>,
     spdx_id: String,
@@ -86,6 +89,7 @@ pub async fn add_license(
 
 /// 获取所有编程语言列表（走 Languages 缓存，miss 时回源 DB 全量加载并填充缓存）
 #[tauri::command]
+#[specta::specta]
 pub async fn get_languages(state: State<'_, AppState>) -> AppResult<Vec<EnumProgrammingLanguage>> {
     debug!("正在获取所有编程语言");
     let mut cache = state.memory_cache.lock()?;
@@ -99,6 +103,7 @@ pub async fn get_languages(state: State<'_, AppState>) -> AppResult<Vec<EnumProg
 
 /// 添加或更新编程语言（写库后使 Languages 缓存失效）
 #[tauri::command]
+#[specta::specta]
 pub async fn upsert_language(
     state: State<'_, AppState>,
     language: EnumProgrammingLanguage,
@@ -113,6 +118,7 @@ pub async fn upsert_language(
 
 /// 获取单个 License（从 Licenses 缓存整域查找，未命中时自动重建缓存）
 #[tauri::command]
+#[specta::specta]
 pub async fn get_license(state: State<'_, AppState>, id: i64) -> AppResult<Option<EnumLicense>> {
     debug!("正在获取 License: {}", id);
     let mut cache = state.memory_cache.lock()?;
@@ -125,6 +131,7 @@ pub async fn get_license(state: State<'_, AppState>, id: i64) -> AppResult<Optio
 
 /// 更新 License（写库后使 Licenses 缓存失效）
 #[tauri::command]
+#[specta::specta]
 pub async fn update_license(
     state: State<'_, AppState>,
     id: i64,
@@ -145,6 +152,7 @@ pub async fn update_license(
 
 /// 删除 License（写库后使 Licenses 缓存失效）
 #[tauri::command]
+#[specta::specta]
 pub async fn delete_license(state: State<'_, AppState>, id: i64) -> AppResult<()> {
     info!("正在删除 License: {}", id);
     let mut cache = state.memory_cache.lock()?;
@@ -156,6 +164,7 @@ pub async fn delete_license(state: State<'_, AppState>, id: i64) -> AppResult<()
 
 /// 删除编程语言（写库后使 Languages 缓存失效）
 #[tauri::command]
+#[specta::specta]
 pub async fn delete_language(state: State<'_, AppState>, name: String) -> AppResult<()> {
     info!("正在删除编程语言: {}", name);
     let mut cache = state.memory_cache.lock()?;

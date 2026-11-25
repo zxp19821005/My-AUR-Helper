@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 /// 缓存软件包列表展示条目
 /// 对应前端 CachePackage 接口，用于列表页展示
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct CacheSoftwareEntry {
     /// 缓存记录 ID
     pub id: i64,

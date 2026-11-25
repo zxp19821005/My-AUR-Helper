@@ -1,12 +1,13 @@
+use serde::Serialize;
 /**
  * memory_cache_stats.rs - 内存缓存统计模型
  *
  * 提供给前端设置页「内存缓存运行状态」展示使用，经 Tauri IPC 序列化为 JSON。
  */
-use serde::Serialize;
+use specta::Type;
 
 /// 单个缓存域的运行状态
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Type)]
 pub struct CacheDomainStats {
     /// 域标识（对应 CacheDomain.file_name()）
     pub domain: String,
@@ -27,7 +28,7 @@ pub struct CacheDomainStats {
 }
 
 /// 内存缓存整体统计
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Type)]
 pub struct MemoryCacheStats {
     /// 是否启用内存缓存
     pub enabled: bool,

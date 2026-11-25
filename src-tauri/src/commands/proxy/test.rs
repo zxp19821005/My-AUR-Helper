@@ -1,11 +1,12 @@
+use chrono::Utc;
+use log::{debug, info};
 /**
  * proxy/test.rs - 代理连通性测试命令与辅助
  *
  * 提供代理延迟测试的多个入口（单 URL / 批量 / 单代理），
  * 以及测试结果持久化与测试 URL 配置等辅助逻辑。
  */
-use chrono::Utc;
-use log::{debug, info};
+use specta::Type;
 use tauri::State;
 use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
@@ -21,7 +22,7 @@ use crate::AppState;
 const MAX_PROXY_TEST_CONCURRENCY: usize = 8;
 
 /// 代理测试结果
-#[derive(serde::Serialize, Clone)]
+#[derive(serde::Serialize, Clone, Type)]
 pub struct ProxyTestResult {
     pub proxy_id: i64,
     pub success: bool,
@@ -33,6 +34,7 @@ pub struct ProxyTestResult {
 /// 测试代理延迟（按下载代理类型，使用真实的下载地址拼接规则）
 /// 注意：不记录代理 URL，防止凭据泄露
 #[tauri::command]
+#[specta::specta]
 pub async fn test_proxy(_state: State<'_, AppState>, proxy_url: String) -> AppResult<i64> {
     debug!("正在测试代理延迟");
     let latency = proxy::test_proxy_by_type(
@@ -51,6 +53,7 @@ pub async fn test_proxy(_state: State<'_, AppState>, proxy_url: String) -> AppRe
 /// 批量测试代理
 /// 测试指定的代理列表或所有代理
 #[tauri::command]
+#[specta::specta]
 pub async fn test_proxies_batch(
     state: State<'_, AppState>,
     proxy_ids: Option<Vec<i64>>,
@@ -144,6 +147,7 @@ pub async fn test_proxies_batch(
 
 /// 单个测试代理
 #[tauri::command]
+#[specta::specta]
 pub async fn test_proxy_single(
     state: State<'_, AppState>,
     proxy_id: i64,

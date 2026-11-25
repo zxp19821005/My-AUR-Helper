@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Type)]
 #[serde(into = "i32", try_from = "i32")]
 pub enum PackageType {
     Compiled,

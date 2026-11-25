@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 /// 仪表盘统计结果
 /// 对应前端 DashboardStats 接口，一次 IPC 返回全部模块计数，
 /// 避免前端为统计而全量拉取各表数据（软件包/代理/License 等）。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct DashboardStats {
     /// 软件包总数
     pub pkg_total: i64,

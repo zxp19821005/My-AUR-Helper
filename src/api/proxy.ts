@@ -3,20 +3,21 @@
  *
  * 功能：
  * - 集中封装代理的增删改查、文件下载/解析、连通性测试等 Tauri 命令调用
- * - 组件与 composable 统一通过本模块访问后端，避免 invoke 命令字符串散落各处
+ * - 组件与 composable 统一通过本模块访问后端，命令经 tauri-specta bindings 编译期校验
+ * - ProxyType 枚举后端 serde 为首字母大写（Download）、前端用小写在 IPC 边界适配
  */
 
-import { invoke } from "@tauri-apps/api/core";
+import { commands } from "@/bindings";
 import type { ProxyInfo, ProxyTestResult, ProxyType } from "@/types";
 
 /** 列出全部代理 */
 export async function getProxies(): Promise<ProxyInfo[]> {
-  return await invoke<ProxyInfo[]>("get_proxies");
+  return await commands.getProxies() as unknown as ProxyInfo[];
 }
 
 /** 切换代理启用状态 */
 export async function setProxyActive(proxyId: number, isActive: boolean): Promise<void> {
-  await invoke("set_proxy_active", { proxyId, isActive });
+  await commands.setProxyActive(proxyId, isActive);
 }
 
 /** 更新代理信息（名称 / URL / 类型） */
@@ -26,35 +27,35 @@ export async function updateProxy(
   url: string,
   proxyType: ProxyType,
 ): Promise<void> {
-  await invoke("update_proxy", { proxyId, proxyName, url, proxyType });
+  await commands.updateProxy(proxyId, proxyName, url, proxyType);
 }
 
 /** 删除单个代理 */
 export async function deleteProxy(proxyId: number): Promise<void> {
-  await invoke("delete_proxy", { proxyId });
+  await commands.deleteProxy(proxyId);
 }
 
 /** 下载代理文件，返回新增条目数 */
 export async function downloadProxyFile(): Promise<number> {
-  return await invoke<number>("download_proxy_file");
+  return await commands.downloadProxyFile();
 }
 
 /** 解析代理文件，返回解析条目数 */
 export async function parseProxyFile(): Promise<number> {
-  return await invoke<number>("parse_proxy_file");
+  return await commands.parseProxyFile();
 }
 
 /** 清空代理相关表，返回清空条目数 */
 export async function clearProxyTables(): Promise<number> {
-  return await invoke<number>("clear_proxy_tables");
+  return await commands.clearProxyTables();
 }
 
 /** 批量测试代理连通性，返回测试结果列表 */
 export async function testProxiesBatch(proxyIds: number[] | null): Promise<ProxyTestResult[]> {
-  return await invoke<ProxyTestResult[]>("test_proxies_batch", { proxyIds });
+  return await commands.testProxiesBatch(proxyIds) as unknown as ProxyTestResult[];
 }
 
 /** 测试单个代理连通性，返回测试结果 */
 export async function testProxySingle(proxyId: number): Promise<ProxyTestResult> {
-  return await invoke<ProxyTestResult>("test_proxy_single", { proxyId });
+  return await commands.testProxySingle(proxyId) as unknown as ProxyTestResult;
 }

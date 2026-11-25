@@ -7,7 +7,7 @@
  * 调用链：listSoftwareUpdates → previewSoftwareUpdates（dry-run diff）
  *        → applySoftwareUpdates（用户确认后才执行写回）。
  */
-import { invoke } from "@tauri-apps/api/core";
+import { commands } from "@/bindings";
 import type {
   SoftwareUpdateApplyResult,
   SoftwareUpdateItem,
@@ -16,21 +16,19 @@ import type {
 
 /** 拉取全部软件包的更新状态（只读，含本地 PKGBUILD 实际版本） */
 export async function listSoftwareUpdates(): Promise<SoftwareUpdateItem[]> {
-  return await invoke<SoftwareUpdateItem[]>("list_software_updates");
+  return await commands.listSoftwareUpdates();
 }
 
 /** 预览一批包的 PKGBUILD 变更（dry-run，绝不写文件） */
 export async function previewSoftwareUpdates(
   pkgnames: string[]
 ): Promise<SoftwareUpdatePreview[]> {
-  return await invoke<SoftwareUpdatePreview[]>("preview_software_updates", { pkgnames });
+  return await commands.previewSoftwareUpdates(pkgnames);
 }
 
 /** 执行一批包的 PKGBUILD 写回；调用前必须先展示预览并取得用户确认 */
 export async function applySoftwareUpdates(
   pkgnames: string[]
 ): Promise<SoftwareUpdateApplyResult[]> {
-  return await invoke<SoftwareUpdateApplyResult[]>("apply_software_updates", {
-    pkgnames,
-  });
+  return await commands.applySoftwareUpdates(pkgnames);
 }

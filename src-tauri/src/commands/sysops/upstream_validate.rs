@@ -7,6 +7,7 @@
  * - 通过 Tauri 窗口事件报告验证进度
  * - 更新 upstream_info 表中的 upstream_url_status 字段
  */
+use specta::Type;
 use std::sync::Arc;
 use std::sync::OnceLock;
 use std::time::Duration;
@@ -18,7 +19,7 @@ use crate::models::UpstreamUrlStatus;
 use crate::AppState;
 
 /// 验证结果结构
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, Type)]
 pub struct ValidateResult {
     pub software_id: i64,
     pub pkgname: String,
@@ -101,6 +102,7 @@ async fn validate_single_url(
 /// - 通过窗口事件 "validate-upstream-progress" 报告进度
 /// - 并发数: 10，超时时间: 10 秒
 #[tauri::command]
+#[specta::specta]
 pub async fn validate_upstream_urls(
     state: State<'_, AppState>,
     app: tauri::AppHandle,

@@ -1,8 +1,9 @@
-use serde::{Deserialize, Serialize}; // serde 序列化/反序列化支持
+use serde::{Deserialize, Serialize};
+use specta::Type; // serde 序列化/反序列化支持
 
 /// 备份软件包信息
 /// 对应数据库 backup_software 表
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct BackupSoftware {
     /// 备份记录 ID，数据库自增主键
     pub id: Option<i64>,

@@ -5,11 +5,12 @@
  * 所有模块统一使用 AppResult<T> 作为返回类型
  */
 use serde::Serialize;
+use specta::Type;
 use thiserror::Error;
 
 /// 应用统一错误类型
 /// 每个变体对应一类业务错误，序列化后前端可据 code 字段分类处理
-#[derive(Error, Debug, Serialize)]
+#[derive(Error, Debug, Serialize, Type)]
 #[serde(tag = "type", content = "message")]
 pub enum AppError {
     /// 数据库文件不存在

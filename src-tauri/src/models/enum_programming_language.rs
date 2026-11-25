@@ -1,8 +1,9 @@
-use serde::{Deserialize, Serialize}; // serde 序列化/反序列化支持
+use serde::{Deserialize, Serialize};
+use specta::Type; // serde 序列化/反序列化支持
 
 /// 编程语言信息
 /// 对应数据库 enum_programming_languages 表
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct EnumProgrammingLanguage {
     /// 语言 ID，数据库自增主键
     pub id: Option<i64>,
