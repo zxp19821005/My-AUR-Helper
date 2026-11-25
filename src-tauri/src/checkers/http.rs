@@ -5,6 +5,7 @@
  * 适用于上游以网页形式发布版本信息的场景。
  * 网络错误会自动重试（指数退避）。
  */
+use crate::checkers::helpers::{finish_check, MissingVersionLog};
 use crate::errors::AppResult;
 use crate::network::retry::{retry_with_backoff, DEFAULT_MAX_RETRIES};
 use async_trait::async_trait;
@@ -14,6 +15,7 @@ use reqwest::Client;
 use super::trait_def::{CheckOptions, CheckResult, VersionChecker};
 use super::utils::{
     extract_version_from_html, extract_version_from_url, extract_version_with_regex,
+    normalize_extracted_version,
 };
 
 pub struct HttpChecker;
@@ -79,7 +81,7 @@ impl VersionChecker for HttpChecker {
         // 注意：resp 已消费，通过 text() 获取 body
         let final_url = upstream_url.to_string();
 
-        let version = if let Some(regex) = version_extract_regex {
+        let raw = if let Some(regex) = version_extract_regex {
             match extract_version_with_regex(&body, regex) {
                 Some(ver) => Some(ver),
                 None => extract_version_from_html(&body),
@@ -89,16 +91,19 @@ impl VersionChecker for HttpChecker {
         };
 
         // 兜底：版本可能写在重定向/文件下载 URL 里
-        let version = version.or_else(|| extract_version_from_url(&final_url));
+        let raw = raw.or_else(|| extract_version_from_url(&final_url));
 
-        if let Some(v) = &version {
-            info!("[版本检查] 检查完成: {} -> 上游版本={}", pkgname, v);
-        } else {
-            debug!("[版本检查] 检查完成: {} -> 未找到上游版本", pkgname);
-        }
-        Ok(CheckResult {
+        // 归一化：剥离文件扩展名/架构后缀/应用名前缀，保证无捕获组的正则
+        // （如 `helio-\d\.\d+-x64.deb`）也能得到干净版本号 `3.18`，而非整段匹配
+        // `helio-3.18-x64.deb` 泄漏进上游版本造成误报。
+        let version = raw.map(|v| normalize_extracted_version(&v));
+
+        Ok(finish_check(
+            pkgname,
             version,
-            ..Default::default()
-        })
+            None,
+            vec![],
+            MissingVersionLog::Debug,
+        ))
     }
 }

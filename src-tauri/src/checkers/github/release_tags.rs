@@ -143,10 +143,7 @@ async fn verify_tag_assets(
     asset_regex: Option<&str>,
     pkgname: &str,
 ) -> Option<String> {
-    let release_url = format!(
-        "https://api.github.com/repos/{}/{}/releases/tags/{}",
-        owner, repo, tag
-    );
+    let release_url = crate::checkers::github::api_urls::release_tag_url(owner, repo, tag);
     let data = match build_github_request(client, &release_url, token)
         .send()
         .await

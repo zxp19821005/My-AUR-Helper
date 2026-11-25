@@ -30,6 +30,7 @@ use crate::AppState;
 /// # 返回
 /// - `Ok(n)`：成功写入缓存的仓库数量
 #[tauri::command]
+#[specta::specta]
 pub async fn preload_github_tag_cache(
     state: State<'_, AppState>,
     owner: Option<String>,

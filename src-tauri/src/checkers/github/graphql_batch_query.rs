@@ -63,7 +63,7 @@ pub async fn query_chunk(
 ) -> Option<HashMap<String, Value>> {
     let body = serde_json::json!({ "query": build_query(repos) });
     let mut req = client
-        .post("https://api.github.com/graphql")
+        .post(crate::checkers::github::api_urls::graphql_url())
         .header("User-Agent", "my-aur-helper/0.1")
         .header("Accept", "application/vnd.github+json")
         .json(&body);

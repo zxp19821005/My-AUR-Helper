@@ -46,6 +46,7 @@ pub fn apply_upstream_check_result(
 
 /// 检查选中的软件包上游版本
 #[tauri::command]
+#[specta::specta]
 pub async fn check_selected_upstream(
     state: State<'_, AppState>,
     pkgname_list: Vec<String>,

@@ -62,53 +62,38 @@ fn get_env_proxy() -> Option<String> {
         .or_else(|| std::env::var("all_proxy").ok().filter(|v| !v.is_empty()))
 }
 
+/// 读取单个 gsettings 键值（文件内私有 helper）。
+///
+/// 子进程启动失败或返回非零退出码时返回 None；成功时返回去首尾空白的原始字符串，
+/// 单引号剥离与数值解析仍交由调用方处理，保持与抽取前逐项等价。
+fn gsettings_get(schema: &str, key: &str) -> Option<String> {
+    let output = std::process::Command::new("gsettings")
+        .args(["get", schema, key])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
 /// 获取 GNOME/KDE 系统代理设置
 ///
 /// 通过 gsettings 读取 GNOME 系统代理配置，
 /// KDE 桌面环境下 gsettings 同样可用（使用 glib-networking）。
 fn get_desktop_proxy() -> Option<String> {
-    let mode = std::process::Command::new("gsettings")
-        .args(["get", "org.gnome.system.proxy", "mode"])
-        .output()
-        .ok()
-        .and_then(|o| {
-            if o.status.success() {
-                let s = String::from_utf8_lossy(&o.stdout).trim().to_string();
-                Some(s)
-            } else {
-                None
-            }
-        })?;
+    let mode = gsettings_get("org.gnome.system.proxy", "mode")?;
     if mode != "'manual'" {
         return None;
     }
-    let host = std::process::Command::new("gsettings")
-        .args(["get", "org.gnome.system.proxy.http", "host"])
-        .output()
-        .ok()
-        .and_then(|o| {
-            if o.status.success() {
-                let s = String::from_utf8_lossy(&o.stdout)
-                    .trim()
-                    .trim_matches('\'')
-                    .to_string();
-                (!s.is_empty()).then_some(s)
-            } else {
-                None
-            }
-        })?;
-    let port = std::process::Command::new("gsettings")
-        .args(["get", "org.gnome.system.proxy.http", "port"])
-        .output()
-        .ok()
-        .and_then(|o| {
-            if o.status.success() {
-                let s = String::from_utf8_lossy(&o.stdout).trim().to_string();
-                s.parse::<u16>().ok()
-            } else {
-                None
-            }
-        })?;
+    let host_raw = gsettings_get("org.gnome.system.proxy.http", "host")?;
+    let host = host_raw.trim_matches('\'');
+    if host.is_empty() {
+        return None;
+    }
+    let port = gsettings_get("org.gnome.system.proxy.http", "port")?
+        .parse::<u16>()
+        .ok()?;
     Some(format!("http://{}:{}", host, port))
 }
 

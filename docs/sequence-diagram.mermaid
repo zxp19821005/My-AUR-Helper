@@ -1,31 +1,23 @@
 sequenceDiagram
-    participant User as 用户
-    participant PackageList as PackageList.vue
-    participant ViewToggle as PackageListViewToggle.vue
-    participant PackageTable as PackageTable.vue
-    participant PackageGrid as PackageGrid.vue
-    participant API as softwareApi
+    participant UI as Vue 组件
+    participant API as src/api/cache.ts
+    participant CMD as cache_install.rs
+    participant SYS as system_cmd.rs
+    participant SUDO as sudoers.rs
+    participant LOCK as pacman_lock.rs
+    participant DB as db/mod.rs
 
-    User->>PackageList: 打开软件包列表页面
-    PackageList->>API: fetchView() 加载软件包数据
-    API-->>PackageList: 返回 SoftwareListEntry[]
-
-    alt 表格视图 (viewMode = 'table')
-        PackageList->>PackageTable: 渲染表格
-        PackageTable->>PackageTable: 使用 StandardizedTable 渲染列
-    else 网格视图 (viewMode = 'grid')
-        PackageList->>PackageGrid: 渲染网格
-        PackageGrid->>PackageGrid: 渲染 PackageCard 卡片
-    end
-
-    User->>ViewToggle: 点击切换视图按钮
-    ViewToggle->>PackageList: emit change (table/grid)
-    PackageList->>PackageList: 更新 viewMode ref
-    PackageList->>PackageList: 持久化到 settings.software_view_mode
-
-    User->>PackageList: 点击列配置按钮
-    PackageList->>ColumnConfigPopover: 打开列配置弹窗
-    ColumnConfigPopover->>ColumnConfigPopover: 显示可勾选列列表
-    User->>ColumnConfigPopover: 勾选/取消勾选列
-    ColumnConfigPopover->>PackageList: emit column-change
-    PackageList->>PackageList: 持久化到 settings.column_visibility_software
+    UI->>API: installCachePackage(fullPath)
+    API->>CMD: commands.installCachePackage(fullPath)
+    CMD->>DB: lock_db(&state.db)
+    DB-->>CMD: MutexGuard<Database>
+    CMD->>CMD: cache_allowed_roots(&db)
+    CMD->>CMD: validate_package_path(fullPath, roots)
+    CMD->>SYS: install_package_locked(safe_path, "[缓存管理]")
+    SYS->>LOCK: with_pacman_write_lock(future)
+    LOCK-->>SYS: 获得写锁
+    SYS->>SYS: sudo pacman -U --noconfirm safe_path
+    SYS-->>CMD: AppResult<String>
+    CMD-->>API: String（成功）/ AppError（失败）
+    API-->>UI: Promise<String>
+    Note over UI,DB: sudoers 命令生成侧：CMD -> SUDO: build_sudoers_append_command(rule, line)<br/>用户名来自 SYS.current_username()，三处命令共用同一模板

@@ -14,6 +14,9 @@
 //! - 每个子文件负责单一功能，保持代码可维护性
 //! - 所有文件严格控制在 300 行以内
 
+/// GitHub REST / GraphQL API URL 集中构造（域名唯一硬编码落点）
+pub(crate) mod api_urls;
+
 /// GitHub Tags 分页获取和版本比较逻辑
 mod tags;
 

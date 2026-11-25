@@ -9,6 +9,7 @@
  *
  * 依赖：本机需安装 Chromium 或 Google Chrome，否则 check() 返回明确的错误提示
  */
+use crate::checkers::helpers::{finish_check, MissingVersionLog};
 use crate::errors::{AppError, AppResult};
 use async_trait::async_trait;
 use log::{debug, info, warn};
@@ -18,7 +19,9 @@ use std::time::Duration;
 use tokio::process::Command;
 
 use super::trait_def::{CheckOptions, CheckResult, VersionChecker};
-use super::utils::{extract_version_from_html, extract_version_with_regex};
+use super::utils::{
+    extract_version_from_html, extract_version_with_regex, normalize_extracted_version,
+};
 
 /// HTML→纯文本使用的正则集合（懒加载，编译一次后全局复用）
 ///
@@ -202,21 +205,22 @@ impl VersionChecker for BrowserChecker {
             text.chars().take(200).collect::<String>()
         );
 
-        let version = match version_extract_regex {
+        let raw = match version_extract_regex {
             Some(regex) => extract_version_with_regex(&text, regex)
                 .or_else(|| extract_version_from_html(&text)),
             None => extract_version_from_html(&text),
         };
+        // 归一化：剥离文件扩展名/架构后缀/应用名前缀，保证无捕获组的正则
+        // 也能得到干净版本号（避免 app 名前缀与 .deb/x64 等后缀泄漏）。
+        let version = raw.map(|v| normalize_extracted_version(&v));
 
-        if let Some(v) = &version {
-            info!("[版本检查] 检查完成: {} -> 上游版本={}", pkgname, v);
-        } else {
-            debug!("[版本检查] 检查完成: {} -> 未找到上游版本", pkgname);
-        }
-        Ok(CheckResult {
+        Ok(finish_check(
+            pkgname,
             version,
-            ..Default::default()
-        })
+            None,
+            vec![],
+            MissingVersionLog::Debug,
+        ))
     }
 }
 

@@ -28,6 +28,7 @@ mod enum_licenses;
 mod enum_programming_languages;
 pub(crate) mod github_tag_cache;
 mod github_tag_cache_extend; // GitHub tags 缓存增量校验（check_and_extend_cache）
+mod lock; // 数据库锁统一获取（lock_db）
 mod migration_aur;
 mod migration_backup;
 mod migration_cache;
@@ -43,11 +44,15 @@ mod schema;
 mod seed;
 mod settings;
 mod software_info;
+mod software_info_sync; // 按维护者 AUR 同步的 software_info 写入（存在更新/不存在新建，均不改上游地址）
 mod software_update;
 mod stats;
 mod upstream_info;
 
 #[cfg(test)]
-mod tests_cache_backup;
+mod tests_aur_sync;
+#[cfg(test)]
+mod tests_cache_backup; // 按维护者 AUR 同步的写入行为测试
 
 pub use connection::Database;
+pub use lock::lock_db;

@@ -42,6 +42,7 @@ fn format_backup_version(entry: &crate::models::BackupSoftwareEntry) -> String {
 ///
 /// 安全修复 (R1): 在写入前校验 backup_path 是否落在允许的备份根目录下，防止路径穿越
 #[tauri::command]
+#[specta::specta]
 pub async fn backup_cache_to_existing(
     state: State<'_, AppState>,
     backup_path: String,

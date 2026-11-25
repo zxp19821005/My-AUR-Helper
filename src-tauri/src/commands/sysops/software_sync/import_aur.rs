@@ -28,6 +28,7 @@ use crate::AppState;
 /// # 返回
 /// - `Ok(Vec<serde_json::Value>)`: 匹配的 AUR 包列表
 #[tauri::command]
+#[specta::specta]
 pub async fn search_aur_packages(
     state: State<'_, AppState>,
     search_keyword: String,
@@ -57,6 +58,7 @@ pub async fn search_aur_packages(
 /// # 返回
 /// - `Ok(software_id)`: 成功导入的软件包 ID
 #[tauri::command]
+#[specta::specta]
 pub async fn import_aur_package(
     state: State<'_, AppState>,
     pkgname: String,

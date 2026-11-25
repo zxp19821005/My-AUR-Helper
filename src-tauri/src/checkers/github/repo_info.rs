@@ -29,7 +29,7 @@ pub async fn fetch_github_repo_license(
     repo: &str,
     token: Option<&str>,
 ) -> AppResult<Option<String>> {
-    let api_url = format!("https://api.github.com/repos/{}/{}/license", owner, repo);
+    let api_url = crate::checkers::github::api_urls::license_url(owner, repo);
 
     let resp = build_github_request(client, &api_url, token).send().await?;
     if !resp.status().is_success() {
@@ -71,7 +71,7 @@ pub async fn fetch_github_repo_languages(
     repo: &str,
     token: Option<&str>,
 ) -> AppResult<Vec<String>> {
-    let api_url = format!("https://api.github.com/repos/{}/{}/languages", owner, repo);
+    let api_url = crate::checkers::github::api_urls::languages_url(owner, repo);
 
     let resp = build_github_request(client, &api_url, token).send().await?;
     if !resp.status().is_success() {

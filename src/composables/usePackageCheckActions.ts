@@ -1,35 +1,15 @@
 /**
- * packageCheckActions.ts - 软件包版本检查操作逻辑
+ * usePackageCheckActions.ts - 软件包版本检查操作逻辑
  *
  * 功能：
  * - 提供版本检查操作
  * - 支持批量检查和单行检查
  */
 import { ref, inject } from "vue";
-import { FOOTER_KEY, addMessage } from "./footer";
+import { FOOTER_KEY } from "./footer";
+import { formatErrorMessage } from "@/utils/errors";
+import { showActionError } from "./useToast";
 import * as softwareApi from "@/api/software";
-
-/** 判断错误是否为网络相关错误 */
-function isNetworkError(e: unknown): boolean {
-  const msg = String(e).toLowerCase();
-  return (
-    msg.includes("网络") ||
-    msg.includes("timeout") ||
-    msg.includes("连接") ||
-    msg.includes("connect") ||
-    msg.includes("fetch") ||
-    msg.includes("request failed")
-  );
-}
-
-/** 格式化错误提示信息 */
-function formatErrorMessage(e: unknown, context: string): string {
-  const msg = String(e);
-  if (isNetworkError(e)) {
-    return `${context}：网络异常，请检查网络连接后重试。${msg.length > 60 ? "（详情见日志）" : ""}`;
-  }
-  return `${context}失败：${msg}`;
-}
 
 export interface CheckActionsReturn {
   loading: import("vue").Ref<boolean>;
@@ -56,32 +36,38 @@ export function usePackageCheckActions(
   /** 检查操作进行中状态（用于工具栏按钮 disabled） */
   const loading = ref(false);
 
-  /** 显示错误信息（记录到日志面板） */
-  function showError(msg: string) {
-    addMessage(footer, "error", msg);
-  }
-
   async function checkSelectedUpstream(selectedPkgnames: Set<string>) {
     loading.value = true;
     try {
       const list = Array.from(selectedPkgnames);
       if (list.length) {
+        // 逐包检查：真实计数进度；检查涉及 GitHub/AUR 网络，期间界面保持可用
+        let done = 0;
         for (const pkgname of list) {
+          footer.progress = {
+            current: done,
+            total: list.length,
+            message: `检查上游：${pkgname}`,
+          };
           try {
             await softwareApi.checkSelectedUpstream([pkgname]);
             await refreshEntries([pkgname]);
           } catch (e) {
-            showError(formatErrorMessage(e, `${pkgname} 上游检查`));
+            showActionError(formatErrorMessage(e, `${pkgname} 上游检查`));
           }
+          done++;
         }
-        await refreshEntries(list);
+        footer.progress = { current: done, total: list.length, message: "上游检查完成" };
       } else {
+        footer.progress = { current: 0, total: 1, message: "正在全量检查上游（可能需要一些时间）…" };
         await softwareApi.checkAllUpstream();
         await refreshEntries([]);
+        footer.progress = { current: 1, total: 1, message: "上游检查完成" };
       }
     } catch (e) {
-      showError(formatErrorMessage(e, "上游检查"));
+      showActionError(formatErrorMessage(e, "上游检查"));
     } finally {
+      footer.progress = null;
       loading.value = false;
       syncToolbar();
     }
@@ -94,7 +80,7 @@ export function usePackageCheckActions(
       await softwareApi.checkSelectedUpstream([pkgname]);
       await refreshEntries([pkgname]);
     } catch (e) {
-      showError(formatErrorMessage(e, `${pkgname} 上游检查`));
+      showActionError(formatErrorMessage(e, `${pkgname} 上游检查`));
     } finally {
       loading.value = false;
       clearRowLoading(pkgname, 'check-upstream');

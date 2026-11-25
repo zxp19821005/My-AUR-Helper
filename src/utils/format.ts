@@ -9,7 +9,15 @@
  */
 
 /**
- * 格式化 Unix 时间戳为日期字符串
+ * 格式化 Unix 时间戳为本地化日期字符串（zh-CN，形如 "2024/01/15"）
+ *
+ * 与 fmtTimestamp 的区别（命名相近但语义不同，切勿混用）：
+ * - 本函数：toLocaleDateString 输出本地化「完整日期」，空值返回 "—"（em dash），
+ *   接受 null / undefined，适合详情类展示。
+ * - fmtTimestamp：输出定长 "YYYY-MM-DD" 纯日期，空值返回 "-"，仅接受 number | null，
+ *   适合表格 / 卡片中需要定长对齐的场景。
+ * 另注：PackageAurInfoCard / PackageUpstreamInfoCard 内各自本地定义的 fmtTimestamp
+ * 会输出「含时分的完整日期时间」，与本文件两个函数均不等价，故保留未合并。
  *
  * @param ts Unix 时间戳（秒）
  * @returns 格式化后的日期字符串，空值返回 "—"

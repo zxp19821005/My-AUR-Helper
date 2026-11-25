@@ -19,6 +19,7 @@ use crate::AppState;
 ///
 /// 安全修复 (R1): 在写入前校验 backup_path 和 subdirectory，防止路径穿越
 #[tauri::command]
+#[specta::specta]
 pub async fn backup_cache_to_subdirectory(
     state: State<'_, AppState>,
     filenames: Vec<String>,

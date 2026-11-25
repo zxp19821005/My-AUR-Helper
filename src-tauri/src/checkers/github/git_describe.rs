@@ -50,10 +50,7 @@ pub async fn check_github_git_describe(
     pkgname: &str,
 ) -> AppResult<Option<String>> {
     // 1. 获取最新的 tag
-    let tags_url = format!(
-        "https://api.github.com/repos/{}/{}/tags?per_page=1",
-        owner, repo
-    );
+    let tags_url = crate::checkers::github::api_urls::tags_first_url(owner, repo, 1);
     let mut tags_req = client
         .get(&tags_url)
         .header("User-Agent", "my-aur-helper/0.1")
@@ -74,7 +71,7 @@ pub async fn check_github_git_describe(
     };
 
     // 2. 获取默认分支的最新 commit
-    let repo_url = format!("https://api.github.com/repos/{}/{}", owner, repo);
+    let repo_url = crate::checkers::github::api_urls::repo_url(owner, repo);
     let mut repo_req = client
         .get(&repo_url)
         .header("User-Agent", "my-aur-helper/0.1")
@@ -94,10 +91,7 @@ pub async fn check_github_git_describe(
         "main".to_string()
     };
 
-    let commits_url = format!(
-        "https://api.github.com/repos/{}/{}/commits?sha={}&per_page=1",
-        owner, repo, default_branch
-    );
+    let commits_url = crate::checkers::github::api_urls::commits_url(owner, repo, &default_branch);
     let mut commits_req = client
         .get(&commits_url)
         .header("User-Agent", "my-aur-helper/0.1")
@@ -172,10 +166,7 @@ async fn get_commit_count_since_tag(
     branch: &str,
 ) -> Option<usize> {
     // 先获取 tag 对应的 commit SHA
-    let tags_url = format!(
-        "https://api.github.com/repos/{}/{}/tags?per_page=100",
-        owner, repo
-    );
+    let tags_url = crate::checkers::github::api_urls::tags_first_url(owner, repo, 100);
     let tags_resp = client
         .get(&tags_url)
         .header("User-Agent", "my-aur-helper/0.1")
@@ -190,10 +181,8 @@ async fn get_commit_count_since_tag(
         .and_then(|t| t["commit"]["sha"].as_str())?;
 
     // 通过 Compare API 获取 commit 差异
-    let compare_url = format!(
-        "https://api.github.com/repos/{}/{}/compare/{}...{}",
-        owner, repo, tag_commit, branch
-    );
+    let compare_url =
+        crate::checkers::github::api_urls::compare_url(owner, repo, tag_commit, branch);
     let compare_resp = client
         .get(&compare_url)
         .header("User-Agent", "my-aur-helper/0.1")
@@ -228,10 +217,7 @@ async fn get_total_commit_count(
     repo: &str,
     branch: &str,
 ) -> Option<usize> {
-    let commits_url = format!(
-        "https://api.github.com/repos/{}/{}/commits?sha={}&per_page=1",
-        owner, repo, branch
-    );
+    let commits_url = crate::checkers::github::api_urls::commits_url(owner, repo, branch);
 
     let resp = client
         .get(&commits_url)

@@ -16,6 +16,7 @@ use crate::AppState;
 /// 内部已包含 GitHub 仓库级缓存校验（命中则不发起任何网络请求）、
 /// 批量并行检查、检查成功后的缓存写盘与结果入库。
 #[tauri::command]
+#[specta::specta]
 pub async fn check_upstream_version(
     state: State<'_, AppState>,
     pkgname: String,

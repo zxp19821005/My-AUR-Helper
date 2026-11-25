@@ -16,6 +16,7 @@ use crate::AppState;
 
 /// 列出所有备份记录（含软件包名称）
 #[tauri::command]
+#[specta::specta]
 pub async fn list_backup_software(
     state: State<'_, AppState>,
 ) -> AppResult<Vec<BackupSoftwareEntry>> {
@@ -28,6 +29,7 @@ pub async fn list_backup_software(
 
 /// 清空备份表
 #[tauri::command]
+#[specta::specta]
 pub async fn clear_backup_software(state: State<'_, AppState>) -> AppResult<usize> {
     let db = state
         .db
@@ -40,6 +42,7 @@ pub async fn clear_backup_software(state: State<'_, AppState>) -> AppResult<usiz
 
 /// 删除单个备份记录（及对应文件）
 #[tauri::command]
+#[specta::specta]
 pub async fn delete_backup(
     state: State<'_, AppState>,
     id: i64,

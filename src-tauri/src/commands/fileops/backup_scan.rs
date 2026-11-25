@@ -48,6 +48,7 @@ async fn scan_directory_recursive(
 /// 安全修复 (R8): 路径必须与数据库配置的备份目录之一规范后匹配，
 /// 防止任意目录递归扫描。
 #[tauri::command]
+#[specta::specta]
 pub async fn scan_backup_directory(
     state: State<'_, AppState>,
     backup_path: String,
@@ -168,6 +169,7 @@ pub async fn scan_backup_directory(
 
 /// 获取所有不重复的子目录列表
 #[tauri::command]
+#[specta::specta]
 pub async fn list_backup_subdirectories(state: State<'_, AppState>) -> AppResult<Vec<String>> {
     let db = state
         .db

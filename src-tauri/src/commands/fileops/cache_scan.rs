@@ -18,6 +18,7 @@ use crate::AppState;
 ///
 /// @returns 删除的记录数
 #[tauri::command]
+#[specta::specta]
 pub fn clear_cache_software(state: State<'_, AppState>) -> AppResult<usize> {
     log::info!("[缓存管理] 清空 cache_software 表");
     let db = state
@@ -35,6 +36,7 @@ pub fn clear_cache_software(state: State<'_, AppState>) -> AppResult<usize> {
 ///
 /// @returns 缓存记录列表（包含解析后的包名）
 #[tauri::command]
+#[specta::specta]
 pub fn list_cache_software(state: State<'_, AppState>) -> AppResult<Vec<CacheSoftwareEntry>> {
     log::debug!("[缓存管理] 从 cache_software 表读取所有记录");
     let db = state
@@ -58,6 +60,7 @@ pub fn list_cache_software(state: State<'_, AppState>) -> AppResult<Vec<CacheSof
 /// 4. 将扫描结果写入 cache_software 表
 /// 5. 返回扫描结果列表
 #[tauri::command]
+#[specta::specta]
 pub async fn scan_all_cache_dirs(
     state: State<'_, AppState>,
 ) -> AppResult<Vec<super::scan::PkgFileInfo>> {

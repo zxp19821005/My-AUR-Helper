@@ -21,6 +21,7 @@ use reqwest::Client;
 use crate::checkers::github::git_describe::check_github_git_describe;
 use crate::checkers::github::repo_info::fetch_github_repo_languages;
 use crate::checkers::github::tags::check_github_tags;
+use crate::checkers::helpers::{finish_check, MissingVersionLog};
 use crate::checkers::trait_def::{CheckOptions, CheckResult, VersionChecker};
 use crate::checkers::utils::extract_owner_repo;
 use crate::errors::AppResult;
@@ -103,16 +104,13 @@ impl VersionChecker for GitHubTagsChecker {
             let version =
                 check_github_git_describe(client, &owner, &repo, self.token.as_deref(), pkgname)
                     .await?;
-            if let Some(v) = &version {
-                info!("[版本检查] 检查完成: {} -> 上游版本={}", pkgname, v);
-            } else {
-                debug!("[版本检查] 检查完成: {} -> 未找到上游版本", pkgname);
-            }
-            return Ok(CheckResult {
+            return Ok(finish_check(
+                pkgname,
                 version,
-                license: None,
+                None,
                 language_names,
-            });
+                MissingVersionLog::Debug,
+            ));
         }
 
         let version = check_github_tags(
@@ -124,15 +122,12 @@ impl VersionChecker for GitHubTagsChecker {
             options.check_test_versions,
         )
         .await?;
-        if let Some(v) = &version {
-            info!("[版本检查] 检查完成: {} -> 上游版本={}", pkgname, v);
-        } else {
-            debug!("[版本检查] 检查完成: {} -> 未找到上游版本", pkgname);
-        }
-        Ok(CheckResult {
+        Ok(finish_check(
+            pkgname,
             version,
-            license: None,
+            None,
             language_names,
-        })
+            MissingVersionLog::Debug,
+        ))
     }
 }

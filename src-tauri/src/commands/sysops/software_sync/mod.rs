@@ -16,6 +16,10 @@
 /// AUR 信息同步和更新命令
 pub mod aur;
 
+/// 按 AUR 维护者用户名批量同步软件包（存在则更新非上游字段，不存在则新建）
+pub mod maintainer_sync;
+pub use maintainer_sync::sync_packages_by_maintainer;
+
 /// 从 AUR 搜索并导入新软件包
 pub mod import_aur;
 pub use import_aur::{import_aur_package, search_aur_packages};

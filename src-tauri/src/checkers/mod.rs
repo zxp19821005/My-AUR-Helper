@@ -14,6 +14,8 @@ mod factory;
 mod gitee;
 pub mod github;
 mod gitlab;
+/// 检查结果构造与「检查完成」日志公共封装
+mod helpers;
 mod http;
 mod manual;
 mod redirect;

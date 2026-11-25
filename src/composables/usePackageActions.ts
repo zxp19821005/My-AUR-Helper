@@ -1,25 +1,21 @@
 /**
- * packageActions.ts - 软件包操作逻辑（组合版）
+ * usePackageActions.ts - 软件包操作逻辑（组合版）
  *
  * 功能：
  * - 组合同步、检查、删除等操作
  * - 提供统一的加载状态管理
  *
  * 子模块：
- * - packageSyncActions: 同步操作
- * - packageCheckActions: 版本检查操作
- * - packageDeleteActions: 删除操作
+ * - usePackageSyncActions: 同步操作
+ * - usePackageCheckActions: 版本检查操作
+ * - usePackageDeleteActions: 删除操作
  */
-import { ref } from "vue";
-import { usePackageSyncActions } from "./packageSyncActions";
-import { usePackageCheckActions } from "./packageCheckActions";
-import { usePackageDeleteActions } from "./packageDeleteActions";
+import { computed, ref } from "vue";
+import { usePackageSyncActions, type PackageBatchStats } from "./usePackageSyncActions";
+import { usePackageCheckActions } from "./usePackageCheckActions";
+import { usePackageDeleteActions } from "./usePackageDeleteActions";
 
-export interface PackageBatchStats {
-  success: number;
-  failed: number;
-  total: number;
-}
+export type { PackageBatchStats } from "./usePackageSyncActions";
 
 /**
  * 软件包操作钩子（组合版）
@@ -32,15 +28,19 @@ export function usePackageActions(
   refreshEntries: (pkgnames: string[]) => Promise<void>,
   syncToolbar: () => void
 ) {
-  // 全局加载状态（用于工具栏批量操作）
-  const loading = ref(false);
-  // 批量操作统计
+  // 批量操作统计（由 syncActions 更新，PackageList 顶部进度条消费）
   const batchStats = ref<PackageBatchStats>({ success: 0, failed: 0, total: 0 });
 
   // 组合各操作模块
-  const syncActions = usePackageSyncActions(fetchView, refreshEntries, syncToolbar);
+  const syncActions = usePackageSyncActions(fetchView, refreshEntries, syncToolbar, batchStats);
   const checkActions = usePackageCheckActions(refreshEntries, syncToolbar, syncActions.setRowLoading, syncActions.clearRowLoading);
   const deleteActions = usePackageDeleteActions(refreshEntries, syncToolbar);
+
+  // 工具栏按钮禁用态：任一同步/检查操作进行中即禁用同类按钮，防止重复提交。
+  // 注意这只是按钮级 guard，界面其余部分保持可用（长任务进度走 footer 局部进度条）。
+  const loading = computed(
+    () => syncActions.loading.value || checkActions.loading.value
+  );
 
   return {
     // 加载状态
@@ -51,6 +51,7 @@ export function usePackageActions(
     clearRowLoading: syncActions.clearRowLoading,
     // 同步操作
     syncFromAur: syncActions.syncFromAur,
+    syncByMaintainer: syncActions.syncByMaintainer,
     syncFromPkgbuild: syncActions.syncFromPkgbuild,
     updateAurInfo: syncActions.updateAurInfo,
     rowSyncFromAur: syncActions.rowSyncFromAur,

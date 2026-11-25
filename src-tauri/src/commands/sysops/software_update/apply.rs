@@ -120,6 +120,7 @@ fn preview_from_error(pkgname: &str, err: &AppError) -> SoftwareUpdatePreview {
 /// # 返回
 /// - `Vec<SoftwareUpdatePreview>`: 与入参同序；不可预览的条目带 `error`
 #[tauri::command]
+#[specta::specta]
 pub async fn preview_software_updates(
     state: State<'_, AppState>,
     pkgnames: Vec<String>,
@@ -143,6 +144,7 @@ pub async fn preview_software_updates(
 /// # 返回
 /// - `Vec<SoftwareUpdateApplyResult>`: 与入参同序的逐包结果，含备份路径
 #[tauri::command]
+#[specta::specta]
 pub async fn apply_software_updates(
     state: State<'_, AppState>,
     pkgnames: Vec<String>,

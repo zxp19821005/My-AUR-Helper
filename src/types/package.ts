@@ -143,3 +143,17 @@ export interface AurSearchResult {
   MakeDepends?: string[];
   OptDepends?: string[];
 }
+
+/** 按 AUR 维护者批量同步的结果统计 */
+export interface MaintainerSyncResult {
+  /** AUR 上 search 返回的去重包名总数 */
+  aur_total: number;
+  /** 本地新建的包数量 */
+  created: number;
+  /** 本地已存在并更新的包数量 */
+  updated: number;
+  /** 写入失败的数量 */
+  failed: number;
+  /** 未能补全完整字段的包名（可能已失效或从 AUR 删除） */
+  missing_detail: string[];
+}

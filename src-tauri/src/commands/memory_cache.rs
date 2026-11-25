@@ -13,6 +13,7 @@ use crate::AppState;
 
 /// 获取内存缓存运行状态（配置 + 各域状态）
 #[tauri::command]
+#[specta::specta]
 pub async fn get_memory_cache_stats(state: State<'_, AppState>) -> AppResult<MemoryCacheStats> {
     debug!("正在获取内存缓存状态");
     let cache = state.memory_cache.lock()?;
@@ -29,6 +30,7 @@ pub async fn get_memory_cache_stats(state: State<'_, AppState>) -> AppResult<Mem
 /// 立即将脏缓存写盘
 /// @returns 实际写入的缓存域数量
 #[tauri::command]
+#[specta::specta]
 pub async fn flush_memory_cache(state: State<'_, AppState>) -> AppResult<usize> {
     info!("正在立即写盘内存缓存");
     let mut cache = state.memory_cache.lock()?;
@@ -39,6 +41,7 @@ pub async fn flush_memory_cache(state: State<'_, AppState>) -> AppResult<usize> 
 
 /// 清空内存缓存与磁盘缓存文件
 #[tauri::command]
+#[specta::specta]
 pub async fn clear_memory_cache(state: State<'_, AppState>) -> AppResult<()> {
     info!("正在清空内存缓存");
     let mut cache = state.memory_cache.lock()?;

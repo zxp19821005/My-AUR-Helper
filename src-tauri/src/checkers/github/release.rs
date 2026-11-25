@@ -61,10 +61,7 @@ pub async fn check_github_release_latest(
     check_binary_files: bool,
     pkgname: &str,
 ) -> AppResult<Option<String>> {
-    let api_url = format!(
-        "https://api.github.com/repos/{}/{}/releases/latest",
-        owner, repo
-    );
+    let api_url = crate::checkers::github::api_urls::latest_release_url(owner, repo);
 
     let resp = build_github_request(client, &api_url, token).send().await?;
     if !resp.status().is_success() {

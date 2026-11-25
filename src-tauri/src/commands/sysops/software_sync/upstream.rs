@@ -31,6 +31,7 @@ use crate::AppState;
 
 /// 并行检查上游版本
 #[tauri::command]
+#[specta::specta]
 pub async fn check_all_upstream(state: State<'_, AppState>) -> AppResult<Vec<(String, String)>> {
     info!("正在检查所有软件包的上游版本");
     let (packages, settings, timeout, retry) = {

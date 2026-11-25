@@ -250,6 +250,20 @@ mod tests {
     }
 
     #[test]
+    fn aur_update_to_match_upstream_clears_outdated() {
+        // 用户在 AUR 发布 3.0.9 后，aur_version=3.0.9-1，上游检查已得到 3.0.9。
+        // vercmp 判定 AUR（含 pkgrel）不低于上游，且未标记 out-of-date，应判为无需更新。
+        // 对应 bug：AUR 同步只写 aur_info，不重算 software_info.is_outdated，
+        // 导致「已是最新却仍显示需更新」。
+        assert!(!is_outdated_with_aur_signal(
+            "3.0.9-1",
+            "3.0.9",
+            false,
+            "calmly-writer-bin"
+        ));
+    }
+
+    #[test]
     fn aur_out_of_date_signal_only_fills_equal_case() {
         // vercmp 已明确落后：无需信号也提示更新
         assert!(is_outdated_with_aur_signal(

@@ -1,10 +1,11 @@
 <!--
   PackageList.vue - 软件包列表页面。列表/块视图切换、搜索分页多选、批量与单行操作、筛选器。
-  AUR 搜索导入弹窗 → AurSearchModal.vue；工具栏单选快速筛选 → QuickFilterDropdown.vue；样式 → PackageList.css。
+  AUR 搜索导入弹窗 → AurSearchModal.vue；批量按钮组 → PackageBatchToolbar.vue；
+  筛选/视图切换区 → PackageListFilterToolbar.vue（内含 QuickFilterDropdown.vue）；样式 → PackageList.css。
 -->
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { usePackageActions } from "../composables/packageActions";
+import { usePackageActions } from "../composables/usePackageActions";
 import { useViewModeStore } from "../stores/viewMode";
 import { useRefreshSubscription } from "../stores/refresh";
 import * as softwareApi from "@/api/software";
@@ -16,7 +17,8 @@ import SoftwareDetailModal from "../components/package/SoftwareDetailModal.vue";
 import PackageTable from "../components/package/PackageTable.vue";
 import BlockView from "../components/package/BlockView.vue";
 import AurSearchModal from "../components/package/AurSearchModal.vue";
-import QuickFilterDropdown from "../components/package/QuickFilterDropdown.vue";
+import PackageBatchToolbar from "../components/package/PackageBatchToolbar.vue";
+import PackageListFilterToolbar from "../components/package/PackageListFilterToolbar.vue";
 import { Icon } from "../icons";
 import { packageTypeFilterOptions, checkerTypeFilterOptions } from "../utils/enums";
 const viewModeStore = useViewModeStore();
@@ -55,6 +57,7 @@ const {
   isRowLoading,
   batchStats,
   syncFromAur,
+  syncByMaintainer,
   syncFromPkgbuild,
   updateAurInfo,
   checkSelectedUpstream,
@@ -84,12 +87,6 @@ async function handleValidateUrls() {
 
 function handleFilterUpdate(newState: typeof filterState.value) {
   filterState.value = newState;
-}
-
-/** 解析下拉框值为条件筛选值（空字符串表示"全部" → null） */
-function parseSelectValue(event: Event): number | null {
-  const value = (event.target as HTMLSelectElement).value;
-  return value === "" ? null : Number(value);
 }
 
 /** 更新条件筛选（软件包类型 / 检查器类型），绑定到共享 filterState */
@@ -140,85 +137,36 @@ async function handleAurImported() {
       :filter-active="activeFilterCount > 0"
       @toggle-filter="showFilterBar = !showFilterBar"
     >
-      <!-- 左侧：常用工具按钮（彩色图标） -->
-      <button class="btn-icon btn-color-aur" @click="syncFromAur(selectedPkgnames)" :disabled="loading" title="从AUR同步">
-        <component :is="Icon.syncAur" :size="16" />
-      </button>
-      <button class="btn-icon btn-color-import" @click="aurSearchOpen = true" :disabled="loading" title="从AUR导入新包">
-        <component :is="Icon.actionDownload" :size="16" />
-      </button>
-      <button class="btn-icon btn-color-pkgbuild" @click="syncFromPkgbuild(selectedPkgnames)" :disabled="loading" title="从PKGBUILD同步">
-        <component :is="Icon.syncPkgbuild" :size="16" />
-      </button>
-      <button class="btn-icon btn-color-add" @click="openAddModal" title="添加软件">
-        <component :is="Icon.actionAdd" :size="16" />
-      </button>
-      <button class="btn-icon btn-color-update" @click="updateAurInfo(selectedPkgnames)" :disabled="loading" title="更新AUR信息">
-        <component :is="Icon.actionRefresh" :size="16" />
-      </button>
-      <button class="btn-icon btn-color-check" @click="checkSelectedUpstream(selectedPkgnames)" :disabled="checkLoading || loading" title="检查上游">
-        <component :is="Icon.actionSearch" :size="16" />
-      </button>
-      <button class="btn-icon btn-color-delete" @click="deleteSelected(selectedPkgnames, setSelected)" :disabled="selectedPkgnames.size === 0" title="删除选中">
-        <component :is="Icon.actionDelete" :size="16" />
-      </button>
+      <!-- 左侧：常用工具按钮（已抽为纯 props/emits 组件 PackageBatchToolbar） -->
+      <PackageBatchToolbar
+        :loading="loading"
+        :check-loading="checkLoading"
+        :selected-count="selectedPkgnames.size"
+        @sync-aur="syncFromAur(selectedPkgnames)"
+        @sync-by-maintainer="syncByMaintainer"
+        @open-aur-import="aurSearchOpen = true"
+        @sync-pkgbuild="syncFromPkgbuild(selectedPkgnames)"
+        @add="openAddModal"
+        @update-aur="updateAurInfo(selectedPkgnames)"
+        @check-upstream="checkSelectedUpstream(selectedPkgnames)"
+        @delete="deleteSelected(selectedPkgnames, setSelected)"
+      />
 
-      <!-- 中间：筛选器和视图切换 -->
+      <!-- 中间：筛选器和视图切换（已抽为纯 props/emits 组件 PackageListFilterToolbar） -->
       <template #filters>
-        <div class="toolbar-filter-group">
-          <select
-            class="toolbar-filter-select"
-            :value="filterState.conditionFilters.packageType === null ? '' : filterState.conditionFilters.packageType"
-            @change="updateConditionFilter('packageType', parseSelectValue($event))"
-          >
-            <option
-              v-for="opt in packageTypeFilterOptions"
-              :key="opt.value ?? 'all'"
-              :value="opt.value === null ? '' : opt.value"
-            >
-              {{ opt.value === null ? '全部软件包' : opt.label }}
-            </option>
-          </select>
-          <select
-            class="toolbar-filter-select"
-            :value="filterState.conditionFilters.checkerType === null ? '' : filterState.conditionFilters.checkerType"
-            @change="updateConditionFilter('checkerType', parseSelectValue($event))"
-          >
-            <option
-              v-for="opt in checkerTypeFilterOptions"
-              :key="opt.value ?? 'all'"
-              :value="opt.value === null ? '' : opt.value"
-            >
-              {{ opt.value === null ? '全部检查器' : opt.label }}
-            </option>
-          </select>
-
-          <QuickFilterDropdown
-            :options="quickFilterOptions"
-            :active-key="filterState.quickFilter"
-            :active-label="activeQuickFilterLabel"
-            @select="selectQuickFilter"
-            @clear="clearQuickFilter"
-          />
-
-          <div class="toolbar-divider"></div>
-          <button
-            class="btn-icon"
-            :class="viewModeStore.mode === 'list' ? 'btn-active' : ''"
-            @click="viewModeStore.setMode('list')"
-            title="列表视图"
-          >
-            <component :is="Icon.listView" :size="16" />
-          </button>
-          <button
-            class="btn-icon"
-            :class="viewModeStore.mode === 'grid' ? 'btn-active' : ''"
-            @click="viewModeStore.setMode('grid')"
-            title="块视图"
-          >
-            <component :is="Icon.gridView" :size="16" />
-          </button>
-        </div>
+        <PackageListFilterToolbar
+          :condition-filters="filterState.conditionFilters"
+          :package-type-options="packageTypeFilterOptions"
+          :checker-type-options="checkerTypeFilterOptions"
+          :quick-filter-options="quickFilterOptions"
+          :quick-filter-key="filterState.quickFilter"
+          :quick-filter-label="activeQuickFilterLabel"
+          :view-mode="viewModeStore.mode"
+          @update-condition-filter="updateConditionFilter"
+          @select-quick-filter="selectQuickFilter"
+          @clear-quick-filter="clearQuickFilter"
+          @set-view-mode="viewModeStore.setMode"
+        />
       </template>
 
       <template #filter-icon>

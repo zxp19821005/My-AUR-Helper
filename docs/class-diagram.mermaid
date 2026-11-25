@@ -1,70 +1,79 @@
 classDiagram
-    class SettingCategoryMeta {
-        +string key
-        +string label
-        +string icon
-        +string description?
+    class SystemCommandOps {
+        <<module: sysops/system_cmd.rs>>
+        +current_username() AppResultString
+        +pacman_package_info(path) AppResultString
+        +install_package_locked(path, tag) AppResultString
+        +gsettings_get(schema, key) AppResultString
+    }
+    class SudoersOps {
+        <<module: sysops/sudoers.rs>>
+        +sudo_privileges_text() OptionString
+        +has_nopasswd_rule(text, rule) bool
+        +is_rule_effective(rule) AppResultBool
+        +build_pacman_install_rules(dir) String
+        +build_sudoers_append_command(rule, line) String
+    }
+    class DbLockHelper {
+        <<module: db/mod.rs>>
+        +lock_db(db) AppResultGuard
+    }
+    class AppErrorBridge {
+        <<module: errors.rs>>
+        +FromPoisonError() AppError
+    }
+    class CheckResultHelpers {
+        <<module: checkers/helpers.rs>>
+        +finish_check(version, license, langs) CheckResult
+        +log_check_result(pkgname, version) void
+    }
+    class UpstreamResultBuilder {
+        <<module: software_sync/batch_helpers.rs>>
+        +build_upstream_result(entry) UpstreamCheckResult
+    }
+    class GithubApiUrls {
+        <<module: checkers/github/api_urls.rs>>
+        +GH_API_BASE String
+        +repo_url(owner, repo) String
+        +tags_url(owner, repo) String
+        +releases_latest_url(owner, repo) String
+        +graphql_url() String
+    }
+    class HttpClient {
+        <<existing module>>
+        +shared_client() Client
+        +build_client(config) Client
+        +get_client_for_domain(domain, config) Client
+    }
+    class ErrorUtils {
+        <<module: utils/errors.ts>>
+        +NETWORK_ERROR_KEYWORDS string[]
+        +isNetworkError(e) boolean
+        +formatErrorMessage(e, context) string
+    }
+    class ToastFeedback {
+        <<module: composables/useToast.ts>>
+        +addToast(level, text) number
+        +showActionError(footer, e, context) void
+    }
+    class IpcRegistry {
+        <<module: ipc/registry.rs>>
+        +build_specta_router() Builder
+        +export_bindings() void
     }
 
-    class SETTING_CATEGORIES {
-        <<constant>>
-        +SettingCategoryMeta[] categories
-    }
-
-    class LogViewer {
-        -LogEntry[] logs
-        -boolean loading
-        -string searchQuery
-        -string levelFilter
-        -number pageSize
-        -number currentPage
-        -LogEntry[] logBuffer
-        -setTimeout bufferTimer
-        +startLogListener()
-        +flushLogBuffer()
-        +loadInitialLogs()
-        +clearLogs()
-    }
-
-    class PackageListViewToggle {
-        +string viewMode
-        +toggleView(mode: string)
-    }
-
-    class PackageTable {
-        +entries: any[]
-        +searchQuery: string
-        +pageSize: number
-        +currentPage: number
-        +isRowLoading: function
-        +viewMode: "table" | "grid"
-        +columns: Column[]
-        +pageSizeOptions: number[]
-    }
-
-    class PackageGrid {
-        +entries: any[]
-        +viewMode: "grid"
-    }
-
-    class ColumnConfigPopover {
-        +columns: Column[]
-        +visibleColumns: string[]
-        +toggleColumn(key: string)
-        +saveVisibility()
-    }
-
-    class SettingsDynamicSection {
-        +category: string
-        +draft: Ref~Setting[]~
-        +dirty: ComputedRef~boolean~
-        +load()
-        +handleSave()
-        +reset()
-    }
-
-    SETTING_CATEGORIES --> SettingCategoryMeta : contains
-    PackageListViewToggle ..> PackageTable : controls
-    PackageTable ..> PackageGrid : delegates to grid mode
-    PackageTable ..> ColumnConfigPopover : uses for column config
-    SettingsDynamicSection ..> SettingCategoryMeta : uses category meta
+    BackupInstall ..> SudoersOps : uses
+    BackupInstall ..> SystemCommandOps : uses
+    CacheInstall ..> SudoersOps : uses
+    CacheInstall ..> SystemCommandOps : uses
+    CacheCleanup ..> SudoersOps : uses
+    BackupInstall ..> DbLockHelper : uses
+    CacheInstall ..> DbLockHelper : uses
+    DbLockHelper ..> AppErrorBridge : maps
+    SystemCommandOps ..> HttpClient : optional
+    GithubApiUrls <.. CheckersGithub : calls
+    CheckersGithub ..> CheckResultHelpers : uses
+    SyncBatch ..> UpstreamResultBuilder : uses
+    PackageActions ..> ErrorUtils : uses
+    PackageActions ..> ToastFeedback : uses
+    IpcRegistry ..> CheckersGithub : collects 89 commands

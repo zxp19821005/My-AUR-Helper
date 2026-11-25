@@ -13,9 +13,10 @@
 use log::info;
 use tauri::State;
 
-use crate::commands::sysops::backup_install::{
-    has_nopasswd_rule, sudo_privileges_text, CACHE_CLEANUP_ARGS, CACHE_CLEANUP_RULE,
-};
+use crate::commands::sysops::backup_install::{CACHE_CLEANUP_ARGS, CACHE_CLEANUP_RULE};
+use crate::commands::sysops::sudoers::{build_sudoers_append_command, is_rule_effective};
+use crate::commands::sysops::system_cmd::current_username;
+use crate::db::lock_db;
 use crate::errors::AppResult;
 use crate::AppState;
 
@@ -34,6 +35,7 @@ const CACHE_SUBDIR_WHITELIST: &[&str] = &["pkg", "src", ".BUILD", ".SRCINFO"];
 /// 删除目录中的所有文件和目录（包括 download-* 目录）
 /// 需要 root 权限
 #[tauri::command]
+#[specta::specta]
 pub async fn clean_system_cache() -> AppResult<String> {
     info!("[缓存清理] 开始清理系统缓存 /var/cache/pacman/pkg");
 
@@ -69,14 +71,13 @@ pub async fn clean_system_cache() -> AppResult<String> {
 /// 安全修复 (R11): 仅删除已知缓存产物（.pkg.tar.zst 文件及特定构建子目录），
 /// 不再删除所有非隐藏内容，防止误设目录导致用户数据丢失。
 #[tauri::command]
+#[specta::specta]
 pub async fn clean_custom_cache_dirs(state: State<'_, AppState>) -> AppResult<String> {
     info!("[缓存清理] 开始清理自定义缓存目录");
 
     // 获取所有缓存目录配置
     let cache_dirs = {
-        let db = state.db.lock().map_err(|e| {
-            crate::errors::AppError::DatabaseError(format!("获取数据库锁失败: {}", e))
-        })?;
+        let db = lock_db(&state.db)?;
         crate::commands::fileops::cache_dirs::get_cache_dirs(&db)?
     };
 
@@ -173,6 +174,7 @@ pub async fn clean_custom_cache_dirs(state: State<'_, AppState>) -> AppResult<St
 /// `CACHE_CLEANUP_RULE`。旧实现执行 `sudo -n rm -rf ...` 探测：检测的命令
 /// 与真正执行的 `find` 无关，且一旦 rm 恰好被免密就会真的删除缓存文件。
 #[tauri::command]
+#[specta::specta]
 pub async fn check_cache_cleanup_sudoers() -> AppResult<bool> {
     // 检查系统缓存目录是否存在
     let path = std::path::Path::new("/var/cache/pacman/pkg");
@@ -180,10 +182,7 @@ pub async fn check_cache_cleanup_sudoers() -> AppResult<bool> {
         return Ok(true); // 目录不存在，无需清理
     }
 
-    Ok(match sudo_privileges_text().await {
-        Some(text) => has_nopasswd_rule(&text, CACHE_CLEANUP_RULE),
-        None => false,
-    })
+    Ok(is_rule_effective(CACHE_CLEANUP_RULE).await)
 }
 
 /// 获取缓存清理 sudoers 配置命令
@@ -192,31 +191,25 @@ pub async fn check_cache_cleanup_sudoers() -> AppResult<bool> {
 /// `/etc/sudoers.d/aur-helper-backup` 由备份安装 / 缓存安装 / 缓存清理三个入口共用，
 /// 任意一处用 `tee`（覆盖）都会冲掉其它两处已配置的规则。
 #[tauri::command]
+#[specta::specta]
 pub async fn get_cache_cleanup_sudoers_command() -> AppResult<String> {
-    if let Some(text) = sudo_privileges_text().await {
-        if has_nopasswd_rule(&text, CACHE_CLEANUP_RULE) {
-            return Ok("sudoers 配置已包含缓存清理规则，无需重复配置".to_string());
-        }
+    if is_rule_effective(CACHE_CLEANUP_RULE).await {
+        return Ok("sudoers 配置已包含缓存清理规则，无需重复配置".to_string());
     }
 
-    let output = tokio::process::Command::new("whoami")
-        .output()
-        .await
-        .map_err(|e| crate::errors::AppError::SystemCommand(format!("获取用户名失败: {}", e)))?;
-    let username = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let username = current_username().await?;
 
     let line = format!("{username} ALL=(ALL) NOPASSWD: {CACHE_CLEANUP_RULE}");
     // 单次 sudo：root 内完成幂等判断 + 追加 + 修正权限，避免多次提权或吞掉密码提示。
     // 规则与命令行均不含单引号，可安全包在 sh -c 的单引号内。
-    Ok(format!(
-        "sudo sh -c 'grep -qF \"{CACHE_CLEANUP_RULE}\" /etc/sudoers.d/aur-helper-backup || printf \"%s\\n\" \"{line}\" >> /etc/sudoers.d/aur-helper-backup; chmod 440 /etc/sudoers.d/aur-helper-backup'"
-    ))
+    Ok(build_sudoers_append_command(CACHE_CLEANUP_RULE, &line))
 }
 
 /// 清除所有 GitHub tags 缓存
 #[tauri::command]
+#[specta::specta]
 pub async fn clear_github_tag_cache(state: State<'_, AppState>) -> AppResult<i64> {
-    let db = state.db.lock()?;
+    let db = lock_db(&state.db)?;
     let count = db.clear_all_caches()?;
     info!("[GitHub Cache] 已清除 {} 条缓存记录", count);
     Ok(count)
@@ -224,8 +217,9 @@ pub async fn clear_github_tag_cache(state: State<'_, AppState>) -> AppResult<i64
 
 /// 清除已过期的 GitHub tags 缓存（超过 github_cache_ttl 秒的记录）
 #[tauri::command]
+#[specta::specta]
 pub async fn clear_expired_github_tag_cache(state: State<'_, AppState>) -> AppResult<i64> {
-    let db = state.db.lock()?;
+    let db = lock_db(&state.db)?;
     let count = db.clear_expired_caches()?;
     info!("[GitHub Cache] 已清除 {} 条过期缓存记录", count);
     Ok(count)
@@ -233,10 +227,11 @@ pub async fn clear_expired_github_tag_cache(state: State<'_, AppState>) -> AppRe
 
 /// 获取 GitHub tags 缓存统计信息
 #[tauri::command]
+#[specta::specta]
 pub async fn get_github_tag_cache_stats(
     state: State<'_, AppState>,
 ) -> AppResult<serde_json::Value> {
-    let db = state.db.lock()?;
+    let db = lock_db(&state.db)?;
     let count = db.cache_count()?;
     let ttl = db.get_cache_ttl_seconds()?;
     Ok(serde_json::json!({ "count": count, "ttl_seconds": ttl }))
@@ -245,6 +240,7 @@ pub async fn get_github_tag_cache_stats(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::commands::sysops::backup_install::has_nopasswd_rule;
 
     /// sudoers 规则与真正传给 sudo 的命令必须逐 token 一致，否则免密规则不会命中。
     /// `-n` 是 sudo 自身选项，不参与被授权命令的匹配，故从下标 1 开始拼接。

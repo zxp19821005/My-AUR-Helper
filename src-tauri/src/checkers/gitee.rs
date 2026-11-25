@@ -1,3 +1,4 @@
+use crate::checkers::helpers::{finish_check, MissingVersionLog};
 use crate::errors::AppResult;
 use async_trait::async_trait;
 use log::{debug, info};
@@ -83,12 +84,12 @@ impl VersionChecker for GiteeChecker {
             None
         };
 
-        if let Some(v) = &version {
-            info!("[版本检查] 检查完成: {} -> 上游版本={}", pkgname, v);
-        }
-        Ok(CheckResult {
+        Ok(finish_check(
+            pkgname,
             version,
-            ..Default::default()
-        })
+            None,
+            vec![],
+            MissingVersionLog::Silence,
+        ))
     }
 }

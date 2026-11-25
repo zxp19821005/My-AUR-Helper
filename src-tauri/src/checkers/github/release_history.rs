@@ -121,10 +121,7 @@ pub async fn check_github_releases(
             break;
         }
 
-        let api_url = format!(
-            "https://api.github.com/repos/{}/{}/releases?per_page={}&page={}",
-            owner, repo, per_page, page
-        );
+        let api_url = crate::checkers::github::api_urls::releases_url(owner, repo, per_page, page);
 
         // 单页请求内部重试：最多 5 次，防止偶发 decode 超时导致整段扫描重来。
         // 内部重试耗尽后返回 ParseError（非 retryable），阻止外层 check_with_retry

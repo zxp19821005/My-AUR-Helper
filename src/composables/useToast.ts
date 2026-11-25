@@ -54,6 +54,18 @@ export function addToast(
 }
 
 /**
+ * 显示一次操作失败的 toast（错误提示统一出口）
+ *
+ * 与历史各 composable 内的 `showError(msg)` → `addMessage(footer, "error", msg)`
+ * 完全等价：footer 是 addMessage 的历史兼容占位参数，其内部就是 addToast("error", text)。
+ *
+ * @param msg - 已由 formatErrorMessage 格式化好的错误提示文本
+ */
+export function showActionError(msg: string): void {
+  addToast("error", msg);
+}
+
+/**
  * 按 id 移除一条 toast（手动关闭或自动消失时调用）
  *
  * @param id - toast 的唯一 id

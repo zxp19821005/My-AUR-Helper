@@ -41,15 +41,61 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 <!-- 文件组织原则：确保代码可维护性和模块化 -->
 ### 文件组织原则
 1. **单一职责**: 每个文件只负责一个功能模块
-2. **行数限制**: 单个文件不超过 300 行
+2. **行数硬上限 300 行（强制 / 可机械校验）**
+   - 统计口径：`wc -l`，含空行与注释，统计范围为 `src/` 与 `src-tauri/src/` 下的 `.rs` / `.vue` / `.ts` 源文件；不含 `target/`、`node_modules/`、`dist/`、`.cargo/`、`.rustup/`
+   - 校验命令（提交前必跑，输出必须为空）：
+     ```bash
+     find src src-tauri/src -type f \( -name '*.rs' -o -name '*.vue' -o -name '*.ts' \) \
+       -print0 | xargs -0 wc -l | sort -rn | awk '$1>300'
+     ```
+   - **例外清单（仅以下三类）**：
+     a. **生成物**：`src/bindings.ts`（tauri-specta 自动生成，禁止手改，**也不得为标注豁免而改文件**；豁免由本规范直接登记；改后端签名后重新生成，见「IPC 铁律」）
+     b. **纯数据/枚举表**：仅含常量字典、无任何控制流（`if` / `match` / `for` / `while`）且函数体 ≤ 3 行的文件 → 必须在文件头标注 `// @LINE_LIMIT_EXEMPT: 纯数据表`
+     c. **测试文件**：独立 `tests.rs` / `*.test.ts` / `#[cfg(test)]` 专用文件，用例线性堆叠不强制拆分；但单个测试函数 ≤ 80 行 → 必须在文件头标注 `// @LINE_LIMIT_EXEMPT: 测试文件`
+   - 不在例外清单内的超限文件**必须拆分**；不得以「历史原因」「暂时」为由豁免。临界预警：>270 行的文件禁止再新增逻辑，必须先拆分或迁移到公共模块
 3. **模块拆分**: 超过 300 行的文件必须拆分为多个独立文件
-4. **代码重用**: 优先提取通用组件和工具函数，避免重复代码
-5. **命名一致**: 文件名、函数名、组件名需与功能模块统一
+4. **代码重用（强制）**: 优先提取通用组件和工具函数；详见下方「禁止重复实现」
+5. **命名一致**: 文件名、函数名、组件名需与功能模块统一；详见下方「统一命名规范表」
 
 <!-- 拆分规则：具体模块的拆分方法 -->
 ### 拆分规则
+- **Rust**：`xxx.rs` 超限时建同名目录 `xxx/` + `mod.rs`（`mod.rs` 仅声明与 `pub use`，不含实现），按职责拆为 `xxx/cache.rs`、`xxx/parse.rs`、`xxx/download.rs`、`xxx/tests.rs`；对外保持原有 `pub use` 路径兼容，调用方不改 import
+- **Vue 组件**：先抽 `<style>` 到同名 `Xxx.css`（本项目 `PackageList.vue` → `PackageList.css` 已采用）；再抽 template 中独立区块到 `src/components/<domain>/XxxYyy.vue`；script 中超过 3 个 handler 的逻辑抽到 `src/composables/useXxx.ts`
+- **TS 工具/类型**：按领域拆到 `utils/<domain>.ts` / `types/<domain>.ts`，在原 `index.ts` 保留 barrel 再导出（`types/index.ts` 已采用此模式）
 - `db/mod.rs` 按表拆分: `db/packages.rs`, `db/proxies.rs` 等
-- Vue 组件拆分: 通用组件提取到 `src/components/`
+- Vue 通用组件拆分: 通用组件提取到 `src/components/`
+
+### 统一命名规范表（强制 / 可机械校验）
+| 对象 | 语言 | 规则 | ✅ 正例 | ❌ 反例 |
+|------|------|------|---------|---------|
+| 函数 / 变量 / 参数 | Rust | `snake_case` | `get_packages_from_archive` | `getPackagesFromArchive` |
+| 结构体 / 枚举 / trait / type | Rust | `PascalCase` | `CheckResult`、`VersionChecker` | `check_result`、`version_checker` |
+| 常量 / static | Rust | `UPPER_SNAKE_CASE` | `CACHE_CLEANUP_RULE` | `cacheCleanupRule` |
+| 模块 / 文件名 | Rust | `snake_case` | `backup_install_helpers.rs` | `backup-install-helpers.rs` |
+| 测试函数 | Rust | `test_<行为>_<预期>`（全仓统一 `test_` 前缀） | `test_validate_rejects_relative_path` | `validate_rejects_relative_path`（现存历史写法，逐步迁移） |
+| Tauri 命令 | Rust | `snake_case`，且必须同时标注 `#[tauri::command]` 与 `#[specta::specta]` | `sync_from_aur` | `syncFromAur`；只标一个宏 |
+| IPC 前端方法 | TS | `camelCase`（由 bindings 自动转换，不手写） | `commands.getSoftwareDetail` | `commands.get_software_detail` |
+| 变量 / 函数 / 参数 | Vue / TS | `camelCase` | `selectedPkgnames`、`fetchView` | `selected_pkgnames`、`FetchView` |
+| 类型 / 接口 / 枚举 / 组件名 | Vue / TS | `PascalCase` | `SoftwareInfo`、`PageToolbar` | `softwareInfo`、`pageToolbar` |
+| 组件文件名 | Vue | `PascalCase.vue`，与组件名一致 | `PackageTable.vue` | `package-table.vue` |
+| 工具 / composable 文件名与导出名 | TS | `camelCase`；composable 必须 `use` 前缀且**文件名 = 导出名** | `usePackageList.ts` → `usePackageList()` | `packageActions.ts` → `usePackageActions()`（现存不一致，见清单 Q-L01） |
+| 常量 | Vue / TS | `UPPER_SNAKE_CASE` | `MAX_TOASTS` | `maxToasts` |
+| CSS 类名 | CSS | `kebab-case` | `.btn-primary` | `.btnPrimary` |
+
+### 禁止重复实现（DRY，强制 / 可机械校验）
+- **新增逻辑前必须先搜公共模块**：`rg -n '<关键词>' src src-tauri/src --glob '!**/target/**'`；确认无已有实现后再新建
+- **同一逻辑模式出现 ≥ 3 处必须抽取公共方法**；≥ 2 处且涉及**安全 / 权限 / 命令拼装 / SQL**（路径校验、sudoers、pacman 调用、参数化查询）时也**必须**抽取，不设 3 处门槛
+- **连续 ≥ 8 行完全相同的代码禁止复制粘贴**，必须抽函数或宏
+- **公共方法落点（新增前优先放到这里）**：
+  - 系统命令执行 → `src-tauri/src/commands/sysops/sys_command.rs`
+  - sudoers / 提权 / 路径校验 → `src-tauri/src/commands/sysops/backup_install_helpers.rs`（其已 286 行，新增能力先拆出 `sysops/sudoers.rs`）
+  - DB 锁获取与错误映射 → `src-tauri/src/db/mod.rs` 或 `src-tauri/src/errors.rs`
+  - Checker 结果构造与日志 → `src-tauri/src/checkers/trait_def.rs` 或新建 `checkers/helpers.rs`
+  - HTTP 客户端构造 → `src-tauri/src/http_client.rs`（已有 `shared_client()` / `build_client()`，禁止另起 `Client::builder()`）
+  - GitHub API URL → 新建 `src-tauri/src/checkers/github/api_urls.rs`
+  - 前端错误格式化 / 判断 → `src/utils/errors.ts`（新建）
+  - 前端错误提示 → `src/composables/useToast.ts`（已有 `addToast`）
+- 抽取后所有调用点必须改为调用公共方法，禁止「公共方法 + 保留旧副本」并存
 
 ### Rust 编码规范
 - 使用 `cargo fmt` 进行代码格式化
@@ -85,6 +131,48 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 - 状态管理使用 Pinia store
 - **Tauri 命令调用（强制）**：禁止在 composable/store/component/view 中直接 `import { invoke } from "@tauri-apps/api/core"`；所有 IPC 调用必须经 `src/api/` 对应领域模块封装，命令字符串与参数形状集中管理
 - **StandardizedTable 选中状态同步（强制）**：`StandardizedTable` 内部以 `useTableState.selectedRows` 独立维护选中，仅通过 `selection-change` 事件向父组件回传选中行；任何依赖"已选集合"的工具栏/批量逻辑必须在中间层（如 `PackageTable`）订阅此事件并将 rowKey 转换为业务键后向上 emit，父组件再同步到外部 ref，否则工具栏按钮会因外部集合始终为空而误走"全量操作"分支（PackageList 真实发生过「勾选 13 个 → 全量更新上游」）。详细见 `docs/COMPONENTS_GUIDE.md` StandardizedTable 章节"重要约定"段
+
+<!-- ========== AI 协同约定：多智能体协作的硬约束 ========== -->
+### AI 协同约定（强制）
+1. **改代码前先读规范**：必须先完整阅读本文件「代码规范（强制）」章节，并查阅 `CODE_QUALITY_ISSUES.md` 的「待修复」清单，避免重复引入已记录问题
+2. **提交前必跑校验（逐条执行，任一失败不得提交）**：
+   ```bash
+   export HOME=/home/zxp-archlinux \
+     CARGO_HOME=/run/media/zxp/LocalBak/git/My-AUR-Helper/.cargo \
+     RUSTUP_HOME=/run/media/zxp/LocalBak/git/My-AUR-Helper/.rustup
+   cargo fmt --all -- --check      # 格式
+   cargo clippy --all-targets -- -D warnings   # lint
+   cargo test --lib               # 单测（含 bindings 一致性）
+   pnpm exec vue-tsc --noEmit     # 前端类型
+   pnpm build                     # 前端构建
+   # 300 行硬上限检查，输出必须为空（命令见「文件组织原则」）
+   ```
+   注：Bash 工具跑 cargo 需关闭 sandbox，否则 EACCES
+3. **不擅自扩大改动范围**：只改任务指定的文件与函数；发现范围外问题时写入 `CODE_QUALITY_ISSUES.md`，不在本次提交中顺手修改
+4. **新文件必须带文件头注释**（功能 / 工作流程 / 适用场景），`pub fn` 必须有 `///` 文档注释，注释语言为中文
+5. **行数守护**：任何改动导致文件超过 300 行，必须在同一次提交内完成拆分；禁止把拆分留到「下次」
+6. **禁止新增 `as unknown as` 类型逃逸**：类型不一致时在 `src/types/` 定义共享类型并与 bindings 对齐；存量 10 处逐步消除
+7. 提交信息格式遵循本文件「Git 提交规范」章节
+
+<!-- ========== IPC 铁律：前后端通信的唯一合法路径 ========== -->
+### IPC 铁律（强制）
+1. **后端命令双宏**：每个命令必须同时标注 `#[tauri::command]` 与 `#[specta::specta]`（当前 88 个命令 / 88 个 specta 宏，覆盖 100%，必须保持）
+2. **注册唯一入口**：只允许 `src-tauri/src/ipc/registry.rs::build_specta_router()` 中的 `collect_commands!` 统一收集（T01 拆分后已从 `lib.rs` 迁至此处）；禁止在其他文件另建 `invoke_handler` 或手工注册
+3. **改签名必须重新生成 bindings**：
+   - debug 启动 `pnpm tauri dev` 自动导出；
+   - 或显式执行 `cargo test --lib export_bindings`（release 前必做）；
+   - 产物为 `src/bindings.ts`，**生成物禁止手改**；生成后需 `pnpm exec vue-tsc --noEmit` 验证前端类型
+4. **前端唯一通道**：所有 IPC 调用只经 `src/api/<domain>.ts` 中的 `commands.*`（`commands` 从 `src/bindings.ts` 导入）；禁止在 component / composable / store / view 中 `import { invoke } from "@tauri-apps/api/core"`（当前 0 处，必须保持 0 处）
+5. **前端 api 模块职责**：`src/api/` 按领域一个文件，集中管理命令调用与参数形状；组件层不得直接拼命令参数对象
+6. **类型对齐优先**：bindings 类型与业务类型不一致时，在 `src/types/` 定义共享类型，禁止在 api 层散布 `as unknown as` 强转
+7. **bindings 一致性必须走字节级 diff 闭环，禁止用 `git diff` 判断**：`src/bindings.ts` 是 tauri-specta 自动生成物，且**未纳入 git 跟踪**（`git status` 显示 `??`），因此 `git diff HEAD -- src/bindings.ts` 恒为空、属于**假阴性**，严禁据此判断 IPC 是否变化。唯一合法闭环（每次改动命令签名 / 参数 / 返回类型 / 命令 `///` 文档注释后必做，specta 会导出 doc comment）：
+   ```bash
+   # 全程在仓库根目录执行；用子 shell 跑 cargo，避免 cd 改变当前目录导致第 3 行路径错乱
+   cp src/bindings.ts /tmp/bindings_baseline.ts
+   (cd src-tauri && cargo test --lib export_bindings)
+   diff /tmp/bindings_baseline.ts src/bindings.ts   # 输出必须为空
+   ```
+   diff 非空即代表 IPC 契约变化，必须修到完全一致或经显式评审接受。可选改进建议（需单独授权，不得擅自 `git add`）：把 `src/bindings.ts` 纳入 git 跟踪，或在 CI 增加「重新生成后 diff 必须为空」的门禁检查。
 
 <!-- ========== 关键文件：项目入口和核心模块位置 ========== -->
 ## 关键文件
@@ -699,8 +787,9 @@ pub struct CheckResult {
 - `src-tauri/capabilities/default.json` — 默认权限配置
 
 ### IPC 通信规则
-- 所有命令必须在 `lib.rs` 中注册
-- 命令参数使用 `#[command]` 宏声明
+- 完整规则见本文件「代码规范（强制）→ IPC 铁律」，以下为速查：
+- 所有命令必须经 `lib.rs` 的 `collect_commands!` 注册，并同时标注 `#[tauri::command]` + `#[specta::specta]`
+- 命令签名变更后必须重新生成 `src/bindings.ts`；前端只允许经 `src/api/*.ts` 的 `commands.*` 调用
 - 敏感操作需要额外权限验证
 
 ### 前端窗口操作所需权限（重要）

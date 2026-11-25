@@ -35,10 +35,7 @@ impl Database {
         // "Cannot drop a runtime in a context where blocking is not allowed" panic。
         // 因此用 std::thread::spawn 把阻塞请求放到独立 OS 线程执行——该线程没有 runtime
         // 上下文，blocking client 可正常创建与销毁其 runtime。
-        let tags_url = format!(
-            "https://api.github.com/repos/{}/{}/releases/latest",
-            owner, repo
-        );
+        let tags_url = crate::checkers::github::api_urls::latest_release_url(owner, repo);
         let (status_ok, github_version) =
             match std::thread::spawn(move || match reqwest::blocking::get(&tags_url) {
                 Ok(resp) => {

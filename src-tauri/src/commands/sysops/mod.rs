@@ -54,6 +54,12 @@ pub mod cache_install;
 /// pacman 写事务全局串行化锁（防止并发安装争抢 db.lck）
 pub mod pacman_lock;
 
+/// 系统命令公共封装（whoami / pacman -Qip / sudo pacman -U）
+pub mod system_cmd;
+
+/// sudoers 规则追加命令与免密探测公共封装
+pub mod sudoers;
+
 // 公开导出 Tauri 命令函数，供 lib.rs 注册使用
 pub use backup_basic::{clear_backup_software, delete_backup, list_backup_software};
 pub use backup_install::{

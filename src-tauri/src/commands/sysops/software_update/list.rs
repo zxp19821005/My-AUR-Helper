@@ -71,6 +71,7 @@ fn derive_status(
 /// - `Vec<SoftwareUpdateItem>`: 按包名升序的列表行，含版本差、本地 pkgver 与状态
 /// - `Err(AppError::ConfigError)`: 未配置 `aur_packages_dir`，无法定位本地 PKGBUILD
 #[tauri::command]
+#[specta::specta]
 pub async fn list_software_updates(
     state: State<'_, AppState>,
 ) -> AppResult<Vec<SoftwareUpdateItem>> {

@@ -9,32 +9,35 @@
  *
  * 路径校验与 sudoers 规则辅助函数见同目录 backup_install_helpers.rs
  * （以 pub(crate) 再导出，供 cache_install / cache_cleanup 跨模块复用）。
+ * 系统子进程与 sudoers 公共方法见 system_cmd.rs / sudoers.rs。
  */
 /// 路径校验与 sudoers 规则辅助函数（定义于同目录 backup_install_helpers.rs，
 /// 在 sysops/mod.rs 中声明为同级模块，此处再导出供 cache_install / cache_cleanup 引用）
 pub(crate) use super::backup_install_helpers::*;
 
-use log::{error, info};
+use log::info;
 use std::path::PathBuf;
 use tauri::State;
 
-use crate::commands::sysops::pacman_lock::with_pacman_write_lock;
-use crate::errors::{AppError, AppResult};
+use crate::commands::sysops::sudoers::{build_sudoers_append_command, is_rule_effective};
+use crate::commands::sysops::system_cmd::{
+    current_username, install_package_locked, pacman_package_info,
+};
+use crate::db::lock_db;
+use crate::errors::AppResult;
 use crate::AppState;
 
 /// 从包文件获取软件信息（pacman -Qip）
 ///
 /// 路径必须经 `validate_package_path` 校验，防止读取任意文件。
 #[tauri::command]
+#[specta::specta]
 pub async fn get_package_file_info(
     state: State<'_, AppState>,
     full_path: String,
 ) -> AppResult<String> {
     let allowed_roots = {
-        let db = state
-            .db
-            .lock()
-            .map_err(|e| AppError::DatabaseError(format!("获取数据库锁失败: {}", e)))?;
+        let db = lock_db(&state.db)?;
         vec![
             PathBuf::from(read_backup_dir(&db)),
             PathBuf::from("/var/cache/pacman/pkg"),
@@ -42,21 +45,7 @@ pub async fn get_package_file_info(
     };
     let safe_path = validate_package_path(&full_path, &allowed_roots)?;
 
-    let output = tokio::process::Command::new("pacman")
-        .args(["-Qip", &safe_path.to_string_lossy()])
-        .output()
-        .await
-        .map_err(|e| AppError::SystemCommand(format!("执行 pacman 失败: {}", e)))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(crate::errors::AppError::SystemCommand(format!(
-            "pacman -Qip 失败: {}",
-            stderr.trim()
-        )));
-    }
-
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    pacman_package_info(&safe_path).await
 }
 
 /// 检测 sudoers 免密配置是否可用
@@ -65,12 +54,10 @@ pub async fn get_package_file_info(
 /// 旧实现 `read_to_string` 必然失败并永远返回 false（一直误报「未配置」）。
 /// 改为解析 `sudo -n -l` 输出的、当前用户实际生效的 NOPASSWD 规则。
 #[tauri::command]
+#[specta::specta]
 pub async fn check_sudoers_config(state: State<'_, AppState>) -> AppResult<bool> {
     let backup_dir = {
-        let db = state
-            .db
-            .lock()
-            .map_err(|e| AppError::DatabaseError(format!("获取数据库锁失败: {}", e)))?;
+        let db = lock_db(&state.db)?;
         read_backup_dir(&db)
     };
 
@@ -78,10 +65,7 @@ pub async fn check_sudoers_config(state: State<'_, AppState>) -> AppResult<bool>
         "/usr/bin/pacman -U --noconfirm {}",
         backup_dir.trim_end_matches('/')
     );
-    Ok(match sudo_privileges_text().await {
-        Some(text) => has_nopasswd_rule(&text, &base),
-        None => false,
-    })
+    Ok(is_rule_effective(&base).await)
 }
 
 /// 获取 sudoers 配置命令
@@ -89,43 +73,32 @@ pub async fn check_sudoers_config(state: State<'_, AppState>) -> AppResult<bool>
 /// 将 pacman -U 的免密规则限定到备份目录（而非通配 *），缩小提权面。
 /// 使用 `tee -a` 追加：该文件同时承载缓存安装与缓存清理规则，覆盖写会冲掉它们。
 #[tauri::command]
+#[specta::specta]
 pub async fn get_sudoers_command(state: State<'_, AppState>) -> AppResult<String> {
-    let output = tokio::process::Command::new("whoami")
-        .output()
-        .await
-        .map_err(|e| AppError::SystemCommand(format!("获取用户名失败: {}", e)))?;
-
-    let username = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let username = current_username().await?;
 
     let backup_dir = {
-        let db = state
-            .db
-            .lock()
-            .map_err(|e| AppError::DatabaseError(format!("获取数据库锁失败: {}", e)))?;
+        let db = lock_db(&state.db)?;
         read_backup_dir(&db)
     };
 
     let rule = build_pacman_install_rules(&backup_dir);
     let line = format!("{username} ALL=(ALL) NOPASSWD: {rule}");
     // 单次 sudo 追加，不覆盖缓存安装 / 缓存清理的规则；grep 保证幂等
-    Ok(format!(
-        "sudo sh -c 'grep -qF \"{rule}\" /etc/sudoers.d/aur-helper-backup || printf \"%s\\n\" \"{line}\" >> /etc/sudoers.d/aur-helper-backup; chmod 440 /etc/sudoers.d/aur-helper-backup'"
-    ))
+    Ok(build_sudoers_append_command(&rule, &line))
 }
 
 /// 安装备份包
 ///
 /// 路径必须经 `validate_package_path` 校验，防止以 root 安装任意路径的恶意包。
 #[tauri::command]
+#[specta::specta]
 pub async fn install_backup_package(
     state: State<'_, AppState>,
     full_path: String,
 ) -> AppResult<String> {
     let allowed_roots = {
-        let db = state
-            .db
-            .lock()
-            .map_err(|e| AppError::DatabaseError(format!("获取数据库锁失败: {}", e)))?;
+        let db = lock_db(&state.db)?;
         vec![
             PathBuf::from(read_backup_dir(&db)),
             PathBuf::from("/var/cache/pacman/pkg"),
@@ -135,28 +108,7 @@ pub async fn install_backup_package(
 
     info!("[备份管理] 开始安装备份包: {}", safe_path.display());
 
-    let output = with_pacman_write_lock(|| async {
-        tokio::process::Command::new("sudo")
-            .args(["pacman", "-U", "--noconfirm", &safe_path.to_string_lossy()])
-            .output()
-            .await
-    })
-    .await
-    .map_err(|e| AppError::SystemCommand(format!("执行安装失败: {}", e)))?;
-
-    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-
-    if output.status.success() {
-        info!("[备份管理] 安装成功: {}", safe_path.display());
-        Ok(stdout)
-    } else {
-        error!("[备份管理] 安装失败: {} - {}", safe_path.display(), stderr);
-        Err(crate::errors::AppError::SystemCommand(format!(
-            "安装失败:\n{}",
-            stderr
-        )))
-    }
+    install_package_locked(&safe_path, "[备份管理]").await
 }
 
 #[cfg(test)]

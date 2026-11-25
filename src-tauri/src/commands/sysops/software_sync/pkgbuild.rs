@@ -42,6 +42,7 @@ use crate::AppState;
 /// - `Ok(count)`: 成功同步的软件包数量
 /// - `Err(e)`: 同步过程中发生错误
 #[tauri::command]
+#[specta::specta]
 pub async fn sync_from_pkgbuild(
     state: State<'_, AppState>,
     app: tauri::AppHandle,

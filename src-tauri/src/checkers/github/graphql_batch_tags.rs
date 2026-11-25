@@ -71,10 +71,8 @@ pub async fn fill_tags(
     });
 
     for page in start_page..=start_page + max_pages - 1 {
-        let tags_url = format!(
-            "https://api.github.com/repos/{}/{}/tags?per_page={}&page={}&sort=pushed_at&direction=desc",
-            owner, repo, per_page, page
-        );
+        let tags_url =
+            crate::checkers::github::api_urls::tags_page_url(owner, repo, per_page, page);
 
         let mut req = client
             .get(&tags_url)

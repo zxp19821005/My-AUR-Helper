@@ -1,30 +1,36 @@
 /**
- * aur.rs - AUR 信息同步和更新命令
+ * aur.rs - AUR 信息同步和更新命令（编排入口）
  *
- * 功能：从 AUR RPC API 批量同步软件包信息，或更新指定软件包的 AUR 信息。
- * 使用 tokio::spawn 并行发起网络请求，结果收集到内存后批量写入数据库。
+ * 功能：从 AUR RPC API / 全量元数据归档批量同步软件包信息，或更新指定包的 AUR 信息。
+ * 本文件仅保留命令编排骨架与子模块声明；读设置 / 收集 / 写库分别下沉到
+ * config.rs / collect.rs / persist.rs，update_aur_info 下沉到 update.rs。
  *
- * 工作流程：
- * 1. 从数据库读取所有软件包列表
- * 2. 通过 AUR RPC API 批量查询软件包信息
- * 3. 在内存中收集所有同步结果
- * 4. 批量写入数据库，减少锁竞争
+ * 工作流程（sync_from_aur）：
+ * 1. config::read_sync_settings 读设置并校验用户名
+ * 2. 取包名列表 → aur::get_packages_info_smart 批量查询（归档优先，失败降级 RPC）
+ * 3. collect::collect_sync_results 收集结果并对缺包分类
+ * 4. persist::persist_sync_results 批量写库 + 失败标记 + 重算 is_outdated
  *
  * 注意：AUR 同步只更新 aur_info 表（描述、版本、依赖等），不更新 software_info 表。
  * software_info 的字段（上游URL、检查器类型、包类型等）只在用户手动设置时更新。
  */
-use log::{debug, info, warn};
+mod collect;
+mod config;
+mod persist;
+mod update;
+
+use log::{debug, info};
 use tauri::State;
 
 use super::super::proxy_utils::build_client;
-use super::utils::{
-    get_setting_opt, parse_aur_fields, parse_u32, parse_u64, read_archive_preference,
-    read_http_timeout, AurSyncResult,
-};
 use crate::aur;
-use crate::errors::{AppError, AppResult};
-use crate::models::*;
+use crate::errors::AppResult;
 use crate::AppState;
+
+// 保持对外路径 commands::sysops::software_sync::aur::update_aur_info 不变。
+// 必须用 glob 再导出：tauri/specta 双宏还会在子模块生成 __cmd__ / __specta__fn__
+// 等隐藏符号，collect_commands! 按完整路径解析它们，单项 pub use 无法带出。
+pub use update::*;
 
 /// 并行同步 AUR 信息
 ///
@@ -38,37 +44,19 @@ use crate::AppState;
 /// - `Ok(count)`: 成功同步的软件包数量
 /// - `Err(e)`: 同步过程中发生错误
 #[tauri::command]
+#[specta::specta]
 pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
     info!("正在从 AUR 同步软件包");
-    let (username, timeout, batch_size, batch_interval, prefer_archive) = {
-        let db = state.db.lock()?;
-        let username = db
-            .get_setting("aur_username")?
-            .map(|s| s.value)
-            .unwrap_or_default();
-        let timeout = read_http_timeout(&db);
-        let batch_size = parse_u32(
-            &get_setting_opt(&db, "aur_batch_size").unwrap_or_default(),
-            50,
-        ) as usize;
-        let batch_interval = parse_u64(
-            &get_setting_opt(&db, "aur_batch_interval").unwrap_or_default(),
-            5,
-        );
-        let prefer_archive = read_archive_preference(&db);
-        (
-            username,
-            timeout,
-            batch_size,
-            batch_interval,
-            prefer_archive,
-        )
-    };
-    if username.is_empty() {
-        return Err(AppError::ConfigError("AUR 用户名未配置".to_string()));
-    }
-    let client = build_client(timeout, false);
 
+    // 1. 读设置并校验用户名
+    let settings = {
+        let db = state.db.lock()?;
+        config::read_sync_settings(&db)?
+    };
+    config::require_username(&settings.username)?;
+    let client = build_client(settings.timeout, false);
+
+    // 2. 取包名列表
     let pkgnames = {
         let db = state.db.lock()?;
         db.get_all_software()?
@@ -82,213 +70,23 @@ pub async fn sync_from_aur(state: State<'_, AppState>) -> AppResult<i64> {
     let aur_results = aur::get_packages_info_smart(
         &client,
         &pkgnames,
-        batch_size.min(100),
-        batch_interval,
-        prefer_archive,
+        settings.batch_size.min(100),
+        settings.batch_interval,
+        settings.prefer_archive,
     )
     .await?;
     debug!("批量查询返回 {} 条结果", aur_results.len());
 
-    let mut pkgname_to_data = std::collections::HashMap::new();
-    for data in &aur_results {
-        if let Some(name) = data["Name"].as_str() {
-            pkgname_to_data.insert(name.to_string(), data.clone());
-        }
-    }
+    // 3. 收集结果 + 缺包分类
+    let collected = collect::collect_sync_results(&state, &pkgnames, &aur_results)?;
 
-    // 收集所有同步结果到内存
-    let mut sync_results: Vec<AurSyncResult> = Vec::new();
-
-    // AUR RPC 未返回的包名：视为同步失败，需打错误标记（此前静默跳过，
-    // 导致「AUR 中查不到」与「同步成功但无版本」在列表里无法区分）
-    let mut missing_ids: Vec<i64> = Vec::new();
-    let mut missing_names: Vec<String> = Vec::new();
-
-    for pkgname in &pkgnames {
-        let data = match pkgname_to_data.get(pkgname) {
-            Some(d) => d,
-            None => {
-                let db = state.db.lock()?;
-                if let Some(existing) = db.get_software_by_name(pkgname)? {
-                    if let Some(sid) = existing.software_id {
-                        missing_ids.push(sid);
-                        missing_names.push(pkgname.clone());
-                    }
-                }
-                continue;
-            }
-        };
-        debug!("处理软件包: {}", pkgname);
-
-        let fields = parse_aur_fields(data);
-
-        let db = state.db.lock()?;
-        let sw = db.get_software_by_name(pkgname)?;
-        if let Some(existing) = sw {
-            if let Some(sid) = existing.software_id {
-                // AUR 同步只更新 aur_info 表，不更新 software_info 表
-                // software_info 的字段（上游URL、检查器类型、包类型等）只在用户手动设置时更新
-                sync_results.push(AurSyncResult {
-                    pkgname: pkgname.clone(),
-                    software_id: sid,
-                    desc: fields.desc,
-                    version: fields.version,
-                    url: fields.url,
-                    last_modified: fields.last_modified,
-                    license_spdx: fields.license_spdx,
-                    depends: fields.depends,
-                    makedepends: fields.makedepends,
-                    optdepends: fields.optdepends,
-                    out_of_date: fields.out_of_date,
-                    package_type: existing.package_type_id,
-                    checker_type: existing.checker_type_id,
-                    check_test_versions: existing.check_test_versions,
-                    check_binary_files: existing.check_binary_files,
-                    need_update_software: false,
-                });
-            }
-        }
-    }
-
-    // 批量写入数据库
-    let db = state.db.lock()?;
-    let mut count = 0i64;
-    let mut errors = Vec::new();
-    for result in &sync_results {
-        // AUR 同步只更新 aur_info 表，不更新 software_info 表
-        let aur_info = AurInfo {
-            software_id: result.software_id,
-            pkgdesc: result.desc.clone(),
-            aur_version: result.version.clone(),
-            license_id: result.license_spdx.clone(),
-            last_updated: result.last_modified,
-            depends: result.depends.clone(),
-            makedepends: result.makedepends.clone(),
-            optdepends: result.optdepends.clone(),
-            out_of_date: result.out_of_date,
-            // 命中即同步成功，清空上一次留下的失败标记
-            last_sync_error: None,
-        };
-        if let Err(e) = db.upsert_aur_info(&aur_info) {
-            // 写入失败本身也是同步失败，回写错误原因便于列表中筛选定位
-            let _ = db.mark_aur_sync_error(result.software_id, "写入数据库失败");
-            errors.push(format!("更新 {} 的 AUR 信息失败: {}", result.pkgname, e));
-        }
-        count += 1;
-    }
-
-    // AUR 中查不到的包：只打失败标记，保留原有版本信息
-    for sid in &missing_ids {
-        if let Err(e) = db.mark_aur_sync_error(*sid, "AUR 中未找到该包") {
-            errors.push(format!("标记 software_id={} 同步失败失败: {}", sid, e));
-        }
-    }
-    if !missing_names.is_empty() {
-        warn!(
-            "[sync_from_aur] AUR 未返回 {} 个包，已标记同步失败: {:?}",
-            missing_names.len(),
-            missing_names
-        );
-    }
-
-    if !errors.is_empty() {
-        log::warn!(
-            "[sync_from_aur] 部分写入失败 ({} 个): {:?}",
-            errors.len(),
-            errors
-        );
-    }
+    // 4. 批量写库 + 失败标记 + 重算 is_outdated
+    let count = persist::persist_sync_results(
+        &state,
+        &collected.results,
+        &collected.missing_ids,
+        &collected.missing_names,
+    )?;
     info!("已从 AUR 同步 {} 个软件包", count);
-    Ok(count)
-}
-
-/// 并行更新 AUR 信息
-///
-/// 更新指定软件包（或全部）的 AUR 信息，包括描述、版本、依赖等。
-///
-/// # 参数
-/// - `state`: Tauri 应用状态，包含数据库连接
-/// - `pkgname_list`: 可选的软件包名称列表，None 表示更新全部
-///
-/// # 返回
-/// - `Ok(count)`: 成功更新的软件包数量
-/// - `Err(e)`: 更新过程中发生错误
-#[tauri::command]
-pub async fn update_aur_info(
-    state: State<'_, AppState>,
-    pkgname_list: Option<Vec<String>>,
-) -> AppResult<i64> {
-    info!("正在更新软件包的 AUR 信息");
-    let pkgnames: Vec<String> = if let Some(list) = pkgname_list {
-        list
-    } else {
-        let db = state.db.lock()?;
-        db.get_all_software()?
-            .into_iter()
-            .map(|s| s.pkgname)
-            .collect()
-    };
-    let timeout = {
-        let db = state.db.lock()?;
-        read_http_timeout(&db)
-    };
-    let client = build_client(timeout, false);
-
-    // 批量获取 AUR 信息：默认一次归档请求 + 本地过滤，失败自动降级到 RPC v5。
-    // 旧实现逐包 tokio::spawn 打 info，包多时易触发 4000 req/day/IP 限流与 Anubis 拦截。
-    let prefer_archive = {
-        let db = state.db.lock()?;
-        read_archive_preference(&db)
-    };
-    let results: Vec<(String, serde_json::Value)> =
-        aur::get_packages_info_smart(&client, &pkgnames, 100, 0, prefer_archive)
-            .await?
-            .into_iter()
-            .filter_map(|data| {
-                data["Name"]
-                    .as_str()
-                    .map(|name| (name.to_string(), data.clone()))
-            })
-            .collect();
-
-    // 批量写入数据库
-    let db = state.db.lock()?;
-    let mut count = 0i64;
-    let mut errors = Vec::new();
-    for (pkgname, data) in &results {
-        let fields = parse_aur_fields(data);
-
-        let sw = db.get_software_by_name(pkgname)?;
-        if let Some(existing) = sw {
-            if let Some(sid) = existing.software_id {
-                let info = AurInfo {
-                    software_id: sid,
-                    pkgdesc: fields.desc,
-                    aur_version: fields.version,
-                    license_id: fields.license_spdx,
-                    last_updated: fields.last_modified,
-                    depends: fields.depends,
-                    makedepends: fields.makedepends,
-                    optdepends: fields.optdepends,
-                    out_of_date: fields.out_of_date,
-                    // 更新成功，清空上一次失败的标记
-                    last_sync_error: None,
-                };
-                if let Err(e) = db.upsert_aur_info(&info) {
-                    errors.push(format!("更新 {} 的 AUR 信息失败: {}", pkgname, e));
-                }
-                count += 1;
-            }
-        }
-    }
-
-    if !errors.is_empty() {
-        log::warn!(
-            "[update_aur_info] 部分写入失败 ({} 个): {:?}",
-            errors.len(),
-            errors
-        );
-    }
-    info!("已更新 {} 个软件包的 AUR 信息", count);
     Ok(count)
 }

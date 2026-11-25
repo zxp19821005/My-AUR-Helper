@@ -16,6 +16,7 @@
  * 支持版本格式：/v1.2.3、-v1.2.3 等常见版本 URL 格式。
  * URL 解析 / JS 重定向 / 脚本扫描等纯函数见同目录 redirect_parse.rs。
  */
+use crate::checkers::helpers::{finish_check, MissingVersionLog};
 use crate::errors::AppResult;
 use async_trait::async_trait;
 use log::{debug, info, warn};
@@ -226,16 +227,13 @@ impl VersionChecker for RedirectChecker {
             break 'redirects;
         }
 
-        if let Some(v) = &version {
-            info!("[版本检查] 检查完成: {} -> 上游版本={}", pkgname, v);
-        } else {
-            warn!("[版本检查] 未能从重定向 URL 提取版本: {}", upstream_url);
-        }
-
-        Ok(CheckResult {
+        Ok(finish_check(
+            pkgname,
             version,
-            ..Default::default()
-        })
+            None,
+            vec![],
+            MissingVersionLog::WarnUrl(upstream_url.to_string()),
+        ))
     }
 }
 
