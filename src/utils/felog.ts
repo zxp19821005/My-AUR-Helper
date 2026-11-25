@@ -3,8 +3,8 @@
  *
  * 功能：
  * - 把前端关键时序（应用挂载、路由导航、数据请求）同时输出到浏览器控制台与终端
- * - 终端输出经 IPC 调用后端 frontend_log 命令，由 Rust 用 println! 打到 stdout
- *   （只进终端、不写文件），解决 dev 模式下 WebKitGTK 控制台不可见的问题
+ * - 终端输出经 IPC 调用后端 frontend_log 命令，由 Rust 用 println! 打到 stdout，
+ *   同时经 log::*! 写入 applog 文件（target=frontend），解决 WebKitGTK 控制台不可见、且日志不落盘的问题
  *
  * 日志格式（前端生成本地时间戳，与后端日志同格式便于对照）：
  *   [前端] 2026-08-14 10:24:06.900 DEBUG [Dashboard] loadAll start  (+1234ms)
@@ -57,7 +57,7 @@ export function felog(level: Level, area: string, text: string): void {
     default:
       console.log(line);
   }
-  // 2) 终端（经 IPC 转发到 Rust stdout，仅终端不写文件）。失败静默回退到 console。
+  // 2) 终端 + applog（经 IPC 转发到 Rust：println! 到 stdout 且 log::*! 落盘）。失败静默回退到 console。
   sendToTerminal(level, area, message, ts).catch(() => {
     /* 转发失败不影响前端运行，忽略 */
   });

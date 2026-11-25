@@ -6,35 +6,35 @@
  * - 组件与 composable 统一通过本模块访问后端，避免 invoke 命令字符串散落各处
  */
 
-import { invoke } from "@tauri-apps/api/core";
+import { commands } from "@/bindings";
 import type { Setting, LogEntry } from "@/types";
 
 /** 按 key 读取单个设置，不存在返回 null */
 export async function getSetting(key: string): Promise<Setting | null> {
-  return await invoke<Setting | null>("get_setting", { key });
+  return await commands.getSetting(key);
 }
 
 /** 读取全部设置 */
 export async function getSettings(): Promise<Setting[]> {
-  return await invoke<Setting[]>("get_settings");
+  return await commands.getSettings();
 }
 
 /** 写入单个设置 */
 export async function setSetting(key: string, value: string): Promise<void> {
-  await invoke("set_setting", { key, value });
+  await commands.setSetting(key, value);
 }
 
-/** 应用日志相关设置 */
-export async function applyLogSettings(): Promise<void> {
-  await invoke("apply_log_settings");
+/** 应用日志相关设置（maxSize 单位 bytes，maxFiles 为保留文件数） */
+export async function applyLogSettings(maxSize: number, maxFiles: number): Promise<void> {
+  await commands.applyLogSettings(maxSize, maxFiles);
 }
 
 /** 读取最近 limit 条日志 */
 export async function getLogs(limit: number): Promise<LogEntry[]> {
-  return await invoke<LogEntry[]>("get_logs", { limit });
+  return await commands.getLogs(limit);
 }
 
 /** 清空日志 */
 export async function clearLogs(): Promise<void> {
-  await invoke("clear_logs");
+  await commands.clearLogs();
 }

@@ -17,8 +17,27 @@
   --error-bg: rgba(239, 83, 80, 0.15);
   --border: #353857;
   --bg-hover: rgba(255, 255, 255, 0.05);
-  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-  font-size: 14px;
+
+  /* === 语义别名 ===
+   * 历史上多个组件引用了 --primary/--info/--text/--muted/--danger 等变量，
+   * 但这些变量从未定义，导致 CSS 回退到组件内写死的浅色 fallback（如 #111827），
+   * 在深色主题下配色割裂、对比度错误。此处统一定义别名，让所有引用跟随主题。 */
+  --primary: var(--accent);
+  --info: var(--color-info);
+  --text: var(--text-primary);
+  --muted: var(--text-muted);
+  --danger: var(--error);
+  --danger-bg: var(--error-bg);
+  --hover-bg: var(--bg-hover);
+  --muted-bg: #232541;
+  --accent-bg: #2a2d4a;
+  --accent-light: #8b83ff;
+  --success-hover: #3ea06b;
+  --font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-size: 14px;
+
+  font-family: var(--font-family);
+  font-size: var(--font-size);
 }
 
 [data-theme="light"] {
@@ -40,4 +59,17 @@
   --error-bg: rgba(244, 67, 54, 0.1);
   --border: #e0e0e0;
   --bg-hover: rgba(0, 0, 0, 0.03);
+
+  /* 语义别名（浅色主题）：与深色主题同名，值跟随本主题的语义变量 */
+  --primary: var(--accent);
+  --info: var(--color-info);
+  --text: var(--text-primary);
+  --muted: var(--text-muted);
+  --danger: var(--error);
+  --danger-bg: var(--error-bg);
+  --hover-bg: var(--bg-hover);
+  --muted-bg: #f3f4f6;
+  --accent-bg: #eef2ff;
+  --accent-light: #554ce0;
+  --success-hover: #3d9267;
 }

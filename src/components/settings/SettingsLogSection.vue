@@ -68,7 +68,10 @@ async function handleSave() {
       settingsStore.setSetting("log_dir", draft.value.log_dir),
       settingsStore.setSetting("log_prefix", draft.value.log_prefix),
     ]);
-    await settingsApi.applyLogSettings();
+    await settingsApi.applyLogSettings(
+      Number(draft.value.log_max_size),
+      Number(draft.value.log_max_files),
+    );
     commit();
     showMessage("已保存");
   } catch {
