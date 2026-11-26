@@ -772,3 +772,50 @@ pub(crate) fn finish_check(
 | K-4 | `AGENTS.md` 第 7 条代码块 `cd` 相对路径歧义 | 已用子 shell `(cd src-tauri && ...)` 消除 |
 | K-5 | 工作区叠加前序未提交改动（方案 B tauri-specta 迁移、AUR 维护者同步、CSS 配色等，106 files） | **属本会话前序已验收工作，非本轮越界，不回退**；但仓库需一次正式提交，由用户决定，不擅自 commit |
 | K-6 | 保留项（M-006/M-008/M-012、api_checker 日志、L-002/L-003/L-005、两个 Card 本地 fmtTimestamp、untracked 杂物） | 如实留痕、未虚报清零；`package.json.tmp` / `.SRCINFO` / `.Trash-0/` 等杂物不擅自删除，交用户处置 |
+
+### 9.6 AUR 孤儿包登记（2026-11-26 实测，只登记不处理）
+
+**背景**：用户 `zxp19821005` 反馈工具栏「从AUR同步」永远只同步本地已有数量。
+排查确认为链路缺陷：旧 `sync_from_aur` 只取 `get_all_software()` 的包名去查询，且
+`collect.rs` / `persist.rs` 只更新 `aur_info` 表（不新增 `software_info` 记录），
+因此「AUR 有、本地缺」的包永远补不进来。该链路已于本次改为「一键全量对齐」。
+
+**实测数据（2026-11-26）**：
+
+| 项 | 数值 |
+|----|------|
+| AUR search `by=maintainer` resultcount | 1944 |
+| AUR search `by=comaintainers` resultcount | 30 |
+| 两次 search 重叠 | 0（并集 = 1974） |
+| search 返回条数 vs resultcount | 相等（无分页截断） |
+| 本地 `software_info` 条数 | **1873**（已复核 `~/.config/com.zxp19821005.aur-helper/my_aur_helper.db`：`SELECT COUNT(*)` = 1873） |
+| AUR 有、本地缺 | **133** |
+| 本地有、该用户名下已无（孤儿包） | **32**（= 1873 − (1974 − 133)） |
+
+**孤儿包示例**（本地存在，且带用户配置的 `upstream_url`，佐证非脏数据）：
+
+| 包名 | 本地 upstream_url |
+|------|-------------------|
+| `clash-verge-rev-bin` | `https://github.com/clash-verge-rev/clash-verge-rev` |
+| `dingtalk-bin` | `https://dtapp-pub.dingtalk.com/dingtalk-desktop/xc_dingtalk_update/linux_deb/Release` |
+| `electron4-bin` ~ `electron7-bin` | `https://github.com/electron/electron` |
+| `115-browser-bin` | `https://appversion.115.com/1/web/1.0/api/chrome` |
+
+**成因推测**：这些包疑似已转手 / 弃维护 / 改名，按 `by=maintainer` + `by=comaintainers`
+两次 search 无法覆盖，故不属于「本地残留垃圾」，而是 AUR 侧归属变更的本地投影。
+
+**裁定与处置**：
+- **本次不删除、不处理**这 32 个包：它们仍可被上游版本检查 / 备份链路正常使用，
+  删除会连带丢失用户已配置的 `upstream_url`。
+- 升级版 `sync_from_aur` 只增不减（本地 ∪ 该用户名下维护），因此**不会**清理它们；
+  二次点击结果稳定，不会越同步越少。
+- 若确需清理，另立专项：逐包用 AUR info 确认 → 备份 `upstream_url` → dry-run 预览 → 再执行。
+
+### 9.7 回归期新发现并当场修复的两项（2026-11-26）
+
+| 编号 | 问题 | 处置 |
+|----|------|------|
+| K-7 | `src/checkers/trait_def.rs:33` 的 `#[expect(clippy::double_must_use)]` 在 clippy 1.96（rustc 1.96）下不再兑现，`-D unfulfilled-lint-expectations` 直接编译失败，阻断提交门禁。该文件不在本次改动范围内，属工具链升级后的存量漂移 | 改为 `#[allow(clippy::double_must_use)]` 并补注释说明「是否触发取决于 clippy / async-trait 版本组合」；`cargo clippy --all-targets -- -D warnings` 复跑通过 |
+| K-8 | `AGENTS.md` IPC 铁律第 7 条仍写着「`src/bindings.ts` 未纳入 git 跟踪、禁止 `git add`」，与现状矛盾（现已 tracked，`git status` 显示 ` M`），会误导后续智能体 | 改写为「`git diff` 只作辅助参考，字节级 cp→重新生成→diff 闭环仍是唯一合法判据」，并注明该文件已纳入跟踪、须随代码一起提交 |
+| K-9 | `aur_batch_size=0` 时 `slice::chunks(0)` 直接 panic：设置项可填 0，经 `parse_u32("0", 50)==0` → `.min(100)` → `get_packages_info` 分块崩溃；本次改动让 `sync_from_aur` 也走到该链路，故一并修 | 在唯一收口 `aur/rpc_batch/mod.rs::get_packages_info` 加 `batch_size.max(1)`；新增回归用例 `test_get_packages_info_batch_size_zero_does_not_panic`（不可达 DNS client 断言不 panic） |
+| K-10 | 旧同步链路死代码：`aur/collect.rs`、`aur/persist.rs` 全仓零调用方，`software_sync/utils.rs::AurSyncResult` 亦仅被自身文档引用 | 用户裁定后**已删除**三处（`git rm` + 删结构体与头注释），并在 `docs/system_design.md` 加状态更新说明；删后 fmt / clippy / 153 测试 / bindings diff 全绿 |

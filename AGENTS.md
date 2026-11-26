@@ -165,14 +165,14 @@ My-AUR-Helper 是一个基于 Tauri 的跨平台桌面应用，主要用于：
 4. **前端唯一通道**：所有 IPC 调用只经 `src/api/<domain>.ts` 中的 `commands.*`（`commands` 从 `src/bindings.ts` 导入）；禁止在 component / composable / store / view 中 `import { invoke } from "@tauri-apps/api/core"`（当前 0 处，必须保持 0 处）
 5. **前端 api 模块职责**：`src/api/` 按领域一个文件，集中管理命令调用与参数形状；组件层不得直接拼命令参数对象
 6. **类型对齐优先**：bindings 类型与业务类型不一致时，在 `src/types/` 定义共享类型，禁止在 api 层散布 `as unknown as` 强转
-7. **bindings 一致性必须走字节级 diff 闭环，禁止用 `git diff` 判断**：`src/bindings.ts` 是 tauri-specta 自动生成物，且**未纳入 git 跟踪**（`git status` 显示 `??`），因此 `git diff HEAD -- src/bindings.ts` 恒为空、属于**假阴性**，严禁据此判断 IPC 是否变化。唯一合法闭环（每次改动命令签名 / 参数 / 返回类型 / 命令 `///` 文档注释后必做，specta 会导出 doc comment）：
+7. **bindings 一致性必须走字节级 diff 闭环，禁止只用 `git diff` 判断**：`src/bindings.ts` 是 tauri-specta 自动生成物，**禁止手改**。每次改动命令签名 / 参数 / 返回类型 / 命令 `///` 文档注释后必做（specta 会导出 doc comment）。`git diff` 只能作辅助参考——工作区已有未提交改动、或本地 specta/工具链版本差异都会让它给出不可靠结论；**唯一合法闭环**如下：
    ```bash
    # 全程在仓库根目录执行；用子 shell 跑 cargo，避免 cd 改变当前目录导致第 3 行路径错乱
    cp src/bindings.ts /tmp/bindings_baseline.ts
    (cd src-tauri && cargo test --lib export_bindings)
    diff /tmp/bindings_baseline.ts src/bindings.ts   # 输出必须为空
    ```
-   diff 非空即代表 IPC 契约变化，必须修到完全一致或经显式评审接受。可选改进建议（需单独授权，不得擅自 `git add`）：把 `src/bindings.ts` 纳入 git 跟踪，或在 CI 增加「重新生成后 diff 必须为空」的门禁检查。
+   diff 非空即代表 IPC 契约变化，必须修到完全一致或经显式评审接受。该文件**已纳入 git 跟踪**（`git ls-files src/bindings.ts` 可确认），命令签名变更时必须随同一次提交，禁止遗漏；条件允许时在 CI 增加「重新生成后 diff 必须为空」的门禁检查。
 
 <!-- ========== 关键文件：项目入口和核心模块位置 ========== -->
 ## 关键文件

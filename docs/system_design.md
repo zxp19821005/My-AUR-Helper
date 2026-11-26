@@ -51,14 +51,14 @@
 
 ### 2.1 新增文件（19 个）
 
+> **状态更新（2026-11-26）**：`aur/collect.rs`、`aur/persist.rs` 及 `software_sync/utils.rs::AurSyncResult` 已被 `aur/engine.rs` 的「一键全量对齐」取代，**本次已删除**（见 `CODE_QUALITY_ISSUES.md` K-10）。下表为 T01 治理时点的文件快照。
+
 | 文件 | 职责 |
 |------|------|
 | `src-tauri/src/aur/metadata/cache.rs` | 归档缓存结构、读写、ETag 校验器 |
 | `src-tauri/src/aur/metadata/download.rs` | 归档下载客户端与带重试下载 |
 | `src-tauri/src/aur/metadata/tests.rs` | 元数据相关单测 |
 | `src-tauri/src/commands/sysops/software_sync/aur/config.rs` | 同步设置读取聚合 |
-| `src-tauri/src/commands/sysops/software_sync/aur/collect.rs` | AUR 结果映射、缺包分类 |
-| `src-tauri/src/commands/sysops/software_sync/aur/persist.rs` | 批量写库与失败标记 |
 | `src-tauri/src/commands/sysops/software_sync/aur/update.rs` | `update_aur_info` 命令 |
 | `src-tauri/src/checkers/utils/regex.rs` | 静态正则与正则版本提取 |
 | `src-tauri/src/checkers/utils/url.rs` | owner/repo 与 URL/HTML 版本提取 |

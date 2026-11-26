@@ -93,10 +93,10 @@
 ## 软件包同步 (commands/sysops/software_sync/)
 
 ### sync_from_aur
-从 AUR 同步当前用户维护的软件包列表（并行执行）。
+从 AUR 一键全量对齐软件包（刷新本地已有 + 补齐该用户名下维护但本地缺失的包）。
 - 参数: 无
-- 返回: `number` (同步数量)
-- 说明: 只更新 `aur_info` 表（描述、版本、依赖等），不更新 `software_info` 表。用户手动设置的上游URL、检查器类型、包类型等字段不会被覆盖。
+- 返回: `{ synced: number, created: number, failed: number }`（成功写入 / 新建 / 失败）
+- 说明: 包名集合 = 本地已有 ∪ `aur_username` 名下 maintainer + comaintainers（去重）；已存在的包更新除上游地址以外的字段，保留用户配置的 upstream_url；本地没有的包会被新建且 upstream_url 留空（AUR URL 是项目主页，不是版本检查地址）；写入后按新 AUR 版本重算 is_outdated。未配置用户名时降级为仅同步本地已有包，不报错。
 
 ### update_aur_info
 更新软件包的 AUR 信息（批量查询，遵守 aur_batch_size / aur_batch_interval 设置）。
