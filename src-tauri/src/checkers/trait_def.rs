@@ -26,11 +26,15 @@ pub struct CheckResult {
     pub language_names: Vec<String>,
 }
 
-// async-trait 0.1.89 (expand.rs) 会给 trait 中的 async 方法注入无 message 的
-// `#[must_use]`，而展开后的 `Pin<Box<dyn Future>>` 返回类型本身已是 must_use，
-// 触发 clippy 1.99 的 double_must_use。该 lint 来自上游宏展开，非本文件写法问题；
-// 项目依赖 `Box<dyn VersionChecker>` 动态分发，不能改用原生 async fn in trait。
-#[expect(clippy::double_must_use)]
+// async-trait (expand.rs) 会给 trait 中的 async 方法注入无 message 的 `#[must_use]`，
+// 而展开后的 `Pin<Box<dyn Future>>` 返回类型本身已是 must_use，历史上会触发 clippy 的
+// double_must_use。该 lint 来自上游宏展开，非本文件写法问题；项目依赖
+// `Box<dyn VersionChecker>` 动态分发，不能改用原生 async fn in trait。
+//
+// 用 `allow` 而非 `expect`：是否触发取决于 clippy / async-trait 版本组合，
+// `expect` 在 lint 不再触发时会因 `-D unfulfilled-lint-expectations` 直接编译失败
+// （2026-11-26 clippy 1.96 实测）。
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait VersionChecker: Send + Sync {
     fn name(&self) -> &'static str;

@@ -111,3 +111,25 @@ fn test_preview_longer_than_text_and_empty() {
     assert_eq!(preview("", 10), "");
     assert_eq!(preview(s, 0), "");
 }
+
+// ==================== get_packages_info 批次大小兜底 ====================
+
+/// `batch_size=0` 必须被兜底为 1：修复前 `slice::chunks(0)` 会直接 panic，
+/// 而该值可由用户在设置里把 `aur_batch_size` 填成 0 触发（`parse_u32("0", 50) == 0`）。
+///
+/// 手法：client 强制把 AUR 域名解析到不可达的 127.0.0.1:1，一旦真的进入请求会立刻
+/// 连接失败。该函数对批次失败的设计是「记 warn 后继续、最终返回已拿到的结果」，
+/// 所以修复后的预期是 `Ok(空 vec)`；而修复前会在分块时直接 panic。
+#[tokio::test]
+async fn test_get_packages_info_batch_size_zero_does_not_panic() {
+    let unreachable = std::net::SocketAddr::from(([127, 0, 0, 1], 1));
+    let client = Client::builder()
+        .resolve("aur.archlinux.org", unreachable)
+        .build()
+        .expect("构造探测用 client 失败");
+
+    let pkgnames = vec!["foo-bin".to_string()];
+    let result = get_packages_info(&client, &pkgnames, 0, 0).await;
+    assert!(result.is_ok(), "batch_size=0 应被兜底为 1，而不是 panic");
+    assert!(result.unwrap().is_empty(), "不可达网络下不应拿到任何结果");
+}

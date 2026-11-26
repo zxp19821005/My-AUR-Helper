@@ -80,6 +80,9 @@ pub async fn get_packages_info(
     }
 
     let mut all_results = Vec::new();
+    // batch_size 来自 settings（`parse_u32("0", 50)` 会得到 0），而 `slice::chunks(0)`
+    // 会 panic；这里统一兜底为 1，避免用户把 aur_batch_size 配成 0 时整个同步命令崩溃。
+    let batch_size = batch_size.max(1);
     let chunks: Vec<&[String]> = pkgnames.chunks(batch_size).collect();
     let total_chunks = chunks.len();
 
