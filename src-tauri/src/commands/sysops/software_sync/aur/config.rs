@@ -2,12 +2,14 @@
  * software_sync/aur/config.rs - AUR 同步设置读取聚合
  *
  * 功能：把 sync_from_aur 所需的数据库设置读取集中到一处，
- * 返回用户名、HTTP 超时、批次大小、批次间隔与归档偏好。
+ * 返回 HTTP 超时、批次大小、批次间隔与归档偏好。
  *
  * 工作流程：
- * 1. 从 settings 表读 aur_username（未配置时为空字符串）
- * 2. 读 http_timeout / aur_batch_size / aur_batch_interval / 归档偏好
- * 3. 调用方据此决定 build_client 参数与 RPC 降级分批参数
+ * 1. 读 http_timeout / aur_batch_size / aur_batch_interval / 归档偏好
+ * 2. 调用方据此决定 build_client 参数与 RPC 降级分批参数
+ *
+ * 说明：用户名（aur_username）由 engine::resolve_pkgnames 自行读取——
+ * 用户名为空时该函数降级为「仅同步本地包」，不再作为命令级错误抛出。
  *
  * 适用场景：AUR 全量同步命令的设置装配阶段。
  */
@@ -15,12 +17,10 @@ use crate::commands::sysops::software_sync::utils::{
     get_setting_opt, parse_u32, parse_u64, read_archive_preference, read_http_timeout,
 };
 use crate::db::Database;
-use crate::errors::{AppError, AppResult};
+use crate::errors::AppResult;
 
 /// AUR 同步设置集合（从 settings 表一次性读出）
 pub(super) struct SyncSettings {
-    /// AUR 用户名（为空表示未配置）
-    pub(super) username: String,
     /// HTTP 超时秒数
     pub(super) timeout: u64,
     /// 降级 RPC 时每批最大包数
@@ -40,10 +40,6 @@ pub(super) struct SyncSettings {
 /// - `Ok(SyncSettings)`: 装配好的设置集合
 /// - `Err(AppError)`: 读取设置失败
 pub(super) fn read_sync_settings(db: &Database) -> AppResult<SyncSettings> {
-    let username = db
-        .get_setting("aur_username")?
-        .map(|s| s.value)
-        .unwrap_or_default();
     let timeout = read_http_timeout(db);
     let batch_size = parse_u32(
         &get_setting_opt(db, "aur_batch_size").unwrap_or_default(),
@@ -55,26 +51,9 @@ pub(super) fn read_sync_settings(db: &Database) -> AppResult<SyncSettings> {
     );
     let prefer_archive = read_archive_preference(db);
     Ok(SyncSettings {
-        username,
         timeout,
         batch_size,
         batch_interval,
         prefer_archive,
     })
-}
-
-/// 校验用户名是否已配置，未配置时返回 ConfigError。
-///
-/// # 参数
-/// - `username`: 数据库读取的用户名
-///
-/// # 返回
-/// - `Ok(())`: 用户名有效
-/// - `Err(AppError)`: 用户名为空
-pub(super) fn require_username(username: &str) -> AppResult<()> {
-    if username.is_empty() {
-        Err(AppError::ConfigError("AUR 用户名未配置".to_string()))
-    } else {
-        Ok(())
-    }
 }

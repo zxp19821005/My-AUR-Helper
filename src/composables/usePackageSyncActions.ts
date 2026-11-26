@@ -102,11 +102,21 @@ export function usePackageSyncActions(
         batchStats.value.success = done - batchStats.value.failed;
         footer.progress = { current: done, total: list.length, message: "AUR 同步完成" };
       } else {
-        // 全量同步：单条长 IPC，用不确定进度提示，避免用户误以为界面卡死
-        footer.progress = { current: 0, total: 1, message: "正在从 AUR 全量同步（含归档下载）…" };
-        await softwareApi.syncFromAur();
+        // 全量对齐：单条长 IPC（本地已有 + 该用户名下维护），用不确定进度提示，避免用户误以为界面卡死
+        footer.progress = { current: 0, total: 1, message: "正在从 AUR 全量对齐（含归档下载）…" };
+        const result = await softwareApi.syncFromAur();
         await fetchView();
+        batchStats.value = {
+          success: result.synced,
+          failed: result.failed,
+          total: result.synced + result.failed,
+        };
         footer.progress = { current: 1, total: 1, message: "AUR 同步完成" };
+        addMessage(
+          footer,
+          result.failed > 0 ? "warning" : "success",
+          `AUR 全量同步完成：已同步 ${result.synced} 个（新增 ${result.created} 个），失败 ${result.failed} 个`
+        );
       }
     } catch (e) {
       showActionError(formatErrorMessage(e, "AUR同步"));

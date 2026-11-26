@@ -20,6 +20,7 @@ import type {
   ValidateResult,
   AurSearchResult,
   MaintainerSyncResult,
+  SyncFromAurResult,
 } from "@/types";
 
 /** 新增软件包入参（packageType / checkerType 在前端表单中以 number 建模，与后端 i32/i64 对应） */
@@ -99,9 +100,9 @@ export async function updateAurInfo(pkgnameList: string[] | null): Promise<numbe
   return await commands.updateAurInfo(pkgnameList);
 }
 
-/** 从 AUR 全量同步软件包信息 */
-export async function syncFromAur(): Promise<void> {
-  await commands.syncFromAur();
+/** 从 AUR 全量对齐软件包（刷新本地已有 + 补齐新维护的包） */
+export async function syncFromAur(): Promise<SyncFromAurResult> {
+  return await commands.syncFromAur();
 }
 
 /**

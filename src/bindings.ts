@@ -21,19 +21,21 @@ export const commands = {
 	setSoftwareLicense: (softwareId: number, licenseId: string | null) => __TAURI_INVOKE<null>("set_software_license", { softwareId, licenseId }),
 	setSoftwareLanguage: (softwareId: number, languageId: number | null) => __TAURI_INVOKE<null>("set_software_language", { softwareId, languageId }),
 	/**
-	 *  并行同步 AUR 信息
+	 *  从 AUR 全量对齐软件包（刷新本地已有 + 补齐新维护的包）
 	 * 
-	 *  从 AUR RPC API 批量获取所有软件包的最新信息，
-	 *  自动推断包类型和检查器类型，并更新数据库。
+	 *  一次点击完成本地与「本地 ∪ 该用户名下维护」的对齐：
+	 *  - 已存在的包：更新除上游地址以外的所有值（保留用户配置的 upstream_url）；
+	 *  - 不存在的包：新建，且 upstream_url 留空（AUR 的 URL 是项目主页，不是版本检查地址）；
+	 *  - 新建包没有上游版本，is_outdated 重算自动跳过。
 	 * 
 	 *  # 参数
 	 *  - `state`: Tauri 应用状态，包含数据库连接
 	 * 
 	 *  # 返回
-	 *  - `Ok(count)`: 成功同步的软件包数量
+	 *  - `Ok(SyncFromAurResult)`: 成功写入数 / 新建数 / 失败数
 	 *  - `Err(e)`: 同步过程中发生错误
 	 */
-	syncFromAur: () => __TAURI_INVOKE<number>("sync_from_aur"),
+	syncFromAur: () => __TAURI_INVOKE<SyncFromAurResult>("sync_from_aur"),
 	/**
 	 *  并行更新 AUR 信息
 	 * 
@@ -1298,6 +1300,16 @@ export type SoftwareUpdateStatus =
 "missing" | 
 /**  无上游版本信息，无法写回 */
 "no_upstream";
+
+/**  「从 AUR 同步」全量对齐的结果统计 */
+export type SyncFromAurResult = {
+	/**  成功写入（新建 + 更新）的包数量 */
+	synced: number,
+	/**  本地新建的包数量 */
+	created: number,
+	/**  失败的包数量（写入失败或 AUR 未返回） */
+	failed: number,
+};
 
 /**  上游 URL 验证状态枚举 */
 export type UpstreamUrlStatus = 

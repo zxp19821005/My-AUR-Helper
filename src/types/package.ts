@@ -157,3 +157,13 @@ export interface MaintainerSyncResult {
   /** 未能补全完整字段的包名（可能已失效或从 AUR 删除） */
   missing_detail: string[];
 }
+
+/** 「从 AUR 同步」全量对齐的结果统计 */
+export interface SyncFromAurResult {
+  /** 成功写入（新建 + 更新）的包数量 */
+  synced: number;
+  /** 本地新建的包数量 */
+  created: number;
+  /** 失败的包数量（写入失败或 AUR 未返回） */
+  failed: number;
+}

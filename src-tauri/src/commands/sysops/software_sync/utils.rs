@@ -2,7 +2,6 @@
  * utils.rs - 软件包同步工具函数和类型定义
  *
  * 本模块提供软件包同步相关的通用工具函数和数据结构：
- * - AurSyncResult: AUR 同步结果结构体，用于内存缓冲
  * - UpstreamCheckResult: 上游版本检查结果结构体，用于内存缓冲
  * - get_setting_opt: 安全获取数据库设置项（返回空字符串时视为未设置）
  * - parse_u64/parse_u32: 带默认值的数字解析
@@ -12,46 +11,6 @@
 use serde::{Deserialize, Serialize};
 
 use crate::models::{CheckerType, PackageType};
-
-/// AUR 同步结果（用于内存缓冲）
-///
-/// 在批量同步 AUR 信息时，先将结果收集到此结构体中，
-/// 最后统一批量写入数据库，减少数据库锁竞争。
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AurSyncResult {
-    /// 软件包名称
-    pub pkgname: String,
-    /// 软件包数据库 ID
-    pub software_id: i64,
-    /// 软件包描述
-    pub desc: Option<String>,
-    /// AUR 版本号
-    pub version: Option<String>,
-    /// 上游 URL
-    pub url: Option<String>,
-    /// 最后修改时间（Unix 时间戳）
-    pub last_modified: Option<i64>,
-    /// 许可证 SPDX ID
-    pub license_spdx: Option<String>,
-    /// 运行时依赖（JSON 数组字符串）
-    pub depends: Option<String>,
-    /// 构建时依赖（JSON 数组字符串）
-    pub makedepends: Option<String>,
-    /// 可选依赖（JSON 数组字符串）
-    pub optdepends: Option<String>,
-    /// 是否标记为过期
-    pub out_of_date: Option<bool>,
-    /// 推断的包类型
-    pub package_type: PackageType,
-    /// 推断的检查器类型
-    pub checker_type: CheckerType,
-    /// 是否检查测试版本
-    pub check_test_versions: bool,
-    /// 是否检查二进制文件
-    pub check_binary_files: bool,
-    /// 是否需要更新软件包记录
-    pub need_update_software: bool,
-}
 
 /// 上游版本检查结果（用于内存缓冲）
 ///

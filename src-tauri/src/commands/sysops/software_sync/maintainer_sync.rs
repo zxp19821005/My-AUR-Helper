@@ -1,5 +1,3 @@
-use log::{debug, info, warn};
-use serde::{Deserialize, Serialize};
 /**
  * maintainer_sync.rs - 按 AUR 维护者用户名批量同步软件包
  *
@@ -14,22 +12,24 @@ use serde::{Deserialize, Serialize};
  * 1. 读取配置（用户名、超时、批量参数、归档偏好）
  * 2. search 拉取去重包名列表（两次请求，避免逐包 info 触发限流）
  * 3. 批量补全完整字段（归档优先，失败降级 RPC 分批 info）
- * 4. 逐包构造记录并写入，收集新增/更新/失败统计
+ * 4. 逐包经 engine::upsert_one 写入，收集新增/更新/失败统计
+ *
+ * 单包写入复用 aur/engine.rs 的公用实现（与「从 AUR 同步」全量对齐同源），
+ * 本文件不再保留 write_one_package 副本。
  *
  * 使用场景：
  * - 用户在 AUR 维护大量包（上千个），需要本地一次性对齐时
  */
+use log::{debug, info, warn};
+use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::State;
 
 use super::super::proxy_utils::build_client;
-use super::utils::{
-    detect_package_defaults, parse_aur_fields, parse_u32, parse_u64, read_archive_preference,
-    read_http_timeout,
-};
+use super::aur::engine;
+use super::utils::{parse_u32, parse_u64, read_archive_preference, read_http_timeout};
 use crate::aur;
 use crate::errors::{AppError, AppResult};
-use crate::models::{AurInfo, SoftwareInfo};
 use crate::AppState;
 
 /// 按维护者同步的结果统计
@@ -149,7 +149,8 @@ pub async fn sync_packages_by_maintainer(
             result.missing_detail.push(pkg.pkgname.clone());
         }
 
-        match write_one_package(&db, &pkg.pkgname, &data) {
+        // 写入复用全量对齐引擎：存在则更新非上游字段，不存在则新建且上游留空
+        match engine::upsert_one(&db, &pkg.pkgname, &data) {
             Ok(created) => {
                 if created {
                     result.created += 1;
@@ -176,67 +177,4 @@ pub async fn sync_packages_by_maintainer(
         result.missing_detail.len()
     );
     Ok(result)
-}
-
-/// 将单个 AUR 包写入数据库（存在则更新非上游字段，不存在则新建且上游留空）
-///
-/// # 参数
-/// - `db`: 数据库连接
-/// - `pkgname`: 包名
-/// - `data`: AUR JSON 数据（完整字段或 search 基础字段）
-///
-/// # 返回
-/// - `Ok(true)`: 新建；`Ok(false)`: 更新
-fn write_one_package(
-    db: &crate::db::Database,
-    pkgname: &str,
-    data: &serde_json::Value,
-) -> AppResult<bool> {
-    let f = parse_aur_fields(data);
-    let (package_type, checker_type, check_test_versions, check_binary_files) =
-        detect_package_defaults(pkgname);
-
-    let sw = SoftwareInfo {
-        software_id: None,
-        pkgname: pkgname.to_string(),
-        // 上游地址：新建分支会被强制置空，更新分支不会触及此字段
-        upstream_url: None,
-        package_type_id: package_type,
-        checker_type_id: checker_type,
-        is_outdated: false,
-        check_test_versions,
-        check_binary_files,
-        auto_check_enabled: true,
-        skip_check_upstream: false,
-        language_ids: Vec::new(),
-        version_extract_regex: None,
-    };
-    let (sid, created) = db.upsert_software_from_aur(&sw)?;
-
-    let aur_info = AurInfo {
-        software_id: sid,
-        pkgdesc: f.desc,
-        aur_version: f.version,
-        license_id: f.license_spdx,
-        last_updated: f.last_modified,
-        depends: f.depends,
-        makedepends: f.makedepends,
-        optdepends: f.optdepends,
-        out_of_date: f.out_of_date,
-        last_sync_error: None,
-    };
-    db.upsert_aur_info(&aur_info)?;
-
-    // AUR 版本已同步：与上游版本重新比较，重算 software_info.is_outdated。
-    // 与 sync_from_aur / update_aur_info 同源，保证三条同步链路判定一致。
-    // 新建包没有上游版本，重算会自动跳过，is_outdated 保持默认 false。
-    if let Err(e) = db.recompute_outdated_from_aur(
-        sid,
-        aur_info.aur_version.as_deref(),
-        f.out_of_date.unwrap_or(false),
-        pkgname,
-    ) {
-        warn!("[维护者同步] 重算 {} 的 is_outdated 失败: {}", pkgname, e);
-    }
-    Ok(created)
 }
